@@ -66,6 +66,28 @@
   .b-x:hover{color:var(--bad)}
   .b-add{display:inline-block;font-size:13px;font-weight:700;color:var(--accent2);cursor:pointer;margin-top:4px;user-select:none}
   .b-add:hover{text-decoration:underline}
+  /* rich per-set logging */
+  .lset{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:11px 12px;margin:8px 0}
+  .lset-top{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:9px}
+  .lset-num{font-weight:800}
+  .lset-tgt{color:var(--muted)}
+  .lset-done{margin-left:auto;display:flex;align-items:center;gap:6px;font-weight:700;cursor:pointer}
+  .lset-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .lset-row .x{color:var(--muted);font-size:13px}
+  .lset-row input.cell{width:62px;text-align:center;padding:9px;font-weight:700}
+  .lights{display:inline-flex;gap:3px;cursor:pointer;padding:6px;border-radius:7px;background:#0e151c;border:1px solid var(--line)}
+  .lights i{width:14px;height:14px;border-radius:50%;border:1px solid #05080b}
+  .lights i.w{background:#eef2f6}
+  .lights i.r{background:var(--bad)}
+  .lights.sm{padding:0;gap:2px;background:transparent;border:none;vertical-align:middle}
+  .lights.sm i{width:9px;height:9px}
+  .eff{display:inline-flex;gap:5px;flex-wrap:wrap}
+  .eff button{background:#0e151c;border:1px solid var(--line);color:var(--muted);border-radius:7px;padding:6px 11px;font-size:12px;font-weight:700;cursor:pointer}
+  .eff button.on{border-color:var(--accent);color:var(--accent);background:rgba(232,100,60,.12)}
+  .miss{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);margin-left:auto}
+  .miss b{min-width:14px;text-align:center;color:var(--text);font-size:14px}
+  .miss button{width:28px;height:28px;border-radius:7px;border:1px solid var(--line);background:#0e151c;color:var(--text);cursor:pointer;font-weight:800;font-size:15px;line-height:1}
+  .efftag{font-size:11px;font-weight:700;color:var(--accent2);text-transform:capitalize}
 </style>
 </head>
 <body>
@@ -137,6 +159,48 @@ function topbar(roleLabel){
 /* ---------------- athlete ---------------- */
 function sortByPos(a,b){ return (a.position||0)-(b.position||0); }
 
+let logState = {};      // prescribed_set_id -> {reps,kg,lights,effort,miss,done,logId,gym_id}
+let curSession = null;
+const EFFORTS=[['easy','Easy'],['moderate','Mod'],['hard','Hard'],['max','Max']];
+function lightsHtml(n){ let h=''; for(let i=0;i<3;i++) h+=`<i class="${i<n?'w':'r'}"></i>`; return h; }
+function setCardHtml(s, i){
+  const st=logState[s.id];
+  const effBtns=EFFORTS.map(e=>`<button data-eff="${e[0]}" class="${st.effort===e[0]?'on':''}">${e[1]}</button>`).join('');
+  return `<div class="lset" data-set="${s.id}">
+    <div class="lset-top">
+      <span class="lset-num">Set ${i+1}</span>
+      <span class="lset-tgt">${esc(s.target_text||'')}</span>
+      <label class="lset-done"><input type="checkbox" class="chk" data-f="done" ${st.done?'checked':''}> done</label>
+    </div>
+    <div class="lset-row">
+      <input class="cell" data-f="reps" value="${esc(st.reps)}" inputmode="numeric"><span class="x">reps ×</span>
+      <input class="cell" data-f="kg" value="${esc(st.kg)}" inputmode="decimal"><span class="x">kg</span>
+      <span class="lights" title="Tap: white = good lift, red = miss">${lightsHtml(st.lights)}</span>
+    </div>
+    <div class="lset-row" style="margin-top:7px">
+      <span class="eff">${effBtns}</span>
+      <span class="miss">miss <button data-miss="dec">−</button><b>${st.miss}</b><button data-miss="inc">＋</button></span>
+    </div>
+  </div>`;
+}
+function rerenderSet(id){
+  const card=document.querySelector('.lset[data-set="'+id+'"]'); if(!card) return;
+  const st=logState[id];
+  card.querySelector('.lights').innerHTML=lightsHtml(st.lights);
+  card.querySelectorAll('.eff button').forEach(b=>b.classList.toggle('on', b.dataset.eff===st.effort));
+  card.querySelector('.miss b').textContent=st.miss;
+}
+function wireLogging(){
+  const root=document.getElementById('logRoot'); if(!root) return;
+  root.addEventListener('input', e=>{ const inp=e.target.closest('.cell'); if(!inp) return; logState[inp.closest('.lset').dataset.set][inp.dataset.f]=inp.value; });
+  root.addEventListener('change', e=>{ const c=e.target.closest('.chk'); if(!c) return; logState[c.closest('.lset').dataset.set].done=c.checked; });
+  root.addEventListener('click', e=>{
+    const card=e.target.closest('.lset'); if(!card) return; const id=card.dataset.set; const st=logState[id];
+    if(e.target.closest('.lights')){ st.lights = st.lights===0?3:st.lights-1; rerenderSet(id); return; }
+    const eff=e.target.closest('[data-eff]'); if(eff){ st.effort = (st.effort===eff.dataset.eff?null:eff.dataset.eff); rerenderSet(id); return; }
+    const m=e.target.closest('[data-miss]'); if(m){ st.miss = Math.max(0, (st.miss||0) + (m.dataset.miss==='inc'?1:-1)); rerenderSet(id); return; }
+  });
+}
 async function renderAthlete(){
   app.innerHTML = topbar('Athlete') + `<div class="spin">Loading your session…</div>`;
   const { data: sessions } = await sb.from('sessions')
@@ -144,30 +208,31 @@ async function renderAthlete(){
     .eq('athlete_id', me_.id).order('session_date',{ascending:false}).order('created_at',{ascending:false}).limit(1);
   const session = sessions && sessions[0];
   if(!session){ app.innerHTML = topbar('Athlete') + `<div class="card"><div class="empty">No session assigned yet.</div></div>`; return; }
+  curSession = session;
   const { data: logs } = await sb.from('logged_sets').select('*').eq('session_id', session.id);
   const logBySet = {}; (logs||[]).forEach(l=>{ if(l.prescribed_set_id) logBySet[l.prescribed_set_id]=l; });
 
   const exs = (session.prescribed_exercises||[]).slice().sort(sortByPos);
+  logState = {};
   let body = '';
   exs.forEach(ex=>{
     const sets = (ex.prescribed_sets||[]).slice().sort(sortByPos);
     body += `<div class="exh"><span class="pill">${esc(ex.category||'lift')}</span><span class="nm">${esc(ex.name)}</span></div>`;
     if(ex.coach_note) body += `<div class="note">${esc(ex.coach_note)}</div>`;
-    body += `<table><thead><tr><th>Set</th><th>Target</th><th>Reps</th><th>Weight</th><th>Done</th></tr></thead><tbody>`;
     sets.forEach((s,i)=>{
-      const lg = logBySet[s.id] || {};
-      const reps = lg.actual_reps!=null ? lg.actual_reps : (s.target_reps!=null?s.target_reps:'');
-      const kg   = lg.actual_kg!=null ? lg.actual_kg : (s.target_kg!=null?s.target_kg:'');
-      const done = lg.done ? 'checked' : '';
-      body += `<tr data-set="${s.id}">
-        <td>${i+1}</td>
-        <td class="tgt">${esc(s.target_text||'')}</td>
-        <td><input class="cell" data-f="reps" value="${esc(reps)}" inputmode="numeric"></td>
-        <td><input class="cell" data-f="kg" value="${esc(kg)}" inputmode="decimal"></td>
-        <td><input class="chk" type="checkbox" data-f="done" ${done}></td>
-      </tr>`;
+      const lg = logBySet[s.id];
+      logState[s.id] = {
+        reps: lg && lg.actual_reps!=null ? lg.actual_reps : (s.target_reps!=null?s.target_reps:''),
+        kg:   lg && lg.actual_kg!=null ? lg.actual_kg : (s.target_kg!=null?s.target_kg:''),
+        lights: lg && lg.lights!=null ? lg.lights : 3,
+        effort: lg ? (lg.effort||null) : null,
+        miss: lg && lg.miss!=null ? lg.miss : 0,
+        done: lg ? !!lg.done : false,
+        logId: lg ? lg.id : null,
+        gym_id: session.gym_id
+      };
+      body += setCardHtml(s, i);
     });
-    body += `</tbody></table>`;
   });
 
   app.innerHTML = topbar('Athlete') + `
@@ -177,41 +242,36 @@ async function renderAthlete(){
         <h2 style="margin:0">${esc(session.title||'Training')}</h2>
         <span class="sub">${esc(session.session_date)}</span>
       </div>
-      <div class="sub" style="margin-top:4px">Enter what you actually did and tick each set off. Saves to your coach.</div>
-      ${body}
-      <div class="savebar"><button class="btn" id="save">Save session</button><span class="saved" id="savedmsg"></span></div>
+      <div class="sub" style="margin-top:4px">Log what you did · tap the lights (white = good lift, red = miss) · rate effort · tick it off.</div>
+      <div id="logRoot">${body}</div>
+      <div class="savebar"><button class="btn" id="save" onclick="saveSession()">Save session</button><span class="saved" id="savedmsg"></span></div>
     </div>`;
-
-  document.getElementById('save').onclick = ()=>saveSession(session, logBySet);
+  wireLogging();
 }
 
-async function saveSession(session, logBySet){
+async function saveSession(){
   const btn=document.getElementById('save'), msg=document.getElementById('savedmsg');
   btn.disabled=true; btn.textContent='Saving…'; msg.style.color=''; msg.textContent='';
-  // guard: the live login must actually be this athlete (catches stale/crossed sessions)
   const { data:{ user } } = await sb.auth.getUser();
   if(!user || user.id !== me_.id){
     btn.disabled=false; btn.textContent='Save session';
     msg.style.color='var(--bad)'; msg.textContent='⚠ Login mismatch — sign out and sign back in as this athlete.';
     return;
   }
-  const rows=[...document.querySelectorAll('tr[data-set]')];
   try{
     let saved=0;
-    for(const tr of rows){
-      const setId=tr.dataset.set;
-      const reps=tr.querySelector('[data-f="reps"]').value.trim();
-      const kg=tr.querySelector('[data-f="kg"]').value.trim();
-      const done=tr.querySelector('[data-f="done"]').checked;
-      const payload={ gym_id:session.gym_id, session_id:session.id, prescribed_set_id:setId, athlete_id:me_.id,
-        actual_reps: reps===''?null:parseInt(reps,10), actual_kg: kg===''?null:parseFloat(kg), done };
-      const existing=logBySet[setId];
-      const res = existing
-        ? await sb.from('logged_sets').update(payload).eq('id', existing.id).select()
+    for(const id in logState){
+      const st=logState[id];
+      const payload={ gym_id: st.gym_id, session_id: curSession.id, prescribed_set_id: id, athlete_id: me_.id,
+        actual_reps: (st.reps===''||st.reps==null)?null:parseInt(st.reps,10),
+        actual_kg: (st.kg===''||st.kg==null)?null:parseFloat(st.kg),
+        lights: st.lights, effort: st.effort, miss: st.miss, done: st.done };
+      const res = st.logId
+        ? await sb.from('logged_sets').update(payload).eq('id', st.logId).select()
         : await sb.from('logged_sets').insert(payload).select();
       if(res.error) throw res.error;
-      if(!res.data || res.data.length===0) throw new Error('the database rejected the save (permission/login). Sign out and back in.');
-      if(!existing) logBySet[setId]=res.data[0];
+      if(!res.data || res.data.length===0) throw new Error('the database rejected the save (login). Sign out and back in.');
+      st.logId = res.data[0].id;
       saved++;
     }
     btn.disabled=false; btn.textContent='Save session';
@@ -277,16 +337,23 @@ async function renderCoachPanel(){
   exs.forEach(ex=>{
     const sets=(ex.prescribed_sets||[]).slice().sort(sortByPos);
     body += `<div class="exh"><span class="nm">${esc(ex.name)}</span></div>`;
-    body += `<table><thead><tr><th>Set</th><th>Prescribed</th><th>Actual</th><th>Status</th></tr></thead><tbody>`;
+    body += `<table><thead><tr><th>Set</th><th>Prescribed</th><th>Actual</th><th>Result</th></tr></thead><tbody>`;
     sets.forEach((s,i)=>{
       total++;
       const lg=logBySet[s.id];
       const actual = lg && (lg.actual_reps!=null||lg.actual_kg!=null)
         ? `<span class="a">${lg.actual_reps??'–'} × ${lg.actual_kg??'–'}kg</span>` : `<span class="p">—</span>`;
-      const status = lg && lg.done ? '<span style="color:var(--good)">✓ done</span>'
-                   : lg ? '<span class="tgt">logged</span>' : '<span class="tgt">waiting…</span>';
+      let result='<span class="tgt">waiting…</span>';
+      if(lg){
+        const parts=[];
+        if(lg.done) parts.push('<span style="color:var(--good)">✓</span>');
+        if(lg.lights!=null) parts.push(`<span class="lights sm">${lightsHtml(lg.lights)}</span>`);
+        if(lg.effort) parts.push(`<span class="efftag">${esc(lg.effort)}</span>`);
+        if(lg.miss) parts.push(`<span style="color:var(--bad)">${lg.miss} miss</span>`);
+        result = parts.length ? `<span style="display:inline-flex;align-items:center;gap:6px">${parts.join('')}</span>` : '<span class="tgt">logged</span>';
+      }
       if(lg && lg.done) doneCount++;
-      body += `<tr><td>${i+1}</td><td class="tgt">${esc(s.target_text||'')}</td><td>${actual}</td><td>${status}</td></tr>`;
+      body += `<tr><td>${i+1}</td><td class="tgt">${esc(s.target_text||'')}</td><td>${actual}</td><td>${result}</td></tr>`;
     });
     body += `</tbody></table>`;
   });
