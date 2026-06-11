@@ -106,6 +106,11 @@
   .vid-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:200;align-items:center;justify-content:center;padding:24px}
   .vid-box{position:relative;max-width:540px;width:100%;background:#0c1116;border:1px solid var(--line);border-radius:12px;padding:14px}
   .vid-x{position:absolute;top:-12px;right:-10px;width:30px;height:30px;border-radius:50%;background:var(--panel2);border:1px solid var(--line);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:700}
+  .lg-add{display:inline-block;margin:9px 14px;color:var(--accent2);font-weight:700;font-size:12px;cursor:pointer;user-select:none}
+  .lg-add:hover{color:#7bc0f5}
+  .lg-del{color:var(--muted);cursor:pointer;font-weight:700;opacity:.45;padding:0 4px}
+  .lg-del:hover{color:var(--bad);opacity:1}
+  .addedtag{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--warn);background:rgba(232,177,60,.13);border-radius:9px;padding:2px 8px}
   .av-note{display:flex;gap:10px;align-items:flex-start;padding:10px 14px;background:#1c2530;border-top:1px solid var(--line);font-size:12.5px}
   .av-note .tag{color:var(--accent2);font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;white-space:nowrap;padding-top:2px}
   /* morning readiness check-in */
@@ -137,6 +142,13 @@
   .rkc-chip .rkc-l{color:var(--muted);font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.4px}
   .rkc-chip b{font-size:14px}
   .rkc-note{margin-top:10px;font-size:13px;font-style:italic;color:var(--text);background:var(--panel2);border-left:2px solid var(--accent2);border-radius:0 8px 8px 0;padding:8px 12px}
+  .rk-scale{flex-wrap:nowrap}
+  @media(max-width:560px){
+    .rk-row{flex-direction:column;align-items:stretch;gap:8px;padding:11px 0}
+    .rk-lbl{flex:none}
+    .rk-scale{width:100%;gap:7px}
+    .rk-dot{flex:1;width:auto;height:42px;font-size:14px}
+  }
   .rk-donebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;cursor:pointer}
   .rk-donebar .ok{color:var(--good);font-weight:700}
   .rk-edit{margin-left:auto;font-size:12px;font-weight:700;color:var(--accent2)}
@@ -260,9 +272,10 @@ function topbar(roleLabel){
 /* ---------------- athlete ---------------- */
 function sortByPos(a,b){ return (a.position||0)-(b.position||0); }
 
-let logState = {};      // setId -> {idx,reps,kg,lights,effort,miss,done,video,logId,gym_id,targetReps}
+let logState = {};      // key -> {idx,reps,kg,lights,effort,miss,done,logId,gym_id,targetReps,psId,exId,added}
 let curSession = null;
-let curExercises = [];  // [{name,setIds:[...]}] for the live summary
+let curExercises = [];  // [{name,exId,setIds:[...]}] for the live summary
+let addSetReady = false; // true once logged_sets.exercise_id exists (05_addset.sql run)
 const EFFORTS=[['easy','E'],['moderate','M'],['hard','H'],['max','X']];
 const EFFN={easy:1,moderate:2,hard:3,max:4}, EFFL=['—','Easy','Moderate','Hard','Max'];
 function ltsDots(n){ let h=''; for(let i=0;i<3;i++) h+=`<i class="${i<n?'w':'r'}"></i>`; return h; }
@@ -290,12 +303,17 @@ async function onVidPicked(){
     await saveOneSet(id); // link it now so it survives a reload
   }catch(e){ st.uploading=false; refreshRow(id); alert('Video upload failed — '+(e.message||e)); }
 }
-async function saveOneSet(id){
-  const st=logState[id];
-  const payload={ gym_id:st.gym_id, session_id:curSession.id, prescribed_set_id:id, athlete_id:me_.id,
+function setPayload(st){
+  const p={ gym_id:st.gym_id, session_id:curSession.id, prescribed_set_id:st.psId||null, athlete_id:me_.id,
     actual_reps:(st.reps===''||st.reps==null)?null:parseInt(st.reps,10),
     actual_kg:(st.kg===''||st.kg==null)?null:parseFloat(st.kg),
     lights:st.lights, effort:st.effort, miss:(parseInt(st.miss)||0), done:st.done, video_path:st.video_path||null };
+  if(addSetReady && st.exId) p.exercise_id=st.exId; // only when the column exists
+  return p;
+}
+async function saveOneSet(id){
+  const st=logState[id];
+  const payload=setPayload(st);
   const res = st.logId ? await sb.from('logged_sets').update(payload).eq('id',st.logId).select()
                        : await sb.from('logged_sets').insert(payload).select();
   if(res.data && res.data[0]) st.logId=res.data[0].id;
@@ -309,19 +327,45 @@ async function playVideo(path){
   m.style.display='flex'; m.onclick=(ev)=>{ if(ev.target===m) closeVid(); };
 }
 function closeVid(){ const m=document.getElementById('vidModal'); if(m){ m.style.display='none'; m.innerHTML=''; } }
-function rowHtml(s,i){
-  const st=logState[s.id];
-  return `<tr data-set="${s.id}">
+function rowHtml(key,i){
+  const st=logState[key];
+  return `<tr data-set="${key}">
     <td>${i+1}</td>
-    <td class="tgt">${esc(s.target_text||'')}</td>
+    <td class="tgt">${st.added?'<span class="addedtag">added</span>':esc(st.targetText||'')}</td>
     <td><input class="cell" data-f="reps" value="${esc(st.reps)}" inputmode="numeric"></td>
     <td><input class="cell" data-f="kg" value="${esc(st.kg)}" inputmode="decimal"></td>
     <td><input class="cell mini" data-f="miss" value="${esc(st.miss)}" inputmode="numeric"></td>
-    <td><span class="lights lg-lts" data-set="${s.id}" title="Tap: white = good lift, red = miss">${ltsDots(st.lights)}</span></td>
-    <td>${effCells(s.id, st.effort)}</td>
-    <td>${vidCell(s.id, st)}</td>
+    <td><span class="lights lg-lts" data-set="${key}" title="Tap: white = good lift, red = miss">${ltsDots(st.lights)}</span></td>
+    <td>${effCells(key, st.effort)}</td>
+    <td>${vidCell(key, st)}</td>
     <td><input type="checkbox" class="chk" data-f="done" ${st.done?'checked':''}></td>
+    <td>${st.added?`<span class="lg-del" data-set="${key}" title="Remove this set">✕</span>`:''}</td>
   </tr>`;
+}
+let addSeq=0;
+function addSetRow(exId){
+  const ex=curExercises.find(e=>e.exId===exId); if(!ex) return;
+  const last=ex.setIds.length?logState[ex.setIds[ex.setIds.length-1]]:null;
+  const key='new_'+(++addSeq);
+  logState[key]={ idx:ex.setIds.length+1, targetReps:null, targetText:'',
+    reps: last?last.reps:'', kg: last?last.kg:'', lights:3, effort:null, miss:0, done:false,
+    video_path:null, uploading:false, logId:null, gym_id:curSession.gym_id, psId:null, exId:exId, added:true };
+  ex.setIds.push(key);
+  const tb=document.querySelector(`table.logtable[data-ex="${exId}"] tbody`);
+  if(tb) tb.insertAdjacentHTML('beforeend', rowHtml(key, ex.setIds.length-1));
+  recompute();
+}
+async function removeSetRow(key){
+  const st=logState[key]; if(!st || !st.added) return;
+  if(st.logId){
+    const res=await sb.from('logged_sets').delete().eq('id', st.logId).select();
+    if(res.error || !res.data || !res.data.length){ alert('Could not remove that set — '+(res.error?res.error.message:'try again')); return; }
+  }
+  const ex=curExercises.find(e=>e.exId===st.exId);
+  if(ex) ex.setIds=ex.setIds.filter(k=>k!==key);
+  delete logState[key];
+  const tr=document.querySelector(`tr[data-set="${key}"]`); if(tr) tr.remove();
+  recompute();
 }
 function refreshRow(id){
   const tr=document.querySelector('tr[data-set="'+id+'"]'); if(!tr) return; const st=logState[id];
@@ -358,6 +402,7 @@ function wireLogging(){
     if(e.target.closest('.lg-lts')){ st.lights = st.lights===0?3:st.lights-1; refreshRow(id); recompute(); return; }
     const eff=e.target.closest('.lg-light'); if(eff){ st.effort=(st.effort===eff.dataset.eff?null:eff.dataset.eff); refreshRow(id); recompute(); return; }
     const v=e.target.closest('.upvid'); if(v){ if(st.video_path) playVideo(st.video_path); else { uploadTargetSet=id; document.getElementById('vidInput').click(); } return; }
+    const del=e.target.closest('.lg-del'); if(del){ removeSetRow(id); return; }
   });
 }
 const SESSION_SELECT='id,gym_id,title,session_date,status,prescribed_exercises(id,name,position,category,coach_note,prescribed_sets(id,position,target_text,target_reps,target_kg))';
@@ -505,6 +550,9 @@ async function renderAthlete(selDate){
   const weekLabel = MONS[r0.getMonth()]+' '+r0.getDate()+' – '+(r6.getMonth()===r0.getMonth()?'':MONS[r6.getMonth()]+' ')+r6.getDate();
   const dayPill = session.session_date===todayStr ? 'TODAY' : (session.session_date<todayStr ? (isLogged(session)?'COMPLETED':'OPEN') : 'UPCOMING');
 
+  // can athletes add extra sets yet? (lights up once 05_addset.sql has been run)
+  const probe = await sb.from('logged_sets').select('exercise_id').limit(1);
+  addSetReady = !probe.error;
   const exs = (session.prescribed_exercises||[]).slice().sort(sortByPos);
   logState = {}; curExercises = [];
   let body = '';
@@ -515,7 +563,7 @@ async function renderAthlete(selDate){
     sets.forEach((s,i)=>{
       const lg = logBySet[s.id];
       logState[s.id] = {
-        idx:i+1, targetReps: s.target_reps,
+        idx:i+1, targetReps: s.target_reps, targetText: s.target_text||'',
         reps: lg && lg.actual_reps!=null ? lg.actual_reps : (s.target_reps!=null?s.target_reps:''),
         kg:   lg && lg.actual_kg!=null ? lg.actual_kg : (s.target_kg!=null?s.target_kg:''),
         lights: lg && lg.lights!=null ? lg.lights : 3,
@@ -523,14 +571,28 @@ async function renderAthlete(selDate){
         miss: lg && lg.miss!=null ? lg.miss : 0,
         done: lg ? !!lg.done : false,
         video_path: lg ? (lg.video_path||null) : null, uploading:false,
-        logId: lg ? lg.id : null, gym_id: session.gym_id
+        logId: lg ? lg.id : null, gym_id: session.gym_id,
+        psId: s.id, exId: ex.id, added: false
       };
-      setIds.push(s.id); rows += rowHtml(s,i);
+      setIds.push(s.id); rows += rowHtml(s.id,i);
     });
-    curExercises.push({name:ex.name, setIds});
+    // athlete-added sets already saved for this exercise
+    (logs||[]).filter(l=>!l.prescribed_set_id && l.exercise_id===ex.id)
+      .sort((a,b)=>new Date(a.logged_at)-new Date(b.logged_at))
+      .forEach(l=>{
+        const key='a_'+l.id;
+        logState[key]={ idx:setIds.length+1, targetReps:null, targetText:'',
+          reps:l.actual_reps!=null?l.actual_reps:'', kg:l.actual_kg!=null?l.actual_kg:'',
+          lights:l.lights!=null?l.lights:3, effort:l.effort||null, miss:l.miss!=null?l.miss:0,
+          done:!!l.done, video_path:l.video_path||null, uploading:false,
+          logId:l.id, gym_id:session.gym_id, psId:null, exId:ex.id, added:true };
+        setIds.push(key); rows += rowHtml(key, setIds.length-1);
+      });
+    curExercises.push({name:ex.name, exId:ex.id, setIds});
     body += `<div class="ex">
       <div class="av-head"><span class="pill ${isAcc?'accessory':'primary'}">${esc(cat)}</span><span class="name">${esc(ex.name)}</span></div>
-      <div class="logwrap"><table class="logtable"><thead><tr><th>Set</th><th>Target</th><th>Reps</th><th>Weight</th><th>Miss</th><th>Lights</th><th>Effort</th><th>Video</th><th>Done</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="logwrap"><table class="logtable" data-ex="${ex.id}"><thead><tr><th>Set</th><th>Target</th><th>Reps</th><th>Weight</th><th>Miss</th><th>Lights</th><th>Effort</th><th>Video</th><th>Done</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+      ${addSetReady?`<span class="lg-add" onclick="addSetRow('${ex.id}')">＋ Add set</span>`:''}
       ${ex.coach_note ? `<div class="av-note"><span class="tag">Coach<br>notes</span><span>${esc(ex.coach_note)}</span></div>` : ''}
     </div>`;
   });
@@ -573,10 +635,7 @@ async function saveSession(){
     let saved=0;
     for(const id in logState){
       const st=logState[id];
-      const payload={ gym_id: st.gym_id, session_id: curSession.id, prescribed_set_id: id, athlete_id: me_.id,
-        actual_reps: (st.reps===''||st.reps==null)?null:parseInt(st.reps,10),
-        actual_kg: (st.kg===''||st.kg==null)?null:parseFloat(st.kg),
-        lights: st.lights, effort: st.effort, miss: (parseInt(st.miss)||0), done: st.done, video_path: st.video_path||null };
+      const payload=setPayload(st);
       const res = st.logId
         ? await sb.from('logged_sets').update(payload).eq('id', st.logId).select()
         : await sb.from('logged_sets').insert(payload).select();
@@ -695,6 +754,20 @@ async function renderCoachPanel(){
       if(lg && lg.done) doneCount++;
       body += `<tr><td>${i+1}</td><td class="tgt">${esc(s.target_text||'')}</td><td>${actual}</td><td>${result}</td></tr>`;
     });
+    // athlete-added extra sets for this exercise
+    (logs||[]).filter(l=>!l.prescribed_set_id && l.exercise_id===ex.id)
+      .sort((a,b)=>new Date(a.logged_at)-new Date(b.logged_at))
+      .forEach((l,j)=>{
+        total++; if(l.done) doneCount++;
+        const actual = (l.actual_reps!=null||l.actual_kg!=null) ? `<span class="a">${l.actual_reps??'–'} × ${l.actual_kg??'–'}kg</span>` : '<span class="p">—</span>';
+        const parts=[];
+        if(l.done) parts.push('<span style="color:var(--good)">✓</span>');
+        if(l.lights!=null) parts.push(`<span class="lights sm">${lightsHtml(l.lights)}</span>`);
+        if(l.effort) parts.push(`<span class="efftag">${esc(l.effort)}</span>`);
+        if(l.miss) parts.push(`<span style="color:var(--bad)">${l.miss} miss</span>`);
+        if(l.video_path) parts.push(`<span class="vidlink" onclick="playVideo('${esc(l.video_path)}')">▶ clip</span>`);
+        body += `<tr><td>+${j+1}</td><td class="tgt"><span class="addedtag">added</span></td><td>${actual}</td><td>${parts.length?`<span style="display:inline-flex;align-items:center;gap:6px">${parts.join('')}</span>`:'<span class="tgt">logged</span>'}</td></tr>`;
+      });
     body += `</tbody></table>`;
   });
 
