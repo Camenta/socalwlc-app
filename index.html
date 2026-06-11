@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SoCal WLC</title>
+<style>
+  :root{--bg:#0c1116;--panel:#141c24;--panel2:#1a232c;--line:#26323d;--text:#e7edf3;--muted:#8b9aa8;
+        --accent:#e8643c;--accent2:#3c9ee8;--good:#3ec97a;--warn:#e8b13c;--bad:#e85c5c}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+  #app{max-width:760px;margin:0 auto;padding:18px 16px 60px}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:18px}
+  .brand{font-weight:800;letter-spacing:.3px}.brand .o{color:var(--accent)}
+  .who{font-size:12px;color:var(--muted);text-align:right}
+  .who b{color:var(--text)}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:9px;padding:11px 16px;font-weight:700;font-size:14px;cursor:pointer}
+  .btn:active{transform:translateY(1px)}.btn:disabled{opacity:.5;cursor:default}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--muted)}
+  .btn.blue{background:var(--accent2)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px}
+  h1{font-size:20px;margin:0 0 4px}h2{font-size:16px;margin:0 0 10px}
+  .sub{color:var(--muted);font-size:13px}
+  /* login */
+  .login{max-width:380px;margin:8vh auto 0}
+  .login .card{padding:24px}
+  label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700;margin:12px 0 5px}
+  input{width:100%;background:#0e151c;border:1px solid var(--line);border-radius:9px;padding:12px;color:var(--text);font-size:15px}
+  input:focus{outline:none;border-color:var(--accent2)}
+  .err{color:var(--bad);font-size:13px;margin-top:10px;min-height:16px}
+  .hint{font-size:12px;color:var(--muted);margin-top:14px;line-height:1.5}
+  /* session */
+  .pill{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;padding:3px 9px;border-radius:11px;background:var(--panel2);color:var(--accent2)}
+  .exh{display:flex;align-items:center;gap:10px;margin:18px 0 6px}
+  .exh .nm{font-weight:800;font-size:15px}
+  .note{font-size:12.5px;color:var(--muted);font-style:italic;background:var(--panel2);border-left:2px solid var(--accent2);border-radius:0 8px 8px 0;padding:8px 11px;margin:6px 0 10px}
+  table{width:100%;border-collapse:collapse}
+  th{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:700;text-align:left;padding:6px 8px}
+  td{padding:6px 8px;border-top:1px solid var(--line)}
+  .tgt{color:var(--muted);font-size:13px}
+  td input.cell{width:62px;padding:8px;text-align:center;font-weight:700}
+  .chk{width:22px;height:22px;accent-color:var(--good)}
+  .savebar{position:sticky;bottom:0;background:linear-gradient(180deg,rgba(12,17,22,0),var(--bg) 36%);padding:14px 0 4px;margin-top:8px;display:flex;gap:10px;align-items:center}
+  .saved{color:var(--good);font-size:13px;font-weight:700}
+  /* coach */
+  .athrow{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;cursor:pointer;background:var(--panel2)}
+  .athrow.on{border-color:var(--accent)}
+  .athrow .av{width:30px;height:30px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px}
+  .pa{display:flex;gap:8px;font-size:13px}
+  .pa .p{color:var(--muted)}.pa .a{font-weight:800}
+  .live{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;color:var(--good)}
+  .live i{width:8px;height:8px;border-radius:50%;background:var(--good);animation:pulse 1.6s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .delta-pos{color:var(--good)}.delta-neg{color:var(--bad)}
+  .empty{color:var(--muted);font-size:13px;padding:20px;text-align:center}
+  .spin{color:var(--muted);padding:30px;text-align:center}
+</style>
+</head>
+<body>
+<div id="app"><div class="spin">Loading…</div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPA_URL = "https://jurlbzobhdkijyvijjfg.supabase.co";
+const SUPA_KEY = "sb_publishable_3DfhkND-7yxN3yziwJ7Qhg_SuZr8eAB";
+const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+const app = document.getElementById('app');
+const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const initials = n => (n||'?').split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase();
+
+let me_ = null;        // current profile
+let coachChan = null;  // realtime channel
+
+/* ---------------- boot ---------------- */
+async function boot(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if(!session){ renderLogin(); return; }
+  const { data: profile, error } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
+  if(error || !profile){ await sb.auth.signOut(); renderLogin('Could not load your profile.'); return; }
+  me_ = profile;
+  if(profile.role === 'coach') renderCoach(); else renderAthlete();
+}
+sb.auth.onAuthStateChange((_e,_s)=>{ /* handled explicitly */ });
+
+/* ---------------- login ---------------- */
+function renderLogin(msg){
+  app.innerHTML = `
+    <div class="login">
+      <div class="topbar"><div class="brand">SoCal <span class="o">WLC</span></div></div>
+      <div class="card">
+        <h1>Sign in</h1>
+        <div class="sub">Coach or athlete — same login.</div>
+        <label>Email</label><input id="email" type="email" autocomplete="username" placeholder="you@socalwlc.test">
+        <label>Password</label><input id="pw" type="password" autocomplete="current-password" placeholder="••••••••">
+        <div style="margin-top:16px"><button class="btn" id="go" style="width:100%">Sign in</button></div>
+        <div class="err" id="err">${esc(msg||'')}</div>
+        <div class="hint">Test logins · coach@socalwlc.test · georgia@socalwlc.test</div>
+      </div>
+    </div>`;
+  const go = document.getElementById('go');
+  const doLogin = async () => {
+    const email = document.getElementById('email').value.trim();
+    const pw = document.getElementById('pw').value;
+    const err = document.getElementById('err');
+    err.textContent=''; go.disabled=true; go.textContent='Signing in…';
+    const { error } = await sb.auth.signInWithPassword({ email, password: pw });
+    if(error){ err.textContent = error.message; go.disabled=false; go.textContent='Sign in'; return; }
+    boot();
+  };
+  go.onclick = doLogin;
+  document.getElementById('pw').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+}
+
+async function logout(){ if(coachChan){ sb.removeChannel(coachChan); coachChan=null; } await sb.auth.signOut(); me_=null; renderLogin(); }
+
+function topbar(roleLabel){
+  return `<div class="topbar">
+    <div class="brand">SoCal <span class="o">WLC</span></div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="who"><b>${esc(me_.full_name)}</b><br>${roleLabel}</div>
+      <button class="btn ghost" onclick="logout()">Sign out</button>
+    </div></div>`;
+}
+
+/* ---------------- athlete ---------------- */
+function sortByPos(a,b){ return (a.position||0)-(b.position||0); }
+
+async function renderAthlete(){
+  app.innerHTML = topbar('Athlete') + `<div class="spin">Loading your session…</div>`;
+  const { data: sessions } = await sb.from('sessions')
+    .select('id,gym_id,title,session_date,status,prescribed_exercises(id,name,position,category,coach_note,prescribed_sets(id,position,target_text,target_reps,target_kg))')
+    .eq('athlete_id', me_.id).order('session_date',{ascending:false}).limit(1);
+  const session = sessions && sessions[0];
+  if(!session){ app.innerHTML = topbar('Athlete') + `<div class="card"><div class="empty">No session assigned yet.</div></div>`; return; }
+  const { data: logs } = await sb.from('logged_sets').select('*').eq('session_id', session.id);
+  const logBySet = {}; (logs||[]).forEach(l=>{ if(l.prescribed_set_id) logBySet[l.prescribed_set_id]=l; });
+
+  const exs = (session.prescribed_exercises||[]).slice().sort(sortByPos);
+  let body = '';
+  exs.forEach(ex=>{
+    const sets = (ex.prescribed_sets||[]).slice().sort(sortByPos);
+    body += `<div class="exh"><span class="pill">${esc(ex.category||'lift')}</span><span class="nm">${esc(ex.name)}</span></div>`;
+    if(ex.coach_note) body += `<div class="note">${esc(ex.coach_note)}</div>`;
+    body += `<table><thead><tr><th>Set</th><th>Target</th><th>Reps</th><th>Weight</th><th>Done</th></tr></thead><tbody>`;
+    sets.forEach((s,i)=>{
+      const lg = logBySet[s.id] || {};
+      const reps = lg.actual_reps!=null ? lg.actual_reps : (s.target_reps!=null?s.target_reps:'');
+      const kg   = lg.actual_kg!=null ? lg.actual_kg : (s.target_kg!=null?s.target_kg:'');
+      const done = lg.done ? 'checked' : '';
+      body += `<tr data-set="${s.id}">
+        <td>${i+1}</td>
+        <td class="tgt">${esc(s.target_text||'')}</td>
+        <td><input class="cell" data-f="reps" value="${esc(reps)}" inputmode="numeric"></td>
+        <td><input class="cell" data-f="kg" value="${esc(kg)}" inputmode="decimal"></td>
+        <td><input class="chk" type="checkbox" data-f="done" ${done}></td>
+      </tr>`;
+    });
+    body += `</tbody></table>`;
+  });
+
+  app.innerHTML = topbar('Athlete') + `
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span class="pill">${esc(session.status)}</span>
+        <h2 style="margin:0">${esc(session.title||'Training')}</h2>
+        <span class="sub">${esc(session.session_date)}</span>
+      </div>
+      <div class="sub" style="margin-top:4px">Enter what you actually did and tick each set off. Saves to your coach.</div>
+      ${body}
+      <div class="savebar"><button class="btn" id="save">Save session</button><span class="saved" id="savedmsg"></span></div>
+    </div>`;
+
+  document.getElementById('save').onclick = ()=>saveSession(session, logBySet);
+}
+
+async function saveSession(session, logBySet){
+  const btn=document.getElementById('save'), msg=document.getElementById('savedmsg');
+  btn.disabled=true; btn.textContent='Saving…'; msg.style.color=''; msg.textContent='';
+  // guard: the live login must actually be this athlete (catches stale/crossed sessions)
+  const { data:{ user } } = await sb.auth.getUser();
+  if(!user || user.id !== me_.id){
+    btn.disabled=false; btn.textContent='Save session';
+    msg.style.color='var(--bad)'; msg.textContent='⚠ Login mismatch — sign out and sign back in as this athlete.';
+    return;
+  }
+  const rows=[...document.querySelectorAll('tr[data-set]')];
+  try{
+    let saved=0;
+    for(const tr of rows){
+      const setId=tr.dataset.set;
+      const reps=tr.querySelector('[data-f="reps"]').value.trim();
+      const kg=tr.querySelector('[data-f="kg"]').value.trim();
+      const done=tr.querySelector('[data-f="done"]').checked;
+      const payload={ gym_id:session.gym_id, session_id:session.id, prescribed_set_id:setId, athlete_id:me_.id,
+        actual_reps: reps===''?null:parseInt(reps,10), actual_kg: kg===''?null:parseFloat(kg), done };
+      const existing=logBySet[setId];
+      const res = existing
+        ? await sb.from('logged_sets').update(payload).eq('id', existing.id).select()
+        : await sb.from('logged_sets').insert(payload).select();
+      if(res.error) throw res.error;
+      if(!res.data || res.data.length===0) throw new Error('the database rejected the save (permission/login). Sign out and back in.');
+      if(!existing) logBySet[setId]=res.data[0];
+      saved++;
+    }
+    btn.disabled=false; btn.textContent='Save session';
+    msg.style.color='var(--good)'; msg.textContent='✓ Saved '+saved+' sets — your coach can see it'; setTimeout(()=>{ msg.textContent=''; },3500);
+  }catch(e){
+    btn.disabled=false; btn.textContent='Save session';
+    msg.style.color='var(--bad)'; msg.textContent='⚠ Save failed — '+(e.message||e);
+  }
+}
+
+/* ---------------- coach ---------------- */
+let coachState = { athletes:[], selected:null };
+
+async function renderCoach(){
+  app.innerHTML = topbar('Coach') + `<div class="spin">Loading your athletes…</div>`;
+  const { data: athletes } = await sb.from('profiles').select('id,full_name').eq('role','athlete').order('full_name');
+  coachState.athletes = athletes||[];
+  coachState.selected = coachState.athletes[0] ? coachState.athletes[0].id : null;
+  // realtime: refresh the panel whenever any log changes
+  if(coachChan) sb.removeChannel(coachChan);
+  coachChan = sb.channel('logs-coach')
+    .on('postgres_changes', { event:'*', schema:'public', table:'logged_sets' }, ()=>renderCoachPanel())
+    .subscribe();
+  paintCoach();
+}
+
+function paintCoach(){
+  const list = coachState.athletes.map(a=>`
+    <div class="athrow ${a.id===coachState.selected?'on':''}" onclick="selectAthlete('${a.id}')">
+      <span class="av">${esc(initials(a.full_name))}</span>
+      <div><b>${esc(a.full_name)}</b></div>
+    </div>`).join('') || `<div class="empty">No athletes yet.</div>`;
+  app.innerHTML = topbar('Coach') + `
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between"><h2 style="margin:0">Your athletes</h2><span class="live"><i></i>LIVE</span></div>
+      <div class="sub" style="margin-bottom:10px">Updates the moment they log a set.</div>
+      ${list}
+    </div>
+    <div id="coachPanel"></div>`;
+  renderCoachPanel();
+}
+window.selectAthlete = (id)=>{ coachState.selected=id; paintCoach(); };
+
+async function renderCoachPanel(){
+  const panel = document.getElementById('coachPanel'); if(!panel) return;
+  const athId = coachState.selected; if(!athId){ panel.innerHTML=''; return; }
+  const ath = coachState.athletes.find(a=>a.id===athId);
+  const { data: sessions } = await sb.from('sessions')
+    .select('id,title,session_date,status,prescribed_exercises(id,name,position,prescribed_sets(id,position,target_text))')
+    .eq('athlete_id', athId).order('session_date',{ascending:false}).limit(1);
+  const session = sessions && sessions[0];
+  if(!session){ panel.innerHTML = `<div class="card"><div class="empty">No session for ${esc(ath.full_name)} yet.</div></div>`; return; }
+  const { data: logs } = await sb.from('logged_sets').select('*').eq('session_id', session.id);
+  const logBySet = {}; (logs||[]).forEach(l=>{ if(l.prescribed_set_id) logBySet[l.prescribed_set_id]=l; });
+
+  const exs = (session.prescribed_exercises||[]).slice().sort(sortByPos);
+  let doneCount=0, total=0;
+  let body='';
+  exs.forEach(ex=>{
+    const sets=(ex.prescribed_sets||[]).slice().sort(sortByPos);
+    body += `<div class="exh"><span class="nm">${esc(ex.name)}</span></div>`;
+    body += `<table><thead><tr><th>Set</th><th>Prescribed</th><th>Actual</th><th>Status</th></tr></thead><tbody>`;
+    sets.forEach((s,i)=>{
+      total++;
+      const lg=logBySet[s.id];
+      const actual = lg && (lg.actual_reps!=null||lg.actual_kg!=null)
+        ? `<span class="a">${lg.actual_reps??'–'} × ${lg.actual_kg??'–'}kg</span>` : `<span class="p">—</span>`;
+      const status = lg && lg.done ? '<span style="color:var(--good)">✓ done</span>'
+                   : lg ? '<span class="tgt">logged</span>' : '<span class="tgt">waiting…</span>';
+      if(lg && lg.done) doneCount++;
+      body += `<tr><td>${i+1}</td><td class="tgt">${esc(s.target_text||'')}</td><td>${actual}</td><td>${status}</td></tr>`;
+    });
+    body += `</tbody></table>`;
+  });
+
+  panel.innerHTML = `<div class="card">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <h2 style="margin:0">${esc(ath.full_name)} — ${esc(session.title||'Session')}</h2>
+      <span class="sub">${esc(session.session_date)}</span>
+      <span class="pill" style="margin-left:auto">${doneCount}/${total} sets done</span>
+    </div>
+    ${body}
+  </div>`;
+}
+
+boot();
+</script>
+</body>
+</html>
