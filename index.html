@@ -66,27 +66,55 @@
   .b-x:hover{color:var(--bad)}
   .b-add{display:inline-block;font-size:13px;font-weight:700;color:var(--accent2);cursor:pointer;margin-top:4px;user-select:none}
   .b-add:hover{text-decoration:underline}
-  /* rich per-set logging */
-  .lset{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:11px 12px;margin:8px 0}
-  .lset-top{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:9px}
-  .lset-num{font-weight:800}
-  .lset-tgt{color:var(--muted)}
-  .lset-done{margin-left:auto;display:flex;align-items:center;gap:6px;font-weight:700;cursor:pointer}
-  .lset-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-  .lset-row .x{color:var(--muted);font-size:13px}
-  .lset-row input.cell{width:62px;text-align:center;padding:9px;font-weight:700}
-  .lights{display:inline-flex;gap:3px;cursor:pointer;padding:6px;border-radius:7px;background:#0e151c;border:1px solid var(--line)}
-  .lights i{width:14px;height:14px;border-radius:50%;border:1px solid #05080b}
-  .lights i.w{background:#eef2f6}
-  .lights i.r{background:var(--bad)}
-  .lights.sm{padding:0;gap:2px;background:transparent;border:none;vertical-align:middle}
+  /* athlete logging table (mockup look) */
+  .pill.phase{background:#2a3a2c;color:var(--good)}
+  .pill.primary{background:#2a3340;color:var(--accent2)}
+  .pill.accessory{background:#332d22;color:var(--warn)}
+  .ex{border:1px solid var(--line);border-radius:11px;margin-bottom:14px;overflow:hidden}
+  .av-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--panel2);border-bottom:1px solid var(--line);padding:12px 14px}
+  .av-head .name{font-weight:800;font-size:15px}
+  .av-head .tag{margin-left:auto;font-size:11px;color:var(--muted)}
+  .logwrap{overflow-x:auto}
+  .logtable{width:100%;border-collapse:collapse;min-width:560px}
+  .logtable th{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700;padding:9px 6px;text-align:center}
+  .logtable td{padding:8px 6px;text-align:center;border-top:1px solid var(--line);font-size:13px}
+  .logtable td:nth-child(2),.logtable th:nth-child(2){text-align:left}
+  .logtable input{width:52px;background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--text);text-align:center;padding:7px 4px;font-size:13px;font-weight:700}
+  .logtable input.mini{width:44px}
+  .logtable input:focus{outline:none;border-color:var(--accent2)}
+  .logtable .tgt{color:var(--accent2);font-weight:700;font-size:12px}
+  .logtable .chk{width:20px;height:20px;accent-color:var(--good)}
+  .lights{display:inline-flex;gap:3px;vertical-align:middle}
+  .lights i{width:12px;height:12px;border-radius:50%;display:inline-block;box-shadow:inset 0 0 0 1px rgba(0,0,0,.35)}
+  .lights i.w{background:#eef3f8}.lights i.r{background:var(--bad)}
   .lights.sm i{width:9px;height:9px}
-  .eff{display:inline-flex;gap:5px;flex-wrap:wrap}
-  .eff button{background:#0e151c;border:1px solid var(--line);color:var(--muted);border-radius:7px;padding:6px 11px;font-size:12px;font-weight:700;cursor:pointer}
-  .eff button.on{border-color:var(--accent);color:var(--accent);background:rgba(232,100,60,.12)}
-  .miss{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);margin-left:auto}
-  .miss b{min-width:14px;text-align:center;color:var(--text);font-size:14px}
-  .miss button{width:28px;height:28px;border-radius:7px;border:1px solid var(--line);background:#0e151c;color:var(--text);cursor:pointer;font-weight:800;font-size:15px;line-height:1}
+  .lg-lts{cursor:pointer;padding:4px 5px;border-radius:6px;gap:4px}
+  .lg-lts:hover{background:#16202b}.lg-lts i{width:14px;height:14px}
+  .lg-eff{display:inline-flex;gap:3px}
+  .lg-light{width:24px;height:24px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;cursor:pointer;border:1px solid var(--line);background:#0e151c;color:var(--muted);opacity:.6}
+  .lg-light:hover{opacity:1}
+  .lg-light.on{opacity:1;color:#06121d}
+  .lg-light.easy.on{background:var(--good);border-color:var(--good)}
+  .lg-light.moderate.on{background:var(--accent2);border-color:var(--accent2)}
+  .lg-light.hard.on{background:var(--warn);border-color:var(--warn)}
+  .lg-light.max.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .upvid{display:inline-flex;align-items:center;gap:4px;background:#2a2340;border:1px dashed #3d3460;color:#b9a8ff;border-radius:6px;padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
+  .upvid.on{background:#1d3a2a;border-color:#2f6b48;color:#7fdca8;border-style:solid}
+  .av-note{display:flex;gap:10px;align-items:flex-start;padding:10px 14px;background:#1c2530;border-top:1px solid var(--line);font-size:12.5px}
+  .av-note .tag{color:var(--accent2);font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;white-space:nowrap;padding-top:2px}
+  /* live session summary */
+  .ss-head{font-size:13px;font-weight:700;color:var(--good);margin-bottom:12px}
+  .ss-tiles{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:12px}
+  .ss-tile{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+  .ss-v{font-size:22px;font-weight:800;color:var(--text)}
+  .ss-p{font-size:13px;font-weight:600;color:var(--muted)}
+  .ss-l{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-top:3px}
+  .ss-ex{width:100%;border-collapse:collapse;font-size:13px}
+  .ss-ex td{padding:7px 8px;border-top:1px solid var(--line)}
+  .ss-ex td:first-child{font-weight:700}
+  .ss-ex td:not(:first-child){color:var(--muted);text-align:right}
+  @media(max-width:760px){.ss-tiles{grid-template-columns:repeat(3,1fr)}}
+  .tgt{color:var(--muted)}
   .efftag{font-size:11px;font-weight:700;color:var(--accent2);text-transform:capitalize}
 </style>
 </head>
@@ -159,46 +187,66 @@ function topbar(roleLabel){
 /* ---------------- athlete ---------------- */
 function sortByPos(a,b){ return (a.position||0)-(b.position||0); }
 
-let logState = {};      // prescribed_set_id -> {reps,kg,lights,effort,miss,done,logId,gym_id}
+let logState = {};      // setId -> {idx,reps,kg,lights,effort,miss,done,video,logId,gym_id,targetReps}
 let curSession = null;
-const EFFORTS=[['easy','Easy'],['moderate','Mod'],['hard','Hard'],['max','Max']];
-function lightsHtml(n){ let h=''; for(let i=0;i<3;i++) h+=`<i class="${i<n?'w':'r'}"></i>`; return h; }
-function setCardHtml(s, i){
+let curExercises = [];  // [{name,setIds:[...]}] for the live summary
+const EFFORTS=[['easy','E'],['moderate','M'],['hard','H'],['max','X']];
+const EFFN={easy:1,moderate:2,hard:3,max:4}, EFFL=['—','Easy','Moderate','Hard','Max'];
+function ltsDots(n){ let h=''; for(let i=0;i<3;i++) h+=`<i class="${i<n?'w':'r'}"></i>`; return h; }
+function lightsHtml(n){ return ltsDots(n); }   // used by coach panel
+function num(v){ const n=parseFloat(v); return isNaN(n)?0:n; }
+function fmtDate(d){ const D=new Date(d+'T00:00:00'); const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],mon=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return days[D.getDay()]+', '+mon[D.getMonth()]+' '+D.getDate(); }
+function effCells(id,eff){ return `<span class="lg-eff">${EFFORTS.map(e=>`<span class="lg-light ${e[0]}${eff===e[0]?' on':''}" data-eff="${e[0]}" data-set="${id}">${e[1]}</span>`).join('')}</span>`; }
+function vidCell(id,on,idx){ return on ? `<span class="upvid on" data-set="${id}">▶ clip · Set ${idx}</span>` : `<span class="upvid" data-set="${id}">⤴ video</span>`; }
+function rowHtml(s,i){
   const st=logState[s.id];
-  const effBtns=EFFORTS.map(e=>`<button data-eff="${e[0]}" class="${st.effort===e[0]?'on':''}">${e[1]}</button>`).join('');
-  return `<div class="lset" data-set="${s.id}">
-    <div class="lset-top">
-      <span class="lset-num">Set ${i+1}</span>
-      <span class="lset-tgt">${esc(s.target_text||'')}</span>
-      <label class="lset-done"><input type="checkbox" class="chk" data-f="done" ${st.done?'checked':''}> done</label>
-    </div>
-    <div class="lset-row">
-      <input class="cell" data-f="reps" value="${esc(st.reps)}" inputmode="numeric"><span class="x">reps ×</span>
-      <input class="cell" data-f="kg" value="${esc(st.kg)}" inputmode="decimal"><span class="x">kg</span>
-      <span class="lights" title="Tap: white = good lift, red = miss">${lightsHtml(st.lights)}</span>
-    </div>
-    <div class="lset-row" style="margin-top:7px">
-      <span class="eff">${effBtns}</span>
-      <span class="miss">miss <button data-miss="dec">−</button><b>${st.miss}</b><button data-miss="inc">＋</button></span>
-    </div>
-  </div>`;
+  return `<tr data-set="${s.id}">
+    <td>${i+1}</td>
+    <td class="tgt">${esc(s.target_text||'')}</td>
+    <td><input class="cell" data-f="reps" value="${esc(st.reps)}" inputmode="numeric"></td>
+    <td><input class="cell" data-f="kg" value="${esc(st.kg)}" inputmode="decimal"></td>
+    <td><input class="cell mini" data-f="miss" value="${esc(st.miss)}" inputmode="numeric"></td>
+    <td><span class="lights lg-lts" data-set="${s.id}" title="Tap: white = good lift, red = miss">${ltsDots(st.lights)}</span></td>
+    <td>${effCells(s.id, st.effort)}</td>
+    <td>${vidCell(s.id, st.video, i+1)}</td>
+    <td><input type="checkbox" class="chk" data-f="done" ${st.done?'checked':''}></td>
+  </tr>`;
 }
-function rerenderSet(id){
-  const card=document.querySelector('.lset[data-set="'+id+'"]'); if(!card) return;
-  const st=logState[id];
-  card.querySelector('.lights').innerHTML=lightsHtml(st.lights);
-  card.querySelectorAll('.eff button').forEach(b=>b.classList.toggle('on', b.dataset.eff===st.effort));
-  card.querySelector('.miss b').textContent=st.miss;
+function refreshRow(id){
+  const tr=document.querySelector('tr[data-set="'+id+'"]'); if(!tr) return; const st=logState[id];
+  const lts=tr.querySelector('.lg-lts'); if(lts) lts.innerHTML=ltsDots(st.lights);
+  tr.querySelectorAll('.lg-light').forEach(b=>b.classList.toggle('on', b.dataset.eff===st.effort));
+  const v=tr.querySelector('.upvid'); if(v){ if(st.video){ v.className='upvid on'; v.textContent='▶ clip · Set '+st.idx; } else { v.className='upvid'; v.textContent='⤴ video'; } }
+}
+function recompute(){
+  let pNL=0,aNL=0,aTon=0,miss=0,planSets=0,doneSets=0,good=0,effSum=0,effN=0;
+  const per=curExercises.map(ex=>{
+    let e={name:ex.name,pNL:0,aNL:0,aTon:0,miss:0,sets:ex.setIds.length,done:0};
+    ex.setIds.forEach(id=>{ const st=logState[id];
+      const pr=parseInt(st.targetReps)||0, r=parseInt(st.reps)||0, k=num(st.kg), m=parseInt(st.miss)||0;
+      planSets++; if(st.done){doneSets++;e.done++;}
+      if(st.lights===3)good++;
+      if(st.effort){effN++;effSum+=EFFN[st.effort];}
+      e.pNL+=pr; e.aNL+=r; e.aTon+=r*k; e.miss+=m;
+      pNL+=pr; aNL+=r; aTon+=r*k; miss+=m;
+    });
+    return e;
+  });
+  const completion=planSets?Math.round(doneSets/planSets*100):0, avgEff=effN?EFFL[Math.round(effSum/effN)]:'—';
+  const tile=(l,a,p)=>`<div class="ss-tile"><div class="ss-v">${a}${p!=null?`<span class="ss-p"> / ${p}</span>`:''}</div><div class="ss-l">${l}</div></div>`;
+  const tiles=`<div class="ss-tiles">${tile('Volume (NL)',aNL,pNL)}${tile('Tonnage',(aTon/1000).toFixed(1)+'t')}${tile('Set completion',completion+'%')}${tile('Good lifts',good+'/'+planSets)}${tile('Misses',miss)}${tile('Avg effort',avgEff)}</div>`;
+  const lines=`<table class="ss-ex"><tbody>${per.map(e=>`<tr><td>${esc(e.name)}</td><td>${e.done}/${e.sets} sets</td><td><b style="color:var(--text)">${e.aNL}</b> NL / ${e.pNL}</td><td>${(e.aTon/1000).toFixed(1)}t</td><td>${e.miss?`<span style="color:var(--bad)">${e.miss} miss</span>`:'<span style="color:var(--good)">clean</span>'}</td></tr>`).join('')}</tbody></table>`;
+  const box=document.getElementById('ssBody'); if(box) box.innerHTML=tiles+lines;
 }
 function wireLogging(){
   const root=document.getElementById('logRoot'); if(!root) return;
-  root.addEventListener('input', e=>{ const inp=e.target.closest('.cell'); if(!inp) return; logState[inp.closest('.lset').dataset.set][inp.dataset.f]=inp.value; });
-  root.addEventListener('change', e=>{ const c=e.target.closest('.chk'); if(!c) return; logState[c.closest('.lset').dataset.set].done=c.checked; });
+  root.addEventListener('input', e=>{ const inp=e.target.closest('.cell'); if(!inp) return; logState[inp.closest('tr').dataset.set][inp.dataset.f]=inp.value; recompute(); });
+  root.addEventListener('change', e=>{ const c=e.target.closest('.chk'); if(!c) return; logState[c.closest('tr').dataset.set].done=c.checked; recompute(); });
   root.addEventListener('click', e=>{
-    const card=e.target.closest('.lset'); if(!card) return; const id=card.dataset.set; const st=logState[id];
-    if(e.target.closest('.lights')){ st.lights = st.lights===0?3:st.lights-1; rerenderSet(id); return; }
-    const eff=e.target.closest('[data-eff]'); if(eff){ st.effort = (st.effort===eff.dataset.eff?null:eff.dataset.eff); rerenderSet(id); return; }
-    const m=e.target.closest('[data-miss]'); if(m){ st.miss = Math.max(0, (st.miss||0) + (m.dataset.miss==='inc'?1:-1)); rerenderSet(id); return; }
+    const tr=e.target.closest('tr[data-set]'); if(!tr) return; const id=tr.dataset.set; const st=logState[id];
+    if(e.target.closest('.lg-lts')){ st.lights = st.lights===0?3:st.lights-1; refreshRow(id); recompute(); return; }
+    const eff=e.target.closest('.lg-light'); if(eff){ st.effort=(st.effort===eff.dataset.eff?null:eff.dataset.eff); refreshRow(id); recompute(); return; }
+    const v=e.target.closest('.upvid'); if(v){ st.video=!st.video; refreshRow(id); return; }
   });
 }
 async function renderAthlete(){
@@ -213,40 +261,51 @@ async function renderAthlete(){
   const logBySet = {}; (logs||[]).forEach(l=>{ if(l.prescribed_set_id) logBySet[l.prescribed_set_id]=l; });
 
   const exs = (session.prescribed_exercises||[]).slice().sort(sortByPos);
-  logState = {};
+  logState = {}; curExercises = [];
   let body = '';
   exs.forEach(ex=>{
     const sets = (ex.prescribed_sets||[]).slice().sort(sortByPos);
-    body += `<div class="exh"><span class="pill">${esc(ex.category||'lift')}</span><span class="nm">${esc(ex.name)}</span></div>`;
-    if(ex.coach_note) body += `<div class="note">${esc(ex.coach_note)}</div>`;
+    const cat = (ex.category||'primary').toLowerCase(), isAcc = cat==='accessory';
+    const setIds=[]; let rows='';
     sets.forEach((s,i)=>{
       const lg = logBySet[s.id];
       logState[s.id] = {
+        idx:i+1, targetReps: s.target_reps,
         reps: lg && lg.actual_reps!=null ? lg.actual_reps : (s.target_reps!=null?s.target_reps:''),
         kg:   lg && lg.actual_kg!=null ? lg.actual_kg : (s.target_kg!=null?s.target_kg:''),
         lights: lg && lg.lights!=null ? lg.lights : 3,
         effort: lg ? (lg.effort||null) : null,
         miss: lg && lg.miss!=null ? lg.miss : 0,
         done: lg ? !!lg.done : false,
-        logId: lg ? lg.id : null,
-        gym_id: session.gym_id
+        video: false, logId: lg ? lg.id : null, gym_id: session.gym_id
       };
-      body += setCardHtml(s, i);
+      setIds.push(s.id); rows += rowHtml(s,i);
     });
+    curExercises.push({name:ex.name, setIds});
+    body += `<div class="ex">
+      <div class="av-head"><span class="pill ${isAcc?'accessory':'primary'}">${esc(cat)}</span><span class="name">${esc(ex.name)}</span></div>
+      <div class="logwrap"><table class="logtable"><thead><tr><th>Set</th><th>Target</th><th>Reps</th><th>Weight</th><th>Miss</th><th>Lights</th><th>Effort</th><th>Video</th><th>Done</th></tr></thead><tbody>${rows}</tbody></table></div>
+      ${ex.coach_note ? `<div class="av-note"><span class="tag">Coach<br>notes</span><span>${esc(ex.coach_note)}</span></div>` : ''}
+    </div>`;
   });
 
   app.innerHTML = topbar('Athlete') + `
     <div class="card">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <span class="pill">${esc(session.status)}</span>
-        <h2 style="margin:0">${esc(session.title||'Training')}</h2>
-        <span class="sub">${esc(session.session_date)}</span>
+        <span class="pill phase">${esc((session.status||'training').toUpperCase())}</span>
+        <span>Your program · <b>${esc(fmtDate(session.session_date))}</b> · ${esc(session.title||'Training')}</span>
+        <span class="pill" style="margin-left:auto">TODAY</span>
       </div>
-      <div class="sub" style="margin-top:4px">Log what you did · tap the lights (white = good lift, red = miss) · rate effort · tick it off.</div>
-      <div id="logRoot">${body}</div>
-      <div class="savebar"><button class="btn" id="save" onclick="saveSession()">Save session</button><span class="saved" id="savedmsg"></span></div>
+      <div class="sub" style="margin-top:6px">Log what you did · tap the lights (white = good lift, red = miss) · rate effort E/M/H/X · tick each set off. Saves straight to your coach.</div>
+    </div>
+    <div id="logRoot">${body}</div>
+    <div class="card">
+      <div class="ss-head">✓ This is exactly what your coach sees — live, no copy-paste</div>
+      <div id="ssBody"></div>
+      <div class="savebar"><button class="btn" id="save" onclick="saveSession()">Submit session</button><span class="saved" id="savedmsg"></span></div>
     </div>`;
   wireLogging();
+  recompute();
 }
 
 async function saveSession(){
@@ -254,7 +313,7 @@ async function saveSession(){
   btn.disabled=true; btn.textContent='Saving…'; msg.style.color=''; msg.textContent='';
   const { data:{ user } } = await sb.auth.getUser();
   if(!user || user.id !== me_.id){
-    btn.disabled=false; btn.textContent='Save session';
+    btn.disabled=false; btn.textContent='Submit session';
     msg.style.color='var(--bad)'; msg.textContent='⚠ Login mismatch — sign out and sign back in as this athlete.';
     return;
   }
@@ -265,7 +324,7 @@ async function saveSession(){
       const payload={ gym_id: st.gym_id, session_id: curSession.id, prescribed_set_id: id, athlete_id: me_.id,
         actual_reps: (st.reps===''||st.reps==null)?null:parseInt(st.reps,10),
         actual_kg: (st.kg===''||st.kg==null)?null:parseFloat(st.kg),
-        lights: st.lights, effort: st.effort, miss: st.miss, done: st.done };
+        lights: st.lights, effort: st.effort, miss: (parseInt(st.miss)||0), done: st.done };
       const res = st.logId
         ? await sb.from('logged_sets').update(payload).eq('id', st.logId).select()
         : await sb.from('logged_sets').insert(payload).select();
@@ -274,10 +333,10 @@ async function saveSession(){
       st.logId = res.data[0].id;
       saved++;
     }
-    btn.disabled=false; btn.textContent='Save session';
-    msg.style.color='var(--good)'; msg.textContent='✓ Saved '+saved+' sets — your coach can see it'; setTimeout(()=>{ msg.textContent=''; },3500);
+    btn.disabled=false; btn.textContent='Submit session';
+    msg.style.color='var(--good)'; msg.textContent='✓ Submitted — your coach has it'; setTimeout(()=>{ msg.textContent=''; },3500);
   }catch(e){
-    btn.disabled=false; btn.textContent='Save session';
+    btn.disabled=false; btn.textContent='Submit session';
     msg.style.color='var(--bad)'; msg.textContent='⚠ Save failed — '+(e.message||e);
   }
 }
