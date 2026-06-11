@@ -100,6 +100,12 @@
   .lg-light.max.on{background:var(--accent);border-color:var(--accent);color:#fff}
   .upvid{display:inline-flex;align-items:center;gap:4px;background:#2a2340;border:1px dashed #3d3460;color:#b9a8ff;border-radius:6px;padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
   .upvid.on{background:#1d3a2a;border-color:#2f6b48;color:#7fdca8;border-style:solid}
+  .upvid.up{background:#33302a;border-color:#5a4419;color:var(--warn);border-style:solid;cursor:default}
+  .vidlink{color:#7fdca8;cursor:pointer;font-weight:700;white-space:nowrap}
+  .vidlink:hover{text-decoration:underline}
+  .vid-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:200;align-items:center;justify-content:center;padding:24px}
+  .vid-box{position:relative;max-width:540px;width:100%;background:#0c1116;border:1px solid var(--line);border-radius:12px;padding:14px}
+  .vid-x{position:absolute;top:-12px;right:-10px;width:30px;height:30px;border-radius:50%;background:var(--panel2);border:1px solid var(--line);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:700}
   .av-note{display:flex;gap:10px;align-items:flex-start;padding:10px 14px;background:#1c2530;border-top:1px solid var(--line);font-size:12.5px}
   .av-note .tag{color:var(--accent2);font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;white-space:nowrap;padding-top:2px}
   /* live session summary */
@@ -120,6 +126,7 @@
 </head>
 <body>
 <div id="app"><div class="spin">Loading…</div></div>
+<input type="file" id="vidInput" accept="video/*" onchange="onVidPicked()" style="display:none">
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -197,7 +204,45 @@ function lightsHtml(n){ return ltsDots(n); }   // used by coach panel
 function num(v){ const n=parseFloat(v); return isNaN(n)?0:n; }
 function fmtDate(d){ const D=new Date(d+'T00:00:00'); const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],mon=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return days[D.getDay()]+', '+mon[D.getMonth()]+' '+D.getDate(); }
 function effCells(id,eff){ return `<span class="lg-eff">${EFFORTS.map(e=>`<span class="lg-light ${e[0]}${eff===e[0]?' on':''}" data-eff="${e[0]}" data-set="${id}">${e[1]}</span>`).join('')}</span>`; }
-function vidCell(id,on,idx){ return on ? `<span class="upvid on" data-set="${id}">▶ clip · Set ${idx}</span>` : `<span class="upvid" data-set="${id}">⤴ video</span>`; }
+function vidCell(id, st){
+  if(st.uploading) return `<span class="upvid up" data-set="${id}">… uploading</span>`;
+  if(st.video_path) return `<span class="upvid on" data-set="${id}">▶ clip · Set ${st.idx}</span>`;
+  return `<span class="upvid" data-set="${id}">⤴ video</span>`;
+}
+let uploadTargetSet=null;
+async function onVidPicked(){
+  const inp=document.getElementById('vidInput'); const file=inp.files&&inp.files[0]; inp.value='';
+  if(!file || !uploadTargetSet) return;
+  const id=uploadTargetSet; const st=logState[id];
+  st.uploading=true; refreshRow(id);
+  try{
+    const ext=(file.name.split('.').pop()||'mp4').toLowerCase();
+    const path=`${me_.gym_id}/${me_.id}/${curSession.id}-${id}-${Date.now()}.${ext}`;
+    const { error } = await sb.storage.from('lift-videos').upload(path, file, { contentType:file.type||'video/mp4', upsert:true });
+    if(error) throw error;
+    st.video_path=path; st.uploading=false; refreshRow(id);
+    await saveOneSet(id); // link it now so it survives a reload
+  }catch(e){ st.uploading=false; refreshRow(id); alert('Video upload failed — '+(e.message||e)); }
+}
+async function saveOneSet(id){
+  const st=logState[id];
+  const payload={ gym_id:st.gym_id, session_id:curSession.id, prescribed_set_id:id, athlete_id:me_.id,
+    actual_reps:(st.reps===''||st.reps==null)?null:parseInt(st.reps,10),
+    actual_kg:(st.kg===''||st.kg==null)?null:parseFloat(st.kg),
+    lights:st.lights, effort:st.effort, miss:(parseInt(st.miss)||0), done:st.done, video_path:st.video_path||null };
+  const res = st.logId ? await sb.from('logged_sets').update(payload).eq('id',st.logId).select()
+                       : await sb.from('logged_sets').insert(payload).select();
+  if(res.data && res.data[0]) st.logId=res.data[0].id;
+}
+async function playVideo(path){
+  const { data, error } = await sb.storage.from('lift-videos').createSignedUrl(path, 3600);
+  if(error || !data){ alert('Could not load that clip.'); return; }
+  let m=document.getElementById('vidModal');
+  if(!m){ m=document.createElement('div'); m.id='vidModal'; m.className='vid-modal'; document.body.appendChild(m); }
+  m.innerHTML=`<div class="vid-box"><span class="vid-x" onclick="closeVid()">✕</span><video src="${data.signedUrl}" controls autoplay playsinline style="width:100%;border-radius:8px;max-height:70vh;background:#000"></video></div>`;
+  m.style.display='flex'; m.onclick=(ev)=>{ if(ev.target===m) closeVid(); };
+}
+function closeVid(){ const m=document.getElementById('vidModal'); if(m){ m.style.display='none'; m.innerHTML=''; } }
 function rowHtml(s,i){
   const st=logState[s.id];
   return `<tr data-set="${s.id}">
@@ -208,7 +253,7 @@ function rowHtml(s,i){
     <td><input class="cell mini" data-f="miss" value="${esc(st.miss)}" inputmode="numeric"></td>
     <td><span class="lights lg-lts" data-set="${s.id}" title="Tap: white = good lift, red = miss">${ltsDots(st.lights)}</span></td>
     <td>${effCells(s.id, st.effort)}</td>
-    <td>${vidCell(s.id, st.video, i+1)}</td>
+    <td>${vidCell(s.id, st)}</td>
     <td><input type="checkbox" class="chk" data-f="done" ${st.done?'checked':''}></td>
   </tr>`;
 }
@@ -216,7 +261,7 @@ function refreshRow(id){
   const tr=document.querySelector('tr[data-set="'+id+'"]'); if(!tr) return; const st=logState[id];
   const lts=tr.querySelector('.lg-lts'); if(lts) lts.innerHTML=ltsDots(st.lights);
   tr.querySelectorAll('.lg-light').forEach(b=>b.classList.toggle('on', b.dataset.eff===st.effort));
-  const v=tr.querySelector('.upvid'); if(v){ if(st.video){ v.className='upvid on'; v.textContent='▶ clip · Set '+st.idx; } else { v.className='upvid'; v.textContent='⤴ video'; } }
+  const v=tr.querySelector('.upvid'); if(v){ if(st.uploading){ v.className='upvid up'; v.textContent='… uploading'; } else if(st.video_path){ v.className='upvid on'; v.textContent='▶ clip · Set '+st.idx; } else { v.className='upvid'; v.textContent='⤴ video'; } }
 }
 function recompute(){
   let pNL=0,aNL=0,aTon=0,miss=0,planSets=0,doneSets=0,good=0,effSum=0,effN=0;
@@ -246,7 +291,7 @@ function wireLogging(){
     const tr=e.target.closest('tr[data-set]'); if(!tr) return; const id=tr.dataset.set; const st=logState[id];
     if(e.target.closest('.lg-lts')){ st.lights = st.lights===0?3:st.lights-1; refreshRow(id); recompute(); return; }
     const eff=e.target.closest('.lg-light'); if(eff){ st.effort=(st.effort===eff.dataset.eff?null:eff.dataset.eff); refreshRow(id); recompute(); return; }
-    const v=e.target.closest('.upvid'); if(v){ st.video=!st.video; refreshRow(id); return; }
+    const v=e.target.closest('.upvid'); if(v){ if(st.video_path) playVideo(st.video_path); else { uploadTargetSet=id; document.getElementById('vidInput').click(); } return; }
   });
 }
 async function renderAthlete(){
@@ -277,7 +322,8 @@ async function renderAthlete(){
         effort: lg ? (lg.effort||null) : null,
         miss: lg && lg.miss!=null ? lg.miss : 0,
         done: lg ? !!lg.done : false,
-        video: false, logId: lg ? lg.id : null, gym_id: session.gym_id
+        video_path: lg ? (lg.video_path||null) : null, uploading:false,
+        logId: lg ? lg.id : null, gym_id: session.gym_id
       };
       setIds.push(s.id); rows += rowHtml(s,i);
     });
@@ -324,7 +370,7 @@ async function saveSession(){
       const payload={ gym_id: st.gym_id, session_id: curSession.id, prescribed_set_id: id, athlete_id: me_.id,
         actual_reps: (st.reps===''||st.reps==null)?null:parseInt(st.reps,10),
         actual_kg: (st.kg===''||st.kg==null)?null:parseFloat(st.kg),
-        lights: st.lights, effort: st.effort, miss: (parseInt(st.miss)||0), done: st.done };
+        lights: st.lights, effort: st.effort, miss: (parseInt(st.miss)||0), done: st.done, video_path: st.video_path||null };
       const res = st.logId
         ? await sb.from('logged_sets').update(payload).eq('id', st.logId).select()
         : await sb.from('logged_sets').insert(payload).select();
@@ -409,6 +455,7 @@ async function renderCoachPanel(){
         if(lg.lights!=null) parts.push(`<span class="lights sm">${lightsHtml(lg.lights)}</span>`);
         if(lg.effort) parts.push(`<span class="efftag">${esc(lg.effort)}</span>`);
         if(lg.miss) parts.push(`<span style="color:var(--bad)">${lg.miss} miss</span>`);
+        if(lg.video_path) parts.push(`<span class="vidlink" onclick="playVideo('${esc(lg.video_path)}')">▶ clip</span>`);
         result = parts.length ? `<span style="display:inline-flex;align-items:center;gap:6px">${parts.join('')}</span>` : '<span class="tgt">logged</span>';
       }
       if(lg && lg.done) doneCount++;
