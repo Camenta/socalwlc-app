@@ -108,6 +108,31 @@
   .vid-x{position:absolute;top:-12px;right:-10px;width:30px;height:30px;border-radius:50%;background:var(--panel2);border:1px solid var(--line);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:700}
   .av-note{display:flex;gap:10px;align-items:flex-start;padding:10px 14px;background:#1c2530;border-top:1px solid var(--line);font-size:12.5px}
   .av-note .tag{color:var(--accent2);font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;white-space:nowrap;padding-top:2px}
+  /* morning readiness check-in */
+  .rk-hd{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .rk-score{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 14px}
+  .rk-num{font-size:26px;font-weight:800;color:var(--text)}
+  .rk-num.good{color:var(--good)}.rk-num.warn{color:var(--warn)}.rk-num.bad{color:var(--bad)}
+  .rk-meta{font-size:10px;color:var(--muted);line-height:1.3;text-transform:uppercase;letter-spacing:.4px}
+  .rk-row{display:flex;align-items:center;gap:14px;padding:9px 0;border-bottom:1px solid var(--line)}
+  .rk-row:last-of-type{border-bottom:none}
+  .rk-lbl{flex:0 0 130px;font-size:14px;font-weight:600;color:var(--text)}
+  .rk-hint{display:block;font-size:10px;color:var(--muted);font-weight:400}
+  .rk-scale{display:flex;gap:6px;flex-wrap:wrap}
+  .rk-dot{width:36px;height:36px;border-radius:9px;border:1px solid var(--line);background:#0e151c;color:var(--muted);font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.1s}
+  .rk-dot:hover{border-color:var(--accent2)}
+  .rk-dot.on{background:var(--accent2);border-color:var(--accent2);color:#06121d}
+  .rk-foot{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;margin-top:14px}
+  .rk-bw label,.rk-note label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700;margin-bottom:5px}
+  .rk-bwrow{display:flex;align-items:center;gap:7px}
+  .rk-bw input{background:#0e151c;border:1px solid var(--line);border-radius:8px;padding:9px 12px;color:var(--text);font-size:15px;font-weight:700;width:96px}
+  .rk-bw input:focus,.rk-note textarea:focus{outline:none;border-color:var(--accent2)}
+  .rk-unit{color:var(--muted);font-size:13px;font-weight:600}
+  .rk-note{flex:1;min-width:220px}
+  .rk-note textarea{width:100%;background:#0e151c;border:1px solid var(--line);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;min-height:48px;resize:vertical;font-family:inherit}
+  .rk-donebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;cursor:pointer}
+  .rk-donebar .ok{color:var(--good);font-weight:700}
+  .rk-edit{margin-left:auto;font-size:12px;font-weight:700;color:var(--accent2)}
   /* week day-strip */
   .av-weekcard{padding:14px 16px}
   .av-weekhd{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:11px}
@@ -336,6 +361,89 @@ function weekDates(){ // Mon..Sun of the current week
   return Array.from({length:7},(_,i)=>{ const d=new Date(mon); d.setDate(mon.getDate()+i); return d; });
 }
 function shortTitle(t){ const w=(t||'').split(/[\s·\-—]+/)[0]||'Train'; return w.length>8?w.slice(0,8):w; }
+/* ---------------- morning readiness check-in ---------------- */
+const RK_METRICS=[
+  ['sleep','Sleep','hours & quality'],
+  ['energy','Energy',''],
+  ['motivation','Motivation',''],
+  ['soreness','Soreness','5 = fresh · 1 = wrecked'],
+  ['mood','Mood',''],
+  ['stress','Stress','5 = calm · 1 = maxed out'],
+  ['appetite','Appetite','']
+];
+let rkState=null; // {id, open, vals:{sleep..appetite}, bodyweight, note, savedToday}
+function rkScore(){
+  const vs=RK_METRICS.map(m=>rkState.vals[m[0]]).filter(v=>v!=null);
+  if(vs.length<RK_METRICS.length) return null;
+  return Math.round(vs.reduce((a,b)=>a+b,0)/vs.length*10)/10;
+}
+function rkScoreClass(s){ return s==null?'':(s>=4?'good':(s>=3?'warn':'bad')); }
+function checkinCard(){
+  if(!rkState) return '';
+  if(rkState.savedToday && !rkState.open){
+    const s=rkScore();
+    return `<div class="card"><div class="rk-donebar" onclick="rkState.open=true;repaintCheckin()">
+      <span class="ok">✓ Morning check-in sent to your coach</span>
+      <span class="rk-score"><span class="rk-num ${rkScoreClass(s)}">${s==null?'—':s.toFixed(1)}</span><span class="rk-meta">readiness / 5</span></span>
+      <span class="rk-edit">edit ›</span></div></div>`;
+  }
+  const rows=RK_METRICS.map(([k,lbl,hint],mi)=>{
+    let dots=''; for(let v=1;v<=5;v++) dots+=`<span class="rk-dot${rkState.vals[k]===v?' on':''}" data-k="${k}" data-v="${v}">${v}</span>`;
+    return `<div class="rk-row"><div class="rk-lbl">${lbl}${hint?`<span class="rk-hint">${hint}</span>`:''}</div><div class="rk-scale">${dots}</div></div>`;
+  }).join('');
+  const s=rkScore();
+  return `<div class="card" id="rkCard">
+    <div class="rk-hd"><h2 style="margin:0">Morning check-in</h2>
+      <span class="rk-score"><span class="rk-num ${rkScoreClass(s)}" id="rkNum">${s==null?'—':s.toFixed(1)}</span><span class="rk-meta">readiness / 5<br>sent to your coach</span></span></div>
+    <div class="sub" style="margin:4px 0 6px">Tap 1 (poor) → 5 (great). Takes 20 seconds — your coach sees it before you start.</div>
+    ${rows}
+    <div class="rk-foot">
+      <div class="rk-bw"><label>Bodyweight</label><div class="rk-bwrow"><input id="rkBw" type="number" step="0.1" inputmode="decimal" value="${esc(rkState.bodyweight??'')}"><span class="rk-unit">kg</span></div></div>
+      <div class="rk-note"><label>Notes for your coach</label><textarea id="rkNote" placeholder="Sleep, soreness, travel, pain, anything you want your coach to know…">${esc(rkState.note||'')}</textarea></div>
+    </div>
+    <div style="margin-top:12px"><button class="btn" id="rkSubmit" onclick="submitCheckin()">✓ Submit check-in</button><span class="saved" id="rkMsg" style="margin-left:10px"></span></div>
+  </div>`;
+}
+function repaintCheckin(){
+  const host=document.getElementById('rkHost'); if(host) host.innerHTML=checkinCard();
+}
+function wireCheckin(){
+  const host=document.getElementById('rkHost'); if(!host) return;
+  host.addEventListener('click', e=>{
+    const d=e.target.closest('.rk-dot'); if(!d) return;
+    rkState.vals[d.dataset.k]=+d.dataset.v;
+    // patch in place to keep textarea/bw values
+    const card=document.getElementById('rkCard');
+    card.querySelectorAll(`.rk-dot[data-k="${d.dataset.k}"]`).forEach(x=>x.classList.toggle('on', x===d));
+    const s=rkScore(), n=document.getElementById('rkNum');
+    if(n){ n.textContent=s==null?'—':s.toFixed(1); n.className='rk-num '+rkScoreClass(s); }
+  });
+  host.addEventListener('input', e=>{
+    if(e.target.id==='rkBw') rkState.bodyweight=e.target.value;
+    if(e.target.id==='rkNote') rkState.note=e.target.value;
+  });
+}
+async function submitCheckin(){
+  const btn=document.getElementById('rkSubmit'), msg=document.getElementById('rkMsg');
+  msg.style.color=''; msg.textContent='';
+  const missing=RK_METRICS.filter(m=>rkState.vals[m[0]]==null).map(m=>m[1]);
+  if(missing.length){ msg.style.color='var(--warn)'; msg.textContent='Tap a score for: '+missing.join(', '); return; }
+  const { data:{ user } } = await sb.auth.getUser();
+  if(!user || user.id!==me_.id){ msg.style.color='var(--bad)'; msg.textContent='⚠ Session expired — sign in again.'; return; }
+  btn.disabled=true; btn.textContent='Sending…';
+  const payload={ gym_id: me_.gym_id, athlete_id: me_.id, check_date: iso(new Date()),
+    bodyweight: rkState.bodyweight===''||rkState.bodyweight==null?null:parseFloat(rkState.bodyweight),
+    note: (rkState.note||'').trim()||null };
+  RK_METRICS.forEach(m=>payload[m[0]]=rkState.vals[m[0]]);
+  const res = await sb.from('readiness').upsert(payload, { onConflict:'athlete_id,check_date' }).select();
+  btn.disabled=false; btn.textContent='✓ Submit check-in';
+  if(res.error || !res.data || !res.data.length){
+    msg.style.color='var(--bad)'; msg.textContent='⚠ Send failed — '+(res.error?res.error.message:'sign out and back in.'); return;
+  }
+  rkState.id=res.data[0].id; rkState.savedToday=true; rkState.open=false;
+  repaintCheckin();
+}
+
 async function renderAthlete(selDate){
   app.innerHTML = topbar('Athlete') + `<div class="spin">Loading your week…</div>`;
   if(!(await requireSession())) return;
@@ -356,6 +464,15 @@ async function renderAthlete(selDate){
   }
   // logs for everything in view (prefill + status dots)
   const ids=Object.values(byDate).map(s=>s.id); if(fallback) ids.push(fallback.id);
+  // today's readiness check-in (independent of which day is being viewed).
+  // Gated: if the readiness table doesn't exist yet (migration not run), hide the card entirely.
+  if(!rkState || rkState.date!==todayStr){
+    const { data: rk, error: rkErr } = await sb.from('readiness').select('*').eq('athlete_id', me_.id).eq('check_date', todayStr).maybeSingle();
+    if(rkErr){ rkState=null; }
+    else rkState={ date:todayStr, id: rk?rk.id:null, savedToday: !!rk, open:false,
+      vals:Object.fromEntries(RK_METRICS.map(m=>[m[0], rk?rk[m[0]]:null])),
+      bodyweight: rk&&rk.bodyweight!=null?rk.bodyweight:'', note: rk?(rk.note||''):'' };
+  }
   const { data: allLogs } = await sb.from('logged_sets').select('*').in('session_id', ids);
   const logsBySession={}; (allLogs||[]).forEach(l=>{ (logsBySession[l.session_id]=logsBySession[l.session_id]||[]).push(l); });
   const isLogged = s => (logsBySession[s.id]||[]).some(l=>l.done);
@@ -424,6 +541,7 @@ async function renderAthlete(selDate){
       <div class="av-weekhd"><span class="av-weeklbl">Training week · <b>${weekLabel}</b></span><span class="av-weekprog">${doneN} / ${totN} sessions done</span></div>
       <div class="av-daystrip">${strip}</div>
     </div>
+    <div id="rkHost">${checkinCard()}</div>
     <div id="logRoot">${body}</div>
     <div class="card">
       <div class="ss-head">✓ This is exactly what your coach sees — live, no copy-paste</div>
@@ -431,6 +549,7 @@ async function renderAthlete(selDate){
       <div class="savebar"><button class="btn" id="save" onclick="saveSession()">Submit session</button><span class="saved" id="savedmsg"></span></div>
     </div>`;
   wireLogging();
+  wireCheckin();
   recompute();
 }
 
