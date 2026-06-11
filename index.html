@@ -108,6 +108,27 @@
   .vid-x{position:absolute;top:-12px;right:-10px;width:30px;height:30px;border-radius:50%;background:var(--panel2);border:1px solid var(--line);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:700}
   .av-note{display:flex;gap:10px;align-items:flex-start;padding:10px 14px;background:#1c2530;border-top:1px solid var(--line);font-size:12.5px}
   .av-note .tag{color:var(--accent2);font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;white-space:nowrap;padding-top:2px}
+  /* week day-strip */
+  .av-weekcard{padding:14px 16px}
+  .av-weekhd{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:11px}
+  .av-weeklbl{font-size:13px;color:var(--muted)}
+  .av-weeklbl b{color:var(--text)}
+  .av-weekprog{font-size:12px;font-weight:700;color:var(--accent2)}
+  .av-daystrip{display:flex;gap:7px;overflow-x:auto;padding-bottom:2px}
+  .av-day{flex:1;min-width:70px;display:flex;flex-direction:column;align-items:center;gap:3px;background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:10px 5px 8px;cursor:pointer;transition:border-color .12s}
+  .av-day:hover{border-color:var(--accent2)}
+  .av-day.on{border-color:var(--accent);background:rgba(232,100,60,.08)}
+  .av-day.rest{opacity:.62;cursor:default}
+  .av-day.rest:hover{border-color:var(--line)}
+  .av-day-dow{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+  .av-day.on .av-day-dow{color:var(--accent)}
+  .av-day-d{font-size:17px;font-weight:800;line-height:1.1}
+  .av-day-type{font-size:10px;color:var(--muted);max-width:66px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .av-day-dot{width:7px;height:7px;border-radius:50%;background:var(--line)}
+  .av-day-dot.done{background:var(--good)}
+  .av-day-dot.today{background:var(--accent)}
+  .av-day-dot.up{background:var(--accent2)}
+  .av-day-dot.rest{background:#3a4754}
   /* live session summary */
   .ss-head{font-size:13px;font-weight:700;color:var(--good);margin-bottom:12px}
   .ss-tiles{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:12px}
@@ -139,6 +160,7 @@ const initials = n => (n||'?').split(' ').map(p=>p[0]).slice(0,2).join('').toUpp
 
 let me_ = null;        // current profile
 let coachChan = null;  // realtime channel
+let leavingOnPurpose = false; // set by logout() so the auth listener doesn't double-fire
 
 /* ---------------- boot ---------------- */
 async function boot(){
@@ -149,7 +171,19 @@ async function boot(){
   me_ = profile;
   if(profile.role === 'coach') renderCoach(); else renderAthlete();
 }
-sb.auth.onAuthStateChange((_e,_s)=>{ /* handled explicitly */ });
+// if the login expires or dies mid-use, say so plainly instead of showing empty screens
+sb.auth.onAuthStateChange((event)=>{
+  if(event==='SIGNED_OUT' && me_ && !leavingOnPurpose){
+    me_=null; if(coachChan){ sb.removeChannel(coachChan); coachChan=null; }
+    renderLogin('Your session expired — please sign in again.');
+  }
+});
+// guard before any data render: a live login must exist
+async function requireSession(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if(!session){ me_=null; renderLogin('Your session expired — please sign in again.'); return null; }
+  return session;
+}
 
 /* ---------------- login ---------------- */
 function renderLogin(msg){
@@ -180,7 +214,7 @@ function renderLogin(msg){
   document.getElementById('pw').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
 }
 
-async function logout(){ if(coachChan){ sb.removeChannel(coachChan); coachChan=null; } await sb.auth.signOut(); me_=null; renderLogin(); }
+async function logout(){ leavingOnPurpose=true; if(coachChan){ sb.removeChannel(coachChan); coachChan=null; } await sb.auth.signOut(); me_=null; leavingOnPurpose=false; renderLogin(); }
 
 function topbar(roleLabel){
   return `<div class="topbar">
@@ -294,16 +328,58 @@ function wireLogging(){
     const v=e.target.closest('.upvid'); if(v){ if(st.video_path) playVideo(st.video_path); else { uploadTargetSet=id; document.getElementById('vidInput').click(); } return; }
   });
 }
-async function renderAthlete(){
-  app.innerHTML = topbar('Athlete') + `<div class="spin">Loading your session…</div>`;
-  const { data: sessions } = await sb.from('sessions')
-    .select('id,gym_id,title,session_date,status,prescribed_exercises(id,name,position,category,coach_note,prescribed_sets(id,position,target_text,target_reps,target_kg))')
-    .eq('athlete_id', me_.id).order('session_date',{ascending:false}).order('created_at',{ascending:false}).limit(1);
-  const session = sessions && sessions[0];
-  if(!session){ app.innerHTML = topbar('Athlete') + `<div class="card"><div class="empty">No session assigned yet.</div></div>`; return; }
+const SESSION_SELECT='id,gym_id,title,session_date,status,prescribed_exercises(id,name,position,category,coach_note,prescribed_sets(id,position,target_text,target_reps,target_kg))';
+const DOW=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], MONS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function iso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function weekDates(){ // Mon..Sun of the current week
+  const now=new Date(); const mon=new Date(now); mon.setDate(now.getDate()-((now.getDay()+6)%7));
+  return Array.from({length:7},(_,i)=>{ const d=new Date(mon); d.setDate(mon.getDate()+i); return d; });
+}
+function shortTitle(t){ const w=(t||'').split(/[\s·\-—]+/)[0]||'Train'; return w.length>8?w.slice(0,8):w; }
+async function renderAthlete(selDate){
+  app.innerHTML = topbar('Athlete') + `<div class="spin">Loading your week…</div>`;
+  if(!(await requireSession())) return;
+  const wk=weekDates(), wkIso=wk.map(iso), todayStr=iso(new Date());
+  // all of this week's sessions
+  const { data: weekSess, error: wkErr } = await sb.from('sessions').select(SESSION_SELECT)
+    .eq('athlete_id', me_.id).gte('session_date', wkIso[0]).lte('session_date', wkIso[6])
+    .order('session_date',{ascending:true}).order('created_at',{ascending:false});
+  if(wkErr){ app.innerHTML = topbar('Athlete') + `<div class="card"><div class="empty" style="color:var(--bad)">⚠ Couldn't load your training — ${esc(wkErr.message)}. Pull to refresh or sign out and back in.</div></div>`; return; }
+  const byDate={}; (weekSess||[]).forEach(s=>{ if(!byDate[s.session_date]) byDate[s.session_date]=s; });
+  // fallback: latest session ever, if nothing this week
+  let fallback=null;
+  if(!Object.keys(byDate).length){
+    const { data: latest } = await sb.from('sessions').select(SESSION_SELECT)
+      .eq('athlete_id', me_.id).order('session_date',{ascending:false}).order('created_at',{ascending:false}).limit(1);
+    fallback = latest && latest[0];
+    if(!fallback){ app.innerHTML = topbar('Athlete') + `<div class="card"><div class="empty">No session assigned yet — your coach will publish your training here.</div></div>`; return; }
+  }
+  // logs for everything in view (prefill + status dots)
+  const ids=Object.values(byDate).map(s=>s.id); if(fallback) ids.push(fallback.id);
+  const { data: allLogs } = await sb.from('logged_sets').select('*').in('session_id', ids);
+  const logsBySession={}; (allLogs||[]).forEach(l=>{ (logsBySession[l.session_id]=logsBySession[l.session_id]||[]).push(l); });
+  const isLogged = s => (logsBySession[s.id]||[]).some(l=>l.done);
+  // which day is selected
+  let sel = (selDate && byDate[selDate]) ? selDate : null;
+  if(!sel && byDate[todayStr]) sel=todayStr;
+  if(!sel){ const ds=Object.keys(byDate).sort(), past=ds.filter(d=>d<=todayStr); sel = past[past.length-1] || ds[0] || null; }
+  const session = sel ? byDate[sel] : fallback;
   curSession = session;
-  const { data: logs } = await sb.from('logged_sets').select('*').eq('session_id', session.id);
+  const logs = logsBySession[session.id]||[];
   const logBySet = {}; (logs||[]).forEach(l=>{ if(l.prescribed_set_id) logBySet[l.prescribed_set_id]=l; });
+  // week strip
+  const doneN=Object.values(byDate).filter(isLogged).length, totN=Object.keys(byDate).length;
+  const strip = wk.map((d,i)=>{
+    const dIso=wkIso[i], s=byDate[dIso], isSel=(session.session_date===dIso && !!s);
+    const dot = !s ? 'rest' : (isLogged(s) ? 'done' : (dIso===todayStr ? 'today' : 'up'));
+    return `<div class="av-day${isSel?' on':''}${!s?' rest':''}" ${s?`onclick="renderAthlete('${dIso}')"`:''}>
+      <span class="av-day-dow">${DOW[i]}</span><span class="av-day-d">${d.getDate()}</span>
+      <span class="av-day-type">${s?esc(shortTitle(s.title)):'Rest'}</span><span class="av-day-dot ${dot}"></span>
+    </div>`;
+  }).join('');
+  const r0=wk[0], r6=wk[6];
+  const weekLabel = MONS[r0.getMonth()]+' '+r0.getDate()+' – '+(r6.getMonth()===r0.getMonth()?'':MONS[r6.getMonth()]+' ')+r6.getDate();
+  const dayPill = session.session_date===todayStr ? 'TODAY' : (session.session_date<todayStr ? (isLogged(session)?'COMPLETED':'OPEN') : 'UPCOMING');
 
   const exs = (session.prescribed_exercises||[]).slice().sort(sortByPos);
   logState = {}; curExercises = [];
@@ -340,9 +416,13 @@ async function renderAthlete(){
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <span class="pill phase">${esc((session.status||'training').toUpperCase())}</span>
         <span>Your program · <b>${esc(fmtDate(session.session_date))}</b> · ${esc(session.title||'Training')}</span>
-        <span class="pill" style="margin-left:auto">TODAY</span>
+        <span class="pill" style="margin-left:auto">${dayPill}</span>
       </div>
       <div class="sub" style="margin-top:6px">Log what you did · tap the lights (white = good lift, red = miss) · rate effort E/M/H/X · tick each set off. Saves straight to your coach.</div>
+    </div>
+    <div class="card av-weekcard">
+      <div class="av-weekhd"><span class="av-weeklbl">Training week · <b>${weekLabel}</b></span><span class="av-weekprog">${doneN} / ${totN} sessions done</span></div>
+      <div class="av-daystrip">${strip}</div>
     </div>
     <div id="logRoot">${body}</div>
     <div class="card">
@@ -392,6 +472,7 @@ let coachState = { athletes:[], selected:null };
 
 async function renderCoach(){
   app.innerHTML = topbar('Coach') + `<div class="spin">Loading your athletes…</div>`;
+  if(!(await requireSession())) return;
   const { data: athletes } = await sb.from('profiles').select('id,full_name').eq('role','athlete').order('full_name');
   coachState.athletes = athletes||[];
   coachState.selected = coachState.athletes[0] ? coachState.athletes[0].id : null;
