@@ -54,6 +54,18 @@
   .delta-pos{color:var(--good)}.delta-neg{color:var(--bad)}
   .empty{color:var(--muted);font-size:13px;padding:20px;text-align:center}
   .spin{color:var(--muted);padding:30px;text-align:center}
+  /* coach session builder */
+  .b-bar{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+  .b-ex{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:12px;margin-bottom:10px}
+  .b-ex .b-name{width:100%;font-weight:700;font-size:15px;margin-bottom:6px}
+  .b-ex .b-note{width:100%;font-size:13px;margin-bottom:8px}
+  .b-set{display:flex;gap:8px;align-items:center;margin:5px 0}
+  .b-set .lbl{flex:0 0 42px;color:var(--muted);font-size:12px;font-weight:700}
+  .b-set input{width:74px;text-align:center;padding:8px}
+  .b-x{color:var(--muted);cursor:pointer;font-size:13px;padding:2px 7px;user-select:none}
+  .b-x:hover{color:var(--bad)}
+  .b-add{display:inline-block;font-size:13px;font-weight:700;color:var(--accent2);cursor:pointer;margin-top:4px;user-select:none}
+  .b-add:hover{text-decoration:underline}
 </style>
 </head>
 <body>
@@ -129,7 +141,7 @@ async function renderAthlete(){
   app.innerHTML = topbar('Athlete') + `<div class="spin">Loading your session…</div>`;
   const { data: sessions } = await sb.from('sessions')
     .select('id,gym_id,title,session_date,status,prescribed_exercises(id,name,position,category,coach_note,prescribed_sets(id,position,target_text,target_reps,target_kg))')
-    .eq('athlete_id', me_.id).order('session_date',{ascending:false}).limit(1);
+    .eq('athlete_id', me_.id).order('session_date',{ascending:false}).order('created_at',{ascending:false}).limit(1);
   const session = sessions && sessions[0];
   if(!session){ app.innerHTML = topbar('Athlete') + `<div class="card"><div class="empty">No session assigned yet.</div></div>`; return; }
   const { data: logs } = await sb.from('logged_sets').select('*').eq('session_id', session.id);
@@ -234,22 +246,26 @@ function paintCoach(){
     </div>`).join('') || `<div class="empty">No athletes yet.</div>`;
   app.innerHTML = topbar('Coach') + `
     <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between"><h2 style="margin:0">Your athletes</h2><span class="live"><i></i>LIVE</span></div>
-      <div class="sub" style="margin-bottom:10px">Updates the moment they log a set.</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+        <h2 style="margin:0">Your athletes</h2>
+        <div style="display:flex;align-items:center;gap:12px"><span class="live"><i></i>LIVE</span><button class="btn blue" style="padding:8px 13px" onclick="startBuilder()">＋ New session</button></div>
+      </div>
+      <div class="sub" style="margin-bottom:10px">Pick an athlete, then build a day or watch them log it live.</div>
       ${list}
     </div>
     <div id="coachPanel"></div>`;
-  renderCoachPanel();
+  if(coachState.building) renderBuilder(); else renderCoachPanel();
 }
-window.selectAthlete = (id)=>{ coachState.selected=id; paintCoach(); };
+window.selectAthlete = (id)=>{ coachState.building=false; builder=null; coachState.selected=id; paintCoach(); };
 
 async function renderCoachPanel(){
+  if(coachState.building) return; // don't clobber the builder
   const panel = document.getElementById('coachPanel'); if(!panel) return;
   const athId = coachState.selected; if(!athId){ panel.innerHTML=''; return; }
   const ath = coachState.athletes.find(a=>a.id===athId);
   const { data: sessions } = await sb.from('sessions')
     .select('id,title,session_date,status,prescribed_exercises(id,name,position,prescribed_sets(id,position,target_text))')
-    .eq('athlete_id', athId).order('session_date',{ascending:false}).limit(1);
+    .eq('athlete_id', athId).order('session_date',{ascending:false}).order('created_at',{ascending:false}).limit(1);
   const session = sessions && sessions[0];
   if(!session){ panel.innerHTML = `<div class="card"><div class="empty">No session for ${esc(ath.full_name)} yet.</div></div>`; return; }
   const { data: logs } = await sb.from('logged_sets').select('*').eq('session_id', session.id);
@@ -283,6 +299,110 @@ async function renderCoachPanel(){
     </div>
     ${body}
   </div>`;
+}
+
+/* ---------------- coach: session builder ---------------- */
+let builder = null;
+function today(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function startBuilder(){
+  if(!coachState.selected){ return; }
+  coachState.building = true;
+  builder = { date: today(), title:'', exercises:[ { name:'', note:'', sets:[ {reps:'',kg:''} ] } ] };
+  renderBuilder();
+}
+function cancelBuilder(){ coachState.building=false; builder=null; renderCoachPanel(); }
+function syncFromDom(){
+  if(!builder) return;
+  const t=document.getElementById('bTitle'), d=document.getElementById('bDate');
+  if(t) builder.title=t.value; if(d) builder.date=d.value;
+  document.querySelectorAll('#bEx .b-ex').forEach((exEl,ei)=>{
+    const ex=builder.exercises[ei]; if(!ex) return;
+    ex.name=exEl.querySelector('.b-name').value;
+    ex.note=exEl.querySelector('.b-note').value;
+    exEl.querySelectorAll('.b-set').forEach((setEl,si)=>{
+      const s=ex.sets[si]; if(!s) return;
+      s.reps=setEl.querySelector('.b-reps').value;
+      s.kg=setEl.querySelector('.b-kg').value;
+    });
+  });
+}
+function addExercise(){ syncFromDom(); builder.exercises.push({name:'',note:'',sets:[{reps:'',kg:''}]}); renderBuilder(); }
+function removeExercise(ei){ syncFromDom(); builder.exercises.splice(ei,1); if(!builder.exercises.length) builder.exercises.push({name:'',note:'',sets:[{reps:'',kg:''}]}); renderBuilder(); }
+function addSet(ei){ syncFromDom(); builder.exercises[ei].sets.push({reps:'',kg:''}); renderBuilder(); }
+function removeSet(ei,si){ syncFromDom(); builder.exercises[ei].sets.splice(si,1); if(!builder.exercises[ei].sets.length) builder.exercises[ei].sets.push({reps:'',kg:''}); renderBuilder(); }
+function renderBuilder(){
+  const panel=document.getElementById('coachPanel'); if(!panel||!builder) return;
+  const ath=coachState.athletes.find(a=>a.id===coachState.selected);
+  const fn = ath ? ath.full_name.split(' ')[0] : 'athlete';
+  const exHtml = builder.exercises.map((ex,ei)=>`
+    <div class="b-ex" data-ei="${ei}">
+      <div style="display:flex;gap:8px;align-items:center">
+        <input class="b-name" placeholder="Exercise (e.g. Back Squat)" value="${esc(ex.name)}">
+        <span class="b-x" onclick="removeExercise(${ei})" title="Remove exercise">✕</span>
+      </div>
+      <input class="b-note" placeholder="Coach note (optional)" value="${esc(ex.note)}">
+      <div class="b-sets">${ex.sets.map((s,si)=>`
+        <div class="b-set" data-si="${si}">
+          <span class="lbl">Set ${si+1}</span>
+          <input class="b-reps" placeholder="reps" value="${esc(s.reps)}" inputmode="numeric">
+          <span class="tgt">×</span>
+          <input class="b-kg" placeholder="kg" value="${esc(s.kg)}" inputmode="decimal">
+          <span class="b-x" onclick="removeSet(${ei},${si})" title="Remove set">✕</span>
+        </div>`).join('')}</div>
+      <span class="b-add" onclick="addSet(${ei})">＋ add set</span>
+    </div>`).join('');
+  panel.innerHTML = `<div class="card">
+    <div class="b-bar"><h2 style="margin:0">New session for ${esc(ath?ath.full_name:'')}</h2><span class="btn ghost" style="margin-left:auto;padding:7px 12px" onclick="cancelBuilder()">Cancel</span></div>
+    <div class="b-bar">
+      <input id="bTitle" placeholder="Session title (e.g. Power + Technique)" value="${esc(builder.title)}" style="flex:1;min-width:180px">
+      <input id="bDate" type="date" value="${esc(builder.date)}" style="width:170px">
+    </div>
+    <div id="bEx">${exHtml}</div>
+    <span class="b-add" onclick="addExercise()">＋ add exercise</span>
+    <div class="savebar"><button class="btn" id="bPublish" onclick="publishSession()">Publish to ${esc(fn)}</button><span class="saved" id="bMsg"></span></div>
+  </div>`;
+}
+function setTarget(reps,kg){
+  if(reps!=null && kg!=null) return reps+' × '+kg+'kg';
+  if(reps!=null) return reps+' reps';
+  if(kg!=null) return kg+'kg';
+  return '—';
+}
+async function publishSession(){
+  syncFromDom();
+  const btn=document.getElementById('bPublish'), msg=document.getElementById('bMsg');
+  msg.style.color=''; msg.textContent='';
+  const exs = builder.exercises.filter(e=>e.name.trim());
+  if(!builder.title.trim()){ msg.style.color='var(--bad)'; msg.textContent='Give the session a title.'; return; }
+  if(!exs.length){ msg.style.color='var(--bad)'; msg.textContent='Add at least one exercise with a name.'; return; }
+  const { data:{ user } } = await sb.auth.getUser();
+  if(!user || user.id!==me_.id){ msg.style.color='var(--bad)'; msg.textContent='⚠ Login mismatch — sign out and back in.'; return; }
+  btn.disabled=true; btn.textContent='Publishing…';
+  try{
+    const { data: sess, error: se } = await sb.from('sessions').insert({
+      gym_id: me_.gym_id, athlete_id: coachState.selected, session_date: builder.date,
+      title: builder.title.trim(), status:'published'
+    }).select().single();
+    if(se) throw se;
+    let pos=0;
+    for(const ex of exs){
+      const { data: pex, error: ee } = await sb.from('prescribed_exercises').insert({
+        gym_id: me_.gym_id, session_id: sess.id, position: pos++, name: ex.name.trim(),
+        category:'primary', coach_note: ex.note.trim()||null
+      }).select().single();
+      if(ee) throw ee;
+      const sets = ex.sets
+        .map((s)=>({ reps: s.reps===''?null:parseInt(s.reps,10), kg: s.kg===''?null:parseFloat(s.kg) }))
+        .filter(s=>s.reps!=null || s.kg!=null)
+        .map((s,si)=>({ gym_id: me_.gym_id, exercise_id: pex.id, position: si, target_reps: s.reps, target_kg: s.kg, target_text: setTarget(s.reps,s.kg) }));
+      if(sets.length){ const { error: ste } = await sb.from('prescribed_sets').insert(sets); if(ste) throw ste; }
+    }
+    coachState.building=false; builder=null;
+    paintCoach(); // shows the freshly published session in the read-only panel
+  }catch(e){
+    btn.disabled=false; btn.textContent='Publish';
+    msg.style.color='var(--bad)'; msg.textContent='⚠ Publish failed — '+(e.message||e);
+  }
 }
 
 boot();
