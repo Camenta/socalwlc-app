@@ -130,6 +130,13 @@
   .rk-unit{color:var(--muted);font-size:13px;font-weight:600}
   .rk-note{flex:1;min-width:220px}
   .rk-note textarea{width:100%;background:#0e151c;border:1px solid var(--line);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;min-height:48px;resize:vertical;font-family:inherit}
+  /* coach view of a check-in */
+  .rkc-hd{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .rkc-chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .rkc-chip{display:inline-flex;align-items:center;gap:7px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 11px;font-size:12px}
+  .rkc-chip .rkc-l{color:var(--muted);font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.4px}
+  .rkc-chip b{font-size:14px}
+  .rkc-note{margin-top:10px;font-size:13px;font-style:italic;color:var(--text);background:var(--panel2);border-left:2px solid var(--accent2);border-radius:0 8px 8px 0;padding:8px 12px}
   .rk-donebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;cursor:pointer}
   .rk-donebar .ok{color:var(--good);font-weight:700}
   .rk-edit{margin-left:auto;font-size:12px;font-weight:700;color:var(--accent2)}
@@ -599,6 +606,7 @@ async function renderCoach(){
   if(coachChan) sb.removeChannel(coachChan);
   coachChan = sb.channel('logs-coach')
     .on('postgres_changes', { event:'*', schema:'public', table:'logged_sets' }, ()=>renderCoachPanel())
+    .on('postgres_changes', { event:'*', schema:'public', table:'readiness' }, ()=>renderCoachPanel())
     .subscribe();
   paintCoach();
 }
@@ -623,16 +631,42 @@ function paintCoach(){
 }
 window.selectAthlete = (id)=>{ coachState.building=false; builder=null; coachState.selected=id; paintCoach(); };
 
+function rkChip(lbl,v){
+  const col = v>=4?'var(--good)':(v>=3?'var(--warn)':'var(--bad)');
+  return `<span class="rkc-chip"><span class="rkc-l">${lbl}</span><b style="color:${col}">${v}</b></span>`;
+}
+function coachReadinessCard(rk){
+  if(!rk) return `<div class="card rkc"><div class="rkc-hd"><h2 style="margin:0">Morning check-in</h2><span class="sub">no check-in yet</span></div></div>`;
+  const vals=[rk.sleep,rk.energy,rk.motivation,rk.soreness,rk.mood,rk.stress,rk.appetite].filter(v=>v!=null);
+  const score=vals.length?Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*10)/10:null;
+  const isToday = rk.check_date===iso(new Date());
+  const chips = [['Sleep',rk.sleep],['Energy',rk.energy],['Motiv',rk.motivation],['Sore',rk.soreness],['Mood',rk.mood],['Stress',rk.stress],['Appetite',rk.appetite]]
+    .filter(([,v])=>v!=null).map(([l,v])=>rkChip(l,v)).join('');
+  return `<div class="card rkc">
+    <div class="rkc-hd">
+      <h2 style="margin:0">Morning check-in</h2>
+      <span class="sub">${isToday?'today':esc(rk.check_date)}${rk.bodyweight!=null?` · ${esc(rk.bodyweight)} kg`:''}</span>
+      <span class="rk-score" style="margin-left:auto"><span class="rk-num ${rkScoreClass(score)}">${score==null?'—':score.toFixed(1)}</span><span class="rk-meta">readiness / 5</span></span>
+    </div>
+    <div class="rkc-chips">${chips}</div>
+    ${rk.note?`<div class="rkc-note">“${esc(rk.note)}”</div>`:''}
+  </div>`;
+}
 async function renderCoachPanel(){
   if(coachState.building) return; // don't clobber the builder
   const panel = document.getElementById('coachPanel'); if(!panel) return;
   const athId = coachState.selected; if(!athId){ panel.innerHTML=''; return; }
   const ath = coachState.athletes.find(a=>a.id===athId);
+  // latest check-in for this athlete (hidden gracefully if the table doesn't exist yet)
+  let rkCardHtml='';
+  const { data: rkRows, error: rkE } = await sb.from('readiness').select('*')
+    .eq('athlete_id', athId).order('check_date',{ascending:false}).limit(1);
+  if(!rkE) rkCardHtml = coachReadinessCard(rkRows && rkRows[0]);
   const { data: sessions } = await sb.from('sessions')
     .select('id,title,session_date,status,prescribed_exercises(id,name,position,prescribed_sets(id,position,target_text))')
     .eq('athlete_id', athId).order('session_date',{ascending:false}).order('created_at',{ascending:false}).limit(1);
   const session = sessions && sessions[0];
-  if(!session){ panel.innerHTML = `<div class="card"><div class="empty">No session for ${esc(ath.full_name)} yet.</div></div>`; return; }
+  if(!session){ panel.innerHTML = rkCardHtml + `<div class="card"><div class="empty">No session for ${esc(ath.full_name)} yet.</div></div>`; return; }
   const { data: logs } = await sb.from('logged_sets').select('*').eq('session_id', session.id);
   const logBySet = {}; (logs||[]).forEach(l=>{ if(l.prescribed_set_id) logBySet[l.prescribed_set_id]=l; });
 
@@ -664,7 +698,7 @@ async function renderCoachPanel(){
     body += `</tbody></table>`;
   });
 
-  panel.innerHTML = `<div class="card">
+  panel.innerHTML = rkCardHtml + `<div class="card">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <h2 style="margin:0">${esc(ath.full_name)} — ${esc(session.title||'Session')}</h2>
       <span class="sub">${esc(session.session_date)}</span>
