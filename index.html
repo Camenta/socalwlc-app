@@ -101,6 +101,10 @@
   .upvid{display:inline-flex;align-items:center;gap:4px;background:#2a2340;border:1px dashed #3d3460;color:#b9a8ff;border-radius:6px;padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
   .upvid.on{background:#1d3a2a;border-color:#2f6b48;color:#7fdca8;border-style:solid}
   .upvid.up{background:#33302a;border-color:#5a4419;color:var(--warn);border-style:solid;cursor:default}
+  .vidcell{white-space:nowrap}
+  .vidrm{color:var(--muted);cursor:pointer;font-weight:700;margin-left:6px;font-size:12px}
+  .vidrm:hover{color:var(--bad)}
+  .vidrm.arm{color:var(--bad);font-size:11px;font-weight:800}
   .vidlink{color:#7fdca8;cursor:pointer;font-weight:700;white-space:nowrap}
   .vidlink:hover{text-decoration:underline}
   .vid-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:200;align-items:center;justify-content:center;padding:24px}
@@ -285,8 +289,21 @@ function fmtDate(d){ const D=new Date(d+'T00:00:00'); const days=['Sunday','Mond
 function effCells(id,eff){ return `<span class="lg-eff">${EFFORTS.map(e=>`<span class="lg-light ${e[0]}${eff===e[0]?' on':''}" data-eff="${e[0]}" data-set="${id}">${e[1]}</span>`).join('')}</span>`; }
 function vidCell(id, st){
   if(st.uploading) return `<span class="upvid up" data-set="${id}">… uploading</span>`;
-  if(st.video_path) return `<span class="upvid on" data-set="${id}">▶ clip · Set ${st.idx}</span>`;
+  if(st.video_path) return `<span class="upvid on" data-set="${id}">▶ clip · Set ${st.idx}</span><span class="vidrm" data-set="${id}" title="Remove this video">✕</span>`;
   return `<span class="upvid" data-set="${id}">⤴ video</span>`;
+}
+async function removeVideo(id){
+  const st=logState[id]; if(!st || !st.video_path) return;
+  try{
+    const { error, data } = await sb.storage.from('lift-videos').remove([st.video_path]);
+    if(error || !data || !data.length) throw (error || new Error('not removed (permission?)'));
+    st.video_path=null; refreshRow(id);
+    await saveOneSet(id); // persist the cleared link
+  }catch(e){
+    console.error('video remove failed:', e.message||e);
+    const tr=document.querySelector('tr[data-set="'+id+'"]');
+    const vr=tr && tr.querySelector('.vidrm'); if(vr){ vr.classList.remove('arm'); vr.textContent='⚠'; setTimeout(()=>{ if(vr.isConnected) vr.textContent='✕'; },2500); }
+  }
 }
 let uploadTargetSet=null;
 async function onVidPicked(){
@@ -337,7 +354,7 @@ function rowHtml(key,i){
     <td><input class="cell mini" data-f="miss" value="${esc(st.miss)}" inputmode="numeric"></td>
     <td><span class="lights lg-lts" data-set="${key}" title="Tap: white = good lift, red = miss">${ltsDots(st.lights)}</span></td>
     <td>${effCells(key, st.effort)}</td>
-    <td>${vidCell(key, st)}</td>
+    <td class="vidcell">${vidCell(key, st)}</td>
     <td><input type="checkbox" class="chk" data-f="done" ${st.done?'checked':''}></td>
     <td>${st.added?`<span class="lg-del" data-set="${key}" title="Remove this set">✕</span>`:''}</td>
   </tr>`;
@@ -359,7 +376,7 @@ async function removeSetRow(key){
   const st=logState[key]; if(!st || !st.added) return;
   if(st.logId){
     const res=await sb.from('logged_sets').delete().eq('id', st.logId).select();
-    if(res.error || !res.data || !res.data.length){ alert('Could not remove that set — '+(res.error?res.error.message:'try again')); return; }
+    if(res.error || !res.data || !res.data.length){ console.error('set remove failed:', res.error&&res.error.message); return; }
   }
   const ex=curExercises.find(e=>e.exId===st.exId);
   if(ex) ex.setIds=ex.setIds.filter(k=>k!==key);
@@ -371,7 +388,7 @@ function refreshRow(id){
   const tr=document.querySelector('tr[data-set="'+id+'"]'); if(!tr) return; const st=logState[id];
   const lts=tr.querySelector('.lg-lts'); if(lts) lts.innerHTML=ltsDots(st.lights);
   tr.querySelectorAll('.lg-light').forEach(b=>b.classList.toggle('on', b.dataset.eff===st.effort));
-  const v=tr.querySelector('.upvid'); if(v){ if(st.uploading){ v.className='upvid up'; v.textContent='… uploading'; } else if(st.video_path){ v.className='upvid on'; v.textContent='▶ clip · Set '+st.idx; } else { v.className='upvid'; v.textContent='⤴ video'; } }
+  const vc=tr.querySelector('.vidcell'); if(vc) vc.innerHTML=vidCell(id, st);
 }
 function recompute(){
   let pNL=0,aNL=0,aTon=0,miss=0,planSets=0,doneSets=0,good=0,effSum=0,effN=0;
@@ -402,6 +419,11 @@ function wireLogging(){
     if(e.target.closest('.lg-lts')){ st.lights = st.lights===0?3:st.lights-1; refreshRow(id); recompute(); return; }
     const eff=e.target.closest('.lg-light'); if(eff){ st.effort=(st.effort===eff.dataset.eff?null:eff.dataset.eff); refreshRow(id); recompute(); return; }
     const v=e.target.closest('.upvid'); if(v){ if(st.video_path) playVideo(st.video_path); else { uploadTargetSet=id; document.getElementById('vidInput').click(); } return; }
+    const vr=e.target.closest('.vidrm'); if(vr){
+      if(!vr.classList.contains('arm')){ vr.classList.add('arm'); vr.textContent='remove?'; setTimeout(()=>{ if(vr.isConnected){ vr.classList.remove('arm'); vr.textContent='✕'; } }, 4500); }
+      else removeVideo(id);
+      return;
+    }
     const del=e.target.closest('.lg-del'); if(del){ removeSetRow(id); return; }
   });
 }
