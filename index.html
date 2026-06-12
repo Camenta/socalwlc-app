@@ -180,6 +180,43 @@
   .av-day-dot.draft{background:var(--warn)}
   .pv-legend{display:flex;gap:14px;font-size:11px;color:var(--muted);flex-wrap:wrap;align-items:center}
   .pv-legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle}
+  /* scheme library picker */
+  .sch-wide{max-width:1150px;width:96vw}
+  .schlib{display:grid;grid-template-columns:330px 1fr;gap:18px;margin-top:10px}
+  @media(max-width:860px){.schlib{grid-template-columns:1fr}}
+  .sl-left{display:flex;flex-direction:column;gap:9px;min-width:0}
+  .sl-search{background:#0e151c;border:1px solid var(--line);border-radius:10px;padding:11px 13px;color:var(--text);font-size:14px}
+  .sl-search:focus{outline:none;border-color:var(--accent2)}
+  .sl-flbl{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:800;margin-top:3px}
+  .sl-chips{display:flex;gap:6px;flex-wrap:wrap}
+  .sl-chip{background:var(--panel2);border:1px solid var(--line);border-radius:9px;color:var(--text);font-weight:700;font-size:12px;padding:7px 12px;cursor:pointer}
+  .sl-chip.on{border-color:var(--accent2);color:var(--accent2);background:rgba(60,158,232,.1)}
+  .sl-count{font-size:11.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:9px}
+  .sl-list{overflow-y:auto;max-height:44vh;display:flex;flex-direction:column}
+  .sl-item{padding:10px 12px;border-left:3px solid transparent;cursor:pointer;border-bottom:1px solid rgba(38,50,61,.5)}
+  .sl-item:hover{background:var(--panel2)}
+  .sl-item.on{border-left-color:var(--accent);background:var(--panel2)}
+  .sl-name{font-weight:800;font-size:13.5px;line-height:1.3}
+  .sl-meta{font-size:11px;color:var(--muted);margin-top:2px}
+  .sl-right{min-width:0}
+  .sl-title{font-size:20px;font-weight:800;margin-bottom:9px}
+  .sl-chiprow{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:9px}
+  .sl-mchip{background:var(--panel2);border:1px solid var(--line);border-radius:9px;font-size:12px;color:var(--muted);padding:6px 11px}
+  .sl-mchip b{color:var(--text)}
+  .sl-help{font-size:12px;color:var(--muted);font-style:italic;margin-bottom:10px}
+  .sl-gridwrap{overflow:auto;max-height:52vh;border:1px solid var(--line);border-radius:10px}
+  .sl-grid{border-collapse:collapse;width:100%;min-width:560px}
+  .sl-grid th{background:var(--panel2);font-size:11px;letter-spacing:.5px;color:var(--muted);font-weight:800;padding:9px 8px;position:sticky;top:0}
+  .sl-grid th.wk{cursor:pointer;color:var(--accent2)}
+  .sl-grid th.wk:hover{color:var(--text)}
+  .sl-grid th.wk.on{outline:2px solid var(--accent2);outline-offset:-2px;color:var(--text);background:#16202b}
+  .sl-grid td{padding:7px 8px;border-top:1px solid var(--line);font-size:12.5px;text-align:center;white-space:nowrap}
+  .sl-grid td b{color:var(--accent)}
+  .sl-grid td.selcol{background:rgba(60,158,232,.06)}
+  .sl-setcol{text-align:left!important;font-weight:700;background:rgba(255,255,255,.015);position:sticky;left:0}
+  .sl-mrow td{font-size:11px;color:var(--muted);background:rgba(255,255,255,.012)}
+  .sl-mrow td b{color:var(--text)}
+  .sl-foot{display:flex;align-items:center;gap:11px;flex-wrap:wrap;margin-top:14px;border-top:1px solid var(--line);padding-top:13px}
   /* mockup-feel editor: banners, cues, scheme, hdstats */
   .cvt .bandrow th{font-size:10px;letter-spacing:.8px;padding:8px 6px}
   .cvt .bandrow th.plh{color:var(--accent2)}
@@ -1450,11 +1487,138 @@ function schemeExpand(n,reps,shape,top,rampFrom,amp){
   }
   return out;
 }
-function openSchemeModal(ei){ schemeTarget=ei; paintSchemeModal(); }
+/* ===== scheme LIBRARY picker (the real 347-scheme library) ===== */
+let schLib={loaded:false,error:false,rows:[],q:'',mv:'All',ph:'All',selId:null,wk:0};
+window.openSchemeModal=async function(ei){
+  schemeTarget=ei;
+  if(!schLib.loaded){
+    const { data, error } = await sb.from('schemes').select('*').order('name').limit(1000);
+    if(error){ schLib.error=true; }
+    else { schLib.rows=data||[]; schLib.loaded=true; }
+  }
+  if(schLib.error || !schLib.rows.length){ paintCustomScheme(); return; }
+  schLib.wk=0;
+  paintSchemeLib();
+};
+function libFiltered(){
+  const q=schLib.q.toLowerCase();
+  return schLib.rows.filter(s=>{
+    if(schLib.mv!=='All'){
+      const m=s.movement||'';
+      const hit = m===schLib.mv || (schLib.mv==='Snatch'&&m==='Sn or CJ') || (schLib.mv==='Clean & Jerk'&&m==='Sn or CJ');
+      if(!hit) return false;
+    }
+    if(schLib.ph!=='All' && s.phase!==schLib.ph) return false;
+    if(q){
+      const hay=(s.name+' '+(s.movement_label||'')+' '+(s.phase_label||'')+' '+(s.pattern||'')).toLowerCase();
+      if(hay.indexOf(q)===-1) return false;
+    }
+    return true;
+  });
+}
+function libSelected(){ return schLib.rows.find(s=>s.id===schLib.selId) || libFiltered()[0] || null; }
+function wkMetrics(weekRows){
+  let vol=0,vw=0,pv=0,inol=0,peak=0;
+  (weekRows||[]).forEach(r=>{ const n=(r.s||1)*(r.r||0); vol+=n;
+    if(r.p!=null&&n){ vw+=r.p*n; pv+=n; if(r.p>peak)peak=r.p; if(r.p<100) inol+=n/(100-r.p); } });
+  return { vol, ari: pv?vw/pv:0, inol, peak };
+}
+function paintSchemeLib(){
+  const sel=libSelected(); if(sel) schLib.selId=sel.id;
+  const ex=ed&&ed.exercises[schemeTarget];
+  ovModal('schemeModal', `
+    <div class="ov-hd"><div><h2 style="margin:0">⚡ Set/Rep Scheme</h2>
+      <div class="sub">Set/rep scheme library · applying to <b>${esc(ex?ex.name||'exercise':'')}</b></div></div>
+      <span class="vid-x" onclick="document.getElementById('schemeModal').style.display='none'">✕</span></div>
+    <div class="schlib">
+      <div class="sl-left">
+        <input class="sl-search" placeholder="Search schemes…" value="${esc(schLib.q)}" oninput="schLib.q=this.value;paintLibList()">
+        <div class="sl-flbl">Movement</div>
+        <div class="sl-chips" id="slMv">${['All','Squat','Snatch','Clean & Jerk','Pull','Press'].map(m=>`<button class="sl-chip${schLib.mv===m?' on':''}" onclick="schLib.mv='${m.replace(/'/g,"\\'")}';paintSchemeLib()">${m}</button>`).join('')}</div>
+        <div class="sl-flbl">Training phase</div>
+        <div class="sl-chips" id="slPh">${['All','Comprehension','Ascension','Summit'].map(m=>`<button class="sl-chip${schLib.ph===m?' on':''}" onclick="schLib.ph='${m}';paintSchemeLib()">${m}</button>`).join('')}</div>
+        <div class="sl-count" id="slCount"></div>
+        <div class="sl-list" id="slList"></div>
+      </div>
+      <div class="sl-right" id="slDetail"></div>
+    </div>
+    <div class="sl-foot">
+      <button class="btn" id="slApply" onclick="applyLibScheme()">Apply week ${schLib.wk+1} →</button>
+      <button class="btn ghost" onclick="paintCustomScheme()">⚙ Custom builder</button>
+      <span class="sub" style="margin-left:auto">Click a week column — that microcycle populates this exercise. Loads price live off the athlete's max.</span>
+    </div>`);
+  const box=document.querySelector('#schemeModal .vid-box'); if(box) box.classList.add('sch-wide');
+  paintLibList();
+  paintLibDetail();
+}
+window.paintLibList=function(){
+  const list=document.getElementById('slList'), cnt=document.getElementById('slCount');
+  if(!list) return;
+  const rows=libFiltered();
+  if(cnt) cnt.textContent=rows.length+' of '+schLib.rows.length+' schemes';
+  list.innerHTML=rows.slice(0,200).map(s=>`
+    <div class="sl-item${s.id===schLib.selId?' on':''}" onclick="schLib.selId='${s.id}';schLib.wk=0;paintLibList();paintLibDetail()">
+      <div class="sl-name">${esc(s.name)}</div>
+      <div class="sl-meta">${[s.movement,s.phase,(s.weeks+'wk'),s.pattern].filter(Boolean).map(esc).join(' · ')}</div>
+    </div>`).join('') + (rows.length>200?`<div class="sl-meta" style="padding:10px">…${rows.length-200} more — refine the search</div>`:'');
+};
+window.paintLibDetail=function(){
+  const host=document.getElementById('slDetail'); if(!host) return;
+  const s=libSelected();
+  if(!s){ host.innerHTML='<div class="empty">No schemes match.</div>'; return; }
+  schLib.selId=s.id;
+  const weeks=s.data||[];
+  if(schLib.wk>=weeks.length) schLib.wk=0;
+  const maxRows=Math.max(...weeks.map(w=>w.length));
+  const chips=[['Movement',s.movement||'—'],['Phase',s.phase||s.phase_label||'—'],['Length',s.weeks+' weeks'],['Pattern',s.pattern||'—'],['Reps',s.reps_mode?s.reps_mode+'/set':'—']]
+    .map(c=>`<span class="sl-mchip">${c[0]} <b>${esc(String(c[1]))}</b></span>`).join('');
+  let head='<tr><th class="sl-setcol">Set</th>'+weeks.map((_,w)=>`<th class="wk${w===schLib.wk?' on':''}" onclick="schLib.wk=${w};paintLibDetail();var a=document.getElementById('slApply');if(a)a.textContent='Apply week ${w+1} →'">WK ${w+1}</th>`).join('')+'</tr>';
+  let body='';
+  for(let i=0;i<maxRows;i++){
+    body+='<tr><td class="sl-setcol">Set '+(i+1)+'</td>'+weeks.map((wkRows,w)=>{
+      const r=wkRows[i];
+      if(!r) return `<td class="${w===schLib.wk?'selcol':''}"></td>`;
+      const txt=`${r.s||1}×${r.r??'—'}${r.p!=null?` <b>@${r.p}%</b>`:''}`;
+      return `<td class="${w===schLib.wk?'selcol':''}">${txt}</td>`;
+    }).join('')+'</tr>';
+  }
+  const mrow=(lbl,fn,fmt)=>'<tr class="sl-mrow"><td class="sl-setcol">'+lbl+'</td>'+weeks.map((wkRows,w)=>{
+    const m=wkMetrics(wkRows); return `<td class="${w===schLib.wk?'selcol':''}">${fmt(m)}</td>`; }).join('')+'</tr>';
+  host.innerHTML=`
+    <div class="sl-title">${esc(s.name)}</div>
+    <div class="sl-chiprow">${chips}</div>
+    <div class="sl-help">Click a week column to preview it — that microcycle is what populates this exercise. Sets×Reps @ %1RM.</div>
+    <div class="sl-gridwrap"><table class="sl-grid"><thead>${head}</thead><tbody>${body}
+      ${mrow('Volume (NL)',0,m=>'<b>'+m.vol+'</b>')}
+      ${mrow('Rel. Int.',0,m=>m.ari?m.ari.toFixed(1)+'%':'—')}
+      ${mrow('INOL',0,m=>m.inol?m.inol.toFixed(2):'—')}
+      ${mrow('Peak',0,m=>m.peak?m.peak+'%':'—')}
+    </tbody></table></div>`;
+};
+window.applyLibScheme=function(){
+  const s=libSelected(); const ex=ed&&ed.exercises[schemeTarget];
+  if(!s||!ex) return;
+  const weekRows=(s.data||[])[schLib.wk]||[];
+  if(!weekRows.length) return;
+  const anyPct=weekRows.some(r=>r.p!=null);
+  ex.loadType = anyPct ? 'percentage' : 'open';
+  const orm = anyPct ? oneRMFor(ex.name) : null;
+  ex.sets.forEach(st=>{ if(st.id) ex.delSets.push(st.id); });
+  ex.sets=[];
+  weekRows.forEach(r=>{
+    for(let i=0;i<(r.s||1);i++){
+      ex.sets.push({id:null, reps:r.r!=null?r.r:'', pct:r.p!=null?r.p:'', kg:(r.p!=null&&orm)?rnd1(orm*r.p/100):'', vel:'', eff:''});
+    }
+  });
+  ed.dirty=true;
+  document.getElementById('schemeModal').style.display='none';
+  paintEditor();
+};
 function schemeUnit(){ const ex=ed&&ed.exercises[schemeTarget]; const t=ex?(ex.loadType||'percentage'):'percentage';
   return t==='percentage'?'%':(t==='vbt'?'m/s':(t==='weight'?'kg':(t==='rpe'?'RPE':(t==='rir'?'RIR':''))));
 }
-function paintSchemeModal(vals){
+
+function paintCustomScheme(vals){
   const ex=ed&&ed.exercises[schemeTarget]; if(!ex) return;
   const v=vals||{sets:5,reps:3,shape:'ramp',top:(ex.loadType==='vbt'?1.0:(ex.loadType==='weight'?(oneRMFor(ex.name)?Math.round(oneRMFor(ex.name)*0.8):60):(ex.loadType==='rpe'?8:(ex.loadType==='rir'?2:80)))),rampFrom:10,amp:4};
   const unit=schemeUnit();
@@ -1463,8 +1627,8 @@ function paintSchemeModal(vals){
   const orm=(ex.loadType||'percentage')==='percentage'?oneRMFor(ex.name):null;
   const preview=rows.map((r,i)=>`<span class="sch-prev">${i+1}: ${r.reps} @ ${r.val}${unit}${orm?` (${rnd1(orm*r.val/100)}kg)`:''}</span>`).join('');
   ovModal('schemeModal', `
-    <div class="ov-hd"><h2 style="margin:0">⚡ Set/Rep Scheme</h2><span class="vid-x" onclick="document.getElementById('schemeModal').style.display='none'">✕</span></div>
-    <div class="sub" style="margin:2px 0 12px">Build the set scheme — replaces this exercise's rows. Targets in <b>${unit||'reps only'}</b> (from the load type).</div>
+    <div class="ov-hd"><h2 style="margin:0">⚙ Custom Scheme Builder</h2><span class="vid-x" onclick="document.getElementById('schemeModal').style.display='none'">✕</span></div>
+    <div class="sub" style="margin:2px 0 12px">${schLib.loaded&&!schLib.error?'<span class="lg-add" style="margin:0 10px 0 0" onclick="paintSchemeLib()">← Library</span>':''}Build a one-off scheme — replaces this exercise's rows. Targets in <b>${unit||'reps only'}</b> (from the load type).</div>
     <div class="cue-cats" style="margin-bottom:12px">${presets}</div>
     <div class="bf-row">
       <span class="bf-wk"><label>Sets</label><input id="schSets" type="number" value="${v.sets}" min="1" max="15" oninput="schemeRefresh()"></span>
@@ -1478,7 +1642,8 @@ function paintSchemeModal(vals){
     <div class="sch-preview" id="schPreview">${preview}</div>
     <div class="bf-row" style="margin-top:12px"><button class="btn" onclick="applyScheme()">Apply to exercise</button></div>`);
 }
-window.schemePreset=(i)=>{ const p=SCHEME_PRESETS[i]; paintSchemeModal({sets:p.sets,reps:p.reps,shape:p.shape,top:p.top,rampFrom:p.rampFrom||10,amp:p.amp||4}); };
+window.schemePreset=(i)=>{ const p=SCHEME_PRESETS[i]; paintCustomScheme({sets:p.sets,reps:p.reps,shape:p.shape,top:p.top,rampFrom:p.rampFrom||10,amp:p.amp||4}); };
+(function(){ const _pc=paintCustomScheme; paintCustomScheme=function(v){ _pc(v); const b=document.querySelector('#schemeModal .vid-box'); if(b) b.classList.remove('sch-wide'); }; })();
 window.schemeRefresh=()=>{
   const v={sets:+document.getElementById('schSets').value||1,reps:+document.getElementById('schReps').value||1,
     shape:document.getElementById('schShape').value,top:parseFloat(document.getElementById('schTop').value)||0,
