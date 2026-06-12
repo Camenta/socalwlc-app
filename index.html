@@ -180,6 +180,18 @@
   .av-day-dot.draft{background:var(--warn)}
   .pv-legend{display:flex;gap:14px;font-size:11px;color:var(--muted);flex-wrap:wrap;align-items:center}
   .pv-legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle}
+  /* session tabs (AM/PM) + block banner + rollup */
+  .cw-stabs{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px}
+  .cw-stab{background:var(--panel2);border:1px solid var(--line);border-radius:9px;color:var(--text);font-size:12.5px;font-weight:700;padding:8px 13px;cursor:pointer}
+  .cw-stab.on{border-color:var(--accent);color:var(--accent);background:rgba(232,100,60,.08)}
+  .cw-stab i{font-style:normal;font-size:10px;color:var(--warn);margin-left:4px}
+  .cw-stab.add{color:var(--accent2);border-style:dashed}
+  .cw-block{font-size:12px;color:var(--accent2);background:rgba(60,158,232,.08);border:1px solid rgba(60,158,232,.2);border-radius:9px;padding:7px 12px;margin-bottom:11px;font-weight:700}
+  .cw-block span{color:var(--good)}
+  table.ru td,table.ru th{font-size:12.5px}
+  table.ru td:first-child{text-align:left}
+  table.ru th:first-child{text-align:left}
+  tr.ru-hl td{background:rgba(60,158,232,.06)}
   /* coach week nav + stats */
   .cw-nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .cw-arr{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:16px;font-weight:800;cursor:pointer;line-height:1}
@@ -316,6 +328,8 @@ function topbar(roleLabel){
 function sortByPos(a,b){ return (a.position||0)-(b.position||0); }
 
 let logState = {};      // key -> {idx,reps,kg,lights,effort,miss,done,logId,gym_id,targetReps,psId,exId,added}
+let athSelDate=null, athSelSess=null;  // athlete's selected day + session (AM/PM)
+window.athSelectSess=(id)=>{ athSelSess=id; renderAthlete(athSelDate); };
 let curSession = null;
 let curExercises = [];  // [{name,exId,setIds:[...]}] for the live summary
 let addSetReady = false; // true once logged_sets.exercise_id exists (05_addset.sql run)
@@ -564,9 +578,9 @@ async function renderAthlete(selDate){
   // all of this week's sessions
   const { data: weekSess, error: wkErr } = await sb.from('sessions').select(SESSION_SELECT)
     .eq('athlete_id', me_.id).neq('status','draft').gte('session_date', wkIso[0]).lte('session_date', wkIso[6])
-    .order('session_date',{ascending:true}).order('created_at',{ascending:false});
+    .order('session_date',{ascending:true}).order('created_at',{ascending:true});
   if(wkErr){ app.innerHTML = topbar('Athlete') + `<div class="card"><div class="empty" style="color:var(--bad)">⚠ Couldn't load your training — ${esc(wkErr.message)}. Pull to refresh or sign out and back in.</div></div>`; return; }
-  const byDate={}; (weekSess||[]).forEach(s=>{ if(!byDate[s.session_date]) byDate[s.session_date]=s; });
+  const byDate={}; (weekSess||[]).forEach(s=>{ (byDate[s.session_date]=byDate[s.session_date]||[]).push(s); });
   // fallback: latest session ever, if nothing this week
   let fallback=null;
   if(!Object.keys(byDate).length){
@@ -576,7 +590,7 @@ async function renderAthlete(selDate){
     if(!fallback){ app.innerHTML = topbar('Athlete') + `<div class="card"><div class="empty">No session assigned yet — your coach will publish your training here.</div></div>`; return; }
   }
   // logs for everything in view (prefill + status dots)
-  const ids=Object.values(byDate).map(s=>s.id); if(fallback) ids.push(fallback.id);
+  const ids=[]; Object.values(byDate).forEach(list=>list.forEach(s=>ids.push(s.id))); if(fallback) ids.push(fallback.id);
   // today's readiness check-in (independent of which day is being viewed).
   // Gated: if the readiness table doesn't exist yet (migration not run), hide the card entirely.
   if(!rkState || rkState.date!==todayStr){
@@ -593,18 +607,22 @@ async function renderAthlete(selDate){
   let sel = (selDate && byDate[selDate]) ? selDate : null;
   if(!sel && byDate[todayStr]) sel=todayStr;
   if(!sel){ const ds=Object.keys(byDate).sort(), past=ds.filter(d=>d<=todayStr); sel = past[past.length-1] || ds[0] || null; }
-  const session = sel ? byDate[sel] : fallback;
+  const dayList = sel ? byDate[sel] : (fallback?[fallback]:[]);
+  if(sel!==athSelDate){ athSelSess=null; athSelDate=sel; }
+  const session = dayList.find(x=>x.id===athSelSess) || dayList[0];
+  athSelSess = session.id;
   curSession = session;
   const logs = logsBySession[session.id]||[];
   const logBySet = {}; (logs||[]).forEach(l=>{ if(l.prescribed_set_id) logBySet[l.prescribed_set_id]=l; });
   // week strip
-  const doneN=Object.values(byDate).filter(isLogged).length, totN=Object.keys(byDate).length;
+  let doneN=0, totN=0;
+  Object.values(byDate).forEach(list=>list.forEach(s=>{ totN++; if(isLogged(s)) doneN++; }));
   const strip = wk.map((d,i)=>{
-    const dIso=wkIso[i], s=byDate[dIso], isSel=(session.session_date===dIso && !!s);
-    const dot = !s ? 'rest' : (isLogged(s) ? 'done' : (dIso===todayStr ? 'today' : 'up'));
+    const dIso=wkIso[i], list=byDate[dIso]||[], s=list[0], isSel=(sel===dIso && !!s);
+    const dot = !s ? 'rest' : (list.every(isLogged) ? 'done' : (dIso===todayStr ? 'today' : 'up'));
     return `<div class="av-day${isSel?' on':''}${!s?' rest':''}" ${s?`onclick="renderAthlete('${dIso}')"`:''}>
       <span class="av-day-dow">${DOW[i]}</span><span class="av-day-d">${d.getDate()}</span>
-      <span class="av-day-type">${s?esc(shortTitle(s.title)):'Rest'}</span><span class="av-day-dot ${dot}"></span>
+      <span class="av-day-type">${s?esc(shortTitle(s.title))+(list.length>1?` +${list.length-1}`:''):'Rest'}</span><span class="av-day-dot ${dot}"></span>
     </div>`;
   }).join('');
   const r0=wk[0], r6=wk[6];
@@ -672,6 +690,7 @@ async function renderAthlete(selDate){
       <div class="av-daystrip">${strip}</div>
     </div>
     <div id="rkHost">${checkinCard()}</div>
+    ${dayList.length>1?`<div class="cw-stabs" style="margin:0 0 12px">${dayList.map(x=>`<button class="cw-stab${x.id===session.id?' on':''}" onclick="athSelectSess('${x.id}')">${esc(x.title||'Session')}</button>`).join('')}</div>`:''}
     <div id="logRoot">${body}</div>
     <div class="card">
       <div class="ss-head">✓ This is exactly what your coach sees — live, no copy-paste</div>
@@ -781,45 +800,55 @@ async function renderCoachPanel(){
   const { data: rkRows, error: rkE } = await sb.from('readiness').select('*')
     .eq('athlete_id', athId).order('check_date',{ascending:false}).limit(1);
   if(!rkE) rkCardHtml = coachReadinessCard(rkRows && rkRows[0]);
-  // the week in view (coach can navigate) — sessions w/ nested sets for stats
+  // the week in view — ALL sessions per day (AM/PM), nested sets for stats
   const off = (cw && cw.athId===athId) ? (cw.weekOffset||0) : 0;
   const wk=weekDates(off), wkIso=wk.map(iso), todayStr=iso(new Date());
   const { data: weekSess } = await sb.from('sessions')
     .select('id,title,session_date,status,created_at,prescribed_exercises(prescribed_sets(target_reps,target_pct))')
     .eq('athlete_id', athId).gte('session_date', wkIso[0]).lte('session_date', wkIso[6])
-    .order('session_date',{ascending:true}).order('created_at',{ascending:false});
-  const byDate={}; (weekSess||[]).forEach(s=>{ if(!byDate[s.session_date]) byDate[s.session_date]=s; });
-  // misses logged across the week's sessions
-  const ids=Object.values(byDate).map(s=>s.id);
-  let weekMiss=0;
+    .order('session_date',{ascending:true}).order('created_at',{ascending:true});
+  const sessByDate={}; (weekSess||[]).forEach(s=>{ (sessByDate[s.session_date]=sessByDate[s.session_date]||[]).push(s); });
+  const allWeek = weekSess||[];
+  // logged misses + done across the week
+  const ids=allWeek.map(s=>s.id);
+  let weekLogs=[];
   if(ids.length){
-    const { data: wlogs } = await sb.from('logged_sets').select('miss,session_id').in('session_id', ids);
-    (wlogs||[]).forEach(l=>{ weekMiss += (l.miss||0); });
+    const { data: wlogs } = await sb.from('logged_sets').select('miss,done,session_id,prescribed_set_id').in('session_id', ids);
+    weekLogs = wlogs||[];
   }
-  // week planned stats
-  let wVol=0, wVw=0, wPv=0;
-  Object.values(byDate).forEach(s=>{ (s.prescribed_exercises||[]).forEach(ex=>{ (ex.prescribed_sets||[]).forEach(ps=>{
-    const r=ps.target_reps||0, p=ps.target_pct!=null?parseFloat(ps.target_pct):0;
-    wVol+=r; if(p&&r){ wVw+=p*r; wPv+=r; } }); }); });
-  const wAri = wPv ? (wVw/wPv) : 0;
-  // maxes (feature gates on the table existing)
+  const wStats = statsFor(allWeek, weekLogs);
+  // maxes (gated) + current block (gated)
   let maxes=null;
   const { data: mx, error: mxE } = await sb.from('maxes').select('lift,kg').eq('athlete_id', athId);
   if(!mxE && mx){ maxes={}; mx.forEach(m=>maxes[m.lift]=parseFloat(m.kg)); }
-  const keepSel = (cw && cw.athId===athId && cw.selDate && byDate[cw.selDate]) ? cw.selDate : null;
-  cw = { athId, ath, byDate, maxes, weekOffset: off,
-    selDate: keepSel || (byDate[todayStr]?todayStr:(Object.keys(byDate).sort()[0]||wkIso[0])) };
+  let block=null;
+  const { data: blks, error: bE } = await sb.from('blocks').select('*')
+    .lte('start_date', wkIso[6]).gte('end_date', wkIso[0]).order('start_date',{ascending:false}).limit(1);
+  if(!bE && blks && blks.length) block=blks[0];
+  const keepSel = (cw && cw.athId===athId && cw.selDate && sessByDate[cw.selDate]) ? cw.selDate : null;
+  const keepSess = (cw && cw.athId===athId) ? cw.selSess : null;
+  cw = { athId, ath, sessByDate, maxes, block, weekOffset: off, weekSessFull: allWeek, weekLogs,
+    selDate: keepSel || (sessByDate[todayStr]?todayStr:(Object.keys(sessByDate).sort()[0]||wkIso[0])),
+    selSess: keepSess };
   const strip = wk.map((d,i)=>{
-    const dIso=wkIso[i], s=byDate[dIso], isSel=cw.selDate===dIso;
-    const dot = !s ? 'rest' : (s.status==='draft' ? 'draft' : (dIso===todayStr?'today':'up'));
+    const dIso=wkIso[i], list=sessByDate[dIso]||[], s=list[0], isSel=cw.selDate===dIso;
+    const anyDraft=list.some(x=>x.status==='draft');
+    const dot = !s ? 'rest' : (anyDraft ? 'draft' : (dIso===todayStr?'today':'up'));
+    const label = !s ? '—' : esc(shortTitle(s.title)) + (list.length>1?` +${list.length-1}`:'');
     return `<div class="av-day${isSel?' on':''}" onclick="cwSelectDay('${dIso}')">
       <span class="av-day-dow">${DOW[i]}</span><span class="av-day-d">${d.getDate()}</span>
-      <span class="av-day-type">${s?esc(shortTitle(s.title)):'—'}</span>
+      <span class="av-day-type">${label}</span>
       <span class="av-day-dot ${dot}"></span></div>`;
   }).join('');
   const r0=wk[0], r6=wk[6];
   const weekLabel = MONS[r0.getMonth()]+' '+r0.getDate()+' – '+(r6.getMonth()===r0.getMonth()?'':MONS[r6.getMonth()]+' ')+r6.getDate();
   const offLabel = off===0?'this week':(off===1?'next week':(off===-1?'last week':(off>0?off+' wks ahead':(-off)+' wks back')));
+  // copy-week target options: next 4 Mondays after the viewed week
+  const copyOpts = [1,2,3,4].map(n=>{
+    const m=new Date(wk[0]); m.setDate(m.getDate()+7*n);
+    const e=new Date(m); e.setDate(m.getDate()+6);
+    return `<option value="${iso(m)}">wk of ${MONS[m.getMonth()]} ${m.getDate()} – ${MONS[e.getMonth()]} ${e.getDate()}</option>`;
+  }).join('');
   panel.innerHTML = rkCardHtml + `
     <div class="card av-weekcard">
       <div class="av-weekhd">
@@ -830,18 +859,38 @@ async function renderCoachPanel(){
         </span>
         <span class="pv-legend"><span><i style="background:var(--warn)"></i>draft</span><span><i style="background:var(--accent2)"></i>published</span><span><i style="background:var(--accent)"></i>today</span></span>
       </div>
+      ${block?`<div class="cw-block">${esc(block.name)}${block.phase?` · <span>${esc(block.phase)}</span>`:''} · ${esc(block.start_date)} → ${esc(block.end_date)}</div>`:''}
       <div class="av-daystrip">${strip}</div>
       <div class="cw-stats">
-        <span class="cv-tile"><b>${wVol||'—'}</b>volume (planned)</span>
+        <span class="cv-tile"><b>${wStats.vol||'—'}</b>volume (planned)</span>
         <span class="cv-tile"><b>${ids.length}</b>sessions</span>
-        <span class="cv-tile"><b>${wAri?wAri.toFixed(1)+'%':'—'}</b>ARI</span>
-        <span class="cv-tile"><b>${weekMiss}</b>misses (logged)</span>
+        <span class="cv-tile"><b>${wStats.ari?wStats.ari.toFixed(1)+'%':'—'}</b>ARI</span>
+        <span class="cv-tile"><b>${wStats.miss}</b>misses (logged)</span>
+        <span style="margin-left:auto;display:inline-flex;align-items:center;gap:8px">
+          <span class="lg-add" id="cwCopyWeek" style="margin:0" onclick="cwToggleCopyWeek()">⧉ Copy week to…</span>
+          <span id="cwCopyUI" style="display:none">
+            <select id="cwCopyTarget" class="cw-sel">${copyOpts}</select>
+            <button class="btn ghost" style="padding:7px 12px" onclick="cvCopyWeek()">Copy ${ids.length} session${ids.length===1?'':'s'}</button>
+          </span>
+          <span class="saved" id="cwMsg"></span>
+        </span>
       </div>
     </div>
     <div id="cvDay"></div>`;
   renderCoachDay();
 }
-window.cwWeekNav = (d)=>{ if(!cw) return; ed=null; cw.weekOffset = d===0 ? 0 : (cw.weekOffset||0)+d; cw.selDate=null; renderCoachPanel(); };
+window.cwToggleCopyWeek = ()=>{ const ui=document.getElementById('cwCopyUI'); if(ui) ui.style.display = ui.style.display==='none'?'inline-flex':'none'; };
+window.cwWeekNav = (d)=>{ if(!cw) return; ed=null; cw.weekOffset = d===0 ? 0 : (cw.weekOffset||0)+d; cw.selDate=null; cw.selSess=null; renderCoachPanel(); };
+function statsFor(sessRows, logs){
+  let vol=0, vw=0, pv=0, peak=0, totalSets=0;
+  (sessRows||[]).forEach(s=>(s.prescribed_exercises||[]).forEach(ex=>(ex.prescribed_sets||[]).forEach(ps=>{
+    const r=ps.target_reps||0, p=ps.target_pct!=null?parseFloat(ps.target_pct):0;
+    vol+=r; totalSets++; if(p&&r){ vw+=p*r; pv+=r; if(p>peak)peak=p; }
+  })));
+  let miss=0, done=0, added=0;
+  (logs||[]).forEach(l=>{ miss+=(l.miss||0); if(l.done) done++; if(!l.prescribed_set_id) added++; });
+  return { vol, ari: pv?vw/pv:0, peak, miss, done, total: totalSets+added, sessions:(sessRows||[]).length };
+}
 window.cwSelectDay = (d)=>{ ed=null; cw.selDate=d; renderCoachPanel(); };
 
 /* ---------------- coach: day editor ---------------- */
@@ -863,17 +912,23 @@ function oneRMFor(name){
 }
 async function renderCoachDay(){
   const host=document.getElementById('cvDay'); if(!host||!cw) return;
-  const s=cw.byDate[cw.selDate];
-  if(!s){
+  const list = cw.sessByDate[cw.selDate]||[];
+  if(!list.length){
     ed=null;
     host.innerHTML=`<div class="card"><div class="empty">No session on <b>${esc(fmtDate(cw.selDate))}</b> for ${esc(cw.ath.full_name.split(' ')[0])}.<br><br>
       <button class="btn blue" onclick="cvCreateSession()">＋ Create session (saves as draft)</button></div></div>`;
     return;
   }
-  host.innerHTML=`<div class="card"><div class="spin">Opening…</div></div>`;
-  const { data: full, error: fe } = await sb.from('sessions').select(SESSION_SELECT).eq('id', s.id).single();
-  if(fe || !full){ host.innerHTML=`<div class="card"><div class="empty" style="color:var(--bad)">Could not open the session.</div></div>`; return; }
-  const { data: logs } = await sb.from('logged_sets').select('*').eq('session_id', s.id);
+  let sel = list.find(x=>x.id===cw.selSess) || list[0];
+  cw.selSess = sel.id;
+  // session tabs (AM/PM…) + add-another
+  const tabs = `<div class="cw-stabs">${list.map(x=>
+      `<button class="cw-stab${x.id===sel.id?' on':''}" onclick="cwSelectSess('${x.id}')">${esc(x.title||'Session')}${x.status==='draft'?' <i>draft</i>':''}</button>`).join('')}
+    <button class="cw-stab add" onclick="cvCreateSession()">＋ session</button></div>`;
+  host.innerHTML=`${tabs}<div id="cvEd"><div class="card"><div class="spin">Opening…</div></div></div>`;
+  const { data: full, error: fe } = await sb.from('sessions').select(SESSION_SELECT).eq('id', sel.id).single();
+  if(fe || !full){ document.getElementById('cvEd').innerHTML=`<div class="card"><div class="empty" style="color:var(--bad)">Could not open the session.</div></div>`; return; }
+  const { data: logs } = await sb.from('logged_sets').select('*').eq('session_id', sel.id);
   ed = { session: full, logs: logs||[], dirty:false,
     exercises: (full.prescribed_exercises||[]).slice().sort(sortByPos).map(ex=>({
       id:ex.id, name:ex.name, note:ex.coach_note||'', category:ex.category||'primary',
@@ -885,13 +940,54 @@ async function renderCoachDay(){
     })), delExs:[] };
   paintEditor();
 }
+window.cwSelectSess = (id)=>{ ed=null; cw.selSess=id; renderCoachDay(); };
 window.cvCreateSession = async ()=>{
+  const existing = cw.sessByDate[cw.selDate]||[];
+  const title = existing.length===0 ? 'Training' : (existing.length===1 ? 'PM Training' : 'Session '+(existing.length+1));
   const { data, error } = await sb.from('sessions').insert({ gym_id: me_.gym_id, athlete_id: coachState.selected,
-    session_date: cw.selDate, title:'Training', status:'draft' }).select().single();
+    session_date: cw.selDate, title, status:'draft' }).select().single();
   if(error || !data){ console.error('create session failed:', error&&error.message); return; }
-  cw.byDate[cw.selDate]=data;
+  cw.selSess = data.id;
   renderCoachPanel();
 };
+async function cvCopyWeek(){
+  const target=document.getElementById('cwCopyTarget').value;
+  const msg=document.getElementById('cwMsg');
+  const sessions=cw.weekSessFull||[];
+  if(!sessions.length){ if(msg){msg.style.color='var(--warn)';msg.textContent='nothing to copy';} return; }
+  if(msg){ msg.style.color=''; msg.textContent='copying…'; }
+  try{
+    const mon=new Date(weekDates(cw.weekOffset)[0]); mon.setHours(0,0,0,0); // viewed week's Monday, midnight (avoids time-of-day off-by-one)
+    for(const s of sessions){
+      const { data: full, error: fe } = await sb.from('sessions').select(SESSION_SELECT).eq('id', s.id).single();
+      if(fe) throw fe;
+      const dayOffset = Math.round((new Date(s.session_date+'T00:00:00') - mon)/864e5);
+      const t=new Date(target+'T00:00:00'); t.setDate(t.getDate()+dayOffset);
+      await cloneSessionTo(full, iso(t));
+    }
+    if(msg){ msg.style.color='var(--good)'; msg.textContent='✓ Copied '+sessions.length+' as drafts'; setTimeout(()=>{msg.textContent='';},4000); }
+    const ui=document.getElementById('cwCopyUI'); if(ui) ui.style.display='none';
+  }catch(e){ if(msg){ msg.style.color='var(--bad)'; msg.textContent='⚠ Copy failed — '+(e.message||e); } }
+}
+async function cloneSessionTo(full, targetDate){
+  const { data: ns, error: se } = await sb.from('sessions').insert({
+    gym_id: me_.gym_id, athlete_id: coachState.selected, session_date: targetDate,
+    title: full.title||'Training', status:'draft' }).select().single();
+  if(se) throw se;
+  const exs=(full.prescribed_exercises||[]).slice().sort(sortByPos);
+  for(let ei=0; ei<exs.length; ei++){
+    const ex=exs[ei];
+    const { data: ne, error: ee } = await sb.from('prescribed_exercises').insert({
+      gym_id: me_.gym_id, session_id: ns.id, position: ei, name: ex.name,
+      category: ex.category||'primary', coach_note: ex.coach_note||null }).select().single();
+    if(ee) throw ee;
+    const rows=(ex.prescribed_sets||[]).slice().sort(sortByPos).map((ps,si)=>({
+      gym_id: me_.gym_id, exercise_id: ne.id, position: si,
+      target_reps: ps.target_reps, target_pct: ps.target_pct, target_kg: ps.target_kg, target_text: ps.target_text }));
+    if(rows.length){ const { error: re } = await sb.from('prescribed_sets').insert(rows); if(re) throw re; }
+  }
+  return ns;
+}
 function exTiles(ex){
   let vol=0,ton=0,vw=0,pv=0,peak=0;
   ex.sets.forEach(st=>{ const r=parseInt(st.reps)||0,k=parseFloat(st.kg)||0,p=parseFloat(st.pct)||0;
@@ -936,7 +1032,7 @@ function logResultHtml(lg){
   return `<span class="cv-act">${parts.join(' ')}</span>`;
 }
 function paintEditor(){
-  const host=document.getElementById('cvDay'); if(!host||!ed) return;
+  const host=document.getElementById('cvEd')||document.getElementById('cvDay'); if(!host||!ed) return;
   const s=ed.session, draft=s.status==='draft';
   const logBySet={}; ed.logs.forEach(l=>{ if(l.prescribed_set_id) logBySet[l.prescribed_set_id]=l; });
   const exHtml = ed.exercises.map((ex,ei)=>{
@@ -991,8 +1087,64 @@ function paintEditor(){
       ${draft?`<button class="btn blue" id="edPublish">Publish to ${esc(cw.ath.full_name.split(' ')[0])}</button>`:''}
       <span class="saved" id="edMsg"></span>
     </div>
-  </div>`;
+  </div>
+  <div id="cvRollup"></div>`;
   wireEditor();
+  renderRollup();
+}
+async function renderRollup(){
+  const host=document.getElementById('cvRollup'); if(!host||!ed||!cw) return;
+  host.innerHTML=`<div class="card"><h2 style="margin:0 0 4px">Metric rollup</h2><div class="sub" style="margin-bottom:8px">This session, then up the hierarchy.</div><div class="spin" style="padding:12px">computing…</div></div>`;
+  // SESSION: from the open editor state + its logs
+  const sessRow={prescribed_exercises: ed.exercises.map(ex=>({prescribed_sets: ex.sets.map(st=>({target_reps:parseInt(st.reps)||0, target_pct:st.pct===''?null:parseFloat(st.pct)}))}))};
+  const sSession=statsFor([sessRow], ed.logs);
+  // DAY: all sessions on the selected date (from week cache + logs filtered)
+  const dayIds=(cw.sessByDate[cw.selDate]||[]).map(x=>x.id);
+  const sDay=statsFor((cw.weekSessFull||[]).filter(x=>x.session_date===cw.selDate), (cw.weekLogs||[]).filter(l=>dayIds.indexOf(l.session_id)>-1));
+  // WEEK: cached
+  const sWeek=statsFor(cw.weekSessFull, cw.weekLogs);
+  // BLOCK + ALL-TIME: fetch (cache per athlete+block on cw)
+  let sBlock=null, sAll=null, blockName=null;
+  try{
+    if(!cw.rollupCache) cw.rollupCache={};
+    if(cw.block){
+      blockName=cw.block.name;
+      if(!cw.rollupCache.block){
+        const { data: bs } = await sb.from('sessions')
+          .select('id,session_date,prescribed_exercises(prescribed_sets(target_reps,target_pct))')
+          .eq('athlete_id', cw.athId).gte('session_date', cw.block.start_date).lte('session_date', cw.block.end_date);
+        const bids=(bs||[]).map(x=>x.id);
+        let blogs=[];
+        if(bids.length){ const { data: bl } = await sb.from('logged_sets').select('miss,done,session_id,prescribed_set_id').in('session_id', bids); blogs=bl||[]; }
+        cw.rollupCache.block={ rows:bs||[], logs:blogs };
+      }
+      sBlock=statsFor(cw.rollupCache.block.rows, cw.rollupCache.block.logs);
+    }
+    if(!cw.rollupCache.all){
+      const { data: as_ } = await sb.from('sessions')
+        .select('id,session_date,prescribed_exercises(prescribed_sets(target_reps,target_pct))')
+        .eq('athlete_id', cw.athId);
+      const aids=(as_||[]).map(x=>x.id);
+      let alogs=[];
+      if(aids.length){ const { data: al } = await sb.from('logged_sets').select('miss,done,session_id,prescribed_set_id').in('session_id', aids); alogs=al||[]; }
+      cw.rollupCache.all={ rows:as_||[], logs:alogs };
+    }
+    sAll=statsFor(cw.rollupCache.all.rows, cw.rollupCache.all.logs);
+  }catch(e){ /* block table may not exist yet — rollup just shows fewer rows */ }
+  const row=(lbl,sub,st,hl)=>st?`<tr${hl?' class="ru-hl"':''}><td><b>${lbl}</b>${sub?` <span class="tgt">· ${esc(sub)}</span>`:''}</td>
+    <td>${st.vol||'—'}</td><td>${st.ari?st.ari.toFixed(1)+'%':'—'}</td><td>${st.peak?st.peak+'%':'—'}</td>
+    <td>${st.done}/${st.total}</td><td>${st.miss}</td><td>${st.sessions!=null?st.sessions:''}</td></tr>`:'';
+  host.innerHTML=`<div class="card">
+    <h2 style="margin:0 0 4px">Metric rollup</h2>
+    <div class="sub" style="margin-bottom:10px">This session, then up the hierarchy — planned volume & intensity, logged completion & misses.</div>
+    <div class="logwrap"><table class="logtable ru"><thead><tr><th style="text-align:left">Level</th><th>Volume</th><th>ARI</th><th>Peak %</th><th>Sets done</th><th>Misses</th><th>Sessions</th></tr></thead><tbody>
+      ${row('Session', ed.session.title, {...sSession, sessions:null}, true)}
+      ${row('↑ Day', fmtDate(cw.selDate), sDay)}
+      ${row('↑ Week', null, sWeek)}
+      ${sBlock?row('↑ Block', blockName, sBlock):''}
+      ${sAll?row('↑ All-time', null, sAll):''}
+    </tbody></table></div>
+  </div>`;
 }
 function edMsgSet(txt,color){ const m=document.getElementById('edMsg'); if(m){ m.style.color=color||''; m.textContent=txt; } }
 function wireEditor(){
@@ -1137,6 +1289,7 @@ async function saveEditor(publishAfter){
       ex.delSets=[];
     }
     ed.delExs=[]; ed.dirty=false;
+    if(cw) cw.rollupCache=null;
     if(publishAfter){ ed.session.status='published'; if(cw.byDate[cw.selDate]) cw.byDate[cw.selDate].status='published'; }
     if(cw.byDate[cw.selDate]) cw.byDate[cw.selDate].title=ed.session.title;
     paintEditor();
@@ -1158,6 +1311,8 @@ async function refreshEditorActuals(){
   document.querySelectorAll('#edCard .cva[data-ps]').forEach(td=>{
     const ps=td.dataset.ps; if(ps) td.innerHTML=logResultHtml(logBySet[ps]);
   });
+  if(cw) cw.rollupCache=null;
+  renderRollup();
 }
 
 boot();
