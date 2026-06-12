@@ -1231,11 +1231,23 @@ async function cvCopyDay(targetDate){
   }
   if(go){ go.disabled=false; go.textContent='Copy as draft'; }
 }
+function refreshStripDot(){
+  if(!cw) return; const chip=document.querySelector('#coachPanel .av-day.on'); if(!chip) return;
+  const list=cw.sessByDate[cw.selDate]||[]; const dot=chip.querySelector('.av-day-dot'); if(!dot) return;
+  const todayStr=iso(new Date());
+  dot.className='av-day-dot '+(!list.length?'rest':(list.some(x=>x.status==='draft')?'draft':(cw.selDate===todayStr?'today':'up')));
+}
 async function deleteSession(){
   const id=ed.session.id;
   const res=await sb.from('sessions').delete().eq('id', id).select();
-  if(res.error || !res.data || !res.data.length){ edMsgSet('⚠ Delete failed — '+(res.error?res.error.message:'try again'),'var(--bad)'); return; }
-  delete cw.byDate[cw.selDate]; ed=null;
+  if(res.error){ edMsgSet('⚠ Delete failed — '+res.error.message,'var(--bad)'); return; }
+  // success — even if 0 rows came back (already deleted elsewhere)
+  if(cw && cw.sessByDate && cw.sessByDate[cw.selDate]){
+    cw.sessByDate[cw.selDate]=cw.sessByDate[cw.selDate].filter(s=>s.id!==id);
+    if(!cw.sessByDate[cw.selDate].length) delete cw.sessByDate[cw.selDate];
+  }
+  if(cw){ cw.selSess=null; cw.rollupCache=null; }
+  ed=null;
   renderCoachPanel();
 }
 function targetText(st){
@@ -1290,8 +1302,11 @@ async function saveEditor(publishAfter){
     }
     ed.delExs=[]; ed.dirty=false;
     if(cw) cw.rollupCache=null;
-    if(publishAfter){ ed.session.status='published'; if(cw.byDate[cw.selDate]) cw.byDate[cw.selDate].status='published'; }
-    if(cw.byDate[cw.selDate]) cw.byDate[cw.selDate].title=ed.session.title;
+    if(publishAfter) ed.session.status='published';
+    const wkEntry = cw && cw.sessByDate && (cw.sessByDate[cw.selDate]||[]).find(s=>s.id===ed.session.id);
+    if(wkEntry){ wkEntry.title=ed.session.title; if(publishAfter) wkEntry.status='published'; }
+    refreshStripDot();
+    if(publishAfter){ const ti=document.querySelector('.cw-stab.on i'); if(ti) ti.remove(); }
     paintEditor();
     edMsgSet(publishAfter?'✓ Saved & published — it\'s on '+cw.ath.full_name.split(' ')[0]+'\'s phone':'✓ Saved','var(--good)');
     setTimeout(()=>edMsgSet(''),3500);
