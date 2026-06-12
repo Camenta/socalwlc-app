@@ -180,6 +180,20 @@
   .av-day-dot.draft{background:var(--warn)}
   .pv-legend{display:flex;gap:14px;font-size:11px;color:var(--muted);flex-wrap:wrap;align-items:center}
   .pv-legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle}
+  /* block banner + wave + block form */
+  .cw-block{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .cw-block.none{background:transparent;border-style:dashed}
+  .bw-bars{display:inline-flex;align-items:flex-end;gap:3px;height:22px;margin:0 2px}
+  .bw-bars .bw{display:inline-block;width:9px;border-radius:2px 2px 0 0;opacity:.45}
+  .bw-bars .bw.cur{opacity:1;outline:1px solid rgba(255,255,255,.5)}
+  .bw-now{font-size:11px;color:var(--text);font-weight:700}
+  .bf{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:13px;margin-bottom:11px}
+  .bf-row{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:10px}
+  .bf-row:last-child{margin-bottom:0}
+  .bf-row input{background:#0e151c;border:1px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);font-size:13px;font-weight:600}
+  .bf-row input:focus{outline:none;border-color:var(--accent2)}
+  .bf-wk{display:inline-flex;flex-direction:column;gap:3px}
+  .bf-wk label{font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:800}
   /* session tabs (AM/PM) + block banner + rollup */
   .cw-stabs{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px}
   .cw-stab{background:var(--panel2);border:1px solid var(--line);border-radius:9px;color:var(--text);font-size:12.5px;font-weight:700;padding:8px 13px;cursor:pointer}
@@ -602,6 +616,14 @@ async function renderAthlete(selDate){
   }
   const { data: allLogs } = await sb.from('logged_sets').select('*').in('session_id', ids);
   const logsBySession={}; (allLogs||[]).forEach(l=>{ (logsBySession[l.session_id]=logsBySession[l.session_id]||[]).push(l); });
+  // block context (gated — skipped if blocks table missing)
+  let athBlockLbl='';
+  const { data: ablk, error: abE } = await sb.from('blocks').select('*')
+    .lte('start_date', wkIso[6]).gte('end_date', wkIso[0]).order('start_date',{ascending:false}).limit(1);
+  if(!abE && ablk && ablk.length){
+    const b=ablk[0]; const totW=blockWeeks(b), wIdx=blockWeekIdx(b, wk);
+    if(wIdx>=0 && wIdx<totW) athBlockLbl=` · ${esc(b.name)} · <b>Wk ${wIdx+1}/${totW}</b>`;
+  }
   const isLogged = s => (logsBySession[s.id]||[]).some(l=>l.done);
   // which day is selected
   let sel = (selDate && byDate[selDate]) ? selDate : null;
@@ -686,7 +708,7 @@ async function renderAthlete(selDate){
       <div class="sub" style="margin-top:6px">Log what you did · tap the lights (white = good lift, red = miss) · rate effort E/M/H/X · tick each set off. Saves straight to your coach.</div>
     </div>
     <div class="card av-weekcard">
-      <div class="av-weekhd"><span class="av-weeklbl">Training week · <b>${weekLabel}</b></span><span class="av-weekprog">${doneN} / ${totN} sessions done</span></div>
+      <div class="av-weekhd"><span class="av-weeklbl">Training week · <b>${weekLabel}</b>${athBlockLbl}</span><span class="av-weekprog">${doneN} / ${totN} sessions done</span></div>
       <div class="av-daystrip">${strip}</div>
     </div>
     <div id="rkHost">${checkinCard()}</div>
@@ -859,7 +881,8 @@ async function renderCoachPanel(){
         </span>
         <span class="pv-legend"><span><i style="background:var(--warn)"></i>draft</span><span><i style="background:var(--accent2)"></i>published</span><span><i style="background:var(--accent)"></i>today</span></span>
       </div>
-      ${block?`<div class="cw-block">${esc(block.name)}${block.phase?` · <span>${esc(block.phase)}</span>`:''} · ${esc(block.start_date)} → ${esc(block.end_date)}</div>`:''}
+      ${blockBannerHtml(block, wk)}
+      <div id="blockForm" style="display:none"></div>
       <div class="av-daystrip">${strip}</div>
       <div class="cw-stats">
         <span class="cv-tile"><b>${wStats.vol||'—'}</b>volume (planned)</span>
@@ -910,6 +933,94 @@ function oneRMFor(name){
   for(const r of rules){ if(r[0].test(n) && cw.maxes[r[1]]!=null) return cw.maxes[r[1]]; }
   return null;
 }
+const WAVE_LV={light:['LIGHT','#8b9aa8',8],moderate:['MODERATE','#3c9ee8',12],heavy:['HEAVY','#e8b13c',16],peak:['PEAK','#e8643c',20]};
+function blockWeekIdx(block, wk){
+  const mon0=new Date(block.start_date+'T00:00:00');
+  const wkMon=new Date(wk[0]); wkMon.setHours(0,0,0,0);
+  return Math.floor((wkMon-mon0)/(7*864e5));
+}
+function blockWeeks(block){
+  if(block.wave && Array.isArray(block.wave)) return block.wave.length;
+  const a=new Date(block.start_date+'T00:00:00'), b=new Date(block.end_date+'T00:00:00');
+  return Math.max(1, Math.floor((b-a)/(7*864e5))+1);
+}
+function blockBannerHtml(block, wk){
+  if(!block) return `<div class="cw-block none"><span class="lg-add" style="margin:0" onclick="toggleBlockForm()">＋ Define block / mesocycle for this period</span></div>`;
+  const totW=blockWeeks(block), wIdx=blockWeekIdx(block, wk);
+  const inBlock = wIdx>=0 && wIdx<totW;
+  const wave = (block.wave&&Array.isArray(block.wave))?block.wave:null;
+  const bars = wave ? `<span class="bw-bars">${wave.map((lv,i)=>{const L=WAVE_LV[lv]||WAVE_LV.light;
+      return `<i class="bw${i===wIdx?' cur':''}" style="height:${L[2]}px;background:${L[1]}"></i>`;}).join('')}</span>` : '';
+  const lvNow = (wave && inBlock) ? (WAVE_LV[wave[wIdx]]||null) : null;
+  return `<div class="cw-block">
+    ${block.phase?`<span class="pill phase" style="margin-right:4px">${esc(block.phase.toUpperCase())}</span>`:''}
+    <b>${esc(block.name)}</b> · ${totW}-week block · ${esc(block.start_date)} → ${esc(block.end_date)}
+    ${bars}
+    ${inBlock?`<span class="bw-now">Week ${wIdx+1} of ${totW}${lvNow?` · <b style="color:${lvNow[1]}">${lvNow[0]}</b>`:''}</span>`:''}
+    <span class="lg-add" style="margin:0 0 0 auto" onclick="toggleBlockForm()">✎ edit</span>
+  </div>`;
+}
+window.toggleBlockForm = ()=>{
+  const f=document.getElementById('blockForm'); if(!f) return;
+  if(f.style.display==='none'){ renderBlockForm(); f.style.display=''; } else f.style.display='none';
+};
+function renderBlockForm(){
+  const f=document.getElementById('blockForm'); if(!f) return;
+  const b=cw.block;
+  const weeks = b ? blockWeeks(b) : 4;
+  const wave = (b && b.wave && Array.isArray(b.wave)) ? b.wave : Array.from({length:weeks},()=>'moderate');
+  const start = b ? b.start_date : iso(weekDates(cw.weekOffset)[0]);
+  f.innerHTML=`<div class="bf">
+    <div class="bf-row">
+      <input id="bfName" placeholder="Block name (e.g. Comp Prep · Block 2)" value="${esc(b?b.name:'')}" style="flex:2;min-width:170px">
+      <input id="bfPhase" placeholder="Phase (e.g. Intensification)" value="${esc(b&&b.phase?b.phase:'')}" style="flex:1;min-width:120px">
+      <input id="bfStart" type="date" value="${esc(start)}">
+      <select id="bfWeeks" class="cw-sel" onchange="bfWeeksChanged()">${[2,3,4,5,6,7,8].map(n=>`<option value="${n}"${n===weeks?' selected':''}>${n} weeks</option>`).join('')}</select>
+    </div>
+    <div class="bf-row" id="bfWave">${wave.map((lv,i)=>bfWaveSel(i,lv)).join('')}</div>
+    <div class="bf-row">
+      <button class="btn" onclick="saveBlock()">${b?'Save block':'Create block'}</button>
+      ${b?`<span class="b-x cv-delsess" id="bfDel" onclick="delBlock(event)">✕ delete block</span>`:''}
+      <span class="saved" id="bfMsg"></span>
+    </div>
+  </div>`;
+}
+function bfWaveSel(i,lv){
+  return `<span class="bf-wk"><label>Wk ${i+1}</label><select class="cw-sel bf-lv">${Object.keys(WAVE_LV).map(k=>`<option value="${k}"${k===lv?' selected':''}>${WAVE_LV[k][0].toLowerCase()}</option>`).join('')}</select></span>`;
+}
+window.bfWeeksChanged = ()=>{
+  const n=+document.getElementById('bfWeeks').value;
+  const cur=[].map.call(document.querySelectorAll('.bf-lv'),s=>s.value);
+  const wave=Array.from({length:n},(_,i)=>cur[i]||'moderate');
+  document.getElementById('bfWave').innerHTML=wave.map((lv,i)=>bfWaveSel(i,lv)).join('');
+};
+window.saveBlock = async ()=>{
+  const msg=document.getElementById('bfMsg');
+  const name=(document.getElementById('bfName').value||'').trim();
+  if(!name){ msg.style.color='var(--bad)'; msg.textContent='Name the block.'; return; }
+  const start=document.getElementById('bfStart').value;
+  const n=+document.getElementById('bfWeeks').value;
+  const e=new Date(start+'T00:00:00'); e.setDate(e.getDate()+n*7-1);
+  const wave=[].map.call(document.querySelectorAll('.bf-lv'),s=>s.value);
+  const payload={ gym_id: me_.gym_id, name, phase:(document.getElementById('bfPhase').value||'').trim()||null,
+    start_date:start, end_date:iso(e), wave };
+  const res = cw.block
+    ? await sb.from('blocks').update(payload).eq('id', cw.block.id).select()
+    : await sb.from('blocks').insert(payload).select();
+  if(res.error || !res.data || !res.data.length){
+    msg.style.color='var(--bad)';
+    msg.textContent='⚠ '+(res.error?(res.error.message.indexOf('wave')>-1?'Run the wave SQL first (adds the wave column).':res.error.message):'save rejected');
+    return;
+  }
+  cw.rollupCache=null; renderCoachPanel();
+};
+window.delBlock = async (ev)=>{
+  const el=ev.target;
+  if(!el.classList.contains('arm')){ el.classList.add('arm'); el.textContent='delete block?'; setTimeout(()=>{ if(el.isConnected){el.classList.remove('arm'); el.textContent='✕ delete block';} },3500); return; }
+  const res=await sb.from('blocks').delete().eq('id', cw.block.id).select();
+  if(res.error){ const m=document.getElementById('bfMsg'); if(m){m.style.color='var(--bad)';m.textContent='⚠ '+res.error.message;} return; }
+  cw.rollupCache=null; renderCoachPanel();
+};
 async function renderCoachDay(){
   const host=document.getElementById('cvDay'); if(!host||!cw) return;
   const list = cw.sessByDate[cw.selDate]||[];
