@@ -180,6 +180,16 @@
   .av-day-dot.draft{background:var(--warn)}
   .pv-legend{display:flex;gap:14px;font-size:11px;color:var(--muted);flex-wrap:wrap;align-items:center}
   .pv-legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle}
+  /* coach week nav + stats */
+  .cw-nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .cw-arr{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:16px;font-weight:800;cursor:pointer;line-height:1}
+  .cw-arr:hover{border-color:var(--accent2)}
+  .cw-off{font-size:11px;color:var(--muted);margin-left:6px}
+  .cw-off.away{color:var(--accent2);cursor:pointer;text-decoration:underline}
+  .cw-stats{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .cv-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  #edCopyUI{display:inline-flex;align-items:center;gap:8px}
+  .cw-sel{background:#0e151c;border:1px solid var(--line);border-radius:8px;color:var(--text);font-size:13px;font-weight:700;padding:7px 10px;cursor:pointer}
   /* coach day editor */
   .cv-hd{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
   #edTitle{flex:1;min-width:170px;font-weight:800;font-size:16px;background:#0e151c;border:1px solid var(--line);border-radius:9px;padding:9px 12px;color:var(--text)}
@@ -459,8 +469,8 @@ function wireLogging(){
 const SESSION_SELECT='id,gym_id,title,session_date,status,prescribed_exercises(id,name,position,category,coach_note,prescribed_sets(id,position,target_text,target_reps,target_kg))';
 const DOW=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], MONS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function iso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
-function weekDates(){ // Mon..Sun of the current week
-  const now=new Date(); const mon=new Date(now); mon.setDate(now.getDate()-((now.getDay()+6)%7));
+function weekDates(offset){ // Mon..Sun of the current week, shifted by `offset` weeks
+  const now=new Date(); const mon=new Date(now); mon.setDate(now.getDate()-((now.getDay()+6)%7)+7*(offset||0));
   return Array.from({length:7},(_,i)=>{ const d=new Date(mon); d.setDate(mon.getDate()+i); return d; });
 }
 function shortTitle(t){ const w=(t||'').split(/[\s·\-—]+/)[0]||'Train'; return w.length>8?w.slice(0,8):w; }
@@ -771,20 +781,34 @@ async function renderCoachPanel(){
   const { data: rkRows, error: rkE } = await sb.from('readiness').select('*')
     .eq('athlete_id', athId).order('check_date',{ascending:false}).limit(1);
   if(!rkE) rkCardHtml = coachReadinessCard(rkRows && rkRows[0]);
-  // this week's sessions — coach sees drafts too
-  const wk=weekDates(), wkIso=wk.map(iso), todayStr=iso(new Date());
+  // the week in view (coach can navigate) — sessions w/ nested sets for stats
+  const off = (cw && cw.athId===athId) ? (cw.weekOffset||0) : 0;
+  const wk=weekDates(off), wkIso=wk.map(iso), todayStr=iso(new Date());
   const { data: weekSess } = await sb.from('sessions')
-    .select('id,title,session_date,status,created_at')
+    .select('id,title,session_date,status,created_at,prescribed_exercises(prescribed_sets(target_reps,target_pct))')
     .eq('athlete_id', athId).gte('session_date', wkIso[0]).lte('session_date', wkIso[6])
     .order('session_date',{ascending:true}).order('created_at',{ascending:false});
   const byDate={}; (weekSess||[]).forEach(s=>{ if(!byDate[s.session_date]) byDate[s.session_date]=s; });
-  // athlete maxes (feature gates on the maxes table existing)
+  // misses logged across the week's sessions
+  const ids=Object.values(byDate).map(s=>s.id);
+  let weekMiss=0;
+  if(ids.length){
+    const { data: wlogs } = await sb.from('logged_sets').select('miss,session_id').in('session_id', ids);
+    (wlogs||[]).forEach(l=>{ weekMiss += (l.miss||0); });
+  }
+  // week planned stats
+  let wVol=0, wVw=0, wPv=0;
+  Object.values(byDate).forEach(s=>{ (s.prescribed_exercises||[]).forEach(ex=>{ (ex.prescribed_sets||[]).forEach(ps=>{
+    const r=ps.target_reps||0, p=ps.target_pct!=null?parseFloat(ps.target_pct):0;
+    wVol+=r; if(p&&r){ wVw+=p*r; wPv+=r; } }); }); });
+  const wAri = wPv ? (wVw/wPv) : 0;
+  // maxes (feature gates on the table existing)
   let maxes=null;
   const { data: mx, error: mxE } = await sb.from('maxes').select('lift,kg').eq('athlete_id', athId);
   if(!mxE && mx){ maxes={}; mx.forEach(m=>maxes[m.lift]=parseFloat(m.kg)); }
-  const keepSel = cw && cw.athId===athId ? cw.selDate : null;
-  cw = { athId, ath, byDate, maxes,
-    selDate: keepSel || (byDate[todayStr]?todayStr:(Object.keys(byDate).sort()[0]||todayStr)) };
+  const keepSel = (cw && cw.athId===athId && cw.selDate && byDate[cw.selDate]) ? cw.selDate : null;
+  cw = { athId, ath, byDate, maxes, weekOffset: off,
+    selDate: keepSel || (byDate[todayStr]?todayStr:(Object.keys(byDate).sort()[0]||wkIso[0])) };
   const strip = wk.map((d,i)=>{
     const dIso=wkIso[i], s=byDate[dIso], isSel=cw.selDate===dIso;
     const dot = !s ? 'rest' : (s.status==='draft' ? 'draft' : (dIso===todayStr?'today':'up'));
@@ -795,15 +819,29 @@ async function renderCoachPanel(){
   }).join('');
   const r0=wk[0], r6=wk[6];
   const weekLabel = MONS[r0.getMonth()]+' '+r0.getDate()+' – '+(r6.getMonth()===r0.getMonth()?'':MONS[r6.getMonth()]+' ')+r6.getDate();
+  const offLabel = off===0?'this week':(off===1?'next week':(off===-1?'last week':(off>0?off+' wks ahead':(-off)+' wks back')));
   panel.innerHTML = rkCardHtml + `
     <div class="card av-weekcard">
-      <div class="av-weekhd"><span class="av-weeklbl">${esc(ath.full_name.split(' ')[0])}'s training week · <b>${weekLabel}</b></span>
-        <span class="pv-legend"><span><i style="background:var(--warn)"></i>draft</span><span><i style="background:var(--accent2)"></i>published</span><span><i style="background:var(--accent)"></i>today</span></span></div>
+      <div class="av-weekhd">
+        <span class="cw-nav">
+          <button class="cw-arr" onclick="cwWeekNav(-1)" title="Previous week">‹</button>
+          <span class="av-weeklbl">${esc(ath.full_name.split(' ')[0])}'s week · <b>${weekLabel}</b> <span class="cw-off${off!==0?' away':''}" ${off!==0?'onclick="cwWeekNav(0)" title="Back to this week"':''}>${offLabel}</span></span>
+          <button class="cw-arr" onclick="cwWeekNav(1)" title="Next week">›</button>
+        </span>
+        <span class="pv-legend"><span><i style="background:var(--warn)"></i>draft</span><span><i style="background:var(--accent2)"></i>published</span><span><i style="background:var(--accent)"></i>today</span></span>
+      </div>
       <div class="av-daystrip">${strip}</div>
+      <div class="cw-stats">
+        <span class="cv-tile"><b>${wVol||'—'}</b>volume (planned)</span>
+        <span class="cv-tile"><b>${ids.length}</b>sessions</span>
+        <span class="cv-tile"><b>${wAri?wAri.toFixed(1)+'%':'—'}</b>ARI</span>
+        <span class="cv-tile"><b>${weekMiss}</b>misses (logged)</span>
+      </div>
     </div>
     <div id="cvDay"></div>`;
   renderCoachDay();
 }
+window.cwWeekNav = (d)=>{ if(!cw) return; ed=null; cw.weekOffset = d===0 ? 0 : (cw.weekOffset||0)+d; cw.selDate=null; renderCoachPanel(); };
 window.cwSelectDay = (d)=>{ ed=null; cw.selDate=d; renderCoachPanel(); };
 
 /* ---------------- coach: day editor ---------------- */
@@ -865,6 +903,28 @@ function exTiles(ex){
     <span class="cv-tile"><b>${ari?ari.toFixed(1)+'%':'—'}</b>ARI</span>
     <span class="cv-tile"><b>${peak?peak+'%':'—'}</b>peak %</span></div>`;
 }
+function sessionTiles(){
+  if(!ed) return '';
+  let vol=0,vw=0,pv=0,peak=0;
+  ed.exercises.forEach(ex=>ex.sets.forEach(st=>{ const r=parseInt(st.reps)||0,p=parseFloat(st.pct)||0;
+    vol+=r; if(p&&r){ vw+=p*r; pv+=r; if(p>peak)peak=p; } }));
+  const ari=pv?vw/pv:0;
+  let done=0,total=0,miss=0;
+  const logBySet={}; ed.logs.forEach(l=>{ if(l.prescribed_set_id) logBySet[l.prescribed_set_id]=l; miss+=(l.miss||0); });
+  ed.exercises.forEach(ex=>ex.sets.forEach(st=>{ if(st.id){ total++; if(logBySet[st.id] && logBySet[st.id].done) done++; } }));
+  ed.logs.filter(l=>!l.prescribed_set_id).forEach(l=>{ total++; if(l.done) done++; });
+  return `<span class="cv-tile"><b>${vol||'—'}</b>volume</span>
+    <span class="cv-tile"><b>${ari?ari.toFixed(1)+'%':'—'}</b>ARI</span>
+    <span class="cv-tile"><b>${peak?peak+'%':'—'}</b>peak %</span>
+    <span class="cv-tile"><b>${done}/${total}</b>sets done</span>
+    <span class="cv-tile"><b>${miss}</b>misses</span>`;
+}
+function copyDateOptions(){
+  const out=[]; const base=new Date(ed.session.session_date+'T00:00:00');
+  for(let i=1;i<=21;i++){ const d=new Date(base); d.setDate(base.getDate()+i);
+    out.push(`<option value="${iso(d)}">${DOW[(d.getDay()+6)%7]} · ${MONS[d.getMonth()]} ${d.getDate()}</option>`); }
+  return out.join('');
+}
 function logResultHtml(lg){
   if(!lg || (lg.actual_reps==null && lg.actual_kg==null && !lg.done)) return '<span class="cv-nolog">not logged</span>';
   const parts=[`<b>${lg.actual_reps??'–'} × ${lg.actual_kg??'–'}kg</b>`];
@@ -916,6 +976,14 @@ function paintEditor(){
       <span class="pill ${draft?'st-draft':'st-pub'}">${draft?'DRAFT — athlete can&#39;t see it':'PUBLISHED'}</span>
       <span class="b-x cv-delsess" id="edDelSess" title="Delete this whole session">✕ session</span>
     </div>
+    <div class="cv-tiles" id="edTiles" style="padding:0 0 12px">${sessionTiles()}</div>
+    <div class="cv-tools">
+      <span class="lg-add" id="edCopyOpen" style="margin:0">⧉ Copy this day to…</span>
+      <span id="edCopyUI" style="display:none">
+        <select id="edCopyDate" class="cw-sel">${copyDateOptions()}</select>
+        <button class="btn ghost" id="edCopyGo" style="padding:7px 12px">Copy as draft</button>
+      </span>
+    </div>
     <div id="edExs">${exHtml}</div>
     <span class="lg-add" id="edAddEx" style="margin:6px 0 0">＋ Add exercise</span>
     <div class="savebar">
@@ -950,6 +1018,7 @@ function wireEditor(){
       if(orm && t.value!==''){ st.pct=rnd1(parseFloat(t.value)/orm*100); tr.querySelector('[data-f="pct"]').value=st.pct; } }
     ed.dirty=true;
     const tiles=cvx.querySelector('.cv-tiles'); if(tiles) tiles.outerHTML=exTiles(ex);
+    const st2=document.getElementById('edTiles'); if(st2) st2.innerHTML=sessionTiles();
   });
   card.addEventListener('click', e=>{
     const add=e.target.closest('[data-addrow]');
@@ -971,11 +1040,44 @@ function wireEditor(){
       ed.dirty=true; paintEditor(); return; }
     if(e.target.id==='edSave'){ saveEditor(false); return; }
     if(e.target.id==='edPublish'){ saveEditor(true); return; }
+    if(e.target.id==='edCopyOpen'){ const ui=document.getElementById('edCopyUI'); ui.style.display = ui.style.display==='none'?'inline-flex':'none'; return; }
+    if(e.target.id==='edCopyGo'){ cvCopyDay(document.getElementById('edCopyDate').value); return; }
     const ds=e.target.closest('#edDelSess');
     if(ds){ if(!ds.classList.contains('arm')){ ds.classList.add('arm'); ds.textContent='delete session?';
         setTimeout(()=>{ if(ds.isConnected){ ds.classList.remove('arm'); ds.textContent='✕ session'; } },3500); return; }
       deleteSession(); return; }
   });
+}
+async function cvCopyDay(targetDate){
+  const go=document.getElementById('edCopyGo'); if(go){ go.disabled=true; go.textContent='Copying…'; }
+  try{
+    if(ed.dirty) throw new Error('save your changes first, then copy');
+    const { data: ns, error: se } = await sb.from('sessions').insert({
+      gym_id: me_.gym_id, athlete_id: coachState.selected, session_date: targetDate,
+      title: ed.session.title||'Training', status:'draft' }).select().single();
+    if(se) throw se;
+    for(let ei=0; ei<ed.exercises.length; ei++){
+      const ex=ed.exercises[ei]; if(!ex.name.trim()) continue;
+      const { data: ne, error: ee } = await sb.from('prescribed_exercises').insert({
+        gym_id: me_.gym_id, session_id: ns.id, position: ei, name: ex.name.trim(),
+        category: ex.category||'primary', coach_note: ex.note.trim()||null }).select().single();
+      if(ee) throw ee;
+      const rows = ex.sets
+        .filter(st=>!(st.reps==='' && st.pct==='' && st.kg===''))
+        .map((st,si)=>({ gym_id: me_.gym_id, exercise_id: ne.id, position: si,
+          target_reps: st.reps===''?null:parseInt(st.reps,10),
+          target_pct: st.pct===''?null:parseFloat(st.pct),
+          target_kg: st.kg===''?null:parseFloat(st.kg),
+          target_text: targetText(st) }));
+      if(rows.length){ const { error: re } = await sb.from('prescribed_sets').insert(rows); if(re) throw re; }
+    }
+    document.getElementById('edCopyUI').style.display='none';
+    edMsgSet('✓ Copied to '+fmtDate(targetDate)+' as a draft','var(--good)');
+    setTimeout(()=>edMsgSet(''),4000);
+  }catch(e2){
+    edMsgSet('⚠ Copy failed — '+(e2.message||e2),'var(--bad)');
+  }
+  if(go){ go.disabled=false; go.textContent='Copy as draft'; }
 }
 async function deleteSession(){
   const id=ed.session.id;
