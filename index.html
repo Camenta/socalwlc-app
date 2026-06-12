@@ -180,6 +180,47 @@
   .av-day-dot.draft{background:var(--warn)}
   .pv-legend{display:flex;gap:14px;font-size:11px;color:var(--muted);flex-wrap:wrap;align-items:center}
   .pv-legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle}
+  /* mockup-feel editor: banners, cues, scheme, hdstats */
+  .cvt .bandrow th{font-size:10px;letter-spacing:.8px;padding:8px 6px}
+  .cvt .bandrow th.plh{color:var(--accent2)}
+  .cvt .bandrow th.ach{color:var(--accent)}
+  .cv-hdstats{display:inline-flex;gap:16px;margin-left:auto;align-items:center}
+  .cv-hdstats span{display:inline-flex;flex-direction:column;align-items:flex-end;line-height:1.2}
+  .cv-hdstats label{font-size:9px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:800}
+  .cv-hdstats b{font-size:16px}
+  .lt-wrap{display:inline-flex;align-items:center;gap:7px}
+  .lt-wrap label{font-size:11px;color:var(--muted);font-weight:600}
+  .scheme-btn{font-size:12px;font-weight:700;color:var(--good);border:1px dashed rgba(62,201,122,.5);border-radius:8px;padding:7px 11px;cursor:pointer;white-space:nowrap}
+  .scheme-btn:hover{background:rgba(62,201,122,.08)}
+  .rm-ex{font-size:12px;font-weight:700;color:var(--bad);background:rgba(232,92,92,.08);border:1px solid rgba(232,92,92,.3);border-radius:8px;padding:7px 11px;cursor:pointer;white-space:nowrap}
+  .rm-ex.arm{background:var(--bad);color:#fff}
+  .addrow{margin:2px 13px 4px;padding:7px 10px;border:1px dashed var(--line);border-radius:8px;color:var(--muted);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px}
+  .addrow:hover{border-color:var(--good);color:var(--text)}
+  .addrow .plus{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:5px;background:#16261c;color:var(--good);border:1px solid #2f5a3f;font-weight:800;font-size:13px}
+  .cue-row{display:flex;gap:10px;align-items:flex-start;margin:8px 13px 0}
+  .cuelbl{color:var(--accent2);font-weight:700;text-transform:uppercase;font-size:9px;letter-spacing:.5px;line-height:1.3;padding-top:4px;white-space:nowrap}
+  .cues{display:inline-flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .cuechip{display:inline-flex;align-items:center;gap:5px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:4px 9px;font-size:11.5px;color:var(--muted)}
+  .cuechip b{color:var(--text)}
+  .cuechip .cue-x{cursor:pointer;color:var(--muted);font-style:normal;font-weight:700}
+  .cuechip .cue-x:hover{color:var(--bad)}
+  .cue-add{font-size:11.5px;font-weight:700;color:var(--muted);border:1px dashed var(--line);border-radius:8px;padding:4px 10px;cursor:pointer}
+  .cue-add:hover{color:var(--accent2);border-color:var(--accent2)}
+  .ov-box{max-width:640px}
+  .ov-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+  .ov-hd .vid-x{position:static}
+  .cue-cats{display:flex;gap:7px;flex-wrap:wrap}
+  .cue-cat{background:var(--panel2);border:1px solid var(--line);border-radius:9px;color:var(--text);font-weight:700;font-size:13px;padding:8px 14px;cursor:pointer}
+  .cue-cat.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .cue-vals{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+  .cue-val{background:#0e151c;border:1px solid var(--line);border-radius:9px;color:var(--text);font-weight:700;font-size:13px;padding:9px 14px;cursor:pointer}
+  .cue-val:hover{border-color:var(--accent)}
+  .cue-val.add{border-style:dashed;color:var(--muted)}
+  .cue-custom{display:inline-flex;gap:6px;align-items:center}
+  .cue-custom input{background:#0e151c;border:1px solid var(--line);border-radius:9px;padding:8px 11px;color:var(--text);font-size:13px;width:120px}
+  .sch-preview{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px}
+  .sch-prev{font-size:12px;font-weight:700;color:var(--accent2);background:#0e151c;border:1px solid var(--line);border-radius:7px;padding:5px 9px}
+  .bf-wk input{background:#0e151c;border:1px solid var(--line);border-radius:8px;padding:8px;color:var(--text);font-size:13px;font-weight:700;width:74px;text-align:center}
   /* block banner + wave + block form */
   .cw-block{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
   .cw-block.none{background:transparent;border-style:dashed}
@@ -282,6 +323,7 @@ async function boot(){
   const { data: profile, error } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
   if(error || !profile){ await sb.auth.signOut(); renderLogin('Could not load your profile.'); return; }
   me_ = profile;
+  await probeLoadTypes();
   if(profile.role === 'coach') renderCoach(); else renderAthlete();
 }
 // if the login expires or dies mid-use, say so plainly instead of showing empty screens
@@ -494,7 +536,15 @@ function wireLogging(){
     const del=e.target.closest('.lg-del'); if(del){ removeSetRow(id); return; }
   });
 }
-const SESSION_SELECT='id,gym_id,title,session_date,status,prescribed_exercises(id,name,position,category,coach_note,prescribed_sets(id,position,target_text,target_reps,target_kg))';
+let LT_READY=false;
+let SESSION_SELECT='id,gym_id,title,session_date,status,prescribed_exercises(id,name,position,category,coach_note,prescribed_sets(id,position,target_text,target_reps,target_kg,target_pct))';
+async function probeLoadTypes(){
+  const { error } = await sb.from('prescribed_exercises').select('load_type').limit(1);
+  if(!error){
+    LT_READY=true;
+    SESSION_SELECT='id,gym_id,title,session_date,status,prescribed_exercises(id,name,position,category,coach_note,load_type,cues,prescribed_sets(id,position,target_text,target_reps,target_kg,target_pct,target_vel,target_eff))';
+  }
+}
 const DOW=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], MONS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function iso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function weekDates(offset){ // Mon..Sun of the current week, shifted by `offset` weeks
@@ -694,7 +744,7 @@ async function renderAthlete(selDate){
       <div class="av-head"><span class="pill ${isAcc?'accessory':'primary'}">${esc(cat)}</span><span class="name">${esc(ex.name)}</span></div>
       <div class="logwrap"><table class="logtable" data-ex="${ex.id}"><thead><tr><th>Set</th><th>Target</th><th>Reps</th><th>Weight</th><th>Miss</th><th>Lights</th><th>Effort</th><th>Video</th><th>Done</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
       ${addSetReady?`<span class="lg-add" onclick="addSetRow('${ex.id}')">＋ Add set</span>`:''}
-      ${ex.coach_note ? `<div class="av-note"><span class="tag">Coach<br>notes</span><span>${esc(ex.coach_note)}</span></div>` : ''}
+      ${(ex.coach_note || (ex.cues&&ex.cues.length)) ? `<div class="av-note"><span class="tag">Coach<br>notes</span><span>${(ex.cues&&ex.cues.length)?`<span class="cues" style="margin-bottom:5px;display:inline-flex">${ex.cues.map(c=>{const ix=c.indexOf('|');return `<span class="cuechip">${ix>-1?esc(c.slice(0,ix))+' ':''}<b>${esc(ix>-1?c.slice(ix+1):c)}</b></span>`;}).join('')}</span><br>`:''}${esc(ex.coach_note||'')}</span></div>` : ''}
     </div>`;
   });
 
@@ -1043,10 +1093,13 @@ async function renderCoachDay(){
   ed = { session: full, logs: logs||[], dirty:false,
     exercises: (full.prescribed_exercises||[]).slice().sort(sortByPos).map(ex=>({
       id:ex.id, name:ex.name, note:ex.coach_note||'', category:ex.category||'primary',
+      loadType: ex.load_type||'percentage', cues: Array.isArray(ex.cues)?ex.cues.slice():[],
       sets:(ex.prescribed_sets||[]).slice().sort(sortByPos).map(ps=>({
         id:ps.id, reps:ps.target_reps!=null?ps.target_reps:'',
         pct:ps.target_pct!=null?parseFloat(ps.target_pct):'',
-        kg:ps.target_kg!=null?parseFloat(ps.target_kg):'' })),
+        kg:ps.target_kg!=null?parseFloat(ps.target_kg):'',
+        vel:ps.target_vel!=null?parseFloat(ps.target_vel):'',
+        eff:ps.target_eff!=null?parseFloat(ps.target_eff):'' })),
       delSets:[]
     })), delExs:[] };
   paintEditor();
@@ -1088,43 +1141,41 @@ async function cloneSessionTo(full, targetDate){
   const exs=(full.prescribed_exercises||[]).slice().sort(sortByPos);
   for(let ei=0; ei<exs.length; ei++){
     const ex=exs[ei];
-    const { data: ne, error: ee } = await sb.from('prescribed_exercises').insert({
-      gym_id: me_.gym_id, session_id: ns.id, position: ei, name: ex.name,
-      category: ex.category||'primary', coach_note: ex.coach_note||null }).select().single();
+    const cIns={ gym_id: me_.gym_id, session_id: ns.id, position: ei, name: ex.name,
+      category: ex.category||'primary', coach_note: ex.coach_note||null };
+    if(LT_READY){ cIns.load_type=ex.load_type||'percentage'; cIns.cues=ex.cues||null; }
+    const { data: ne, error: ee } = await sb.from('prescribed_exercises').insert(cIns).select().single();
     if(ee) throw ee;
-    const rows=(ex.prescribed_sets||[]).slice().sort(sortByPos).map((ps,si)=>({
+    const rows=(ex.prescribed_sets||[]).slice().sort(sortByPos).map((ps,si)=>{ const row={
       gym_id: me_.gym_id, exercise_id: ne.id, position: si,
-      target_reps: ps.target_reps, target_pct: ps.target_pct, target_kg: ps.target_kg, target_text: ps.target_text }));
+      target_reps: ps.target_reps, target_pct: ps.target_pct, target_kg: ps.target_kg, target_text: ps.target_text };
+      if(LT_READY){ row.target_vel=ps.target_vel!=null?ps.target_vel:null; row.target_eff=ps.target_eff!=null?ps.target_eff:null; }
+      return row; });
     if(rows.length){ const { error: re } = await sb.from('prescribed_sets').insert(rows); if(re) throw re; }
   }
   return ns;
 }
 function exTiles(ex){
-  let vol=0,ton=0,vw=0,pv=0,peak=0;
+  let vol=0,ton=0,vw=0,pv=0,peak=0,inol=0;
   ex.sets.forEach(st=>{ const r=parseInt(st.reps)||0,k=parseFloat(st.kg)||0,p=parseFloat(st.pct)||0;
-    vol+=r; ton+=r*k; if(p&&r){ vw+=p*r; pv+=r; if(p>peak)peak=p; } });
+    vol+=r; ton+=r*k; if(p&&r){ vw+=p*r; pv+=r; if(p>peak)peak=p; if(p<100) inol+=r/(100-p); } });
   const avg=vol?ton/vol:0, ari=pv?vw/pv:0;
-  return `<div class="cv-tiles">
-    <span class="cv-tile"><b>${vol}</b>volume</span>
-    <span class="cv-tile"><b>${avg?avg.toFixed(1):'—'}</b>avg int kg</span>
-    <span class="cv-tile"><b>${ari?ari.toFixed(1)+'%':'—'}</b>ARI</span>
-    <span class="cv-tile"><b>${peak?peak+'%':'—'}</b>peak %</span></div>`;
+  const ids=new Set(ex.sets.map(s=>s.id).filter(Boolean));
+  let miss=0, lit=0, legal=0;
+  (ed?ed.logs:[]).forEach(l=>{ const mine=(l.prescribed_set_id&&ids.has(l.prescribed_set_id))||(!l.prescribed_set_id&&l.exercise_id===ex.id);
+    if(!mine) return; miss+=(l.miss||0); if(l.lights!=null){ lit++; if(l.lights>=2) legal++; } });
+  const legalPct=lit?Math.round(legal/lit*100):null;
+  const t=(v,l,col)=>`<span class="cv-tile"><b${col?` style="color:${col}"`:''}>${v}</b>${l}</span>`;
+  return `<div class="cv-tiles">${t(vol||'—','volume')}${t(avg?avg.toFixed(1):'—','avg int (kg)')}${t(ari?ari.toFixed(1)+'%':'—','ARI')}${t('—','RI (effort)')}${t(inol?inol.toFixed(2):'—','INOL')}${t(peak?peak+'%':'—','peak %')}${t(String(miss),'misses',miss?'var(--bad)':null)}${t(legalPct!=null?legalPct+'%':'—','comp-legal',legalPct!=null?(legalPct>=90?'var(--good)':'var(--warn)'):null)}</div>`;
 }
 function sessionTiles(){
   if(!ed) return '';
-  let vol=0,vw=0,pv=0,peak=0;
+  let vol=0,vw=0,pv=0;
   ed.exercises.forEach(ex=>ex.sets.forEach(st=>{ const r=parseInt(st.reps)||0,p=parseFloat(st.pct)||0;
-    vol+=r; if(p&&r){ vw+=p*r; pv+=r; if(p>peak)peak=p; } }));
+    vol+=r; if(p&&r){ vw+=p*r; pv+=r; } }));
   const ari=pv?vw/pv:0;
-  let done=0,total=0,miss=0;
-  const logBySet={}; ed.logs.forEach(l=>{ if(l.prescribed_set_id) logBySet[l.prescribed_set_id]=l; miss+=(l.miss||0); });
-  ed.exercises.forEach(ex=>ex.sets.forEach(st=>{ if(st.id){ total++; if(logBySet[st.id] && logBySet[st.id].done) done++; } }));
-  ed.logs.filter(l=>!l.prescribed_set_id).forEach(l=>{ total++; if(l.done) done++; });
-  return `<span class="cv-tile"><b>${vol||'—'}</b>volume</span>
-    <span class="cv-tile"><b>${ari?ari.toFixed(1)+'%':'—'}</b>ARI</span>
-    <span class="cv-tile"><b>${peak?peak+'%':'—'}</b>peak %</span>
-    <span class="cv-tile"><b>${done}/${total}</b>sets done</span>
-    <span class="cv-tile"><b>${miss}</b>misses</span>`;
+  let miss=0; ed.logs.forEach(l=>{ miss+=(l.miss||0); });
+  return `<span><label>vol</label><b>${vol||'—'}</b></span><span><label>ari</label><b>${ari?ari.toFixed(1)+'%':'—'}</b></span><span><label>misses</label><b${miss?' style="color:var(--bad)"':''}>${miss}</b></span>`;
 }
 function copyDateOptions(){
   const out=[]; const base=new Date(ed.session.session_date+'T00:00:00');
@@ -1142,37 +1193,52 @@ function logResultHtml(lg){
   if(lg.video_path) parts.push(`<span class="vidlink" onclick="playVideo('${esc(lg.video_path)}')">▶</span>`);
   return `<span class="cv-act">${parts.join(' ')}</span>`;
 }
+const LOAD_TYPES=[['percentage','Percentage'],['vbt','VBT'],['weight','Weight'],['rpe','RPE'],['rir','RIR'],['open','Open Set']];
+function tgtColHead(type){ return type==='vbt'?'≥ M/S':type==='rpe'?'RPE':type==='rir'?'RIR':type==='percentage'?'%1RM':'·'; }
+function tgtValOf(st,type){ return type==='percentage'?st.pct : type==='vbt'?st.vel : (type==='rpe'||type==='rir')?st.eff : ''; }
+function cueChipsHtml(ex,ei){
+  const chips=(ex.cues||[]).map((c,ci)=>{ const ix=c.indexOf('|'); const cat=ix>-1?c.slice(0,ix):''; const val=ix>-1?c.slice(ix+1):c;
+    return `<span class="cuechip">${cat?`${esc(cat)} `:''}<b>${esc(val)}</b><i class="cue-x" data-ci="${ci}">×</i></span>`; }).join('');
+  return `<span class="cues">${chips}<span class="cue-add" data-cue="1">＋ cue</span></span>`;
+}
 function paintEditor(){
   const host=document.getElementById('cvEd')||document.getElementById('cvDay'); if(!host||!ed) return;
   const s=ed.session, draft=s.status==='draft';
   const logBySet={}; ed.logs.forEach(l=>{ if(l.prescribed_set_id) logBySet[l.prescribed_set_id]=l; });
   const exHtml = ed.exercises.map((ex,ei)=>{
+    const type=ex.loadType||'percentage';
     const orm=oneRMFor(ex.name);
+    const showTgt = type!=='weight' && type!=='open';
     const rows=ex.sets.map((st,si)=>{
       const lg = st.id ? logBySet[st.id] : null;
+      const tgtDis = type==='percentage' ? (orm?'':'disabled title="no 1RM linked — enter kg directly"') : '';
       return `<tr data-ei="${ei}" data-si="${si}">
         <td>${si+1}</td>
         <td><input class="cell" data-f="reps" value="${esc(st.reps)}" inputmode="numeric"></td>
-        <td><input class="cell" data-f="pct" value="${esc(st.pct)}" inputmode="decimal" ${orm?'':'disabled title="no 1RM linked — enter kg directly"'}></td>
-        <td><input class="cell" data-f="kg" value="${esc(st.kg)}" inputmode="decimal"></td>
+        <td>${showTgt?`<input class="cell" data-f="tgt" value="${esc(tgtValOf(st,type))}" inputmode="decimal" ${tgtDis}>`:'<span class="tgt">—</span>'}</td>
+        <td><input class="cell" data-f="kg" value="${esc(st.kg)}" inputmode="decimal" ${type==='open'?'disabled':''}></td>
         <td class="cva" data-ps="${st.id||''}">${logResultHtml(lg)}</td>
         <td><span class="lg-del" data-rmrow="1" title="Remove set">✕</span></td></tr>`;
     }).join('');
     const addedRows = ed.logs.filter(l=>!l.prescribed_set_id && l.exercise_id===ex.id)
       .map((l,j)=>`<tr><td>+${j+1}</td><td colspan="3"><span class="addedtag">added by athlete</span></td><td class="cva">${logResultHtml(l)}</td><td></td></tr>`).join('');
+    const ltSel=`<span class="lt-wrap"><label>Load type</label><select class="cw-sel lt-sel">${LOAD_TYPES.map(t=>`<option value="${t[0]}"${type===t[0]?' selected':''}>${t[1]}</option>`).join('')}</select></span>`;
     return `<div class="b-ex cvx" data-ei="${ei}">
       <div class="cvx-hd">
         <span class="pill ${ex.category==='accessory'?'accessory':'primary'}">${esc(ex.category||'primary')}</span>
         <input class="cvx-name" data-f="name" value="${esc(ex.name)}" placeholder="Exercise name">
-        <span class="cvx-orm">${orm?`1RM <b>${orm}</b> · from maxes`:(cw.maxes?'<span class="cv-nolog">no 1RM link</span>':'')}</span>
-        <span class="b-x" data-delex="1" title="Remove exercise">✕</span>
+        <span class="cvx-orm">${(orm&&type==='percentage')?`1RM <b>${orm}</b> · from maxes`:(type==='percentage'&&cw.maxes?'<span class="cv-nolog">no 1RM link</span>':'')}</span>
+        ${LT_READY?ltSel:''}
+        <span class="scheme-btn" data-scheme="1">⚡ Set/Rep Scheme</span>
+        <span class="rm-ex" data-delex="1" title="Remove exercise">✕ remove</span>
       </div>
       <div class="logwrap"><table class="logtable cvt"><thead>
-        <tr><th></th><th colspan="3" class="plh">program (planned)</th><th class="ach">athlete (actual)</th><th></th></tr>
-        <tr><th>Set</th><th>Reps</th><th>%1RM</th><th>Load kg</th><th class="ach"></th><th></th></tr>
+        <tr class="bandrow"><th></th><th colspan="3" class="plh">program numbers (planned)</th><th class="ach">athlete numbers (actual)</th><th></th></tr>
+        <tr><th>Set</th><th>Reps</th><th>${tgtColHead(type)}</th><th>Load kg</th><th class="ach"></th><th></th></tr>
       </thead><tbody>${rows}${addedRows}</tbody></table></div>
-      <span class="lg-add" data-addrow="1">＋ add set row</span>
-      <input class="cvx-note" data-f="note" value="${esc(ex.note)}" placeholder="Coaching note for this exercise — the athlete sees it">
+      <div class="addrow" data-addrow="1"><span class="plus">＋</span> add a set row — type it in</div>
+      <div class="cue-row"><span class="cuelbl">Coaching<br>notes</span>${LT_READY?cueChipsHtml(ex,ei):''}</div>
+      <input class="cvx-note" data-f="note" value="${esc(ex.note)}" placeholder="Note for this exercise — the athlete sees it">
       ${exTiles(ex)}
     </div>`;
   }).join('');
@@ -1181,9 +1247,9 @@ function paintEditor(){
       <input id="edTitle" data-f="title" value="${esc(s.title||'')}" placeholder="Session title">
       <span class="sub" style="white-space:nowrap">${esc(fmtDate(s.session_date))}</span>
       <span class="pill ${draft?'st-draft':'st-pub'}">${draft?'DRAFT — athlete can&#39;t see it':'PUBLISHED'}</span>
+      <span class="cv-hdstats" id="edTiles">${sessionTiles()}</span>
       <span class="b-x cv-delsess" id="edDelSess" title="Delete this whole session">✕ session</span>
     </div>
-    <div class="cv-tiles" id="edTiles" style="padding:0 0 12px">${sessionTiles()}</div>
     <div class="cv-tools">
       <span class="lg-add" id="edCopyOpen" style="margin:0">⧉ Copy this day to…</span>
       <span id="edCopyUI" style="display:none">
@@ -1267,39 +1333,56 @@ function wireEditor(){
     const ex=ed.exercises[+cvx.dataset.ei]; if(!ex) return;
     if(t.dataset.f==='name'){ ex.name=t.value; ed.dirty=true;
       const orm=oneRMFor(ex.name);
-      cvx.querySelector('.cvx-orm').innerHTML = orm?`1RM <b>${orm}</b> · from maxes`:(cw.maxes?'<span class="cv-nolog">no 1RM link</span>':'');
-      cvx.querySelectorAll('[data-f="pct"]').forEach(p=>{ p.disabled=!orm; });
+      cvx.querySelector('.cvx-orm').innerHTML = (orm&&(ex.loadType||'percentage')==='percentage')?`1RM <b>${orm}</b> · from maxes`:((ex.loadType||'percentage')==='percentage'&&cw.maxes?'<span class="cv-nolog">no 1RM link</span>':'');
+      if((ex.loadType||'percentage')==='percentage') cvx.querySelectorAll('[data-f="tgt"]').forEach(p=>{ p.disabled=!orm; });
       return; }
     if(t.dataset.f==='note'){ ex.note=t.value; ed.dirty=true; return; }
     const tr=t.closest('tr[data-si]'); if(!tr) return;
     const st=ex.sets[+tr.dataset.si]; if(!st) return;
+    const type=ex.loadType||'percentage';
     const orm=oneRMFor(ex.name);
     if(t.dataset.f==='reps'){ st.reps=t.value; }
-    if(t.dataset.f==='pct'){ st.pct=t.value;
-      if(orm && t.value!==''){ st.kg=rnd1(orm*parseFloat(t.value)/100); tr.querySelector('[data-f="kg"]').value=st.kg; } }
+    if(t.dataset.f==='tgt'){
+      if(type==='percentage'){ st.pct=t.value;
+        if(orm && t.value!==''){ st.kg=rnd1(orm*parseFloat(t.value)/100); const k=tr.querySelector('[data-f="kg"]'); if(k) k.value=st.kg; } }
+      else if(type==='vbt'){ st.vel=t.value; }
+      else if(type==='rpe'||type==='rir'){ st.eff=t.value; }
+    }
     if(t.dataset.f==='kg'){ st.kg=t.value;
-      if(orm && t.value!==''){ st.pct=rnd1(parseFloat(t.value)/orm*100); tr.querySelector('[data-f="pct"]').value=st.pct; } }
+      if(type==='percentage' && orm && t.value!==''){ st.pct=rnd1(parseFloat(t.value)/orm*100); const pi=tr.querySelector('[data-f="tgt"]'); if(pi) pi.value=st.pct; } }
     ed.dirty=true;
     const tiles=cvx.querySelector('.cv-tiles'); if(tiles) tiles.outerHTML=exTiles(ex);
     const st2=document.getElementById('edTiles'); if(st2) st2.innerHTML=sessionTiles();
   });
+  card.addEventListener('change', e=>{
+    const sel=e.target.closest('.lt-sel'); if(!sel) return;
+    const cvx=sel.closest('.cvx'); const ex=ed.exercises[+cvx.dataset.ei]; if(!ex) return;
+    ex.loadType=sel.value; ed.dirty=true; paintEditor();
+  });
   card.addEventListener('click', e=>{
     const add=e.target.closest('[data-addrow]');
     if(add){ const cvx=add.closest('.cvx'); const ex=ed.exercises[+cvx.dataset.ei];
-      const last=ex.sets[ex.sets.length-1]||{reps:'',pct:'',kg:''};
-      ex.sets.push({id:null, reps:last.reps, pct:last.pct, kg:last.kg}); ed.dirty=true; paintEditor(); return; }
+      const last=ex.sets[ex.sets.length-1]||{reps:'',pct:'',kg:'',vel:'',eff:''};
+      ex.sets.push({id:null, reps:last.reps, pct:last.pct, kg:last.kg, vel:last.vel, eff:last.eff}); ed.dirty=true; paintEditor(); return; }
     const rm=e.target.closest('[data-rmrow]');
     if(rm){ const tr=rm.closest('tr'); const cvx=rm.closest('.cvx'); const ex=ed.exercises[+cvx.dataset.ei];
       const st=ex.sets[+tr.dataset.si]; if(st && st.id) ex.delSets.push(st.id);
       ex.sets.splice(+tr.dataset.si,1); ed.dirty=true; paintEditor(); return; }
+    const cu=e.target.closest('.cue-x');
+    if(cu){ const cvx=cu.closest('.cvx'); const ex=ed.exercises[+cvx.dataset.ei];
+      ex.cues.splice(+cu.dataset.ci,1); ed.dirty=true; paintEditor(); return; }
+    const ca=e.target.closest('[data-cue]');
+    if(ca){ const cvx=ca.closest('.cvx'); openCueModal(+cvx.dataset.ei); return; }
+    const sc=e.target.closest('[data-scheme]');
+    if(sc){ const cvx=sc.closest('.cvx'); openSchemeModal(+cvx.dataset.ei); return; }
     const dx=e.target.closest('[data-delex]');
     if(dx){ if(!dx.classList.contains('arm')){ dx.classList.add('arm'); dx.textContent='remove?';
-        setTimeout(()=>{ if(dx.isConnected){ dx.classList.remove('arm'); dx.textContent='✕'; } },3500); return; }
+        setTimeout(()=>{ if(dx.isConnected){ dx.classList.remove('arm'); dx.textContent='✕ remove'; } },3500); return; }
       const cvx=dx.closest('.cvx'); const ei=+cvx.dataset.ei; const ex=ed.exercises[ei];
       if(ex.id) ed.delExs.push(ex.id);
       ed.exercises.splice(ei,1); ed.dirty=true; paintEditor(); return; }
     if(e.target.id==='edAddEx' || e.target.closest('#edAddEx')){
-      ed.exercises.push({id:null,name:'',note:'',category:'primary',sets:[{id:null,reps:'',pct:'',kg:''}],delSets:[]});
+      ed.exercises.push({id:null,name:'',note:'',category:'primary',loadType:'percentage',cues:[],sets:[{id:null,reps:'',pct:'',kg:'',vel:'',eff:''}],delSets:[]});
       ed.dirty=true; paintEditor(); return; }
     if(e.target.id==='edSave'){ saveEditor(false); return; }
     if(e.target.id==='edPublish'){ saveEditor(true); return; }
@@ -1311,6 +1394,122 @@ function wireEditor(){
       deleteSession(); return; }
   });
 }
+/* ---------------- cue picker + scheme builder modals ---------------- */
+const CUE_PRESETS={Rest:['1 min','90 sec','2 min','2–3 min','3 min','3–4 min','5 min','as needed'],
+  Pause:['1s pause','2s pause','3s pause','pause in catch'],
+  Tempo:['3s ecc','5s ecc','3-0-3','slow ecc'],
+  Hang:['above knee','below knee','mid-thigh','hip'],
+  Blocks:['low blocks','knee blocks','high blocks'],
+  Grip:['hook grip','no hook','wide grip','close grip']};
+let cueTarget=null, cueCat='Rest';
+function ovModal(id, inner){
+  let m=document.getElementById(id);
+  if(!m){ m=document.createElement('div'); m.id=id; m.className='vid-modal'; document.body.appendChild(m); }
+  m.innerHTML=`<div class="vid-box ov-box">${inner}</div>`;
+  m.style.display='flex'; m.onclick=(ev)=>{ if(ev.target===m) m.style.display='none'; };
+  return m;
+}
+function openCueModal(ei){
+  cueTarget=ei; if(!CUE_PRESETS[cueCat]) cueCat=Object.keys(CUE_PRESETS)[0];
+  paintCueModal();
+}
+function paintCueModal(){
+  const cats=Object.keys(CUE_PRESETS).map(c=>`<button class="cue-cat${c===cueCat?' on':''}" onclick="cueCat='${c}';paintCueModal()">${c}</button>`).join('');
+  const vals=CUE_PRESETS[cueCat].map(v=>`<button class="cue-val" onclick="pickCue('${esc(v).replace(/'/g,"\\'")}')">${esc(v)}</button>`).join('');
+  ovModal('cueModal', `
+    <div class="ov-hd"><h2 style="margin:0">🎯 Coaching Cues</h2><span class="vid-x" onclick="document.getElementById('cueModal').style.display='none'">✕</span></div>
+    <div class="sub" style="margin:2px 0 12px">Pick a category, then a value — applies to <b>this exercise</b>.</div>
+    <div class="cue-cats">${cats}</div>
+    <div class="sub" style="margin:12px 0 6px;text-transform:uppercase;letter-spacing:.5px;font-size:10px">${esc(cueCat)}</div>
+    <div class="cue-vals">${vals}
+      <span class="cue-custom"><input id="cueCustom" placeholder="custom…" onkeydown="if(event.key==='Enter')pickCue(this.value)"><button class="cue-val add" onclick="pickCue(document.getElementById('cueCustom').value)">＋ add</button></span>
+    </div>`);
+}
+window.pickCue=(val)=>{
+  val=(val||'').trim(); if(!val) return;
+  const ex=ed && ed.exercises[cueTarget]; if(!ex) return;
+  ex.cues=ex.cues||[]; ex.cues.push(cueCat+'|'+val); ed.dirty=true;
+  document.getElementById('cueModal').style.display='none';
+  paintEditor();
+};
+const SCHEME_PRESETS=[
+  {n:'5×5 flat',sets:5,reps:5,shape:'flat',top:70},
+  {n:'3×5 flat',sets:3,reps:5,shape:'flat',top:75},
+  {n:'5×3 ramp',sets:5,reps:3,shape:'ramp',top:85,rampFrom:10},
+  {n:'6×2 wave',sets:6,reps:2,shape:'wave',top:82,amp:4},
+  {n:'8×2 flat',sets:8,reps:2,shape:'flat',top:75}
+];
+let schemeTarget=null;
+function schemeExpand(n,reps,shape,top,rampFrom,amp){
+  const out=[];
+  for(let i=0;i<n;i++){
+    let v=top;
+    if(shape==='ramp' && n>1) v=top-rampFrom + rampFrom*(i/(n-1));
+    if(shape==='wave') v=(i%2===0)?top-amp:top;
+    out.push({reps:reps, val:Math.round(v*100)/100});
+  }
+  return out;
+}
+function openSchemeModal(ei){ schemeTarget=ei; paintSchemeModal(); }
+function schemeUnit(){ const ex=ed&&ed.exercises[schemeTarget]; const t=ex?(ex.loadType||'percentage'):'percentage';
+  return t==='percentage'?'%':(t==='vbt'?'m/s':(t==='weight'?'kg':(t==='rpe'?'RPE':(t==='rir'?'RIR':''))));
+}
+function paintSchemeModal(vals){
+  const ex=ed&&ed.exercises[schemeTarget]; if(!ex) return;
+  const v=vals||{sets:5,reps:3,shape:'ramp',top:(ex.loadType==='vbt'?1.0:(ex.loadType==='weight'?(oneRMFor(ex.name)?Math.round(oneRMFor(ex.name)*0.8):60):(ex.loadType==='rpe'?8:(ex.loadType==='rir'?2:80)))),rampFrom:10,amp:4};
+  const unit=schemeUnit();
+  const presets=SCHEME_PRESETS.map((p,i)=>`<button class="cue-val" onclick="schemePreset(${i})">${p.n}${unit==='%'?' @'+p.top+'%':''}</button>`).join('');
+  const rows=schemeExpand(v.sets,v.reps,v.shape,v.top,v.rampFrom||0,v.amp||0);
+  const orm=(ex.loadType||'percentage')==='percentage'?oneRMFor(ex.name):null;
+  const preview=rows.map((r,i)=>`<span class="sch-prev">${i+1}: ${r.reps} @ ${r.val}${unit}${orm?` (${rnd1(orm*r.val/100)}kg)`:''}</span>`).join('');
+  ovModal('schemeModal', `
+    <div class="ov-hd"><h2 style="margin:0">⚡ Set/Rep Scheme</h2><span class="vid-x" onclick="document.getElementById('schemeModal').style.display='none'">✕</span></div>
+    <div class="sub" style="margin:2px 0 12px">Build the set scheme — replaces this exercise's rows. Targets in <b>${unit||'reps only'}</b> (from the load type).</div>
+    <div class="cue-cats" style="margin-bottom:12px">${presets}</div>
+    <div class="bf-row">
+      <span class="bf-wk"><label>Sets</label><input id="schSets" type="number" value="${v.sets}" min="1" max="15" oninput="schemeRefresh()"></span>
+      <span class="bf-wk"><label>Reps</label><input id="schReps" type="number" value="${v.reps}" min="1" max="20" oninput="schemeRefresh()"></span>
+      <span class="bf-wk"><label>Shape</label><select id="schShape" class="cw-sel" onchange="schemeRefresh()">
+        <option value="flat"${v.shape==='flat'?' selected':''}>flat</option><option value="ramp"${v.shape==='ramp'?' selected':''}>ramp up</option><option value="wave"${v.shape==='wave'?' selected':''}>wave</option></select></span>
+      <span class="bf-wk"><label>Top ${unit}</label><input id="schTop" type="number" step="${unit==='m/s'?'0.05':'1'}" value="${v.top}" oninput="schemeRefresh()"></span>
+      <span class="bf-wk" id="schRampWrap" style="${v.shape==='ramp'?'':'display:none'}"><label>Ramp from −</label><input id="schRamp" type="number" value="${v.rampFrom||10}" oninput="schemeRefresh()"></span>
+      <span class="bf-wk" id="schAmpWrap" style="${v.shape==='wave'?'':'display:none'}"><label>Wave ±</label><input id="schAmp" type="number" value="${v.amp||4}" oninput="schemeRefresh()"></span>
+    </div>
+    <div class="sch-preview" id="schPreview">${preview}</div>
+    <div class="bf-row" style="margin-top:12px"><button class="btn" onclick="applyScheme()">Apply to exercise</button></div>`);
+}
+window.schemePreset=(i)=>{ const p=SCHEME_PRESETS[i]; paintSchemeModal({sets:p.sets,reps:p.reps,shape:p.shape,top:p.top,rampFrom:p.rampFrom||10,amp:p.amp||4}); };
+window.schemeRefresh=()=>{
+  const v={sets:+document.getElementById('schSets').value||1,reps:+document.getElementById('schReps').value||1,
+    shape:document.getElementById('schShape').value,top:parseFloat(document.getElementById('schTop').value)||0,
+    rampFrom:parseFloat((document.getElementById('schRamp')||{}).value)||10,amp:parseFloat((document.getElementById('schAmp')||{}).value)||4};
+  document.getElementById('schRampWrap').style.display=v.shape==='ramp'?'':'none';
+  document.getElementById('schAmpWrap').style.display=v.shape==='wave'?'':'none';
+  const ex=ed.exercises[schemeTarget]; const unit=schemeUnit();
+  const orm=(ex.loadType||'percentage')==='percentage'?oneRMFor(ex.name):null;
+  const rows=schemeExpand(v.sets,v.reps,v.shape,v.top,v.rampFrom,v.amp);
+  document.getElementById('schPreview').innerHTML=rows.map((r,i)=>`<span class="sch-prev">${i+1}: ${r.reps} @ ${r.val}${unit}${orm?` (${rnd1(orm*r.val/100)}kg)`:''}</span>`).join('');
+};
+window.applyScheme=()=>{
+  const ex=ed.exercises[schemeTarget]; if(!ex) return;
+  const v={sets:+document.getElementById('schSets').value||1,reps:+document.getElementById('schReps').value||1,
+    shape:document.getElementById('schShape').value,top:parseFloat(document.getElementById('schTop').value)||0,
+    rampFrom:parseFloat((document.getElementById('schRamp')||{}).value)||10,amp:parseFloat((document.getElementById('schAmp')||{}).value)||4};
+  const type=ex.loadType||'percentage';
+  const orm=type==='percentage'?oneRMFor(ex.name):null;
+  ex.sets.forEach(st=>{ if(st.id) ex.delSets.push(st.id); });
+  ex.sets=schemeExpand(v.sets,v.reps,v.shape,v.top,v.rampFrom,v.amp).map(r=>{
+    const st={id:null,reps:r.reps,pct:'',kg:'',vel:'',eff:''};
+    if(type==='percentage'){ st.pct=r.val; if(orm) st.kg=rnd1(orm*r.val/100); }
+    else if(type==='vbt'){ st.vel=r.val; }
+    else if(type==='weight'){ st.kg=r.val; }
+    else if(type==='rpe'||type==='rir'){ st.eff=r.val; }
+    return st;
+  });
+  ed.dirty=true;
+  document.getElementById('schemeModal').style.display='none';
+  paintEditor();
+};
 async function cvCopyDay(targetDate){
   const go=document.getElementById('edCopyGo'); if(go){ go.disabled=true; go.textContent='Copying…'; }
   try{
@@ -1321,17 +1520,20 @@ async function cvCopyDay(targetDate){
     if(se) throw se;
     for(let ei=0; ei<ed.exercises.length; ei++){
       const ex=ed.exercises[ei]; if(!ex.name.trim()) continue;
-      const { data: ne, error: ee } = await sb.from('prescribed_exercises').insert({
-        gym_id: me_.gym_id, session_id: ns.id, position: ei, name: ex.name.trim(),
-        category: ex.category||'primary', coach_note: ex.note.trim()||null }).select().single();
+      const exIns={ gym_id: me_.gym_id, session_id: ns.id, position: ei, name: ex.name.trim(),
+        category: ex.category||'primary', coach_note: ex.note.trim()||null };
+      if(LT_READY){ exIns.load_type=ex.loadType||'percentage'; exIns.cues=(ex.cues&&ex.cues.length)?ex.cues:null; }
+      const { data: ne, error: ee } = await sb.from('prescribed_exercises').insert(exIns).select().single();
       if(ee) throw ee;
       const rows = ex.sets
-        .filter(st=>!(st.reps==='' && st.pct==='' && st.kg===''))
-        .map((st,si)=>({ gym_id: me_.gym_id, exercise_id: ne.id, position: si,
+        .filter(st=>!(st.reps==='' && st.pct==='' && st.kg==='' && (st.vel===''||st.vel==null) && (st.eff===''||st.eff==null)))
+        .map((st,si)=>{ const row={ gym_id: me_.gym_id, exercise_id: ne.id, position: si,
           target_reps: st.reps===''?null:parseInt(st.reps,10),
           target_pct: st.pct===''?null:parseFloat(st.pct),
           target_kg: st.kg===''?null:parseFloat(st.kg),
-          target_text: targetText(st) }));
+          target_text: targetText(st, ex.loadType) };
+          if(LT_READY){ row.target_vel=st.vel===''||st.vel==null?null:parseFloat(st.vel); row.target_eff=st.eff===''||st.eff==null?null:parseFloat(st.eff); }
+          return row; });
       if(rows.length){ const { error: re } = await sb.from('prescribed_sets').insert(rows); if(re) throw re; }
     }
     document.getElementById('edCopyUI').style.display='none';
@@ -1361,12 +1563,20 @@ async function deleteSession(){
   ed=null;
   renderCoachPanel();
 }
-function targetText(st){
-  const r=st.reps===''?null:parseInt(st.reps,10);
-  const p=st.pct===''?null:parseFloat(st.pct);
-  const k=st.kg===''?null:parseFloat(st.kg);
-  if(r!=null && p!=null && k!=null) return `${r} @ ${p}% (${k}kg)`;
-  if(r!=null && k!=null) return `${r} × ${k}kg`;
+function targetText(st, type){
+  const r=st.reps===''||st.reps==null?null:parseInt(st.reps,10);
+  const p=st.pct===''||st.pct==null?null:parseFloat(st.pct);
+  const k=st.kg===''||st.kg==null?null:parseFloat(st.kg);
+  const v=st.vel===''||st.vel==null?null:parseFloat(st.vel);
+  const e=st.eff===''||st.eff==null?null:parseFloat(st.eff);
+  type=type||'percentage';
+  if(type==='vbt'){ if(r!=null&&v!=null) return `${r} @ ≥${v.toFixed(2)} m/s${k!=null?` (${k}kg)`:''}`; if(r!=null) return `${r} reps · VBT`; return '—'; }
+  if(type==='rpe'){ if(r!=null&&e!=null) return `${r} @ RPE ${e}`; if(r!=null) return `${r} reps`; return '—'; }
+  if(type==='rir'){ if(r!=null&&e!=null) return `${r} @ ${e} RIR`; if(r!=null) return `${r} reps`; return '—'; }
+  if(type==='open'){ return r!=null?`${r} reps · open`:'open set'; }
+  if(type==='weight'){ if(r!=null&&k!=null) return `${r} × ${k}kg`; if(k!=null) return `${k}kg`; if(r!=null) return `${r} reps`; return '—'; }
+  if(r!=null&&p!=null&&k!=null) return `${r} @ ${p}% (${k}kg)`;
+  if(r!=null&&k!=null) return `${r} × ${k}kg`;
   if(r!=null) return `${r} reps`;
   if(k!=null) return `${k}kg`;
   return '—';
@@ -1391,21 +1601,26 @@ async function saveEditor(publishAfter){
       const ex=ed.exercises[ei];
       if(!ex.name.trim()){ continue; }
       if(ex.id){
-        const r=await sb.from('prescribed_exercises').update({ name:ex.name.trim(), coach_note:ex.note.trim()||null, position:ei }).eq('id', ex.id).select();
+        const exPatch={ name:ex.name.trim(), coach_note:ex.note.trim()||null, position:ei };
+        if(LT_READY){ exPatch.load_type=ex.loadType||'percentage'; exPatch.cues=(ex.cues&&ex.cues.length)?ex.cues:null; }
+        const r=await sb.from('prescribed_exercises').update(exPatch).eq('id', ex.id).select();
         if(r.error) throw r.error;
       } else {
-        const r=await sb.from('prescribed_exercises').insert({ gym_id:me_.gym_id, session_id:s.id, position:ei, name:ex.name.trim(), category:ex.category||'primary', coach_note:ex.note.trim()||null }).select().single();
+        const exIns={ gym_id:me_.gym_id, session_id:s.id, position:ei, name:ex.name.trim(), category:ex.category||'primary', coach_note:ex.note.trim()||null };
+        if(LT_READY){ exIns.load_type=ex.loadType||'percentage'; exIns.cues=(ex.cues&&ex.cues.length)?ex.cues:null; }
+        const r=await sb.from('prescribed_exercises').insert(exIns).select().single();
         if(r.error) throw r.error; ex.id=r.data.id;
       }
       for(let si=0; si<ex.sets.length; si++){
         const st=ex.sets[si];
-        const empty = st.reps==='' && st.pct==='' && st.kg==='';
+        const empty = st.reps==='' && st.pct==='' && st.kg==='' && (st.vel===''||st.vel==null) && (st.eff===''||st.eff==null);
         if(empty && !st.id) continue;
         const payload={ gym_id:me_.gym_id, exercise_id:ex.id, position:si,
           target_reps: st.reps===''?null:parseInt(st.reps,10),
           target_pct: st.pct===''?null:parseFloat(st.pct),
           target_kg: st.kg===''?null:parseFloat(st.kg),
-          target_text: targetText(st) };
+          target_text: targetText(st, ex.loadType) };
+        if(LT_READY){ payload.target_vel = st.vel===''||st.vel==null?null:parseFloat(st.vel); payload.target_eff = st.eff===''||st.eff==null?null:parseFloat(st.eff); }
         if(st.id){ const r=await sb.from('prescribed_sets').update(payload).eq('id', st.id).select(); if(r.error) throw r.error; }
         else { const r=await sb.from('prescribed_sets').insert(payload).select().single(); if(r.error) throw r.error; st.id=r.data.id; }
       }
