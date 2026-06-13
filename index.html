@@ -262,6 +262,8 @@
   .exrow .extool.del{color:var(--bad)}
   .exadd-form{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:11px;margin-bottom:10px}
   .exadd-form input,.exadd-form select{background:#0e151c;border:1px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);font-size:13px}
+  .teamsel{background:#1b2530;border:1px solid var(--line);border-radius:12px;color:var(--text);font-size:11.5px;font-weight:700;padding:4px 8px;cursor:pointer}
+  .teamsel:focus{outline:none;border-color:var(--accent2)}
   .schlib{display:grid;grid-template-columns:330px 1fr;gap:18px;margin-top:10px}
   @media(max-width:860px){.schlib{grid-template-columns:1fr}}
   .sl-left{display:flex;flex-direction:column;gap:9px;min-width:0}
@@ -1029,6 +1031,13 @@ async function renderConsole(){
     (sess||[]).forEach(s=>{ upcomingByAth[s.athlete_id]=true; });
   }
   conState._stats={lastByAth, rdyByAth, loggedToday, upcomingByAth};
+  conState._teams=null;
+  const { data: teams, error: tErr } = await sb.from('teams').select('*').order('name');
+  if(!tErr){
+    conState._teams=teams||[];
+    if(athIds.length){ const { data: profs } = await sb.from('profiles').select('id,team_id').in('id', athIds);
+      const tmap={}; (profs||[]).forEach(p=>tmap[p.id]=p.team_id); athletes.forEach(a=>a.team_id=tmap[a.id]||null); }
+  }
   const needsAttn=athletes.filter(a=>!upcomingByAth[a.id]).length;
   const activePrograms=athletes.filter(a=>upcomingByAth[a.id]).length;
   let gymName='Your gym';
@@ -1054,7 +1063,7 @@ function renderConBody(){
   const host=document.getElementById('conBody'); if(!host) return;
   if(conState.tab==='athletes') return renderRoster(host);
   if(conState.tab==='templates') return renderTemplates(host);
-  if(conState.tab==='teams') return host.innerHTML=conSoon('Teams','group athletes to assign programs and compare at the group level','a teams table');
+  if(conState.tab==='teams') return (conState._teams===null) ? host.innerHTML=conSoon('Teams','group athletes to assign programs and compare at the group level','the teams table — run 13_teams.sql') : renderTeams(host);
   if(conState.tab==='programs') return host.innerHTML=conSoon('Active Programs','named multi-week programs assigned to athletes/teams','a programs model');
   if(conState.tab==='hub') return host.innerHTML=conSoon('Team Hub','announcements + team chat','a messaging backend');
 }
@@ -1068,15 +1077,22 @@ function relTime(ts){ if(!ts) return '—'; const d=new Date(ts); const days=Mat
   if(days<=0) return 'today'; if(days===1) return 'yesterday'; if(days<7) return days+'d ago'; return MONS[d.getMonth()]+' '+d.getDate(); }
 function rdyClass(s){ return s==null?'':(s>=4?'ok':(s>=3?'watch':'attention')); }
 function avColor(name){ let h=0; for(let i=0;i<name.length;i++) h=name.charCodeAt(i)+((h<<5)-h); const hue=Math.abs(h)%360; return `hsl(${hue},45%,62%)`; }
+function teamById(id){ return (conState._teams||[]).find(t=>t.id===id); }
+function teamCell(a){
+  if(conState._teams===null) return '<span class="tchip">—</span>';
+  const opts=`<option value="">— no team —</option>`+(conState._teams||[]).map(t=>`<option value="${t.id}"${a.team_id===t.id?' selected':''}>${esc(t.name)}</option>`).join('');
+  return `<select class="teamsel" onclick="event.stopPropagation()" onchange="conSetTeam('${a.id}',this.value)">${opts}</select>`;
+}
 function renderRoster(host){
   const st=conState._stats||{lastByAth:{},rdyByAth:{},upcomingByAth:{}};
   const q=conState.rosterQ.toLowerCase();
-  const list=(coachState.athletes||[]).filter(a=>!q||a.full_name.toLowerCase().indexOf(q)>-1);
+  let list=(coachState.athletes||[]).filter(a=>!q||a.full_name.toLowerCase().indexOf(q)>-1);
+  if(conState.rosterTeam) list=list.filter(a=>a.team_id===conState.rosterTeam);
   const rows=list.map(a=>{
     const rdy=st.rdyByAth[a.id], needs=!st.upcomingByAth[a.id];
     return `<tr onclick="conOpenAthlete('${a.id}')">
       <td><div class="rname"><span class="rava" style="background:${avColor(a.full_name)}">${esc(initials(a.full_name))}</span><div><b>${esc(a.full_name)}</b></div></div></td>
-      <td><span class="tchip">—</span></td>
+      <td>${teamCell(a)}</td>
       <td><span class="sdot active"><i></i>active</span></td>
       <td>${relTime(st.lastByAth[a.id])}</td>
       <td>${needs?'<span class="dt-flag attention">needs a day</span>':'<span class="dt-flag ok">programmed</span>'}</td>
@@ -1084,9 +1100,13 @@ function renderRoster(host){
       <td style="text-align:right;color:var(--accent2);font-weight:700">open →</td>
     </tr>`;
   }).join('');
+  const teamFilter=(conState._teams&&conState._teams.length)?`<div class="cfilter">
+    <span class="cchip ${!conState.rosterTeam?'on':''}" onclick="conState.rosterTeam=null;renderConBody()">All</span>
+    ${conState._teams.map(t=>`<span class="cchip ${conState.rosterTeam===t.id?'on':''}" onclick="conState.rosterTeam='${t.id}';renderConBody()">${esc(t.name)}</span>`).join('')}</div>`:'';
   host.innerHTML=`
     <div class="ctoolbar">
       <input class="csearch" id="rosterSearch" placeholder="Search athletes by name…" value="${esc(conState.rosterQ)}" oninput="conState.rosterQ=this.value;renderConBody()">
+      ${teamFilter}
       <span class="cbtn" onclick="conAddAthlete()">+ Add athlete</span>
     </div>
     <div class="card" style="padding:6px 4px">
@@ -1096,6 +1116,57 @@ function renderRoster(host){
       ${list.length?'':'<div class="con-empty">No athletes match.</div>'}
     </div>`;
 }
+window.conSetTeam=async(athId, teamId)=>{
+  const res=await sb.from('profiles').update({team_id: teamId||null}).eq('id', athId).select();
+  if(res.error){ alert('Could not assign team — '+res.error.message); return; }
+  const a=(coachState.athletes||[]).find(x=>x.id===athId); if(a) a.team_id=teamId||null;
+};
+/* ---- TEAMS tab ---- */
+function renderTeams(host){
+  const teams=conState._teams||[];
+  const counts={}; (coachState.athletes||[]).forEach(a=>{ if(a.team_id) counts[a.team_id]=(counts[a.team_id]||0)+1; });
+  const unassigned=(coachState.athletes||[]).filter(a=>!a.team_id).length;
+  host.innerHTML=`
+    <div class="ctoolbar">
+      <span class="note sub" style="margin:0;flex:1">Group athletes to program and compare at the team level. Click a team to see its athletes; set each athlete's team from the Athletes tab.</span>
+      <span class="cbtn alt" onclick="conNewTeam()">+ New team</span>
+    </div>
+    <div id="teamFormHost"></div>
+    <div class="cgrid">
+      ${teams.map(t=>`<div class="ccard" onclick="conState.rosterTeam='${t.id}';conState.tab='athletes';renderConsole()">
+        <div style="display:flex;align-items:center;gap:8px"><span class="rava" style="width:14px;height:14px;background:${t.color||'var(--accent2)'}"></span><h3 style="margin:0">${esc(t.name)}</h3></div>
+        <div class="meta" style="margin-top:8px">${counts[t.id]||0} athlete${(counts[t.id]||0)===1?'':'s'}</div>
+        <div class="extools" style="margin-top:10px"><span class="extool del" onclick="event.stopPropagation();conDelTeam('${t.id}','${esc(t.name).replace(/'/g,"\\'")}')">✕ remove team</span></div>
+      </div>`).join('')||'<div class="con-empty">No teams yet — make your first one.</div>'}
+    </div>
+    <div class="note sub" style="margin-top:10px">${unassigned} athlete${unassigned===1?'':'s'} with no team.</div>`;
+}
+window.conNewTeam=()=>{
+  const host=document.getElementById('teamFormHost'); if(!host) return;
+  host.innerHTML=`<div class="exadd-form">
+    <input id="teamName" placeholder="Team name (e.g. National Team)" style="flex:1 1 220px">
+    <input id="teamColor" type="color" value="#3c9ee8" style="width:48px;height:38px;padding:2px">
+    <span class="cbtn" onclick="conSaveTeam()">Save team</span>
+    <span class="cbtn alt" onclick="document.getElementById('teamFormHost').innerHTML=''">Cancel</span>
+  </div>`;
+  document.getElementById('teamName').focus();
+};
+window.conSaveTeam=async()=>{
+  const name=(document.getElementById('teamName').value||'').trim(); if(!name){ document.getElementById('teamName').focus(); return; }
+  const color=document.getElementById('teamColor').value||null;
+  const res=await sb.from('teams').insert({ gym_id:me_.gym_id, name, color }).select();
+  if(res.error||!res.data||!res.data.length){ alert('Save failed — '+(res.error?res.error.message:'try again')); return; }
+  conState._teams.push(res.data[0]); conState._teams.sort((a,b)=>a.name.localeCompare(b.name));
+  renderConBody();
+};
+window.conDelTeam=async(id,name)=>{
+  const res=await sb.from('teams').delete().eq('id', id).select();
+  if(res.error){ alert('Remove failed — '+res.error.message); return; }
+  conState._teams=conState._teams.filter(t=>t.id!==id);
+  (coachState.athletes||[]).forEach(a=>{ if(a.team_id===id) a.team_id=null; });
+  if(conState.rosterTeam===id) conState.rosterTeam=null;
+  renderConBody();
+};
 window.conOpenAthlete=(id)=>{ ed=null; cw=null; coachState.selected=id; coachGo('coach'); };
 window.conAddAthlete=()=>{
   ovModal('addAthModal', `
