@@ -1510,21 +1510,42 @@ function openCueModal(ei){
   paintCueModal();
 }
 function paintCueModal(){
-  const cats=Object.keys(CUE_PRESETS).map(c=>`<button class="cue-cat${c===cueCat?' on':''}" onclick="cueCat='${c}';paintCueModal()">${c}</button>`).join('');
-  const vals=CUE_PRESETS[cueCat].map(v=>`<button class="cue-val" onclick="pickCue('${esc(v).replace(/'/g,"\\'")}')">${esc(v)}</button>`).join('');
+  const cats=Object.keys(CUE_PRESETS).map(c=>`<button class="cue-cat${c===cueCat?' on':''}" onclick="cueCat='${c}';paintCueModal()">${c}</button>`).join('')
+    + `<button class="cue-cat cust${cueCat==='Custom'?' on':''}" onclick="cueCat='Custom';paintCueModal()">＋ Custom</button>`;
+  let body;
+  if(cueCat==='Custom'){
+    body=`<div class="sub" style="margin:12px 0 6px;text-transform:uppercase;letter-spacing:.5px;font-size:10px">Custom cue — build any chip</div>
+      <div class="cue-vals"><span class="cue-custom">
+        <input id="cueLabel" placeholder="label (optional, e.g. Focus)" style="width:150px">
+        <input id="cueVal2" placeholder="cue (e.g. chest up)" style="width:170px" onkeydown="if(event.key==='Enter')pickCustomCue()">
+        <button class="cue-val add" onclick="pickCustomCue()">＋ add chip</button>
+      </span></div>`;
+  } else {
+    const vals=CUE_PRESETS[cueCat].map(v=>`<button class="cue-val" onclick="pickCue('${esc(v).replace(/'/g,"\\'")}')">${esc(v)}</button>`).join('');
+    body=`<div class="sub" style="margin:12px 0 6px;text-transform:uppercase;letter-spacing:.5px;font-size:10px">${esc(cueCat)}</div>
+      <div class="cue-vals">${vals}
+        <span class="cue-custom"><input id="cueCustom" placeholder="custom…" onkeydown="if(event.key==='Enter')pickCue(this.value)"><button class="cue-val add" onclick="pickCue(document.getElementById('cueCustom').value)">＋ add</button></span>
+      </div>`;
+  }
   ovModal('cueModal', `
     <div class="ov-hd"><h2 style="margin:0">🎯 Coaching Cues</h2><span class="vid-x" onclick="document.getElementById('cueModal').style.display='none'">✕</span></div>
-    <div class="sub" style="margin:2px 0 12px">Pick a category, then a value — applies to <b>this exercise</b>.</div>
+    <div class="sub" style="margin:2px 0 12px">Pick a category, then a value — or <b>＋ Custom</b> to make any chip. Applies to <b>this exercise</b>.</div>
     <div class="cue-cats">${cats}</div>
-    <div class="sub" style="margin:12px 0 6px;text-transform:uppercase;letter-spacing:.5px;font-size:10px">${esc(cueCat)}</div>
-    <div class="cue-vals">${vals}
-      <span class="cue-custom"><input id="cueCustom" placeholder="custom…" onkeydown="if(event.key==='Enter')pickCue(this.value)"><button class="cue-val add" onclick="pickCue(document.getElementById('cueCustom').value)">＋ add</button></span>
-    </div>`);
+    ${body}`);
 }
 window.pickCue=(val)=>{
   val=(val||'').trim(); if(!val) return;
   const ex=ed && ed.exercises[cueTarget]; if(!ex) return;
   ex.cues=ex.cues||[]; ex.cues.push(cueCat+'|'+val); ed.dirty=true;
+  document.getElementById('cueModal').style.display='none';
+  paintEditor();
+};
+window.pickCustomCue=()=>{
+  const label=(document.getElementById('cueLabel').value||'').trim();
+  const val=(document.getElementById('cueVal2').value||'').trim();
+  if(!val){ document.getElementById('cueVal2').focus(); return; }
+  const ex=ed && ed.exercises[cueTarget]; if(!ex) return;
+  ex.cues=ex.cues||[]; ex.cues.push(label ? (label+'|'+val) : val); ed.dirty=true;
   document.getElementById('cueModal').style.display='none';
   paintEditor();
 };
