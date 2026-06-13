@@ -196,6 +196,72 @@
   .ex-item:hover,.ex-item.on{background:var(--panel2)}
   .ex-nm{font-weight:700;font-size:13.5px;color:var(--text)}
   .ex-grp{margin-left:auto;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);white-space:nowrap}
+  /* ============ COACH NAV + CONSOLE ============ */
+  .cnav{display:flex;gap:6px;margin:0 0 16px}
+  .cnav button{background:var(--panel2);border:1px solid var(--line);color:var(--muted);padding:9px 18px;cursor:pointer;font-size:14px;font-weight:700;border-radius:10px}
+  .cnav button.on{color:#fff;background:var(--accent);border-color:var(--accent)}
+  .cnav button:hover:not(.on){color:var(--text)}
+  .console-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+  .console-head h1{font-size:24px;margin:0;font-weight:800}
+  .console-head .sub{font-size:13px;color:var(--muted);margin-top:2px}
+  .cstat-row{display:flex;gap:10px;flex-wrap:wrap}
+  .cstat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 16px;min-width:96px}
+  .cstat .n{font-size:22px;font-weight:800;color:var(--text)}
+  .cstat .n.accent{color:var(--accent)}.cstat .n.good{color:var(--good)}.cstat .n.warn{color:var(--warn)}
+  .cstat .l{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-top:2px}
+  .ctabs{display:flex;gap:4px;margin:8px 0 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .ctabs button{background:none;border:none;color:var(--muted);padding:11px 18px;cursor:pointer;font-size:14px;font-weight:700;border-bottom:2px solid transparent}
+  .ctabs button.on{color:var(--text);border-bottom-color:var(--accent)}
+  .ctabs button:hover{color:var(--text)}
+  .ctoolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  .csearch{flex:1 1 220px;min-width:180px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px}
+  .csearch::placeholder{color:var(--muted)}
+  .csearch:focus{outline:none;border-color:var(--accent2)}
+  .cfilter{display:flex;gap:6px;flex-wrap:wrap}
+  .cchip{font-size:12px;font-weight:700;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:6px 13px;cursor:pointer}
+  .cchip.on{color:#fff;background:var(--accent);border-color:var(--accent)}
+  .cbtn{font-size:13px;font-weight:700;color:var(--good);background:#16261c;border:1px solid #2f5a3f;border-radius:8px;padding:9px 14px;cursor:pointer;white-space:nowrap}
+  .cbtn:hover{background:#1d3325}
+  .cbtn.alt{color:var(--accent2);background:#13202c;border-color:#27425c}.cbtn.alt:hover{background:#1a2c3c}
+  .roster{width:100%;border-collapse:collapse;font-size:13px}
+  .roster thead th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700;padding:8px 12px;border-bottom:1px solid var(--line)}
+  .roster thead th[data-sort]{cursor:pointer;user-select:none;white-space:nowrap}
+  .roster thead th[data-sort]:hover{color:var(--text)}
+  .roster thead th .sc{font-size:10px;margin-left:5px;color:#3a4654}
+  .roster thead th.sorted{color:var(--text)}.roster thead th.sorted .sc{color:var(--accent)}
+  .roster tbody tr{border-bottom:1px solid var(--line);cursor:pointer}
+  .roster tbody tr:hover{background:var(--panel)}
+  .roster td{padding:10px 12px;vertical-align:middle}
+  .rava{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#0c1116;flex:0 0 auto}
+  .rname{display:flex;align-items:center;gap:11px}
+  .rname b{color:var(--text);font-weight:700;display:block}
+  .rname .wc{font-size:11px;color:var(--muted)}
+  .tchip{font-size:11px;font-weight:700;padding:3px 9px;border-radius:12px;background:#1b2530;border:1px solid var(--line);color:var(--text);white-space:nowrap}
+  .sdot{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text)}
+  .sdot i{width:8px;height:8px;border-radius:50%;display:inline-block}
+  .sdot.active i{background:var(--good)}.sdot.off i{background:var(--muted)}
+  .dt-flag{font-size:10px;font-weight:700;padding:2px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap}
+  .dt-flag.ok{background:rgba(62,201,122,.16);color:var(--good)}
+  .dt-flag.watch{background:rgba(232,177,60,.16);color:var(--warn)}
+  .dt-flag.attention{background:rgba(232,92,92,.16);color:var(--bad)}
+  .con-empty{text-align:center;padding:40px 20px;color:var(--muted)}
+  .libtabs{display:flex;gap:4px;margin:4px 0 16px}
+  .libtabs button{background:var(--panel2);border:1px solid var(--line);color:var(--muted);padding:8px 15px;cursor:pointer;font-size:13px;font-weight:700;border-radius:8px}
+  .libtabs button.on{color:var(--text);border-color:var(--accent2)}
+  .cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+  .ccard{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:14px;cursor:pointer}
+  .ccard:hover{border-color:var(--accent2)}
+  .ccard h3{margin:0 0 6px;font-size:15px}
+  .ccard .meta{font-size:11px;color:var(--muted)}
+  .exlist{display:flex;flex-direction:column;gap:5px;max-height:60vh;overflow-y:auto}
+  .exrow{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--panel2);border:1px solid var(--line);border-radius:9px}
+  .exrow .exn{font-weight:700;font-size:13.5px}
+  .exrow .exg{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)}
+  .exrow .extools{margin-left:auto;display:flex;gap:8px}
+  .exrow .extool{font-size:11px;font-weight:700;cursor:pointer;color:var(--accent2)}
+  .exrow .extool.del{color:var(--bad)}
+  .exadd-form{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:11px;margin-bottom:10px}
+  .exadd-form input,.exadd-form select{background:#0e151c;border:1px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);font-size:13px}
   .schlib{display:grid;grid-template-columns:330px 1fr;gap:18px;margin-top:10px}
   @media(max-width:860px){.schlib{grid-template-columns:1fr}}
   .sl-left{display:flex;flex-direction:column;gap:9px;min-width:0}
@@ -909,19 +975,28 @@ async function renderCoach(){
   // realtime: refresh the panel whenever any log changes
   if(coachChan) sb.removeChannel(coachChan);
   coachChan = sb.channel('logs-coach')
-    .on('postgres_changes', { event:'*', schema:'public', table:'logged_sets' }, ()=>{ if(ed) refreshEditorActuals(); else renderCoachPanel(); })
-    .on('postgres_changes', { event:'*', schema:'public', table:'readiness' }, ()=>{ if(!ed) renderCoachPanel(); })
+    .on('postgres_changes', { event:'*', schema:'public', table:'logged_sets' }, ()=>{ if(coachState.screen!=='coach') return; if(ed) refreshEditorActuals(); else renderCoachPanel(); })
+    .on('postgres_changes', { event:'*', schema:'public', table:'readiness' }, ()=>{ if(coachState.screen==='coach' && !ed) renderCoachPanel(); })
     .subscribe();
-  paintCoach();
+  if(!coachState.screen) coachState.screen='console';
+  if(coachState.screen==='coach') paintCoach(); else renderConsole();
 }
+function coachNav(active){
+  return `<div class="cnav">
+    <button class="${active==='console'?'on':''}" onclick="coachGo('console')">⌂ Console</button>
+    <button class="${active==='coach'?'on':''}" onclick="coachGo('coach')">Coach View</button>
+  </div>`;
+}
+window.coachGo=(s)=>{ coachState.screen=s; ed=null; if(s==='coach') paintCoach(); else renderConsole(); };
 
 function paintCoach(){
+  coachState.screen='coach';
   const list = coachState.athletes.map(a=>`
     <div class="athrow ${a.id===coachState.selected?'on':''}" onclick="selectAthlete('${a.id}')">
       <span class="av">${esc(initials(a.full_name))}</span>
       <div><b>${esc(a.full_name)}</b></div>
     </div>`).join('') || `<div class="empty">No athletes yet.</div>`;
-  app.innerHTML = topbar('Coach') + `
+  app.innerHTML = topbar('Coach') + coachNav('coach') + `
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
         <h2 style="margin:0">Your athletes</h2>
@@ -934,6 +1009,182 @@ function paintCoach(){
   renderCoachPanel();
 }
 window.selectAthlete = (id)=>{ ed=null; cw=null; coachState.selected=id; paintCoach(); };
+/* ============ COACHING CONSOLE ============ */
+let conState={tab:'athletes', libTab:'exercises', rosterQ:'', exQ:'', exGroup:'All', exForm:false, schemeMgrQ:''};
+async function renderConsole(){
+  coachState.screen='console';
+  app.innerHTML = topbar('Coach') + coachNav('console') + `<div class="spin">Loading console…</div>`;
+  if(!(await requireSession())) return;
+  loadExLib();
+  const athletes=coachState.athletes||[];
+  const athIds=athletes.map(a=>a.id);
+  const todayStr=iso(new Date());
+  let lastByAth={}, rdyByAth={}, loggedToday=new Set(), upcomingByAth={};
+  if(athIds.length){
+    const { data: logs } = await sb.from('logged_sets').select('athlete_id,logged_at').in('athlete_id', athIds).order('logged_at',{ascending:false});
+    (logs||[]).forEach(l=>{ if(!lastByAth[l.athlete_id]) lastByAth[l.athlete_id]=l.logged_at; if((l.logged_at||'').slice(0,10)===todayStr) loggedToday.add(l.athlete_id); });
+    const { data: rk } = await sb.from('readiness').select('athlete_id,check_date,sleep,energy,motivation,soreness,mood,stress,appetite').in('athlete_id', athIds).order('check_date',{ascending:false});
+    (rk||[]).forEach(r=>{ if(!(r.athlete_id in rdyByAth)){ const vs=[r.sleep,r.energy,r.motivation,r.soreness,r.mood,r.stress,r.appetite].filter(v=>v!=null); rdyByAth[r.athlete_id]= vs.length? Math.round(vs.reduce((a,b)=>a+b,0)/vs.length*10)/10 : null; } });
+    const { data: sess } = await sb.from('sessions').select('athlete_id,session_date,status').in('athlete_id', athIds).gte('session_date', todayStr).neq('status','draft');
+    (sess||[]).forEach(s=>{ upcomingByAth[s.athlete_id]=true; });
+  }
+  conState._stats={lastByAth, rdyByAth, loggedToday, upcomingByAth};
+  const needsAttn=athletes.filter(a=>!upcomingByAth[a.id]).length;
+  const activePrograms=athletes.filter(a=>upcomingByAth[a.id]).length;
+  let gymName='Your gym';
+  try{ const { data: g } = await sb.from('gyms').select('name').eq('id', me_.gym_id).single(); if(g&&g.name) gymName=g.name; }catch(e){}
+  app.innerHTML = topbar('Coach') + coachNav('console') + `
+    <div class="console-head">
+      <div><h1>Coaching Console</h1><div class="sub">${esc(gymName)} · ${esc(me_.full_name)}</div></div>
+      <div class="cstat-row">
+        <div class="cstat"><div class="n">${athletes.length}</div><div class="l">Athletes</div></div>
+        <div class="cstat"><div class="n accent">${activePrograms}</div><div class="l">Active programs</div></div>
+        <div class="cstat"><div class="n good">${loggedToday.size}</div><div class="l">Logged today</div></div>
+        <div class="cstat"><div class="n warn">${needsAttn}</div><div class="l">Needs attention</div></div>
+      </div>
+    </div>
+    <div class="ctabs">
+      ${[['athletes','Athletes'],['programs','Active Programs'],['templates','Template Library'],['teams','Teams'],['hub','Team Hub']].map(t=>`<button class="${conState.tab===t[0]?'on':''}" onclick="conTab('${t[0]}')">${t[1]}</button>`).join('')}
+    </div>
+    <div id="conBody"></div>`;
+  renderConBody();
+}
+window.conTab=(t)=>{ conState.tab=t; renderConBody(); };
+function renderConBody(){
+  const host=document.getElementById('conBody'); if(!host) return;
+  if(conState.tab==='athletes') return renderRoster(host);
+  if(conState.tab==='templates') return renderTemplates(host);
+  if(conState.tab==='teams') return host.innerHTML=conSoon('Teams','group athletes to assign programs and compare at the group level','a teams table');
+  if(conState.tab==='programs') return host.innerHTML=conSoon('Active Programs','named multi-week programs assigned to athletes/teams','a programs model');
+  if(conState.tab==='hub') return host.innerHTML=conSoon('Team Hub','announcements + team chat','a messaging backend');
+}
+function conSoon(title, what, needs){
+  return `<div class="card con-empty"><h2 style="margin:0 0 6px;color:var(--text)">${esc(title)}</h2>
+    <div>This tab will let you ${esc(what)}.</div>
+    <div class="sub" style="margin-top:8px">Coming in the next console build — needs ${esc(needs)}. The shell + Athletes + Template Library are live now.</div></div>`;
+}
+/* ---- ROSTER ---- */
+function relTime(ts){ if(!ts) return '—'; const d=new Date(ts); const days=Math.floor((Date.now()-d.getTime())/864e5);
+  if(days<=0) return 'today'; if(days===1) return 'yesterday'; if(days<7) return days+'d ago'; return MONS[d.getMonth()]+' '+d.getDate(); }
+function rdyClass(s){ return s==null?'':(s>=4?'ok':(s>=3?'watch':'attention')); }
+function avColor(name){ let h=0; for(let i=0;i<name.length;i++) h=name.charCodeAt(i)+((h<<5)-h); const hue=Math.abs(h)%360; return `hsl(${hue},45%,62%)`; }
+function renderRoster(host){
+  const st=conState._stats||{lastByAth:{},rdyByAth:{},upcomingByAth:{}};
+  const q=conState.rosterQ.toLowerCase();
+  const list=(coachState.athletes||[]).filter(a=>!q||a.full_name.toLowerCase().indexOf(q)>-1);
+  const rows=list.map(a=>{
+    const rdy=st.rdyByAth[a.id], needs=!st.upcomingByAth[a.id];
+    return `<tr onclick="conOpenAthlete('${a.id}')">
+      <td><div class="rname"><span class="rava" style="background:${avColor(a.full_name)}">${esc(initials(a.full_name))}</span><div><b>${esc(a.full_name)}</b></div></div></td>
+      <td><span class="tchip">—</span></td>
+      <td><span class="sdot active"><i></i>active</span></td>
+      <td>${relTime(st.lastByAth[a.id])}</td>
+      <td>${needs?'<span class="dt-flag attention">needs a day</span>':'<span class="dt-flag ok">programmed</span>'}</td>
+      <td>${rdy!=null?`<span class="dt-flag ${rdyClass(rdy)}">${rdy.toFixed(1)}</span>`:'<span class="sub">—</span>'}</td>
+      <td style="text-align:right;color:var(--accent2);font-weight:700">open →</td>
+    </tr>`;
+  }).join('');
+  host.innerHTML=`
+    <div class="ctoolbar">
+      <input class="csearch" id="rosterSearch" placeholder="Search athletes by name…" value="${esc(conState.rosterQ)}" oninput="conState.rosterQ=this.value;renderConBody()">
+      <span class="cbtn" onclick="conAddAthlete()">+ Add athlete</span>
+    </div>
+    <div class="card" style="padding:6px 4px">
+      <table class="roster"><thead><tr>
+        <th>Athlete</th><th>Team</th><th>Status</th><th>Last logged</th><th>Needs programming</th><th>Readiness</th><th></th>
+      </tr></thead><tbody>${rows}</tbody></table>
+      ${list.length?'':'<div class="con-empty">No athletes match.</div>'}
+    </div>`;
+}
+window.conOpenAthlete=(id)=>{ ed=null; cw=null; coachState.selected=id; coachGo('coach'); };
+window.conAddAthlete=()=>{
+  ovModal('addAthModal', `
+    <div class="ov-hd"><h2 style="margin:0">+ Add athlete</h2><span class="vid-x" onclick="document.getElementById('addAthModal').style.display='none'">✕</span></div>
+    <div class="sub" style="margin:6px 0 12px">Athlete logins are created securely (a password is never handled by this screen). Two ways to onboard:</div>
+    <div style="font-size:13.5px;line-height:1.7">
+      <b>1 · They sign themselves up</b> — share your gym's join link; they create their own login and land in your roster.<br>
+      <b>2 · You create it</b> — add the athlete in Supabase → Authentication → Add user, then their profile row links to your gym.
+    </div>
+    <div class="sub" style="margin-top:12px">A one-tap invite flow (email magic link) is the next backend piece — it needs a small secure server function so passwords never touch the app.</div>`);
+};
+/* ---- TEMPLATE LIBRARY ---- */
+function renderTemplates(host){
+  host.innerHTML=`
+    <div class="note sub" style="margin:0 0 10px">One central library — your exercise reference list and Set/Rep schemes, reused throughout the app.</div>
+    <div class="libtabs">
+      <button class="${conState.libTab==='exercises'?'on':''}" onclick="conState.libTab='exercises';renderConBody()">Exercises</button>
+      <button class="${conState.libTab==='schemes'?'on':''}" onclick="conState.libTab='schemes';renderConBody()">Set / Rep schemes</button>
+      <button class="${conState.libTab==='programs'?'on':''}" onclick="conState.libTab='programs';renderConBody()">Program templates</button>
+    </div>
+    <div id="libBody"></div>`;
+  const lb=document.getElementById('libBody');
+  if(conState.libTab==='exercises') renderExLibMgr(lb);
+  else if(conState.libTab==='schemes') renderSchemeMgr(lb);
+  else lb.innerHTML=conSoon('Program templates','build whole multi-week blocks you can stamp onto any athlete or team','a program-template model');
+}
+async function renderExLibMgr(host){
+  await loadExLib();
+  const groups=['All'].concat(Array.from(new Set((EXLIB||[]).map(e=>e.grp).filter(Boolean))).sort());
+  const q=conState.exQ.toLowerCase();
+  const filtered=(EXLIB||[]).filter(e=>(conState.exGroup==='All'||e.grp===conState.exGroup) && (!q||e.name.toLowerCase().indexOf(q)>-1));
+  const groupOpts=groups.filter(g=>g!=='All').map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join('');
+  host.innerHTML=`
+    <div class="ctoolbar">
+      <input class="csearch" placeholder="Search the exercise reference list…" value="${esc(conState.exQ)}" oninput="conState.exQ=this.value;renderConBody()">
+      <span class="cbtn alt" onclick="conState.exForm=!conState.exForm;renderConBody()">+ New exercise</span>
+    </div>
+    ${conState.exForm?`<div class="exadd-form">
+      <input id="exNewName" placeholder="Exercise name" style="flex:1 1 220px">
+      <input id="exNewGroup" list="exGroupList" placeholder="Group (e.g. Snatch)"><datalist id="exGroupList">${groupOpts}</datalist>
+      <input id="exNewCat" placeholder="Category (optional)">
+      <span class="cbtn" onclick="conSaveExercise()">Save exercise</span>
+      <span class="cbtn alt" onclick="conState.exForm=false;renderConBody()">Cancel</span>
+    </div>`:''}
+    <div class="cfilter" style="margin-bottom:10px">${groups.map(g=>`<span class="cchip ${conState.exGroup===g?'on':''}" onclick="conState.exGroup='${esc(g).replace(/'/g,"\\'")}';renderConBody()">${esc(g)}</span>`).join('')}</div>
+    <div class="note sub" style="margin:0 0 8px">${filtered.length} of ${(EXLIB||[]).length} exercises</div>
+    <div class="exlist">${filtered.slice(0,300).map(e=>`<div class="exrow">
+      <span class="exn">${esc(e.name)}</span>${e.grp?`<span class="exg">${esc(e.grp)}</span>`:''}
+      <span class="extools"><span class="extool del" onclick="conDelExercise('${esc(e.name).replace(/'/g,"\\'")}')">✕ remove</span></span>
+    </div>`).join('')}${filtered.length>300?`<div class="note sub" style="padding:8px">…${filtered.length-300} more — refine the search</div>`:''}</div>`;
+}
+window.conSaveExercise=async()=>{
+  const name=(document.getElementById('exNewName').value||'').trim();
+  if(!name){ document.getElementById('exNewName').focus(); return; }
+  const grp=(document.getElementById('exNewGroup').value||'').trim()||null;
+  const cat=(document.getElementById('exNewCat').value||'').trim()||null;
+  const res=await sb.from('exercises').insert({ gym_id:me_.gym_id, name, grp, cat }).select();
+  if(res.error||!res.data||!res.data.length){ alert('Save failed — '+(res.error?res.error.message:'maybe a duplicate name')); return; }
+  EXLIB.push({name, grp, cat}); EXLIB.sort((a,b)=>a.name.localeCompare(b.name));
+  conState.exForm=false; conState.exQ=''; renderConBody();
+};
+window.conDelExercise=async(name)=>{
+  const res=await sb.from('exercises').delete().eq('gym_id', me_.gym_id).eq('name', name).select();
+  if(res.error){ alert('Remove failed — '+res.error.message); return; }
+  EXLIB=(EXLIB||[]).filter(e=>e.name!==name);
+  renderConBody();
+};
+async function renderSchemeMgr(host){
+  if(!schLib.loaded){ const { data } = await sb.from('schemes').select('*').order('name').limit(1000); schLib.rows=data||[]; schLib.loaded=true; }
+  const q=conState.schemeMgrQ.toLowerCase();
+  const list=(schLib.rows||[]).filter(s=>!q||(s.name+' '+(s.movement||'')+' '+(s.phase||'')).toLowerCase().indexOf(q)>-1);
+  host.innerHTML=`
+    <div class="ctoolbar">
+      <input class="csearch" placeholder="Search your ${(schLib.rows||[]).length} schemes…" value="${esc(conState.schemeMgrQ)}" oninput="conState.schemeMgrQ=this.value;renderConBody()">
+      <span class="note sub" style="margin:0">Pull schemes onto any exercise from the ⚡ Set/Rep Scheme button. Build new ones there with “Tweak &amp; save as new.”</span>
+    </div>
+    <div class="exlist">${list.slice(0,300).map(s=>`<div class="exrow">
+      <span class="exn">${esc(s.name)}</span>
+      <span class="exg">${[s.movement,s.phase,(s.weeks+'wk')].filter(Boolean).map(esc).join(' · ')}</span>
+      <span class="extools"><span class="extool del" onclick="conDelScheme('${s.id}')">✕ remove</span></span>
+    </div>`).join('')}${list.length>300?`<div class="note sub" style="padding:8px">…${list.length-300} more — refine the search</div>`:''}</div>`;
+}
+window.conDelScheme=async(id)=>{
+  const res=await sb.from('schemes').delete().eq('id', id).select();
+  if(res.error){ alert('Remove failed — '+res.error.message); return; }
+  schLib.rows=(schLib.rows||[]).filter(s=>s.id!==id);
+  renderConBody();
+};
+
 
 function rkChip(lbl,v){
   const col = v>=4?'var(--good)':(v>=3?'var(--warn)':'var(--bad)');
