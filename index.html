@@ -312,25 +312,26 @@
   .cvx-note:focus{outline:none;border-color:var(--accent2)}
   .cvt th.plh{background:rgba(60,158,232,.10);color:var(--accent2);text-align:center}
   .cvt th.ach{background:rgba(232,100,60,.10);color:var(--accent)}
-  .cvt td.cva{background:rgba(232,100,60,.05);text-align:left;font-size:12px;min-width:150px}
+  .cvt td.cva{background:rgba(232,100,60,.05);text-align:center;font-size:12.5px}
   .cv-nolog{color:var(--muted);font-size:11px;font-style:italic}
   .cv-act b{color:var(--text)}
   .cv-tiles{display:flex;gap:8px;flex-wrap:wrap;padding:0 13px 12px}
   .cv-tile{display:inline-flex;align-items:baseline;gap:6px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:7px 12px;font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:700}
   .cv-tile b{font-size:15px;color:var(--text);letter-spacing:0}
   .cvx .lg-add{margin:4px 13px 10px}
-  /* ---- coach view: wide + dense (match mockup) ---- */
-  body.view-coach #app{max-width:1320px}
-  body.view-coach .cvt td{padding:5px 8px}
-  body.view-coach .cvt th{padding:7px 8px}
-  body.view-coach .cvt input{width:58px;padding:5px 5px;font-size:13px;background:#0c1116;border-color:#243140}
+  /* ---- coach view: mockup density ---- */
+  body.view-coach #app{max-width:980px}
+  body.view-coach .cvt td{padding:6px 6px}
+  body.view-coach .cvt th{padding:7px 6px}
+  body.view-coach .cvt input{width:56px;padding:6px 4px;font-size:13px;background:#0c1116;border-color:#243140}
   body.view-coach .cvt input:focus{border-color:var(--accent2);background:#0e151c}
-  .cvt td.cva{background:rgba(232,100,60,.05);font-size:12.5px;color:var(--text)}
-  .cvt td.ca-n{width:62px;font-weight:700}
-  .cvt td.ca-le{text-align:left;min-width:140px}
-  .cvt td.cva.nolog{text-align:left;padding-left:14px}
-  .cvt .setn{color:var(--muted);font-weight:700}
-  .cvt th.ach{white-space:nowrap}
+  /* all actual cells centered so headers + data line up; Lights·Effort left */
+  .cvt td.cva{background:rgba(232,100,60,.05);text-align:center;font-size:12.5px;color:var(--text)}
+  .cvt th.ach{text-align:center;white-space:nowrap}
+  .cvt td.ca-n{font-weight:700;width:78px}
+  .cvt td.ca-le,.cvt th.ach.le{text-align:left;padding-left:18px}
+  .cvt td.cva.nolog{text-align:left;padding-left:18px;color:var(--muted)}
+  .cvt .setn{color:var(--muted);font-weight:700;width:42px}
   .cvt td.cva .cv-act{white-space:nowrap}
   body.view-coach .cv-tiles{display:grid;grid-template-columns:repeat(8,1fr);gap:9px}
   body.view-coach .cv-tile{flex-direction:column;align-items:flex-start;gap:2px;padding:9px 12px}
@@ -1310,7 +1311,7 @@ function paintEditor(){
       </div>
       <div class="logwrap"><table class="logtable cvt"><thead>
         <tr class="bandrow"><th></th><th colspan="3" class="plh">program numbers (planned)</th><th colspan="4" class="ach">athlete numbers (actual)</th><th></th></tr>
-        <tr><th>Set</th><th>Reps</th><th>${tgtColHead(type)}</th><th>Load kg</th><th class="ach">Reps</th><th class="ach">Weight</th><th class="ach">Miss</th><th class="ach">Lights · Effort</th><th></th></tr>
+        <tr><th>Set</th><th>Reps</th><th>${tgtColHead(type)}</th><th>Load kg</th><th class="ach">Reps</th><th class="ach">Weight</th><th class="ach">Miss</th><th class="ach le">Lights · Effort</th><th></th></tr>
       </thead><tbody>${rows}${addedRows}</tbody></table></div>
       <div class="addrow" data-addrow="1"><span class="plus">＋</span> add a set row — type it in</div>
       <div class="cue-row"><span class="cuelbl">Coaching<br>notes</span>${LT_READY?cueChipsHtml(ex,ei):''}</div>
