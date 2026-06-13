@@ -357,7 +357,18 @@
   .ss-ex td:not(:first-child){color:var(--muted);text-align:right}
   @media(max-width:760px){.ss-tiles{grid-template-columns:repeat(3,1fr)}}
   .tgt{color:var(--muted)}
-  .efftag{font-size:11px;font-weight:700;color:var(--accent2);text-transform:capitalize}
+  .efftag{font-size:10px;font-weight:800;color:var(--accent2);text-transform:uppercase;letter-spacing:.5px;padding:3px 9px;border-radius:7px;background:rgba(60,158,232,.14)}
+  .eff-easy{color:var(--good);background:rgba(62,201,122,.16)}
+  .eff-moderate{color:var(--accent2);background:rgba(60,158,232,.16)}
+  .eff-hard{color:var(--warn);background:rgba(232,177,60,.16)}
+  .eff-max{color:var(--accent);background:rgba(232,100,60,.18)}
+  /* coach actual: roomy, evenly-spaced lights·effort cell */
+  .cv-le{display:inline-flex;align-items:center;gap:12px}
+  .cv-le .lights{gap:4px}
+  .cv-le .lights i{width:13px;height:13px}
+  .cv-le .le-done{color:var(--good);font-weight:800;font-size:14px}
+  .cv-le .vidlink{font-size:11px;font-weight:700}
+  .cvt td.ca-le,.cvt th.ach.le{min-width:248px}
 </style>
 </head>
 <body>
@@ -1261,14 +1272,14 @@ function actualCells(lg){
   if(!lg || (lg.actual_reps==null && lg.actual_kg==null && !lg.done))
     return `<td class="cva nolog" colspan="4"><span class="cv-nolog">not logged</span></td>`;
   const le=[];
-  if(lg.lights!=null) le.push(`<span class="lights sm">${lightsHtml(lg.lights)}</span>`);
-  if(lg.effort) le.push(`<span class="efftag">${esc(lg.effort)}</span>`);
-  if(lg.done) le.push('<span style="color:var(--good)">✓</span>');
-  if(lg.video_path) le.push(`<span class="vidlink" onclick="playVideo('${esc(lg.video_path)}')">▶</span>`);
+  if(lg.lights!=null) le.push(`<span class="lights le-lts">${lightsHtml(lg.lights)}</span>`);
+  if(lg.effort) le.push(`<span class="efftag eff-${esc(lg.effort)}">${esc(lg.effort)}</span>`);
+  if(lg.done) le.push('<span class="le-done" title="done">✓</span>');
+  if(lg.video_path) le.push(`<span class="vidlink" onclick="playVideo('${esc(lg.video_path)}')">▶ clip</span>`);
   return `<td class="cva ca-n">${lg.actual_reps??'–'}</td>`
     +`<td class="cva ca-n">${lg.actual_kg!=null?lg.actual_kg:'–'}</td>`
     +`<td class="cva ca-n">${lg.miss?`<span style="color:var(--bad)">${lg.miss}</span>`:'0'}</td>`
-    +`<td class="cva ca-le">${le.join(' ')||'–'}</td>`;
+    +`<td class="cva ca-le"><span class="cv-le">${le.join('')||'<span class="cv-nolog">–</span>'}</span></td>`;
 }
 const LOAD_TYPES=[['percentage','Percentage'],['vbt','VBT'],['weight','Weight'],['rpe','RPE'],['rir','RIR'],['open','Open Set']];
 function tgtColHead(type){ return type==='vbt'?'≥ M/S':type==='rpe'?'RPE':type==='rir'?'RIR':type==='percentage'?'%1RM':'·'; }
