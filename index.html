@@ -1363,31 +1363,20 @@ function paintEditor(){
 }
 async function renderRollup(){
   const host=document.getElementById('cvRollup'); if(!host||!ed||!cw) return;
-  host.innerHTML=`<div class="card"><h2 style="margin:0 0 4px">Metric rollup</h2><div class="sub" style="margin-bottom:8px">This session, then up the hierarchy.</div><div class="spin" style="padding:12px">computing…</div></div>`;
-  // SESSION: from the open editor state + its logs
-  const sessRow={prescribed_exercises: ed.exercises.map(ex=>({prescribed_sets: ex.sets.map(st=>({target_reps:parseInt(st.reps)||0, target_pct:st.pct===''?null:parseFloat(st.pct)}))}))};
-  const sSession=statsFor([sessRow], ed.logs);
-  // DAY: all sessions on the selected date (from week cache + logs filtered)
-  const dayIds=(cw.sessByDate[cw.selDate]||[]).map(x=>x.id);
-  const sDay=statsFor((cw.weekSessFull||[]).filter(x=>x.session_date===cw.selDate), (cw.weekLogs||[]).filter(l=>dayIds.indexOf(l.session_id)>-1));
-  // WEEK: cached
-  const sWeek=statsFor(cw.weekSessFull, cw.weekLogs);
-  // BLOCK + ALL-TIME: fetch (cache per athlete+block on cw)
-  let sBlock=null, sAll=null, blockName=null;
+  const needFetch = !cw.rollupCache || (cw.block && !cw.rollupCache.block) || !cw.rollupCache.all;
+  if(needFetch && !host.querySelector('table.ru')){
+    host.innerHTML=`<div class="card"><h2 style="margin:0 0 4px">Metric rollup</h2><div class="sub" style="margin-bottom:8px">This session, then up the hierarchy.</div><div class="spin" style="padding:12px">computing…</div></div>`;
+  }
   try{
     if(!cw.rollupCache) cw.rollupCache={};
-    if(cw.block){
-      blockName=cw.block.name;
-      if(!cw.rollupCache.block){
-        const { data: bs } = await sb.from('sessions')
-          .select('id,session_date,prescribed_exercises(prescribed_sets(target_reps,target_pct))')
-          .eq('athlete_id', cw.athId).gte('session_date', cw.block.start_date).lte('session_date', cw.block.end_date);
-        const bids=(bs||[]).map(x=>x.id);
-        let blogs=[];
-        if(bids.length){ const { data: bl } = await sb.from('logged_sets').select('miss,done,session_id,prescribed_set_id').in('session_id', bids); blogs=bl||[]; }
-        cw.rollupCache.block={ rows:bs||[], logs:blogs };
-      }
-      sBlock=statsFor(cw.rollupCache.block.rows, cw.rollupCache.block.logs);
+    if(cw.block && !cw.rollupCache.block){
+      const { data: bs } = await sb.from('sessions')
+        .select('id,session_date,prescribed_exercises(prescribed_sets(target_reps,target_pct))')
+        .eq('athlete_id', cw.athId).gte('session_date', cw.block.start_date).lte('session_date', cw.block.end_date);
+      const bids=(bs||[]).map(x=>x.id);
+      let blogs=[];
+      if(bids.length){ const { data: bl } = await sb.from('logged_sets').select('miss,done,session_id,prescribed_set_id').in('session_id', bids); blogs=bl||[]; }
+      cw.rollupCache.block={ rows:bs||[], logs:blogs };
     }
     if(!cw.rollupCache.all){
       const { data: as_ } = await sb.from('sessions')
@@ -1398,14 +1387,28 @@ async function renderRollup(){
       if(aids.length){ const { data: al } = await sb.from('logged_sets').select('miss,done,session_id,prescribed_set_id').in('session_id', aids); alogs=al||[]; }
       cw.rollupCache.all={ rows:as_||[], logs:alogs };
     }
-    sAll=statsFor(cw.rollupCache.all.rows, cw.rollupCache.all.logs);
-  }catch(e){ /* block table may not exist yet — rollup just shows fewer rows */ }
+  }catch(e){ if(!cw.rollupCache) cw.rollupCache={}; /* blocks table may be missing */ }
+  paintRollup();
+}
+// sync repaint from current editor state + cached upper levels (safe to call on every keystroke)
+function paintRollup(){
+  const host=document.getElementById('cvRollup'); if(!host||!ed||!cw) return;
+  // SESSION: live from the open editor (counts sets×reps via target_sets if present)
+  const sessRow={prescribed_exercises: ed.exercises.map(ex=>({prescribed_sets: ex.sets.map(st=>({target_reps:parseInt(st.reps)||0, target_pct:st.pct===''||st.pct==null?null:parseFloat(st.pct)}))}))};
+  const sSession=statsFor([sessRow], ed.logs);
+  const dayIds=(cw.sessByDate[cw.selDate]||[]).map(x=>x.id);
+  const sDay=statsFor((cw.weekSessFull||[]).filter(x=>x.session_date===cw.selDate), (cw.weekLogs||[]).filter(l=>dayIds.indexOf(l.session_id)>-1));
+  const sWeek=statsFor(cw.weekSessFull, cw.weekLogs);
+  const rc=cw.rollupCache||{};
+  let sBlock=null, sAll=null, blockName=null;
+  if(cw.block && rc.block){ blockName=cw.block.name; sBlock=statsFor(rc.block.rows, rc.block.logs); }
+  if(rc.all){ sAll=statsFor(rc.all.rows, rc.all.logs); }
   const row=(lbl,sub,st,hl)=>st?`<tr${hl?' class="ru-hl"':''}><td><b>${lbl}</b>${sub?` <span class="tgt">· ${esc(sub)}</span>`:''}</td>
     <td>${st.vol||'—'}</td><td>${st.ari?st.ari.toFixed(1)+'%':'—'}</td><td>${st.peak?st.peak+'%':'—'}</td>
     <td>${st.done}/${st.total}</td><td>${st.miss}</td><td>${st.sessions!=null?st.sessions:''}</td></tr>`:'';
   host.innerHTML=`<div class="card">
     <h2 style="margin:0 0 4px">Metric rollup</h2>
-    <div class="sub" style="margin-bottom:10px">This session, then up the hierarchy — planned volume & intensity, logged completion & misses.</div>
+    <div class="sub" style="margin-bottom:10px">This session (live), then up the hierarchy — saved sessions only above. Planned volume &amp; intensity, logged completion &amp; misses.</div>
     <div class="logwrap"><table class="logtable ru"><thead><tr><th style="text-align:left">Level</th><th>Volume</th><th>ARI</th><th>Peak %</th><th>Sets done</th><th>Misses</th><th>Sessions</th></tr></thead><tbody>
       ${row('Session', ed.session.title, {...sSession, sessions:null}, true)}
       ${row('↑ Day', fmtDate(cw.selDate), sDay)}
@@ -1445,6 +1448,7 @@ function wireEditor(){
     ed.dirty=true;
     const tiles=cvx.querySelector('.cv-tiles'); if(tiles) tiles.outerHTML=exTiles(ex);
     const st2=document.getElementById('edTiles'); if(st2) st2.innerHTML=sessionTiles();
+    paintRollup();
   });
   card.addEventListener('change', e=>{
     const sel=e.target.closest('.lt-sel'); if(!sel) return;
