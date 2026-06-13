@@ -329,7 +329,8 @@
   .cvt td.cva{background:rgba(232,100,60,.05);text-align:center;font-size:12.5px;color:var(--text)}
   .cvt th.ach{text-align:center;white-space:nowrap}
   .cvt td.ca-n{font-weight:700;width:78px}
-  .cvt td.ca-le,.cvt th.ach.le{text-align:left;padding-left:18px}
+  .cvt td.ca-le,.cvt th.ach.le{text-align:center}
+  .cvt td.ca-le .cv-le{justify-content:center}
   .cvt td.cva.nolog{text-align:left;padding-left:18px;color:var(--muted)}
   .cvt .setn{color:var(--muted);font-weight:700;width:42px}
   .cvt td.cva .cv-act{white-space:nowrap}
@@ -368,7 +369,10 @@
   .cv-le .lights i{width:13px;height:13px}
   .cv-le .le-done{color:var(--good);font-weight:800;font-size:14px}
   .cv-le .vidlink{font-size:11px;font-weight:700}
-  .cvt td.ca-le,.cvt th.ach.le{min-width:248px}
+  /* fixed even column layout so the actual side fills the width (no right-side void) */
+  body.view-coach .cvt{table-layout:fixed}
+  .cvt col.c-set{width:44px}.cvt col.c-pn{width:11%}.cvt col.c-an{width:11.5%}.cvt col.c-le{width:23%}.cvt col.c-rm{width:42px}
+  .cvt td.cva.nolog{text-align:center;padding-left:0}
 </style>
 </head>
 <body>
@@ -1320,7 +1324,7 @@ function paintEditor(){
         <span class="scheme-btn" data-scheme="1">⚡ Set/Rep Scheme</span>
         <span class="rm-ex" data-delex="1" title="Remove exercise">✕ remove</span>
       </div>
-      <div class="logwrap"><table class="logtable cvt"><thead>
+      <div class="logwrap"><table class="logtable cvt"><colgroup><col class="c-set"><col class="c-pn"><col class="c-pn"><col class="c-pn"><col class="c-an"><col class="c-an"><col class="c-an"><col class="c-le"><col class="c-rm"></colgroup><thead>
         <tr class="bandrow"><th></th><th colspan="3" class="plh">program numbers (planned)</th><th colspan="4" class="ach">athlete numbers (actual)</th><th></th></tr>
         <tr><th>Set</th><th>Reps</th><th>${tgtColHead(type)}</th><th>Load kg</th><th class="ach">Reps</th><th class="ach">Weight</th><th class="ach">Miss</th><th class="ach le">Lights · Effort</th><th></th></tr>
       </thead><tbody>${rows}${addedRows}</tbody></table></div>
