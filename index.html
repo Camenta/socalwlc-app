@@ -1064,7 +1064,7 @@ function renderConBody(){
   if(conState.tab==='athletes') return renderRoster(host);
   if(conState.tab==='templates') return renderTemplates(host);
   if(conState.tab==='teams') return (conState._teams===null) ? host.innerHTML=conSoon('Teams','group athletes to assign programs and compare at the group level','the teams table — run 13_teams.sql') : renderTeams(host);
-  if(conState.tab==='programs') return host.innerHTML=conSoon('Active Programs','named multi-week programs assigned to athletes/teams','a programs model');
+  if(conState.tab==='programs') return renderPrograms(host);
   if(conState.tab==='hub') return host.innerHTML=conSoon('Team Hub','announcements + team chat','a messaging backend');
 }
 function conSoon(title, what, needs){
@@ -1167,6 +1167,135 @@ window.conDelTeam=async(id,name)=>{
   if(conState.rosterTeam===id) conState.rosterTeam=null;
   renderConBody();
 };
+
+/* ================= PROGRAMS (build once → stamp onto athletes) ================= */
+function mondayOfDate(d){ const x=new Date(d); x.setHours(0,0,0,0); x.setDate(x.getDate()-((x.getDay()+6)%7)); return x; }
+function weekIdxInBlock(block, dateStr){
+  const m0=mondayOfDate(new Date(block.start_date+'T00:00:00'));
+  const m=mondayOfDate(new Date(dateStr+'T00:00:00'));
+  return Math.round((m-m0)/(7*864e5));
+}
+window.saveBlockAsProgram=async function(){
+  if(!cw || !cw.block){ alert('No training block is set for this week. Define a block first (✎ edit on the block banner).'); return; }
+  if(ed && ed.dirty){ alert('Save your current changes first, then save the block as a program.'); return; }
+  const block=cw.block;
+  // fetch every session in the block for this athlete
+  const { data: sess, error } = await sb.from('sessions')
+    .select(SESSION_SELECT)
+    .eq('athlete_id', cw.athId).gte('session_date', block.start_date).lte('session_date', block.end_date)
+    .order('session_date',{ascending:true}).order('created_at',{ascending:true});
+  if(error){ alert('Could not read the block — '+error.message); return; }
+  const sessions=(sess||[]).filter(s=>(s.prescribed_exercises||[]).length);
+  if(!sessions.length){ alert('This block has no programmed sessions to save yet.'); return; }
+  const days=sessions.map(s=>({
+    wk: Math.max(0, weekIdxInBlock(block, s.session_date)),
+    dow: (new Date(s.session_date+'T00:00:00').getDay()+6)%7,
+    title: s.title||'Training',
+    exercises: (s.prescribed_exercises||[]).slice().sort(sortByPos).map(ex=>({
+      name: ex.name, category: ex.category||'primary', load_type: ex.load_type||'percentage',
+      cues: Array.isArray(ex.cues)?ex.cues:null, coach_note: ex.coach_note||null,
+      sets: (ex.prescribed_sets||[]).slice().sort(sortByPos).map(ps=>({
+        reps: ps.target_reps, pct: ps.target_pct!=null?parseFloat(ps.target_pct):null,
+        vel: ps.target_vel!=null?parseFloat(ps.target_vel):null, eff: ps.target_eff!=null?parseFloat(ps.target_eff):null }))
+    }))
+  }));
+  const weeksN=Math.max.apply(null, days.map(d=>d.wk+1).concat([1]));
+  window._pgCapture={ name: block.name+' — program', phase: block.phase||null, weeks: weeksN, wave: block.wave||null, data:{days} };
+  ovModal('pgSaveModal', `
+    <div class="ov-hd"><h2 style="margin:0">⊞ Save block as program</h2><span class="vid-x" onclick="document.getElementById('pgSaveModal').style.display='none'">✕</span></div>
+    <div class="sub" style="margin:6px 0 12px">Captured <b>${sessions.length} day${sessions.length===1?'':'s'}</b> across <b>${weeksN} week${weeksN===1?'':'s'}</b> (reps, %1RM/velocity, cues & notes). Loads re-price off each athlete's maxes when you stamp it.</div>
+    <div class="bf-row"><input id="pgName" value="${esc(window._pgCapture.name)}" placeholder="Program name" style="flex:1;min-width:240px;font-weight:700;font-size:15px"></div>
+    <div class="bf-row" style="margin-top:12px"><button class="btn" onclick="doSaveProgram()">Save to program library</button>
+      <span class="saved" id="pgSaveMsg"></span></div>`);
+};
+window.doSaveProgram=async function(){
+  const name=(document.getElementById('pgName').value||'').trim(); if(!name){ document.getElementById('pgName').focus(); return; }
+  const c=window._pgCapture;
+  const res=await sb.from('programs').insert({ gym_id:me_.gym_id, name, phase:c.phase, weeks:c.weeks, wave:c.wave, data:c.data }).select();
+  if(res.error||!res.data||!res.data.length){ const m=document.getElementById('pgSaveMsg'); if(m){m.style.color='var(--bad)';m.textContent='Save failed — '+(res.error?res.error.message:'try again');} return; }
+  document.getElementById('pgSaveModal').style.display='none';
+  conState._programs=undefined; edMsgSet&&edMsgSet('✓ Saved "'+name+'" to your program library','var(--good)');
+};
+/* ---- console: Active Programs + Program templates ---- */
+async function loadPrograms(){
+  const { data, error } = await sb.from('programs').select('*').order('created_at',{ascending:false});
+  conState._programs = error ? null : (data||[]);
+  return conState._programs;
+}
+function programCard(p){
+  const days=(p.data&&p.data.days)?p.data.days.length:0;
+  const wave=Array.isArray(p.wave)?p.wave:null;
+  return `<div class="ccard">
+    <h3 style="margin:0 0 4px">${esc(p.name)}</h3>
+    <div class="meta">${[p.phase,(p.weeks+' wk'),days+' day'+(days===1?'':'s')].filter(Boolean).map(esc).join(' · ')}</div>
+    ${wave?`<div style="display:flex;gap:3px;align-items:flex-end;height:20px;margin-top:8px">${wave.map(lv=>{const L=WAVE_LV[lv]||WAVE_LV.light;return `<i style="display:block;width:8px;border-radius:2px;height:${L[2]}px;background:${L[1]}"></i>`;}).join('')}</div>`:''}
+    <div class="extools" style="margin-top:11px;gap:14px">
+      <span class="extool" onclick="stampProgram('${p.id}')">→ stamp onto athlete</span>
+      <span class="extool del" onclick="conDelProgram('${p.id}','${esc(p.name).replace(/'/g,"\\'")}')">✕</span>
+    </div></div>`;
+}
+async function renderPrograms(host){
+  if(conState._programs===undefined){ host.innerHTML='<div class="spin">Loading programs…</div>'; await loadPrograms(); }
+  if(conState._programs===null){ host.innerHTML=conSoon('Active Programs','build named multi-week blocks once and stamp them onto athletes & teams','the programs table — run 14_programs.sql'); return; }
+  const progs=conState._programs||[];
+  host.innerHTML=`
+    <div class="ctoolbar"><span class="note sub" style="margin:0;flex:1">Programs you've saved — stamp one onto any athlete to generate their sessions (loads price off their maxes). Build one from <b>Coach View → block banner → ⊞ save as program</b>.</span></div>
+    <div class="cgrid">${progs.map(programCard).join('')||'<div class="con-empty">No programs yet — build a block in Coach View, then “⊞ save as program”.</div>'}</div>`;
+}
+window.conDelProgram=async(id,name)=>{
+  const res=await sb.from('programs').delete().eq('id', id).select();
+  if(res.error){ alert('Remove failed — '+res.error.message); return; }
+  conState._programs=(conState._programs||[]).filter(p=>p.id!==id);
+  renderConBody();
+};
+window.stampProgram=async function(id){
+  const p=(conState._programs||[]).find(x=>x.id===id); if(!p) return;
+  const athletes=coachState.athletes||[];
+  const nextMon=mondayOfDate(new Date()); nextMon.setDate(nextMon.getDate()+7);
+  ovModal('stampModal', `
+    <div class="ov-hd"><h2 style="margin:0">→ Stamp "${esc(p.name)}"</h2><span class="vid-x" onclick="document.getElementById('stampModal').style.display='none'">✕</span></div>
+    <div class="sub" style="margin:6px 0 12px">Creates ${(p.data&&p.data.days?p.data.days.length:0)} draft session${(p.data&&p.data.days&&p.data.days.length===1)?'':'s'} for the athlete, week 1 starting the Monday you pick. %1RM loads re-price off their maxes. Publish them when ready.</div>
+    <div class="bf-row">
+      <span class="bf-wk"><label>Athlete</label><select id="stampAth" class="cw-sel">${athletes.map(a=>`<option value="${a.id}">${esc(a.full_name)}</option>`).join('')}</select></span>
+      <span class="bf-wk"><label>Week 1 starts (Mon)</label><input id="stampStart" type="date" value="${iso(nextMon)}"></span>
+    </div>
+    <div class="bf-row" style="margin-top:12px"><button class="btn" onclick="doStamp('${id}')">Stamp program</button><span class="saved" id="stampMsg"></span></div>`);
+};
+window.doStamp=async function(id){
+  const p=(conState._programs||[]).find(x=>x.id===id); if(!p) return;
+  const athId=document.getElementById('stampAth').value;
+  const start=document.getElementById('stampStart').value;
+  const msg=document.getElementById('stampMsg'); if(msg){ msg.style.color=''; msg.textContent='Stamping…'; }
+  const btn=document.querySelector('#stampModal .btn'); if(btn) btn.disabled=true;
+  try{
+    const { data: mx } = await sb.from('maxes').select('lift,kg').eq('athlete_id', athId);
+    const maxes={}; (mx||[]).forEach(m=>maxes[m.lift]=parseFloat(m.kg));
+    const startMon=mondayOfDate(new Date(start+'T00:00:00'));
+    let made=0;
+    for(const day of (p.data.days||[])){
+      const d=new Date(startMon); d.setDate(d.getDate()+ (day.wk||0)*7 + (day.dow||0));
+      const { data: ns, error: se } = await sb.from('sessions').insert({ gym_id:me_.gym_id, athlete_id:athId, session_date:iso(d), title:day.title||'Training', status:'draft' }).select().single();
+      if(se) throw se;
+      let pos=0;
+      for(const ex of (day.exercises||[])){
+        const exIns={ gym_id:me_.gym_id, session_id:ns.id, position:pos++, name:ex.name, category:ex.category||'primary', coach_note:ex.coach_note||null };
+        if(LT_READY){ exIns.load_type=ex.load_type||'percentage'; exIns.cues=ex.cues||null; }
+        const { data: ne, error: ee } = await sb.from('prescribed_exercises').insert(exIns).select().single(); if(ee) throw ee;
+        const orm=(ex.load_type||'percentage')==='percentage'?ormLookup(ex.name, maxes):null;
+        const rows=(ex.sets||[]).map((s,si)=>{ const st={reps:s.reps,pct:s.pct,kg:(s.pct!=null&&orm)?Math.round(orm*s.pct/100):null,vel:s.vel,eff:s.eff};
+          const row={ gym_id:me_.gym_id, exercise_id:ne.id, position:si,
+            target_reps:s.reps!=null?s.reps:null, target_pct:s.pct!=null?s.pct:null, target_kg:st.kg,
+            target_text:targetText({reps:s.reps==null?'':s.reps,pct:s.pct==null?'':s.pct,kg:st.kg==null?'':st.kg,vel:s.vel==null?'':s.vel,eff:s.eff==null?'':s.eff}, ex.load_type||'percentage') };
+          if(LT_READY){ row.target_vel=s.vel!=null?s.vel:null; row.target_eff=s.eff!=null?s.eff:null; } return row; });
+        if(rows.length){ const { error: re } = await sb.from('prescribed_sets').insert(rows); if(re) throw re; }
+      }
+      made++;
+    }
+    document.getElementById('stampModal').style.display='none';
+    const ath=(coachState.athletes||[]).find(a=>a.id===athId);
+    alert('✓ Stamped "'+p.name+'" onto '+(ath?ath.full_name:'athlete')+' — '+made+' draft session'+(made===1?'':'s')+' created starting '+start+'. Open them in Coach View to review & publish.');
+  }catch(e){ if(btn) btn.disabled=false; if(msg){ msg.style.color='var(--bad)'; msg.textContent='Stamp failed — '+(e.message||e); } }
+};
 window.conOpenAthlete=(id)=>{ ed=null; cw=null; coachState.selected=id; coachGo('coach'); };
 window.conAddAthlete=()=>{
   ovModal('addAthModal', `
@@ -1191,7 +1320,7 @@ function renderTemplates(host){
   const lb=document.getElementById('libBody');
   if(conState.libTab==='exercises') renderExLibMgr(lb);
   else if(conState.libTab==='schemes') renderSchemeMgr(lb);
-  else lb.innerHTML=conSoon('Program templates','build whole multi-week blocks you can stamp onto any athlete or team','a program-template model');
+  else renderPrograms(lb);
 }
 async function renderExLibMgr(host){
   await loadExLib();
@@ -1385,9 +1514,9 @@ window.cwSelectDay = (d)=>{ ed=null; cw.selDate=d; renderCoachPanel(); };
 let ed = null;   // open day-editor state
 let cw = null;   // coach week state (selected athlete's week)
 function rnd1(n){ return Math.round(n); }
-function oneRMFor(name){
-  if(!cw || !cw.maxes) return null;
-  if(cw.maxes[name]!=null) return cw.maxes[name];
+function ormLookup(name, maxes){
+  if(!maxes) return null;
+  if(maxes[name]!=null) return maxes[name];
   const n=(name||'').toLowerCase();
   const rules=[[/power\s*snatch/,'Power Snatch'],[/power\s*clean/,'Power Clean'],
     [/snatch.*(dl|pull|deadlift)/,'Snatch DL'],[/clean.*(dl|pull|deadlift)/,'Clean DL'],
@@ -1395,9 +1524,10 @@ function oneRMFor(name){
     [/hang\s*snatch|block\s*snatch|snatch\s*balance/,'Snatch'],[/hang\s*clean|block\s*clean/,'Clean'],
     [/front\s*squat/,'Front Squat'],[/squat/,'Back Squat'],
     [/push\s*press|strict\s*press/,'Push Press'],[/jerk/,'Jerk'],[/snatch/,'Snatch'],[/clean/,'Clean']];
-  for(const r of rules){ if(r[0].test(n) && cw.maxes[r[1]]!=null) return cw.maxes[r[1]]; }
+  for(const r of rules){ if(r[0].test(n) && maxes[r[1]]!=null) return maxes[r[1]]; }
   return null;
 }
+function oneRMFor(name){ return ormLookup(name, cw&&cw.maxes); }
 const WAVE_LV={light:['LIGHT','#8b9aa8',8],moderate:['MODERATE','#3c9ee8',12],heavy:['HEAVY','#e8b13c',16],peak:['PEAK','#e8643c',20]};
 function blockWeekIdx(block, wk){
   const mon0=new Date(block.start_date+'T00:00:00');
@@ -1422,7 +1552,8 @@ function blockBannerHtml(block, wk){
     <b>${esc(block.name)}</b> · ${totW}-week block · ${esc(block.start_date)} → ${esc(block.end_date)}
     ${bars}
     ${inBlock?`<span class="bw-now">Week ${wIdx+1} of ${totW}${lvNow?` · <b style="color:${lvNow[1]}">${lvNow[0]}</b>`:''}</span>`:''}
-    <span class="lg-add" style="margin:0 0 0 auto" onclick="toggleBlockForm()">✎ edit</span>
+    <span class="lg-add" style="margin:0 0 0 auto" onclick="saveBlockAsProgram()">⊞ save as program</span>
+    <span class="lg-add" style="margin:0" onclick="toggleBlockForm()">✎ edit</span>
   </div>`;
 }
 window.toggleBlockForm = ()=>{
