@@ -181,7 +181,15 @@
   .pv-legend{display:flex;gap:14px;font-size:11px;color:var(--muted);flex-wrap:wrap;align-items:center}
   .pv-legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle}
   /* scheme library picker */
-  .sch-wide{max-width:1150px;width:96vw}
+  .vid-box.sch-wide{max-width:1560px;width:97vw}
+  .sl-scope{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);font-weight:700}
+  .sl-scope select{background:#0e151c;border:1px solid var(--line);border-radius:8px;color:var(--text);font-size:13px;font-weight:700;padding:8px 10px;cursor:pointer}
+  .sl-grid th.wk,.sl-grid td{min-width:96px}
+  .tw-cell{display:inline-flex;align-items:center;gap:3px;justify-content:center}
+  .tw-in{width:34px;background:#0e151c;border:1px solid var(--line);border-radius:6px;color:var(--text);text-align:center;padding:5px 3px;font-size:12px;font-weight:700}
+  .tw-in.wp{width:42px;color:var(--accent)}
+  .tw-in:focus{outline:none;border-color:var(--accent2)}
+  .tw-at{color:var(--muted);font-size:11px}
   .schlib{display:grid;grid-template-columns:330px 1fr;gap:18px;margin-top:10px}
   @media(max-width:860px){.schlib{grid-template-columns:1fr}}
   .sl-left{display:flex;flex-direction:column;gap:9px;min-width:0}
@@ -1568,7 +1576,7 @@ function schemeExpand(n,reps,shape,top,rampFrom,amp){
   return out;
 }
 /* ===== scheme LIBRARY picker (the real 347-scheme library) ===== */
-let schLib={loaded:false,error:false,rows:[],q:'',mv:'All',ph:'All',selId:null,wk:0};
+let schLib={loaded:false,error:false,rows:[],q:'',mv:'All',ph:'All',selId:null,wk:0,scope:'session'};
 window.openSchemeModal=async function(ei){
   schemeTarget=ei;
   if(!schLib.loaded){
@@ -1623,9 +1631,15 @@ function paintSchemeLib(){
       <div class="sl-right" id="slDetail"></div>
     </div>
     <div class="sl-foot">
-      <button class="btn" id="slApply" onclick="applyLibScheme()">Apply week ${schLib.wk+1} →</button>
-      <button class="btn ghost" onclick="paintCustomScheme()">⚙ Custom builder</button>
-      <span class="sub" style="margin-left:auto">Click a week column — that microcycle populates this exercise. Loads price live off the athlete's max.</span>
+      <button class="btn" id="slApply" onclick="applyLibScheme()">${schLib.scope==='block'?'Apply across block →':'Apply week '+(schLib.wk+1)+' →'}</button>
+      <button class="btn ghost" onclick="tweakScheme()">⊞ Tweak &amp; save as new</button>
+      <button class="btn ghost" onclick="paintCustomScheme()">⚙ Custom</button>
+      <span class="sl-scope">Scope
+        <select id="slScope" onchange="schLib.scope=this.value;refreshApplyLabel()">
+          <option value="session"${schLib.scope==='session'?' selected':''}>Selected week → this session</option>
+          <option value="block"${schLib.scope==='block'?' selected':''}>Whole block (week by week)</option>
+        </select></span>
+      <span class="sub" id="slFootHelp" style="margin-left:auto;max-width:320px">${schLib.scope==='block'?(cw&&cw.block?'Each scheme week populates the matching exercise across '+esc(cw.block.name)+'.':'No block set for this week — define one to apply across a block.'):'Click a week column, then apply it to this exercise. Loads price off the athlete\'s max.'}</span>
     </div>`);
   const box=document.querySelector('#schemeModal .vid-box'); if(box) box.classList.add('sch-wide');
   paintLibList();
@@ -1652,7 +1666,7 @@ window.paintLibDetail=function(){
   const maxRows=Math.max(...weeks.map(w=>w.length));
   const chips=[['Movement',s.movement||'—'],['Phase',s.phase||s.phase_label||'—'],['Length',s.weeks+' weeks'],['Pattern',s.pattern||'—'],['Reps',s.reps_mode?s.reps_mode+'/set':'—']]
     .map(c=>`<span class="sl-mchip">${c[0]} <b>${esc(String(c[1]))}</b></span>`).join('');
-  let head='<tr><th class="sl-setcol">Set</th>'+weeks.map((_,w)=>`<th class="wk${w===schLib.wk?' on':''}" onclick="schLib.wk=${w};paintLibDetail();var a=document.getElementById('slApply');if(a)a.textContent='Apply week ${w+1} →'">WK ${w+1}</th>`).join('')+'</tr>';
+  let head='<tr><th class="sl-setcol">Set</th>'+weeks.map((_,w)=>`<th class="wk${w===schLib.wk?' on':''}" onclick="schLib.wk=${w};paintLibDetail();refreshApplyLabel()">WK ${w+1}</th>`).join('')+'</tr>';
   let body='';
   for(let i=0;i<maxRows;i++){
     body+='<tr><td class="sl-setcol">Set '+(i+1)+'</td>'+weeks.map((wkRows,w)=>{
@@ -1675,24 +1689,119 @@ window.paintLibDetail=function(){
       ${mrow('Peak',0,m=>m.peak?m.peak+'%':'—')}
     </tbody></table></div>`;
 };
+window.refreshApplyLabel=function(){
+  const a=document.getElementById('slApply'); if(a) a.textContent=schLib.scope==='block'?'Apply across block →':'Apply week '+(schLib.wk+1)+' →';
+  const h=document.getElementById('slFootHelp');
+  if(h) h.innerHTML=schLib.scope==='block'?(cw&&cw.block?'Each scheme week populates the matching exercise across '+esc(cw.block.name)+'.':'No block set for this week — define one to apply across a block.'):'Click a week column, then apply it to this exercise. Loads price off the athlete\'s max.';
+};
+function schemeRowsToSets(weekRows, exName){
+  const anyPct=weekRows.some(r=>r.p!=null);
+  const orm=anyPct?oneRMFor(exName):null;
+  const sets=[];
+  weekRows.forEach(r=>{ for(let i=0;i<(r.s||1);i++){
+    sets.push({id:null, reps:r.r!=null?r.r:'', pct:r.p!=null?r.p:'', kg:(r.p!=null&&orm)?rnd1(orm*r.p/100):'', vel:'', eff:''});
+  }});
+  return {sets, loadType: anyPct?'percentage':'open'};
+}
 window.applyLibScheme=function(){
+  if(schLib.scope==='block') return applyAcrossBlock();
   const s=libSelected(); const ex=ed&&ed.exercises[schemeTarget];
   if(!s||!ex) return;
   const weekRows=(s.data||[])[schLib.wk]||[];
   if(!weekRows.length) return;
-  const anyPct=weekRows.some(r=>r.p!=null);
-  ex.loadType = anyPct ? 'percentage' : 'open';
-  const orm = anyPct ? oneRMFor(ex.name) : null;
+  const built=schemeRowsToSets(weekRows, ex.name);
+  ex.loadType=built.loadType;
   ex.sets.forEach(st=>{ if(st.id) ex.delSets.push(st.id); });
-  ex.sets=[];
-  weekRows.forEach(r=>{
-    for(let i=0;i<(r.s||1);i++){
-      ex.sets.push({id:null, reps:r.r!=null?r.r:'', pct:r.p!=null?r.p:'', kg:(r.p!=null&&orm)?rnd1(orm*r.p/100):'', vel:'', eff:''});
-    }
-  });
+  ex.sets=built.sets;
   ed.dirty=true;
   document.getElementById('schemeModal').style.display='none';
   paintEditor();
+};
+function addDaysIso(dateStr, days){ const d=new Date(dateStr+'T00:00:00'); d.setDate(d.getDate()+days); return iso(d); }
+window.applyAcrossBlock=async function(){
+  const s=libSelected(); const ex=ed&&ed.exercises[schemeTarget]; const block=cw&&cw.block;
+  if(!s||!ex) return;
+  if(!block){ alert('No training block is set for this week. Define a block first (✎ edit on the block banner), then apply across it.'); return; }
+  if(ed.dirty){ alert('Save your current changes first, then apply across the block.'); return; }
+  const exName=(ex.name||'').trim(); if(!exName){ alert('Give the exercise a name first.'); return; }
+  const btn=document.getElementById('slApply'); if(btn){ btn.disabled=true; btn.textContent='Applying…'; }
+  const totalW=Math.min((s.data||[]).length, blockWeeks(block));
+  let applied=0; const skipped=[];
+  try{
+    for(let w=0; w<totalW; w++){
+      const wkStart=addDaysIso(block.start_date, w*7), wkEnd=addDaysIso(block.start_date, w*7+6);
+      const { data: sess } = await sb.from('sessions')
+        .select('id,prescribed_exercises(id,name,prescribed_sets(id))')
+        .eq('athlete_id', cw.athId).gte('session_date', wkStart).lte('session_date', wkEnd);
+      let tgt=null;
+      (sess||[]).forEach(se=>(se.prescribed_exercises||[]).forEach(e=>{ if((e.name||'').trim().toLowerCase()===exName.toLowerCase()) tgt={exId:e.id, setIds:(e.prescribed_sets||[]).map(x=>x.id)}; }));
+      if(!tgt){ skipped.push('Wk'+(w+1)); continue; }
+      const weekRows=(s.data||[])[w]||[];
+      const built=schemeRowsToSets(weekRows, exName);
+      if(tgt.setIds.length){ const r=await sb.from('prescribed_sets').delete().in('id', tgt.setIds); if(r.error) throw r.error; }
+      const rows=built.sets.map((st,pos)=>{ const row={ gym_id:me_.gym_id, exercise_id:tgt.exId, position:pos,
+        target_reps: st.reps===''?null:parseInt(st.reps,10), target_pct: st.pct===''?null:parseFloat(st.pct),
+        target_kg: st.kg===''?null:parseFloat(st.kg), target_text: targetText(st, built.loadType) };
+        if(LT_READY){ row.target_vel=null; row.target_eff=null; } return row; });
+      if(rows.length){ const r=await sb.from('prescribed_sets').insert(rows); if(r.error) throw r.error; }
+      if(LT_READY){ await sb.from('prescribed_exercises').update({load_type:built.loadType}).eq('id', tgt.exId); }
+      applied++;
+    }
+    document.getElementById('schemeModal').style.display='none';
+    if(cw) cw.rollupCache=null;
+    await renderCoachDay();
+    edMsgSet('✓ Applied "'+s.name+'" across '+applied+' week'+(applied===1?'':'s')+(skipped.length?' · skipped '+skipped.join(', ')+' (no matching "'+exName+'")':''), applied?'var(--good)':'var(--warn)');
+    setTimeout(()=>edMsgSet(''),6000);
+  }catch(e){ if(btn){ btn.disabled=false; btn.textContent='Apply across block →'; } alert('Apply across block failed — '+(e.message||e)); }
+};
+/* ---- Tweak & save as new scheme (editable grid → schemes library) ---- */
+let tweak=null;
+window.tweakScheme=function(){
+  const s=libSelected(); if(!s) return;
+  tweak={ name:'Copy of '+s.name, weeks: JSON.parse(JSON.stringify(s.data||[])), movement:s.movement, phase:s.phase, pattern:s.pattern };
+  paintTweak();
+};
+function paintTweak(){
+  const w=tweak.weeks; const maxRows=Math.max.apply(null, w.map(x=>x.length).concat([1]));
+  let head='<tr><th class="sl-setcol">Set</th>'+w.map((_,wi)=>`<th>WK ${wi+1}</th>`).join('')+'</tr>';
+  let body='';
+  for(let i=0;i<maxRows;i++){
+    body+='<tr><td class="sl-setcol">Set '+(i+1)+'</td>'+w.map((wkRows,wi)=>{
+      const r=wkRows[i]||{};
+      return `<td><span class="tw-cell"><input class="tw-in" data-w="${wi}" data-i="${i}" data-f="s" value="${r.s!=null?r.s:''}" placeholder="s">×<input class="tw-in" data-w="${wi}" data-i="${i}" data-f="r" value="${r.r!=null?r.r:''}" placeholder="r"><span class="tw-at">@</span><input class="tw-in wp" data-w="${wi}" data-i="${i}" data-f="p" value="${r.p!=null?r.p:''}" placeholder="%"></span></td>`;
+    }).join('')+'</tr>';
+  }
+  ovModal('schemeModal',`
+    <div class="ov-hd"><div><h2 style="margin:0">⊞ Tweak &amp; Save Scheme</h2>
+      <div class="sub">Edit the cells, name it, save it into your library.</div></div>
+      <span class="vid-x" onclick="paintSchemeLib()">✕</span></div>
+    <div class="bf-row" style="margin:6px 0 0"><input id="twName" value="${esc(tweak.name)}" placeholder="Scheme name" style="flex:1;min-width:240px;font-weight:700;font-size:15px"></div>
+    <div class="sl-gridwrap" style="margin-top:12px"><table class="sl-grid tw-grid"><thead>${head}</thead><tbody>${body}</tbody></table></div>
+    <div class="sl-foot">
+      <button class="btn" onclick="saveTweak()">Save to library</button>
+      <button class="btn ghost" onclick="paintSchemeLib()">← Back to library</button>
+      <span class="sub" style="margin-left:auto">Cells are Sets × Reps @ %1RM. Blank cells are skipped.</span>
+    </div>`);
+  const box=document.querySelector('#schemeModal .vid-box'); if(box) box.classList.add('sch-wide');
+  const grid=document.querySelector('.tw-grid');
+  grid.addEventListener('input', e=>{ const t=e.target.closest('.tw-in'); if(!t) return;
+    const wi=+t.dataset.w, i=+t.dataset.i, f=t.dataset.f, wk=tweak.weeks[wi];
+    while(wk.length<=i) wk.push({});
+    const v=t.value.trim(); wk[i][f]= v===''?null:parseFloat(v);
+  });
+}
+window.saveTweak=async function(){
+  const name=(document.getElementById('twName').value||'').trim();
+  if(!name){ alert('Give the scheme a name.'); return; }
+  const weeks=tweak.weeks.map(wk=>wk.filter(r=>r&&(r.s!=null||r.r!=null||r.p!=null)).map(r=>({s:r.s!=null?r.s:1,r:r.r!=null?r.r:null,p:r.p!=null?r.p:null}))).filter(wk=>wk.length);
+  if(!weeks.length){ alert('Add at least one set.'); return; }
+  const repsAll=weeks.reduce((a,wk)=>a.concat(wk.map(r=>r.r).filter(Boolean)),[]);
+  const freq={}; let reps_mode=null,best=0; repsAll.forEach(r=>{ freq[r]=(freq[r]||0)+1; if(freq[r]>best){best=freq[r];reps_mode=r;} });
+  const payload={ gym_id:me_.gym_id, name, movement:tweak.movement||null, phase:tweak.phase||null, pattern:tweak.pattern||null, weeks:weeks.length, reps_mode, data:weeks };
+  const res=await sb.from('schemes').insert(payload).select();
+  if(res.error||!res.data||!res.data.length){ alert('Save failed — '+(res.error?res.error.message:'try again')); return; }
+  schLib.rows.unshift(res.data[0]); schLib.selId=res.data[0].id; schLib.wk=0; schLib.q='';
+  paintSchemeLib();
 };
 function schemeUnit(){ const ex=ed&&ed.exercises[schemeTarget]; const t=ex?(ex.loadType||'percentage'):'percentage';
   return t==='percentage'?'%':(t==='vbt'?'m/s':(t==='weight'?'kg':(t==='rpe'?'RPE':(t==='rir'?'RIR':''))));
