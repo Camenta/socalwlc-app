@@ -319,6 +319,29 @@
   .cv-tile{display:inline-flex;align-items:baseline;gap:6px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:7px 12px;font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:700}
   .cv-tile b{font-size:15px;color:var(--text);letter-spacing:0}
   .cvx .lg-add{margin:4px 13px 10px}
+  /* ---- coach view: wide + dense (match mockup) ---- */
+  body.view-coach #app{max-width:1320px}
+  body.view-coach .cvt td{padding:5px 8px}
+  body.view-coach .cvt th{padding:7px 8px}
+  body.view-coach .cvt input{width:58px;padding:5px 5px;font-size:13px;background:#0c1116;border-color:#243140}
+  body.view-coach .cvt input:focus{border-color:var(--accent2);background:#0e151c}
+  .cvt td.cva{background:rgba(232,100,60,.05);font-size:12.5px;color:var(--text)}
+  .cvt td.ca-n{width:62px;font-weight:700}
+  .cvt td.ca-le{text-align:left;min-width:140px}
+  .cvt td.cva.nolog{text-align:left;padding-left:14px}
+  .cvt .setn{color:var(--muted);font-weight:700}
+  .cvt th.ach{white-space:nowrap}
+  .cvt td.cva .cv-act{white-space:nowrap}
+  body.view-coach .cv-tiles{display:grid;grid-template-columns:repeat(8,1fr);gap:9px}
+  body.view-coach .cv-tile{flex-direction:column;align-items:flex-start;gap:2px;padding:9px 12px}
+  body.view-coach .cv-tile b{font-size:18px}
+  body.view-coach .cvx-name{font-size:15px}
+  body.view-coach .cvx-hd{padding:12px 16px;gap:12px}
+  body.view-coach .cvt .bandrow th{padding:9px 8px;font-size:11px}
+  body.view-coach .cvx-note{margin:11px 16px;padding:9px 13px}
+  body.view-coach .cue-row{margin:10px 16px 0}
+  body.view-coach .addrow{margin:4px 16px 6px}
+  @media(max-width:980px){ body.view-coach .cv-tiles{grid-template-columns:repeat(4,1fr)} }
   .b-x.arm{color:var(--bad);font-size:11px;font-weight:800}
   /* live session summary */
   .ss-head{font-size:13px;font-weight:700;color:var(--good);margin-bottom:12px}
@@ -409,6 +432,8 @@ function renderLogin(msg){
 async function logout(){ leavingOnPurpose=true; if(coachChan){ sb.removeChannel(coachChan); coachChan=null; } await sb.auth.signOut(); me_=null; leavingOnPurpose=false; renderLogin(); }
 
 function topbar(roleLabel){
+  document.body.classList.toggle('view-coach', roleLabel==='Coach');
+  document.body.classList.toggle('view-athlete', roleLabel!=='Coach');
   return `<div class="topbar">
     <div class="brand">SoCal <span class="o">WLC</span></div>
     <div style="display:flex;align-items:center;gap:12px">
@@ -1230,6 +1255,20 @@ function logResultHtml(lg){
   if(lg.video_path) parts.push(`<span class="vidlink" onclick="playVideo('${esc(lg.video_path)}')">▶</span>`);
   return `<span class="cv-act">${parts.join(' ')}</span>`;
 }
+// split athlete actuals into mockup-style columns: Reps · Weight · Miss · Lights·Effort
+function actualCells(lg){
+  if(!lg || (lg.actual_reps==null && lg.actual_kg==null && !lg.done))
+    return `<td class="cva nolog" colspan="4"><span class="cv-nolog">not logged</span></td>`;
+  const le=[];
+  if(lg.lights!=null) le.push(`<span class="lights sm">${lightsHtml(lg.lights)}</span>`);
+  if(lg.effort) le.push(`<span class="efftag">${esc(lg.effort)}</span>`);
+  if(lg.done) le.push('<span style="color:var(--good)">✓</span>');
+  if(lg.video_path) le.push(`<span class="vidlink" onclick="playVideo('${esc(lg.video_path)}')">▶</span>`);
+  return `<td class="cva ca-n">${lg.actual_reps??'–'}</td>`
+    +`<td class="cva ca-n">${lg.actual_kg!=null?lg.actual_kg:'–'}</td>`
+    +`<td class="cva ca-n">${lg.miss?`<span style="color:var(--bad)">${lg.miss}</span>`:'0'}</td>`
+    +`<td class="cva ca-le">${le.join(' ')||'–'}</td>`;
+}
 const LOAD_TYPES=[['percentage','Percentage'],['vbt','VBT'],['weight','Weight'],['rpe','RPE'],['rir','RIR'],['open','Open Set']];
 function tgtColHead(type){ return type==='vbt'?'≥ M/S':type==='rpe'?'RPE':type==='rir'?'RIR':type==='percentage'?'%1RM':'·'; }
 function tgtValOf(st,type){ return type==='percentage'?st.pct : type==='vbt'?st.vel : (type==='rpe'||type==='rir')?st.eff : ''; }
@@ -1249,16 +1288,16 @@ function paintEditor(){
     const rows=ex.sets.map((st,si)=>{
       const lg = st.id ? logBySet[st.id] : null;
       const tgtDis = type==='percentage' ? (orm?'':'disabled title="no 1RM linked — enter kg directly"') : '';
-      return `<tr data-ei="${ei}" data-si="${si}">
-        <td>${si+1}</td>
+      return `<tr data-ei="${ei}" data-si="${si}" data-ps="${st.id||''}">
+        <td class="setn">${si+1}</td>
         <td><input class="cell" data-f="reps" value="${esc(st.reps)}" inputmode="numeric"></td>
         <td>${showTgt?`<input class="cell" data-f="tgt" value="${esc(tgtValOf(st,type))}" inputmode="decimal" ${tgtDis}>`:'<span class="tgt">—</span>'}</td>
         <td><input class="cell" data-f="kg" value="${esc(st.kg)}" inputmode="decimal" ${type==='open'?'disabled':''}></td>
-        <td class="cva" data-ps="${st.id||''}">${logResultHtml(lg)}</td>
+        ${actualCells(lg)}
         <td><span class="lg-del" data-rmrow="1" title="Remove set">✕</span></td></tr>`;
     }).join('');
     const addedRows = ed.logs.filter(l=>!l.prescribed_set_id && l.exercise_id===ex.id)
-      .map((l,j)=>`<tr><td>+${j+1}</td><td colspan="3"><span class="addedtag">added by athlete</span></td><td class="cva">${logResultHtml(l)}</td><td></td></tr>`).join('');
+      .map((l,j)=>`<tr class="addedr"><td class="setn">+${j+1}</td><td colspan="3"><span class="addedtag">added by athlete</span></td>${actualCells(l)}<td></td></tr>`).join('');
     const ltSel=`<span class="lt-wrap"><label>Load type</label><select class="cw-sel lt-sel">${LOAD_TYPES.map(t=>`<option value="${t[0]}"${type===t[0]?' selected':''}>${t[1]}</option>`).join('')}</select></span>`;
     return `<div class="b-ex cvx" data-ei="${ei}">
       <div class="cvx-hd">
@@ -1270,8 +1309,8 @@ function paintEditor(){
         <span class="rm-ex" data-delex="1" title="Remove exercise">✕ remove</span>
       </div>
       <div class="logwrap"><table class="logtable cvt"><thead>
-        <tr class="bandrow"><th></th><th colspan="3" class="plh">program numbers (planned)</th><th class="ach">athlete numbers (actual)</th><th></th></tr>
-        <tr><th>Set</th><th>Reps</th><th>${tgtColHead(type)}</th><th>Load kg</th><th class="ach"></th><th></th></tr>
+        <tr class="bandrow"><th></th><th colspan="3" class="plh">program numbers (planned)</th><th colspan="4" class="ach">athlete numbers (actual)</th><th></th></tr>
+        <tr><th>Set</th><th>Reps</th><th>${tgtColHead(type)}</th><th>Load kg</th><th class="ach">Reps</th><th class="ach">Weight</th><th class="ach">Miss</th><th class="ach">Lights · Effort</th><th></th></tr>
       </thead><tbody>${rows}${addedRows}</tbody></table></div>
       <div class="addrow" data-addrow="1"><span class="plus">＋</span> add a set row — type it in</div>
       <div class="cue-row"><span class="cuelbl">Coaching<br>notes</span>${LT_READY?cueChipsHtml(ex,ei):''}</div>
@@ -1812,10 +1851,12 @@ async function refreshEditorActuals(){
   const { data: logs } = await sb.from('logged_sets').select('*').eq('session_id', ed.session.id);
   ed.logs = logs||[];
   if(!ed.dirty){ paintEditor(); return; }
-  // coach has unsaved edits — patch only the actual cells
+  // coach has unsaved edits — patch only the actual cells per row
   const logBySet={}; ed.logs.forEach(l=>{ if(l.prescribed_set_id) logBySet[l.prescribed_set_id]=l; });
-  document.querySelectorAll('#edCard .cva[data-ps]').forEach(td=>{
-    const ps=td.dataset.ps; if(ps) td.innerHTML=logResultHtml(logBySet[ps]);
+  document.querySelectorAll('#edCard tr[data-ps]').forEach(tr=>{
+    const ps=tr.dataset.ps; if(!ps) return;
+    tr.querySelectorAll('.cva').forEach(td=>td.remove());
+    tr.lastElementChild.insertAdjacentHTML('beforebegin', actualCells(logBySet[ps]));
   });
   if(cw) cw.rollupCache=null;
   renderRollup();
