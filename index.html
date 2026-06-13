@@ -190,6 +190,12 @@
   .tw-in.wp{width:42px;color:var(--accent)}
   .tw-in:focus{outline:none;border-color:var(--accent2)}
   .tw-at{color:var(--muted);font-size:11px}
+  /* exercise autocomplete */
+  .ex-drop{position:fixed;z-index:300;background:#0e151c;border:1px solid var(--accent2);border-radius:10px;max-height:320px;overflow-y:auto;box-shadow:0 12px 32px rgba(0,0,0,.55);display:none;padding:4px}
+  .ex-item{display:flex;align-items:center;gap:10px;padding:8px 11px;border-radius:7px;cursor:pointer}
+  .ex-item:hover,.ex-item.on{background:var(--panel2)}
+  .ex-nm{font-weight:700;font-size:13.5px;color:var(--text)}
+  .ex-grp{margin-left:auto;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);white-space:nowrap}
   .schlib{display:grid;grid-template-columns:330px 1fr;gap:18px;margin-top:10px}
   @media(max-width:860px){.schlib{grid-template-columns:1fr}}
   .sl-left{display:flex;flex-direction:column;gap:9px;min-width:0}
@@ -896,6 +902,7 @@ let coachState = { athletes:[], selected:null };
 async function renderCoach(){
   app.innerHTML = topbar('Coach') + `<div class="spin">Loading your athletes…</div>`;
   if(!(await requireSession())) return;
+  loadExLib();
   const { data: athletes } = await sb.from('profiles').select('id,full_name').eq('role','athlete').order('full_name');
   coachState.athletes = athletes||[];
   coachState.selected = coachState.athletes[0] ? coachState.athletes[0].id : null;
@@ -1301,6 +1308,54 @@ function cueChipsHtml(ex,ei){
     return `<span class="cuechip">${cat?`${esc(cat)} `:''}<b>${esc(val)}</b><i class="cue-x" data-ci="${ci}">×</i></span>`; }).join('');
   return `<span class="cues">${chips}<span class="cue-add" data-cue="1">＋ cue</span></span>`;
 }
+/* ---------------- exercise library autocomplete ---------------- */
+let EXLIB=null;
+async function loadExLib(){
+  if(EXLIB!==null) return EXLIB;
+  const { data, error } = await sb.from('exercises').select('name,grp,cat').order('name');
+  EXLIB = error ? [] : (data||[]);
+  return EXLIB;
+}
+let exDropInput=null, exDropEi=null, exDropIdx=-1;
+function exMatches(q){
+  if(!EXLIB||!EXLIB.length) return [];
+  q=(q||'').trim().toLowerCase();
+  if(!q) return EXLIB.slice(0,50);
+  const starts=[], incl=[];
+  EXLIB.forEach(e=>{ const n=e.name.toLowerCase(); if(n.startsWith(q)) starts.push(e); else if(n.indexOf(q)>-1) incl.push(e); });
+  return starts.concat(incl).slice(0,50);
+}
+function showExDrop(input, ei){
+  if(!EXLIB||!EXLIB.length) return;
+  exDropInput=input; exDropEi=ei; exDropIdx=-1;
+  let drop=document.getElementById('exDrop');
+  if(!drop){
+    drop=document.createElement('div'); drop.id='exDrop'; drop.className='ex-drop'; document.body.appendChild(drop);
+    drop.addEventListener('mousedown', e=>{ const it=e.target.closest('.ex-item'); if(it){ e.preventDefault(); pickEx(it.dataset.name); } });
+    document.addEventListener('mousedown', e=>{ if(!e.target.closest('#exDrop') && !e.target.closest('.cvx-name')) hideExDrop(); });
+  }
+  renderExDrop();
+}
+function renderExDrop(){
+  const drop=document.getElementById('exDrop'); if(!drop||!exDropInput) return;
+  const matches=exMatches(exDropInput.value);
+  if(!matches.length){ drop.style.display='none'; return; }
+  drop.innerHTML=matches.map((e,i)=>`<div class="ex-item${i===exDropIdx?' on':''}" data-name="${esc(e.name)}"><span class="ex-nm">${esc(e.name)}</span>${e.grp?`<span class="ex-grp">${esc(e.grp)}</span>`:''}</div>`).join('');
+  const r=exDropInput.getBoundingClientRect();
+  drop.style.left=Math.round(r.left)+'px';
+  drop.style.top=Math.round(r.bottom+3)+'px';
+  drop.style.width=Math.round(Math.max(r.width,280))+'px';
+  drop.style.display='block';
+  drop.scrollTop=0;
+}
+function hideExDrop(){ const drop=document.getElementById('exDrop'); if(drop) drop.style.display='none'; exDropInput=null; exDropEi=null; }
+function pickEx(name){
+  if(exDropEi==null || !ed) return;
+  const ex=ed.exercises[exDropEi]; if(!ex) return;
+  ex.name=name; ed.dirty=true;
+  hideExDrop();
+  paintEditor();
+}
 function paintEditor(){
   const host=document.getElementById('cvEd')||document.getElementById('cvDay'); if(!host||!ed) return;
   const s=ed.session, draft=s.status==='draft';
@@ -1429,6 +1484,16 @@ function paintRollup(){
 function edMsgSet(txt,color){ const m=document.getElementById('edMsg'); if(m){ m.style.color=color||''; m.textContent=txt; } }
 function wireEditor(){
   const card=document.getElementById('edCard'); if(!card) return;
+  card.addEventListener('focusin', e=>{ const n=e.target.closest('.cvx-name'); if(n){ const cvx=n.closest('.cvx'); showExDrop(n, +cvx.dataset.ei); } });
+  card.addEventListener('keydown', e=>{
+    if(!e.target.closest('.cvx-name')) return;
+    const drop=document.getElementById('exDrop'); if(!drop||drop.style.display==='none') return;
+    const items=drop.querySelectorAll('.ex-item'); if(!items.length) return;
+    if(e.key==='ArrowDown'){ e.preventDefault(); exDropIdx=Math.min(items.length-1, exDropIdx+1); renderExDrop(); drop.querySelector('.ex-item.on')&&drop.querySelector('.ex-item.on').scrollIntoView({block:'nearest'}); }
+    else if(e.key==='ArrowUp'){ e.preventDefault(); exDropIdx=Math.max(0, exDropIdx-1); renderExDrop(); drop.querySelector('.ex-item.on')&&drop.querySelector('.ex-item.on').scrollIntoView({block:'nearest'}); }
+    else if(e.key==='Enter' && exDropIdx>=0 && items[exDropIdx]){ e.preventDefault(); pickEx(items[exDropIdx].dataset.name); }
+    else if(e.key==='Escape'){ hideExDrop(); }
+  });
   card.addEventListener('input', e=>{
     const t=e.target;
     if(t.id==='edTitle'){ ed.session.title=t.value; ed.dirty=true; return; }
@@ -1438,6 +1503,7 @@ function wireEditor(){
       const orm=oneRMFor(ex.name);
       cvx.querySelector('.cvx-orm').innerHTML = (orm&&(ex.loadType||'percentage')==='percentage')?`1RM <b>${orm}</b> · from maxes`:((ex.loadType||'percentage')==='percentage'&&cw.maxes?'<span class="cv-nolog">no 1RM link</span>':'');
       if((ex.loadType||'percentage')==='percentage') cvx.querySelectorAll('[data-f="tgt"]').forEach(p=>{ p.disabled=!orm; });
+      showExDrop(t, +cvx.dataset.ei);
       return; }
     if(t.dataset.f==='note'){ ex.note=t.value; ed.dirty=true; return; }
     const tr=t.closest('tr[data-si]'); if(!tr) return;
