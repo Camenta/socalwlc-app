@@ -2398,6 +2398,7 @@ async function renderCoachPanel(){
           <button class="cw-arr" onclick="cwWeekNav(1)" title="Next week">›</button>
         </span>
         <span style="display:inline-flex;align-items:center;gap:12px;margin-left:auto">
+          <span class="saved" id="cwPubMsg"></span>
           <span class="pv-legend" style="margin:0"><span><i style="background:var(--warn)"></i>draft</span><span><i style="background:var(--accent2)"></i>published</span><span><i style="background:var(--accent)"></i>today</span></span>
           ${draftCount>0
             ? `<button class="btn blue" style="padding:8px 15px" onclick="cwPublishWeek()" title="Publish every draft this week at once">📤 Publish all (${draftCount})</button>`
@@ -2429,21 +2430,23 @@ window.cwToggleCopyWeek = ()=>{ const ui=document.getElementById('cwCopyUI'); if
 window.cwWeekNav = (d)=>{ if(!cw) return; ed=null; cw.weekOffset = d===0 ? 0 : (cw.weekOffset||0)+d; cw.selDate=null; cw.selSess=null; renderCoachPanel(); };
 window.cwPublishWeek = async ()=>{
   if(!cw) return;
-  const setMsg=(t,c)=>{ const m=document.getElementById('cwMsg'); if(m){ m.style.color=c||''; m.textContent=t; if(c==='var(--good)'||c==='var(--muted)') setTimeout(()=>{ if(m.isConnected && m.textContent===t) m.textContent=''; },3500); } };
+  const setMsg=(t,c)=>{ ['cwPubMsg','cwMsg'].forEach(id=>{ const m=document.getElementById(id); if(m){ m.style.color=c||''; m.textContent=t; if(c!=='var(--bad)') setTimeout(()=>{ if(m.isConnected && m.textContent===t) m.textContent=''; },4000); } }); };
   const name=cw.ath.full_name.split(' ')[0];
   // re-fetch the EXACT week currently on screen so we never publish a stale snapshot
   const wkD=weekDates(cw.weekOffset||0), wkIso=wkD.map(iso);
-  const { data: rows, error: fe } = await sb.from('sessions').select('id,status')
+  const q=await sb.from('sessions').select('id,status,session_date')
     .eq('athlete_id', cw.athId).gte('session_date', wkIso[0]).lte('session_date', wkIso[6]);
-  if(fe){ setMsg('Couldn\'t load the week — '+fe.message,'var(--bad)'); return; }
-  const drafts=(rows||[]).filter(s=>s.status==='draft');
+  console.log('[publish-week] off=',cw.weekOffset,'range=',wkIso[0],'→',wkIso[6],'rows=',q.data,'err=',q.error);
+  if(q.error){ setMsg('Couldn\'t load the week — '+q.error.message,'var(--bad)'); return; }
+  const drafts=(q.data||[]).filter(s=>s.status==='draft');
   if(!drafts.length){ setMsg('Nothing to publish — this week is already all published.','var(--muted)'); return; }
   const wkLabel=MONS[wkD[0].getMonth()]+' '+wkD[0].getDate();
   if(!confirm('Publish all '+drafts.length+' draft session'+(drafts.length===1?'':'s')+' the week of '+wkLabel+' to '+name+'? '+name+' will see them right away.')) return;
-  const res=await sb.from('sessions').update({status:'published'}).in('id', drafts.map(s=>s.id)).select('id');
+  const res=await sb.from('sessions').update({status:'published'}).in('id', drafts.map(s=>s.id)).select('id,status');
+  console.log('[publish-week] updated=',res.data,'err=',res.error);
   if(res.error){ setMsg('Publish failed — '+res.error.message,'var(--bad)'); return; }
   const n=(res.data||[]).length;
-  if(!n){ setMsg('Nothing got published — try reloading and again.','var(--bad)'); return; }
+  if(!n){ setMsg('Update affected 0 rows — likely a permissions/gym mismatch on those sessions. Tell Chris.','var(--bad)'); return; }
   conState._progSess=undefined; if(cw) cw.rollupCache=null;
   await renderCoachPanel();
   setMsg('✓ Published '+n+' session'+(n===1?'':'s')+' to '+name+' (week of '+wkLabel+')','var(--good)');
