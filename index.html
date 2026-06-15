@@ -298,6 +298,28 @@
   .asg-wk{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--accent2);background:#13202c;border-radius:9px;padding:2px 7px;font-style:normal}
   .asg-wk.done{color:var(--good);background:#16261c}
   .asg-wk.up{color:var(--warn);background:#2a2412}
+  /* Active Programs management view (mockup-detail) */
+  .badge.active{background:rgba(62,201,122,.16);color:var(--good)}
+  .badge.draft{background:rgba(232,158,60,.16);color:var(--warn)}
+  .badge.arch{background:#1b2530;color:var(--muted)}
+  .cprog-bar{height:6px;border-radius:4px;background:#1b2530;overflow:hidden;margin-top:10px}
+  .cprog-bar i{display:block;height:100%;background:var(--accent)}
+  .pub-bar{display:flex;height:8px;border-radius:4px;overflow:hidden;background:#1b2530;margin-top:10px}
+  .pub-bar span{display:block;height:100%}
+  .pub-bar .pub-live{background:var(--good)}
+  .pub-bar .pub-buf{background:var(--accent2)}
+  .pub-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:10.5px;color:var(--muted);margin-top:6px}
+  .pub-legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;vertical-align:middle}
+  .pub-legend .lg-live i{background:var(--good)}
+  .pub-legend .lg-buf i{background:var(--accent2)}
+  .pub-legend .lg-un i{background:#2a3744}
+  .bufchip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:4px 10px;border-radius:11px;margin-top:9px}
+  .bufchip.ready{background:rgba(60,158,232,.16);color:var(--accent2)}
+  .bufchip.none{background:#1b2530;color:var(--muted)}
+  .bufchip.full{background:rgba(62,201,122,.16);color:var(--good)}
+  .bufchip.draftb{background:rgba(232,158,60,.16);color:var(--warn)}
+  .bufmini{font-size:11px;font-weight:700;color:var(--accent2)}
+  .ccard .cprog-bar,.ccard .pub-bar{margin-top:10px}
   /* segmented control (stamp target) */
   .seg{display:inline-flex;background:#0e151c;border:1px solid var(--line);border-radius:9px;padding:3px;gap:3px}
   .seg button{background:transparent;border:0;color:var(--muted);font-size:12.5px;font-weight:700;padding:7px 16px;border-radius:7px;cursor:pointer}
@@ -661,6 +683,7 @@ async function boot(){
   if(error || !profile){ await sb.auth.signOut(); renderLogin('Could not load your profile.'); return; }
   me_ = profile;
   await probeLoadTypes();
+  await probeProgramId();
   if(profile.role === 'coach') renderCoach(); else renderAthlete();
 }
 // if the login expires or dies mid-use, say so plainly instead of showing empty screens
@@ -883,6 +906,11 @@ async function probeLoadTypes(){
     LT_READY=true;
     SESSION_SELECT='id,gym_id,title,session_date,status,prescribed_exercises(id,name,position,category,coach_note,load_type,cues,prescribed_sets(id,position,target_text,target_reps,target_kg,target_pct,target_vel,target_eff))';
   }
+}
+let PROG_ID_READY=false, PROG_META_READY=false;
+async function probeProgramId(){
+  const s=await sb.from('sessions').select('program_id').limit(1); if(!s.error) PROG_ID_READY=true;
+  const p=await sb.from('programs').select('archived,updated_at,team_id').limit(1); if(!p.error) PROG_META_READY=true;
 }
 const DOW=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], MONS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function iso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -1193,7 +1221,7 @@ function paintCoach(){
 }
 window.selectAthlete = (id)=>{ ed=null; cw=null; coachState.selected=id; paintCoach(); };
 /* ============ COACHING CONSOLE ============ */
-let conState={tab:'athletes', libTab:'programs', rosterQ:'', exQ:'', exGroup:'All', exForm:false, schemeMgrQ:''};
+let conState={tab:'athletes', libTab:'programs', rosterQ:'', exQ:'', exGroup:'All', exForm:false, schemeMgrQ:'', progView:'grid', progFilter:'all', progQ:''};
 async function renderConsole(){
   coachState.screen='console';
   app.innerHTML = topbar('Coach') + coachNav('console') + `<div class="spin">Loading console…</div>`;
@@ -1568,30 +1596,143 @@ function asgProgress(a){
   if(wk>wks) return {label:'completed', done:true};
   return {label:'wk '+wk+'/'+wks};
 }
-async function renderPrograms(host){
-  if(conState._programs===undefined){ host.innerHTML='<div class="spin">Loading programs…</div>'; await loadPrograms(); }
-  if(conState._programs===null){ host.innerHTML=conSoon('Active Programs','build named multi-week blocks once and stamp them onto athletes & teams','the programs table — run 14_programs.sql'); return; }
-  if(conState._assigns===undefined){ await loadAssignments(); }
-  const progs=conState._programs||[];
-  const assigns=conState._assigns||[];
-  const athName=(id)=>{ const x=(coachState.athletes||[]).find(a=>a.id===id); return x?x.full_name:'Athlete'; };
-  const byProg={}; assigns.forEach(a=>{ (byProg[a.program_id]=byProg[a.program_id]||[]).push(a); });
-  const activeProgs=progs.filter(p=>byProg[p.id]&&byProg[p.id].length);
-  const activeHtml = activeProgs.length ? activeProgs.map(p=>{
-    const rows=byProg[p.id].slice().sort((a,b)=>athName(a.athlete_id).localeCompare(athName(b.athlete_id))).map(a=>{
-      const pr=asgProgress(a), nm=athName(a.athlete_id);
-      return `<span class="asg-ath"><span class="rava" style="width:22px;height:22px;background:${avColor(nm)}">${esc(initials(nm))}</span>${esc(nm)}<i class="asg-wk ${pr.done?'done':(pr.upcoming?'up':'')}">${esc(pr.label)}</i></span>`;
-    }).join('');
-    return `<div class="asg-card"><div class="asg-hd"><b>${esc(p.name)}</b><span class="meta">${byProg[p.id].length} athlete${byProg[p.id].length===1?'':'s'}</span></div><div class="asg-aths">${rows}</div></div>`;
-  }).join('') : '<div class="con-empty" style="padding:16px">No active programs yet — stamp one onto an athlete or team below.</div>';
-  host.innerHTML=`
-    <div class="ctoolbar"><span class="note sub" style="margin:0;flex:1">Build a program once, then stamp it onto an athlete or a whole team — %1RM loads re-price off each athlete's maxes. You can also save a block straight from <b>Coach View → block banner</b>.</span>
-      <span class="cbtn" onclick="openProgramBuilder()">⊞ Build program</span></div>
-    <h3 class="pb-sec">On program now</h3>
-    <div class="asg-grid">${activeHtml}</div>
-    <h3 class="pb-sec">Program library</h3>
-    <div class="cgrid">${progs.map(programCard).join('')||'<div class="con-empty">No programs yet — “⊞ Build program”, or save a block from Coach View.</div>'}</div>`;
+async function loadProgramsRich(){
+  if(conState._programs===undefined) await loadPrograms();
+  if(conState._programs===null) return null;
+  if(conState._assigns===undefined) await loadAssignments();
+  if(conState._teams===undefined){ const { data:tms } = await sb.from('teams').select('*').order('name'); conState._teams=tms||[]; }
+  if(conState._progSess===undefined){
+    const ids=(conState._programs||[]).map(p=>p.id);
+    let sess=[];
+    if(ids.length){ const r=await sb.from('sessions').select('program_id,athlete_id,session_date,status').in('program_id', ids); if(!r.error) sess=r.data||[]; }
+    conState._progSess=sess;
+  }
+  return conState._programs;
 }
+function teamNameById(id){ const t=(conState._teams||[]).find(x=>x.id===id); return t?t.name:null; }
+function progAudience(p, assigns){
+  if(p.team_id){ const n=teamNameById(p.team_id); if(n) return n; }
+  const teamIds=new Set(); assigns.forEach(a=>{ const ath=(coachState.athletes||[]).find(x=>x.id===a.athlete_id); if(ath&&ath.team_id) teamIds.add(ath.team_id); });
+  if(teamIds.size===1){ const n=teamNameById(Array.from(teamIds)[0]); if(n) return n; }
+  return assigns.length ? 'Individual' : '—';
+}
+function progEdited(p, status){
+  if(status==='draft') return 'Draft';
+  const ts=p.updated_at||p.created_at;
+  if(status==='arch') return 'Archived'+(p.updated_at?' · '+relTime(p.updated_at):'');
+  return ts ? 'Edited '+relTime(ts) : 'Edited recently';
+}
+function progDerive(p){
+  const assigns=(conState._assigns||[]).filter(a=>a.program_id===p.id);
+  const status = p.archived ? 'arch' : (assigns.length ? 'active' : 'draft');
+  const wks=p.weeks||1;
+  let cur=0;
+  if(assigns.length){
+    const minStart=Math.min.apply(null, assigns.map(a=>mondayOfDate(new Date(a.start_date+'T00:00:00')).getTime()));
+    const elapsed=Math.round((mondayOfDate(new Date())-minStart)/(7*864e5));
+    cur=Math.max(0, Math.min(wks, elapsed+1));
+  }
+  const startByAth={}; assigns.forEach(a=>startByAth[a.athlete_id]=mondayOfDate(new Date(a.start_date+'T00:00:00')).getTime());
+  const pubWeeks=new Set();
+  (conState._progSess||[]).forEach(s=>{ if(s.program_id!==p.id||s.status!=='published') return; const st=startByAth[s.athlete_id]; if(st==null) return;
+    const wk=Math.round((mondayOfDate(new Date(s.session_date+'T00:00:00'))-st)/(7*864e5)); if(wk>=0&&wk<wks) pubWeeks.add(wk); });
+  return { id:p.id, name:p.name, phase:p.phase||'', wks, status, team:progAudience(p,assigns), athletes:assigns.length, edited:progEdited(p,status), built:wks, pub:pubWeeks.size, cur };
+}
+function pubInfo(d){ let wks=d.wks||0, built=Math.min(d.built==null?wks:d.built, wks), pub=Math.min(d.pub||0, built); const bufWks=built-pub; return {wks,built,pub,bufWks,bufDays:bufWks*7}; }
+function pubMeter(d){ const u=pubInfo(d); if(!u.wks) return '';
+  const live=Math.round(u.pub/u.wks*100), buf=Math.round(u.bufWks/u.wks*100);
+  return `<div class="pub-bar">${live>0?`<span class="pub-live" style="width:${live}%"></span>`:''}${buf>0?`<span class="pub-buf" style="width:${buf}%"></span>`:''}</div>
+    <div class="pub-legend"><span class="lg-live"><i></i>${u.pub}w published</span>${u.bufWks>0?`<span class="lg-buf"><i></i>${u.bufWks}w built ahead</span>`:''}${u.built<u.wks?`<span class="lg-un"><i></i>${u.wks-u.built}w unwritten</span>`:''}</div>`;
+}
+function pubChip(d){ const u=pubInfo(d);
+  if(d.status==='draft') return `<div class="bufchip draftb">● Draft — ${u.built}w (${u.built*7}d) written, unpublished</div>`;
+  if(d.status==='arch') return '';
+  if(u.bufWks>0) return `<div class="bufchip ready">+${u.bufDays}d ready to publish (${u.bufWks}w built ahead)</div>`;
+  if(u.built>=u.wks) return `<div class="bufchip full">✓ Fully published</div>`;
+  return `<div class="bufchip none">No buffer — build next week</div>`;
+}
+function listPubNote(d){ const u=pubInfo(d);
+  if(d.status==='draft') return `<span class="bufmini" style="color:var(--warn)">Draft · ${u.built*7}d written</span>`;
+  if(d.status==='arch') return esc(d.edited);
+  if(u.bufWks>0) return `<span class="bufmini">+${u.bufDays}d ready</span>`;
+  return esc(d.edited);
+}
+const PROG_BLABEL={active:'Active',draft:'Draft',arch:'Archived'};
+function progSendBtn(d, mini){
+  if(d.status==='arch') return `<span class="${mini?'ropen':'extool'}" style="color:var(--muted)" onclick="event.stopPropagation();conRestoreProgram('${d.id}')">↩ Restore</span>`;
+  const lbl = (d.team && d.team!=='Individual' && d.team!=='—' && !mini) ? 'Send to '+esc(d.team) : 'Send';
+  return mini
+    ? `<span class="ropen" onclick="event.stopPropagation();stampProgram('${d.id}')">📤 Send</span>`
+    : `<span class="cbtn alt" style="padding:6px 12px" onclick="event.stopPropagation();stampProgram('${d.id}')">📤 ${lbl}</span>`;
+}
+function progGridCard(d){
+  const pct=d.wks?Math.round(d.cur/d.wks*100):0;
+  return `<div class="ccard" onclick="openProgramView('${d.id}')">
+    <div class="row"><h3 style="margin:0">${esc(d.name)}</h3><span class="badge ${d.status}">${PROG_BLABEL[d.status]}</span></div>
+    <div class="meta" style="margin-top:6px">${esc(d.team)} · ${d.athletes} athlete${d.athletes===1?'':'s'}<br>${d.wks}-week block · ${esc(d.phase||'—')}<br>${esc(d.edited)}</div>
+    ${d.status==='active'?`<div class="cprog-bar"><i style="width:${pct}%"></i></div><div class="meta" style="margin-top:5px">Week ${d.cur} of ${d.wks}</div>`:''}
+    ${d.status!=='arch'?pubMeter(d)+pubChip(d):''}
+    <div class="row" style="margin-top:12px"><span style="font-size:11px;color:var(--muted)">Tap card to edit</span>${progSendBtn(d,false)}</div>
+  </div>`;
+}
+function progRow(d){
+  return `<div class="prow" onclick="openProgramView('${d.id}')">
+    <span class="pl-badge"><span class="badge ${d.status}">${PROG_BLABEL[d.status]}</span></span>
+    <span class="pl-name">${esc(d.name)}</span>
+    <span class="pl-team">${esc(d.team)}</span>
+    <span class="pl-meta">${d.wks}-wk · ${esc(d.phase||'—')} · ${d.athletes} athlete${d.athletes===1?'':'s'}</span>
+    <span class="pl-meta">${listPubNote(d)}</span>
+    <span class="pl-send">${progSendBtn(d,true)}</span>
+  </div>`;
+}
+function progDerivedList(){
+  const q=(conState.progQ||'').toLowerCase();
+  const filt=conState.progFilter||'all';
+  const order={active:0,draft:1,arch:2};
+  return (conState._programs||[]).map(progDerive)
+    .filter(d=> (filt==='all'||d.status===filt) && (!q||d.name.toLowerCase().indexOf(q)>-1))
+    .sort((a,b)=> (order[a.status]-order[b.status]) || a.name.localeCompare(b.name));
+}
+function renderProgramsBody(){
+  const host=document.getElementById('progBody'); if(!host) return;
+  const view=conState.progView||'grid';
+  const list=progDerivedList();
+  if(!list.length){ host.innerHTML='<div class="con-empty">No programs match — “+ New program” to build one.</div>'; return; }
+  host.innerHTML = view==='list'
+    ? `<div class="clist">${list.map(progRow).join('')}</div>`
+    : `<div class="cgrid">${list.map(progGridCard).join('')}</div>`;
+}
+window.setProgFilter=(f)=>{ conState.progFilter=f; renderConBody(); };
+window.setProgView=(v)=>{ conState.progView=v; renderConBody(); };
+async function renderPrograms(host){
+  if(conState._programs===undefined){ host.innerHTML='<div class="spin">Loading programs…</div>'; }
+  await loadProgramsRich();
+  if(conState._programs===null){ host.innerHTML=conSoon('Active Programs','build named multi-week blocks once and stamp them onto athletes & teams','the programs table — run 14_programs.sql'); return; }
+  const view=conState.progView||'grid', filt=conState.progFilter||'all';
+  const chips=[['all','All'],['active','Active'],['draft','Drafts'],['arch','Archived']]
+    .map(c=>`<span class="cchip ${filt===c[0]?'on':''}" onclick="setProgFilter('${c[0]}')">${c[1]}</span>`).join('');
+  host.innerHTML=`
+    <div class="ctoolbar">
+      <input class="csearch" id="progSearch" placeholder="Search programs…" value="${esc(conState.progQ||'')}" oninput="conState.progQ=this.value;renderProgramsBody()">
+      <div class="cfilter">${chips}</div>
+      <div class="viewtoggle"><button class="${view==='grid'?'on':''}" title="Card view" onclick="setProgView('grid')">▦</button><button class="${view==='list'?'on':''}" title="List view" onclick="setProgView('list')">☰</button></div>
+      <span class="cbtn" onclick="openProgramBuilder()">+ New program</span>
+    </div>
+    <div id="progBody"></div>`;
+  renderProgramsBody();
+}
+window.conArchiveProgram=async(id)=>{
+  const res=await sb.from('programs').update({archived:true, updated_at:new Date().toISOString()}).eq('id',id).select();
+  if(res.error){ alert('Archive failed — '+res.error.message); return; }
+  const p=(conState._programs||[]).find(x=>x.id===id); if(p){ p.archived=true; p.updated_at=new Date().toISOString(); }
+  if(coachState.screen==='pgview'){ coachState.screen='console'; renderConsole(); } else renderConBody();
+};
+window.conRestoreProgram=async(id)=>{
+  const res=await sb.from('programs').update({archived:false, updated_at:new Date().toISOString()}).eq('id',id).select();
+  if(res.error){ alert('Restore failed — '+res.error.message); return; }
+  const p=(conState._programs||[]).find(x=>x.id===id); if(p){ p.archived=false; p.updated_at=new Date().toISOString(); }
+  renderConBody();
+};
 window.conDelProgram=async(id,name)=>{
   const res=await sb.from('programs').delete().eq('id', id).select();
   if(res.error){ alert('Remove failed — '+res.error.message); return; }
@@ -1653,7 +1794,9 @@ window.doStamp=async function(id){
       const maxes={}; (mx||[]).forEach(m=>maxes[m.lift]=parseFloat(m.kg));
       for(const day of (p.data.days||[])){
         const d=new Date(startMon); d.setDate(d.getDate()+ (day.wk||0)*7 + (day.dow||0));
-        const { data: ns, error: se } = await sb.from('sessions').insert({ gym_id:me_.gym_id, athlete_id:athId, session_date:iso(d), title:day.title||'Training', status:'draft' }).select().single();
+        const sIns={ gym_id:me_.gym_id, athlete_id:athId, session_date:iso(d), title:day.title||'Training', status:'draft' };
+        if(PROG_ID_READY) sIns.program_id=p.id;
+        const { data: ns, error: se } = await sb.from('sessions').insert(sIns).select().single();
         if(se) throw se;
         let pos=0;
         for(const ex of (day.exercises||[])){
@@ -1676,7 +1819,7 @@ window.doStamp=async function(id){
       if(msg) msg.textContent='Stamping… '+athDone+'/'+targets.length;
     }
     document.getElementById('stampModal').style.display='none';
-    conState._assigns=undefined;
+    conState._assigns=undefined; conState._progSess=undefined;
     const who = window._stampMode==='team'
       ? (athDone+' athlete'+(athDone===1?'':'s'))
       : (((coachState.athletes||[]).find(a=>a.id===targets[0])||{}).full_name || 'athlete');
@@ -1710,10 +1853,11 @@ window.openProgramBuilder=async function(id, gotoWk, fromView){
       exercises:(d.exercises||[]).map(ex=>({ name:ex.name||'', category:ex.category||'primary', load_type:ex.load_type||'percentage', cues:ex.cues||null, coach_note:ex.coach_note||'',
         sets:(ex.sets||[]).map(s=>({ reps:s.reps==null?'':s.reps, pct:s.pct==null?'':s.pct, vel:s.vel==null?'':s.vel, eff:s.eff==null?'':s.eff, kg:s.kg==null?'':s.kg })) })) }));
     const wk=Math.max(0, Math.min((p.weeks||1)-1, gotoWk||0));
-    pbState={ id:p.id, name:p.name||'', phase:p.phase||'', weeks:p.weeks||1, wave:pbNormWave(p.wave, p.weeks||1), days, wk, fromView:!!fromView };
+    pbState={ id:p.id, name:p.name||'', phase:p.phase||'', weeks:p.weeks||1, wave:pbNormWave(p.wave, p.weeks||1), team_id:p.team_id||'', days, wk, fromView:!!fromView };
   } else {
-    pbState={ id:null, name:'', phase:'', weeks:4, wave:pbNormWave(null,4), days:[], wk:0, fromView:false };
+    pbState={ id:null, name:'', phase:'', weeks:4, wave:pbNormWave(null,4), team_id:'', days:[], wk:0, fromView:false };
   }
+  if(conState._teams===undefined){ const { data: tms } = await sb.from('teams').select('*').order('name'); conState._teams=tms||[]; }
   coachState.screen='builder';
   renderProgramBuilder();
 };
@@ -1733,6 +1877,7 @@ function renderProgramBuilder(){
       <div class="pb-meta">
         <span class="bf-wk" style="flex:2"><label>Program name</label><input id="pbName" value="${esc(pbState.name)}" placeholder="e.g. Snatch Strength — Block 1" oninput="pbState.name=this.value"></span>
         <span class="bf-wk"><label>Phase (optional)</label><input id="pbPhase" value="${esc(pbState.phase)}" placeholder="e.g. Accumulation" oninput="pbState.phase=this.value"></span>
+        ${PROG_META_READY?`<span class="bf-wk"><label>Target team (optional)</label><select class="cw-sel" onchange="pbState.team_id=this.value"><option value="">— Individual —</option>${(conState._teams||[]).map(t=>`<option value="${t.id}"${pbState.team_id===t.id?' selected':''}>${esc(t.name)}</option>`).join('')}</select></span>`:''}
         <span class="bf-wk"><label>Weeks</label><span class="pb-wkpick"><button onclick="pbWeeks(-1)">−</button><b id="pbWeeksN">${weeks}</b><button onclick="pbWeeks(1)">+</button></span></span>
       </div>
       <div class="pb-wave">
@@ -1824,6 +1969,7 @@ window.pbSave=async function(){
   if(!days.length){ if(msg){msg.style.color='var(--warn)';msg.textContent='Add at least one day with a named exercise.';} return; }
   days.sort((a,b)=>(a.wk-b.wk)||(a.dow-b.dow));
   const payload={ name, phase:(pbState.phase||'').trim()||null, weeks:pbState.weeks, wave:pbNormWave(pbState.wave, pbState.weeks), data:{days} };
+  if(PROG_META_READY){ payload.team_id=pbState.team_id||null; payload.updated_at=new Date().toISOString(); }
   if(msg){ msg.style.color=''; msg.textContent='Saving…'; }
   let res;
   if(pbState.id) res=await sb.from('programs').update(payload).eq('id',pbState.id).select();
@@ -1861,6 +2007,7 @@ window.pvSetWk=(w)=>{ pvState.wk=w; renderProgramView(); };
 window.pvOpenDay=(wk,dow)=>{ pvState.wk=wk; pvState.dayKey=wk+':'+dow; pvState.view='day'; renderProgramView(); };
 window.pvStamp=()=>{ stampProgram(pvState.id); };
 window.pvEdit=(wk)=>{ openProgramBuilder(pvState.id, wk||0, true); };
+window.pvArchive=()=>{ if(pvState.prog.archived) conRestoreProgram(pvState.id); else conArchiveProgram(pvState.id); };
 function renderProgramView(){
   const p=pvState.prog;
   app.innerHTML = topbar('Coach') + `
@@ -1874,6 +2021,7 @@ function renderProgramView(){
         <button class="${pvState.view==='week'?'on':''}" onclick="pvSetView('week')">Week</button>
         <button class="${pvState.view==='day'?'on':''}" onclick="pvSetView('day')">Day</button>
       </div>
+      ${PROG_META_READY?`<button class="pb-back" onclick="pvArchive()">${p.archived?'↩ Restore':'🗄 Archive'}</button>`:''}
       <button class="pb-back" onclick="pvEdit(0)">✎ Edit</button>
       <button class="pb-save" onclick="pvStamp()">→ Stamp</button>
     </div>
