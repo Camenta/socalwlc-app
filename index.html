@@ -260,6 +260,26 @@
   .rprogs{display:flex;flex-direction:column;gap:4px;max-width:280px}
   .rprog-chip{display:inline-flex;align-items:center;gap:7px;background:#13202c;border:1px solid #27425c;border-radius:8px;padding:3px 9px;font-size:11.5px;font-weight:700;color:var(--text);width:fit-content;max-width:100%}
   .rprog-chip i{font-style:normal;font-size:10px;font-weight:800;color:var(--accent2);white-space:nowrap}
+  /* Teams cards/list */
+  .tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+  .tcard{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:16px;cursor:pointer}
+  .tcard:hover{border-color:var(--accent2)}
+  .tcard-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .tcard-hd h3{margin:0;font-size:16px}
+  .tscore{font-size:22px;font-weight:800;line-height:1}
+  .tmeta{font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.5}
+  .tmeta b,.tmeta .tm-prog{color:var(--text);font-weight:700}
+  .tcard .trow{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
+  .tcard .cbtn{padding:7px 12px;font-size:12px}
+  .tlist{display:flex;flex-direction:column;gap:6px}
+  .tlrow{display:flex;align-items:center;gap:16px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 16px;cursor:pointer}
+  .tlrow:hover{border-color:var(--accent2)}
+  .tlrow .tscore{font-size:18px;flex:0 0 38px;text-align:center}
+  .tlrow .tl-name{font-weight:800;font-size:15px;flex:0 0 130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tlrow .tl-ath{font-size:12.5px;color:var(--muted);flex:0 0 90px}
+  .tlrow .tl-prog{font-size:12.5px;color:var(--text);font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tlrow .tl-comp{font-size:12px;color:var(--muted);flex:0 0 190px;text-align:right}
+  .tlrow .tl-send{flex:0 0 auto}
   .roster tbody tr{border-bottom:1px solid var(--line);cursor:pointer}
   .roster tbody tr:hover{background:var(--panel)}
   .roster td{padding:10px 12px;vertical-align:middle}
@@ -1010,10 +1030,11 @@ async function probeLoadTypes(){
     SESSION_SELECT='id,gym_id,title,session_date,status,prescribed_exercises(id,name,position,category,coach_note,load_type,cues,prescribed_sets(id,position,target_text,target_reps,target_kg,target_pct,target_vel,target_eff))';
   }
 }
-let PROG_ID_READY=false, PROG_META_READY=false;
+let PROG_ID_READY=false, PROG_META_READY=false, TEAM_META_READY=false;
 async function probeProgramId(){
   const s=await sb.from('sessions').select('program_id').limit(1); if(!s.error) PROG_ID_READY=true;
   const p=await sb.from('programs').select('archived,updated_at,team_id').limit(1); if(!p.error) PROG_META_READY=true;
+  const tm=await sb.from('teams').select('focus,next_comp,next_comp_date').limit(1); if(!tm.error) TEAM_META_READY=true;
 }
 const DOW=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], MONS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function iso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -1481,41 +1502,122 @@ window.conSetTeam=async(athId, teamId)=>{
   const a=(coachState.athletes||[]).find(x=>x.id===athId); if(a) a.team_id=teamId||null;
 };
 /* ---- TEAMS tab ---- */
-function renderTeams(host){
+function teamAthCount(tid){ return (coachState.athletes||[]).filter(a=>a.team_id===tid).length; }
+function teamProgram(team){
+  const progs=conState._programs||[];
+  let p=progs.find(pp=>pp.team_id===team.id && !pp.archived);
+  if(p) return p;
+  const athIds=new Set((coachState.athletes||[]).filter(a=>a.team_id===team.id).map(a=>a.id));
+  const counts={}; (conState._assigns||[]).forEach(x=>{ if(athIds.has(x.athlete_id)) counts[x.program_id]=(counts[x.program_id]||0)+1; });
+  let best=null,bn=0; Object.keys(counts).forEach(pid=>{ if(counts[pid]>bn){ bn=counts[pid]; best=pid; } });
+  return best ? progs.find(pp=>pp.id===best) : null;
+}
+function teamScore(team){
+  const rdy=(conState._stats||{}).rdyByAth||{};
+  const vals=(coachState.athletes||[]).filter(a=>a.team_id===team.id).map(a=>rdy[a.id]).filter(v=>v!=null);
+  return vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*20) : null;
+}
+function scoreColor(s){ return s>=80?'var(--good)':(s>=60?'var(--warn)':'var(--bad)'); }
+function teamBuffer(p){ if(!p) return ''; const u=pubInfo(progDerive(p));
+  if(u.bufWks>0) return ` · <span class="bufmini">+${u.bufDays}d ready</span>`;
+  if(u.built>=u.wks && u.pub>=u.wks) return ` · <span class="bufmini" style="color:var(--good)">fully published</span>`;
+  return ` · <span class="bufmini" style="color:var(--muted)">no buffer</span>`;
+}
+function teamProgHtml(team){ const p=teamProgram(team); return p ? `<span class="tm-prog">${esc(p.name)}</span>${teamBuffer(p)}` : `<span style="color:var(--warn)">none assigned</span>`; }
+function teamNextComp(team){
+  if(!team.next_comp) return '—';
+  let d=''; if(team.next_comp_date){ const dt=new Date(team.next_comp_date+'T00:00:00'); d=' · '+MONS[dt.getMonth()]+' '+dt.getDate(); }
+  return esc(team.next_comp)+d;
+}
+window.setTeamView=(v)=>{ conState.teamView=v; renderConBody(); };
+async function renderTeams(host){
+  await loadProgramsRich();
   const teams=conState._teams||[];
-  const counts={}; (coachState.athletes||[]).forEach(a=>{ if(a.team_id) counts[a.team_id]=(counts[a.team_id]||0)+1; });
   const unassigned=(coachState.athletes||[]).filter(a=>!a.team_id).length;
+  const view=conState.teamView||'grid';
+  const esq=(t)=>esc(t).replace(/'/g,"\\'");
+  const goTeam=(id)=>`conState.rosterTeam='${id}';conState.tab='athletes';renderConsole()`;
+  let body;
+  if(!teams.length) body='<div class="con-empty">No teams yet — make your first one.</div>';
+  else if(view==='list'){
+    body=`<div class="tlist">`+teams.map(t=>{ const n=teamAthCount(t.id), s=teamScore(t), p=teamProgram(t);
+      return `<div class="tlrow" onclick="${goTeam(t.id)}">
+        <span class="tscore" style="color:${s!=null?scoreColor(s):'var(--muted)'}">${s!=null?s:'—'}</span>
+        <span class="tl-name">${esc(t.name)}</span>
+        <span class="tl-ath">${n} athlete${n===1?'':'s'}</span>
+        <span class="tl-prog">${teamProgHtml(t)}</span>
+        <span class="tl-comp">${teamNextComp(t)}</span>
+        <span class="tl-send">${p?`<span class="cbtn" onclick="event.stopPropagation();stampProgram('${p.id}')">📤 Send</span>`:''}</span>
+      </div>`; }).join('')+`</div>`;
+  } else {
+    body=`<div class="tgrid">`+teams.map(t=>{ const n=teamAthCount(t.id), s=teamScore(t), p=teamProgram(t);
+      return `<div class="tcard" onclick="${goTeam(t.id)}">
+        <div class="tcard-hd"><h3><span class="rava" style="width:12px;height:12px;display:inline-block;vertical-align:middle;margin-right:7px;background:${t.color||'var(--accent2)'}"></span>${esc(t.name)}</h3>${s!=null?`<span class="tscore" style="color:${scoreColor(s)}">${s}</span>`:''}</div>
+        <div class="tmeta">${n} athlete${n===1?'':'s'}${t.focus?' · '+esc(t.focus):''}</div>
+        <div class="tmeta">Program: ${teamProgHtml(t)}</div>
+        <div class="tmeta">Next comp: ${teamNextComp(t)}</div>
+        <div class="trow">
+          <span class="cbtn alt" onclick="event.stopPropagation();${goTeam(t.id)}">+ Manage athletes</span>
+          ${p?`<span class="cbtn" onclick="event.stopPropagation();stampProgram('${p.id}')">📤 Send program</span>`:''}
+          <span style="margin-left:auto;display:inline-flex;gap:12px">
+            <span class="extool" onclick="event.stopPropagation();conEditTeam('${t.id}')">✎ edit</span>
+            <span class="extool del" onclick="event.stopPropagation();conDelTeam('${t.id}','${esq(t.name)}')">✕</span>
+          </span>
+        </div>
+      </div>`; }).join('')+`</div>`;
+  }
   host.innerHTML=`
     <div class="ctoolbar">
-      <span class="note sub" style="margin:0;flex:1">Group athletes to program and compare at the team level. Click a team to see its athletes; set each athlete's team from the Athletes tab.</span>
+      <span class="note sub" style="margin:0;flex:1">Group athletes to assign programs &amp; compare at the group level. Click a team to see its roster. The number is the team's average readiness.</span>
+      <div class="viewtoggle"><button class="${view==='grid'?'on':''}" title="Card view" onclick="setTeamView('grid')">▦</button><button class="${view==='list'?'on':''}" title="List view" onclick="setTeamView('list')">☰</button></div>
       <span class="cbtn alt" onclick="conNewTeam()">+ New team</span>
     </div>
     <div id="teamFormHost"></div>
-    <div class="cgrid">
-      ${teams.map(t=>`<div class="ccard" onclick="conState.rosterTeam='${t.id}';conState.tab='athletes';renderConsole()">
-        <div style="display:flex;align-items:center;gap:8px"><span class="rava" style="width:14px;height:14px;background:${t.color||'var(--accent2)'}"></span><h3 style="margin:0">${esc(t.name)}</h3></div>
-        <div class="meta" style="margin-top:8px">${counts[t.id]||0} athlete${(counts[t.id]||0)===1?'':'s'}</div>
-        <div class="extools" style="margin-top:10px"><span class="extool del" onclick="event.stopPropagation();conDelTeam('${t.id}','${esc(t.name).replace(/'/g,"\\'")}')">✕ remove team</span></div>
-      </div>`).join('')||'<div class="con-empty">No teams yet — make your first one.</div>'}
-    </div>
-    <div class="note sub" style="margin-top:10px">${unassigned} athlete${unassigned===1?'':'s'} with no team.</div>`;
+    ${body}
+    <div class="note sub" style="margin-top:12px">${unassigned} athlete${unassigned===1?'':'s'} with no team.</div>`;
 }
+window.conEditTeam=(id)=>{
+  const t=(conState._teams||[]).find(x=>x.id===id); if(!t) return;
+  const host=document.getElementById('teamFormHost'); if(!host) return;
+  host.innerHTML=`<div class="exadd-form" style="flex-wrap:wrap">
+    <input id="teamName" placeholder="Team name" value="${esc(t.name)}" style="flex:1 1 180px">
+    <input id="teamColor" type="color" value="${t.color||'#3c9ee8'}" style="width:48px;height:38px;padding:2px">
+    ${TEAM_META_READY?`<input id="teamFocus" placeholder="Focus (e.g. National-level prep)" value="${esc(t.focus||'')}" style="flex:1 1 200px">
+    <input id="teamComp" placeholder="Next comp" value="${esc(t.next_comp||'')}" style="flex:1 1 150px">
+    <input id="teamCompDate" type="date" value="${esc(t.next_comp_date||'')}">`:''}
+    <span class="cbtn" onclick="conSaveTeam('${id}')">Save</span>
+    <span class="cbtn alt" onclick="document.getElementById('teamFormHost').innerHTML=''">Cancel</span>
+  </div>`;
+  document.getElementById('teamName').focus();
+};
 window.conNewTeam=()=>{
   const host=document.getElementById('teamFormHost'); if(!host) return;
-  host.innerHTML=`<div class="exadd-form">
-    <input id="teamName" placeholder="Team name (e.g. National Team)" style="flex:1 1 220px">
+  host.innerHTML=`<div class="exadd-form" style="flex-wrap:wrap">
+    <input id="teamName" placeholder="Team name (e.g. National)" style="flex:1 1 180px">
     <input id="teamColor" type="color" value="#3c9ee8" style="width:48px;height:38px;padding:2px">
+    ${TEAM_META_READY?`<input id="teamFocus" placeholder="Focus (e.g. National-level prep)" style="flex:1 1 200px">
+    <input id="teamComp" placeholder="Next comp" style="flex:1 1 150px">
+    <input id="teamCompDate" type="date">`:''}
     <span class="cbtn" onclick="conSaveTeam()">Save team</span>
     <span class="cbtn alt" onclick="document.getElementById('teamFormHost').innerHTML=''">Cancel</span>
   </div>`;
   document.getElementById('teamName').focus();
 };
-window.conSaveTeam=async()=>{
+window.conSaveTeam=async(id)=>{
   const name=(document.getElementById('teamName').value||'').trim(); if(!name){ document.getElementById('teamName').focus(); return; }
-  const color=document.getElementById('teamColor').value||null;
-  const res=await sb.from('teams').insert({ gym_id:me_.gym_id, name, color }).select();
+  const payload={ name, color:document.getElementById('teamColor').value||null };
+  if(TEAM_META_READY){
+    payload.focus=(document.getElementById('teamFocus').value||'').trim()||null;
+    payload.next_comp=(document.getElementById('teamComp').value||'').trim()||null;
+    payload.next_comp_date=document.getElementById('teamCompDate').value||null;
+  }
+  let res;
+  if(id) res=await sb.from('teams').update(payload).eq('id', id).select();
+  else res=await sb.from('teams').insert(Object.assign({ gym_id:me_.gym_id }, payload)).select();
   if(res.error||!res.data||!res.data.length){ alert('Save failed — '+(res.error?res.error.message:'try again')); return; }
-  conState._teams.push(res.data[0]); conState._teams.sort((a,b)=>a.name.localeCompare(b.name));
+  if(id){ const i=conState._teams.findIndex(t=>t.id===id); if(i>-1) conState._teams[i]=res.data[0]; }
+  else conState._teams.push(res.data[0]);
+  conState._teams.sort((a,b)=>a.name.localeCompare(b.name));
   renderConBody();
 };
 window.conDelTeam=async(id,name)=>{
