@@ -29,6 +29,10 @@
   input:focus{outline:none;border-color:var(--accent2)}
   .err{color:var(--bad);font-size:13px;margin-top:10px;min-height:16px}
   .hint{font-size:12px;color:var(--muted);margin-top:14px;line-height:1.5}
+  .hint .lk{color:var(--accent2);font-weight:700;cursor:pointer}.hint .lk:hover{text-decoration:underline}
+  .csection-lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:0 0 8px}
+  .inv-link-box{background:#13202c;border:1px solid #27425c;border-radius:10px;padding:12px;margin-top:12px}
+  .inv-link-box input{flex:1;font-size:12px}
   /* session */
   .pill{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;padding:3px 9px;border-radius:11px;background:var(--panel2);color:var(--accent2)}
   .exh{display:flex;align-items:center;gap:10px;margin:18px 0 6px}
@@ -704,15 +708,80 @@ let coachChan = null;  // realtime channel
 let leavingOnPurpose = false; // set by logout() so the auth listener doesn't double-fire
 
 /* ---------------- boot ---------------- */
+function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function lsDel(k){ try{ localStorage.removeItem(k); }catch(e){} }
 async function boot(){
+  const joinTok=new URLSearchParams(location.search).get('join');
   const { data:{ session } } = await sb.auth.getSession();
+  if(joinTok && !session){ renderJoin(joinTok); return; }
   if(!session){ renderLogin(); return; }
-  const { data: profile, error } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
+  let { data: profile, error } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
+  if(error || !profile){
+    // a freshly-signed-up / just-confirmed athlete with a pending invite token
+    const pend = joinTok || lsGet('wlc_join');
+    if(pend){
+      try{
+        const ai=await sb.rpc('accept_invite', { p_token:pend, p_name:lsGet('wlc_join_name') });
+        if(!ai.error){ lsDel('wlc_join'); lsDel('wlc_join_name');
+          const r2=await sb.from('profiles').select('*').eq('id', session.user.id).single(); profile=r2.data; error=r2.error; }
+      }catch(e){}
+    }
+  }
   if(error || !profile){ await sb.auth.signOut(); renderLogin('Could not load your profile.'); return; }
   me_ = profile;
+  if(joinTok){ try{ history.replaceState({}, '', location.pathname); }catch(e){} }
   await probeLoadTypes();
   await probeProgramId();
   if(profile.role === 'coach') renderCoach(); else renderAthlete();
+}
+async function renderJoin(token){
+  let info=null;
+  try{ const r=await sb.rpc('invite_info', { p_token:token }); if(!r.error && r.data && r.data.length) info=r.data[0]; }catch(e){}
+  const gymName = (info && info.gym_name) ? info.gym_name : 'your coach’s team';
+  const valid = info ? !!info.valid : false;
+  const preName = (info && info.full_name) ? info.full_name : '';
+  app.innerHTML = `<div class="login"><div class="topbar"><div class="brand">SoCal <span class="o">WLC</span></div></div>
+    <div class="card">
+      <h1>Join ${esc(gymName)}</h1>
+      ${valid ? `<div class="sub">Set up your athlete login. You pick your own password — your coach never sees it.</div>
+        <label>Your name</label><input id="jName" value="${esc(preName)}" placeholder="First Last">
+        <label>Email</label><input id="jEmail" type="email" autocomplete="username" placeholder="you@email.com">
+        <label>Create a password</label><input id="jPw" type="password" autocomplete="new-password" placeholder="at least 6 characters">
+        <div style="margin-top:16px"><button class="btn" id="jGo" style="width:100%">Create my login &amp; join</button></div>
+        <div class="err" id="jErr"></div>
+        <div class="hint">Already have a login? <span class="lk" onclick="history.replaceState({},'',location.pathname);renderLogin()">Sign in instead</span></div>`
+      : `<div class="err">This invite link is invalid or has already been used. Ask your coach for a fresh link.</div>
+         <div style="margin-top:16px"><button class="btn" style="width:100%" onclick="history.replaceState({},'',location.pathname);renderLogin()">Go to sign in</button></div>`}
+    </div></div>`;
+  if(!valid) return;
+  const go=document.getElementById('jGo');
+  const doJoin=async ()=>{
+    const name=(document.getElementById('jName').value||'').trim();
+    const email=(document.getElementById('jEmail').value||'').trim();
+    const pw=document.getElementById('jPw').value;
+    const err=document.getElementById('jErr'); err.textContent='';
+    if(!name){ err.textContent='Enter your name.'; return; }
+    if(!email){ err.textContent='Enter your email.'; return; }
+    if(!pw || pw.length<6){ err.textContent='Password must be at least 6 characters.'; return; }
+    go.disabled=true; go.textContent='Creating your login…';
+    const su=await sb.auth.signUp({ email, password:pw });
+    if(su.error){ err.textContent=su.error.message; go.disabled=false; go.textContent='Create my login & join'; return; }
+    try{ localStorage.setItem('wlc_join', token); localStorage.setItem('wlc_join_name', name); }catch(e){}
+    if(su.data && su.data.session){
+      const ai=await sb.rpc('accept_invite', { p_token:token, p_name:name });
+      if(ai.error){ err.textContent='Signed up, but could not join the team — '+ai.error.message+'. Ask your coach for a fresh link.'; go.disabled=false; go.textContent='Create my login & join'; return; }
+      lsDel('wlc_join'); lsDel('wlc_join_name');
+      history.replaceState({}, '', location.pathname);
+      boot();
+    } else {
+      app.innerHTML=`<div class="login"><div class="topbar"><div class="brand">SoCal <span class="o">WLC</span></div></div>
+        <div class="card"><h1>Check your email</h1>
+        <div class="sub">We sent a confirmation link to <b>${esc(email)}</b>. Click it, then re-open this same join link (or sign in) and you'll be added to ${esc(gymName)} automatically.</div>
+        <div style="margin-top:16px"><button class="btn" style="width:100%" onclick="history.replaceState({},'',location.pathname);renderLogin()">Go to sign in</button></div></div></div>`;
+    }
+  };
+  go.onclick=doJoin;
+  document.getElementById('jPw').addEventListener('keydown', e=>{ if(e.key==='Enter') doJoin(); });
 }
 // if the login expires or dies mid-use, say so plainly instead of showing empty screens
 sb.auth.onAuthStateChange((event)=>{
@@ -2116,15 +2185,63 @@ function pvRenderDay(host){
     ${exs}`;
 }
 window.conOpenAthlete=(id)=>{ ed=null; cw=null; coachState.selected=id; coachGo('coach'); };
-window.conAddAthlete=()=>{
+/* ---- athlete invites (secure self-signup links) ---- */
+let inviteState={ link:null, justName:null };
+function inviteBase(){ return location.origin + location.pathname; }
+async function loadInvites(){ const { data, error } = await sb.from('invites').select('*').eq('status','pending').order('created_at',{ascending:false}); return error ? null : (data||[]); }
+window.conAddAthlete=async ()=>{
+  inviteState={ link:null, justName:null };
+  ovModal('addAthModal', `<div class="ov-hd"><h2 style="margin:0">+ Add athlete</h2><span class="vid-x" onclick="document.getElementById('addAthModal').style.display='none'">✕</span></div><div class="spin" style="padding:16px">Loading…</div>`);
+  paintAddAthlete(await loadInvites());
+};
+function paintAddAthlete(invites){
+  const base=inviteBase();
+  const esq=(t)=>esc(t).replace(/'/g,"\\'");
+  const linkBlock = inviteState.link ? `<div class="inv-link-box">
+      <div class="sub" style="margin:0 0 7px">✓ Link ready — text or email it to <b>${esc(inviteState.justName||'your athlete')}</b>:</div>
+      <div style="display:flex;gap:8px"><input id="invLink" class="csearch" readonly value="${esc(inviteState.link)}" onclick="this.select()"><span class="cbtn" onclick="conCopyInvite('${esq(inviteState.link)}')">Copy</span></div>
+    </div>` : '';
+  let list;
+  if(invites===null) list=`<div class="con-empty" style="padding:14px">Invites aren't enabled yet — run <b>19_invites.sql</b>.</div>`;
+  else if(!invites.length) list=`<div class="sub" style="padding:6px 0">No pending invites.</div>`;
+  else list=`<div class="exlist" style="max-height:32vh">${invites.map(iv=>`<div class="exrow">
+      <span class="exn">${esc(iv.full_name||'Athlete')}</span><span class="exg">pending${iv.email?' · '+esc(iv.email):''}</span>
+      <span class="extools"><span class="extool" onclick="conCopyInvite('${esq(base+'?join='+iv.token)}')">copy link</span><span class="extool del" onclick="conRevokeInvite('${iv.id}')">revoke</span></span>
+    </div>`).join('')}</div>`;
   ovModal('addAthModal', `
     <div class="ov-hd"><h2 style="margin:0">+ Add athlete</h2><span class="vid-x" onclick="document.getElementById('addAthModal').style.display='none'">✕</span></div>
-    <div class="sub" style="margin:6px 0 12px">Athlete logins are created securely (a password is never handled by this screen). Two ways to onboard:</div>
-    <div style="font-size:13.5px;line-height:1.7">
-      <b>1 · They sign themselves up</b> — share your gym's join link; they create their own login and land in your roster.<br>
-      <b>2 · You create it</b> — add the athlete in Supabase → Authentication → Add user, then their profile row links to your gym.
+    <div class="sub" style="margin:6px 0 12px">Generate a private join link and send it to your athlete. They create their own login — <b>you never see or handle their password</b>. They land in your roster once they join.</div>
+    <div class="bf-row">
+      <input id="invName" placeholder="Athlete name" style="flex:1.4;min-width:170px">
+      <input id="invEmail" placeholder="Email (optional)" style="flex:1;min-width:150px">
+      <button class="btn" onclick="conGenInvite()">Generate link</button>
     </div>
-    <div class="sub" style="margin-top:12px">A one-tap invite flow (email magic link) is the next backend piece — it needs a small secure server function so passwords never touch the app.</div>`);
+    <span class="saved" id="invMsg"></span>
+    ${linkBlock}
+    <div class="csection-lbl" style="margin-top:16px">Pending invites</div>
+    ${list}`);
+  if(invites!==null && !inviteState.link){ const n=document.getElementById('invName'); if(n) n.focus(); }
+}
+window.conGenInvite=async ()=>{
+  const name=(document.getElementById('invName').value||'').trim();
+  const email=(document.getElementById('invEmail').value||'').trim()||null;
+  const msg=document.getElementById('invMsg');
+  if(!name){ document.getElementById('invName').focus(); return; }
+  const token=crypto.randomUUID();
+  const res=await sb.from('invites').insert({ gym_id:me_.gym_id, token, full_name:name, email }).select();
+  if(res.error||!res.data||!res.data.length){ if(msg){msg.style.color='var(--bad)';msg.textContent='Could not create the invite — '+(res.error?res.error.message:'try again');} return; }
+  inviteState.link=inviteBase()+'?join='+token; inviteState.justName=name;
+  paintAddAthlete(await loadInvites());
+};
+window.conCopyInvite=(link)=>{
+  const done=()=>{ const m=document.getElementById('invMsg'); if(m){ m.style.color='var(--good)'; m.textContent='✓ Link copied to clipboard'; setTimeout(()=>{ if(m.isConnected && m.textContent.indexOf('copied')>-1) m.textContent=''; },2500); } };
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(link).then(done).catch(()=>{ const i=document.getElementById('invLink'); if(i){ i.select(); document.execCommand('copy'); done(); } }); }
+  else { const i=document.getElementById('invLink'); if(i){ i.select(); document.execCommand('copy'); done(); } }
+};
+window.conRevokeInvite=async (id)=>{
+  const res=await sb.from('invites').delete().eq('id', id).select();
+  if(res.error){ alert('Revoke failed — '+res.error.message); return; }
+  paintAddAthlete(await loadInvites());
 };
 /* ---- TEMPLATE LIBRARY ---- */
 function renderTemplates(host){
