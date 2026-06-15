@@ -2348,6 +2348,7 @@ async function renderCoachPanel(){
     .order('session_date',{ascending:true}).order('created_at',{ascending:true});
   const sessByDate={}; (weekSess||[]).forEach(s=>{ (sessByDate[s.session_date]=sessByDate[s.session_date]||[]).push(s); });
   const allWeek = weekSess||[];
+  const draftCount = allWeek.filter(s=>s.status==='draft').length;
   // logged misses + done across the week
   const ids=allWeek.map(s=>s.id);
   let weekLogs=[];
@@ -2396,7 +2397,12 @@ async function renderCoachPanel(){
           <span class="av-weeklbl">${esc(ath.full_name.split(' ')[0])}'s week · <b>${weekLabel}</b> <span class="cw-off${off!==0?' away':''}" ${off!==0?'onclick="cwWeekNav(0)" title="Back to this week"':''}>${offLabel}</span></span>
           <button class="cw-arr" onclick="cwWeekNav(1)" title="Next week">›</button>
         </span>
-        <span class="pv-legend"><span><i style="background:var(--warn)"></i>draft</span><span><i style="background:var(--accent2)"></i>published</span><span><i style="background:var(--accent)"></i>today</span></span>
+        <span style="display:inline-flex;align-items:center;gap:12px;margin-left:auto">
+          <span class="pv-legend" style="margin:0"><span><i style="background:var(--warn)"></i>draft</span><span><i style="background:var(--accent2)"></i>published</span><span><i style="background:var(--accent)"></i>today</span></span>
+          ${draftCount>0
+            ? `<button class="btn blue" style="padding:8px 15px" onclick="cwPublishWeek()" title="Publish every draft this week at once">📤 Publish all (${draftCount})</button>`
+            : (ids.length?`<span class="pill st-pub">● all published</span>`:'')}
+        </span>
       </div>
       ${blockBannerHtml(block, wk)}
       <div id="blockForm" style="display:none"></div>
@@ -2421,6 +2427,18 @@ async function renderCoachPanel(){
 }
 window.cwToggleCopyWeek = ()=>{ const ui=document.getElementById('cwCopyUI'); if(ui) ui.style.display = ui.style.display==='none'?'inline-flex':'none'; };
 window.cwWeekNav = (d)=>{ if(!cw) return; ed=null; cw.weekOffset = d===0 ? 0 : (cw.weekOffset||0)+d; cw.selDate=null; cw.selSess=null; renderCoachPanel(); };
+window.cwPublishWeek = async ()=>{
+  if(!cw) return;
+  const drafts=(cw.weekSessFull||[]).filter(s=>s.status==='draft');
+  if(!drafts.length) return;
+  const name=cw.ath.full_name.split(' ')[0];
+  if(!confirm('Publish all '+drafts.length+' draft session'+(drafts.length===1?'':'s')+' this week to '+name+'? '+name+' will see them right away.')) return;
+  const res=await sb.from('sessions').update({status:'published'}).in('id', drafts.map(s=>s.id)).select();
+  if(res.error){ alert('Publish failed — '+res.error.message); return; }
+  conState._progSess=undefined; if(cw) cw.rollupCache=null;
+  await renderCoachPanel();
+  const m=document.getElementById('cwMsg'); if(m){ m.style.color='var(--good)'; m.textContent='✓ Published '+drafts.length+' session'+(drafts.length===1?'':'s')+' to '+name; setTimeout(()=>{ if(m.isConnected){ m.textContent=''; } },3500); }
+};
 function statsFor(sessRows, logs){
   let vol=0, vw=0, pv=0, peak=0, totalSets=0;
   (sessRows||[]).forEach(s=>(s.prescribed_exercises||[]).forEach(ex=>(ex.prescribed_sets||[]).forEach(ps=>{
@@ -2777,9 +2795,14 @@ function paintEditor(){
     <div class="cv-hd">
       <input id="edTitle" data-f="title" value="${esc(s.title||'')}" placeholder="Session title">
       <span class="sub" style="white-space:nowrap">${esc(fmtDate(s.session_date))}</span>
-      <span class="pill ${draft?'st-draft':'st-pub'}">${draft?'DRAFT — athlete can&#39;t see it':'PUBLISHED'}</span>
+      <span class="pill ${draft?'st-draft':'st-pub'}">${draft?'DRAFT — athlete can&#39;t see it':'● PUBLISHED'}</span>
       <span class="cv-hdstats" id="edTiles">${sessionTiles()}</span>
-      <span class="b-x cv-delsess" id="edDelSess" title="Delete this whole session">✕ session</span>
+      <span style="margin-left:auto;display:inline-flex;gap:9px;align-items:center">
+        ${draft
+          ? `<button class="btn blue" id="edPublish">📤 Publish to ${esc(cw.ath.full_name.split(' ')[0])}</button>`
+          : `<button class="btn ghost" id="edUnpublish" title="Pull this back to a draft — the athlete won't see it">Unpublish</button>`}
+        <span class="b-x cv-delsess" id="edDelSess" title="Delete this whole session">✕ session</span>
+      </span>
     </div>
     <div class="cv-tools">
       <span class="lg-add" id="edCopyOpen" style="margin:0">⧉ Copy this day to…</span>
@@ -2792,7 +2815,7 @@ function paintEditor(){
     <span class="lg-add" id="edAddEx" style="margin:6px 0 0">＋ Add exercise</span>
     <div class="savebar">
       <button class="btn" id="edSave">Save changes</button>
-      ${draft?`<button class="btn blue" id="edPublish">Publish to ${esc(cw.ath.full_name.split(' ')[0])}</button>`:''}
+      ${draft?`<button class="btn blue" id="edPublish2">📤 Publish to ${esc(cw.ath.full_name.split(' ')[0])}</button>`:''}
       <span class="saved" id="edMsg"></span>
     </div>
   </div>
@@ -2931,7 +2954,8 @@ function wireEditor(){
       ed.exercises.push({id:null,name:'',note:'',category:'primary',loadType:'percentage',cues:[],sets:[{id:null,reps:'',pct:'',kg:'',vel:'',eff:''}],delSets:[]});
       ed.dirty=true; paintEditor(); return; }
     if(e.target.id==='edSave'){ saveEditor(false); return; }
-    if(e.target.id==='edPublish'){ saveEditor(true); return; }
+    if(e.target.id==='edPublish' || e.target.id==='edPublish2'){ saveEditor(true); return; }
+    if(e.target.id==='edUnpublish'){ saveEditor('draft'); return; }
     if(e.target.id==='edCopyOpen'){ const ui=document.getElementById('edCopyUI'); ui.style.display = ui.style.display==='none'?'inline-flex':'none'; return; }
     if(e.target.id==='edCopyGo'){ cvCopyDay(document.getElementById('edCopyDate').value); return; }
     const ds=e.target.closest('#edDelSess');
@@ -3384,9 +3408,10 @@ async function saveEditor(publishAfter){
     const { data:{ user } } = await sb.auth.getUser();
     if(!user || user.id!==me_.id) throw new Error('login mismatch — sign out and back in');
     const s=ed.session;
-    // session title (+ optional publish)
+    // session title (+ optional publish/unpublish toggle)
     const sessPatch={ title:(s.title||'Training').trim()||'Training' };
-    if(publishAfter) sessPatch.status='published';
+    if(publishAfter===true) sessPatch.status='published';
+    else if(publishAfter==='draft') sessPatch.status='draft';
     const su=await sb.from('sessions').update(sessPatch).eq('id', s.id).select();
     if(su.error || !su.data || !su.data.length) throw (su.error||new Error('session update rejected'));
     // removed exercises / sets
@@ -3424,13 +3449,22 @@ async function saveEditor(publishAfter){
     }
     ed.delExs=[]; ed.dirty=false;
     if(cw) cw.rollupCache=null;
-    if(publishAfter) ed.session.status='published';
+    const statusChanged = (publishAfter===true || publishAfter==='draft');
+    if(publishAfter===true) ed.session.status='published';
+    else if(publishAfter==='draft') ed.session.status='draft';
     const wkEntry = cw && cw.sessByDate && (cw.sessByDate[cw.selDate]||[]).find(s=>s.id===ed.session.id);
-    if(wkEntry){ wkEntry.title=ed.session.title; if(publishAfter) wkEntry.status='published'; }
+    if(wkEntry){ wkEntry.title=ed.session.title; if(statusChanged) wkEntry.status=ed.session.status; }
+    if(statusChanged){
+      conState._progSess=undefined;            // program publish-bar recomputes
+      const ath=cw.ath.full_name.split(' ')[0];
+      await renderCoachPanel();                // refresh week strip + tabs + editor with new status
+      edMsgSet(publishAfter===true?('✓ Published — it\'s on '+ath+'\'s phone'):'✓ Unpublished — back to a draft','var(--good)');
+      setTimeout(()=>edMsgSet(''),3500);
+      return;
+    }
     refreshStripDot();
-    if(publishAfter){ const ti=document.querySelector('.cw-stab.on i'); if(ti) ti.remove(); }
     paintEditor();
-    edMsgSet(publishAfter?'✓ Saved & published — it\'s on '+cw.ath.full_name.split(' ')[0]+'\'s phone':'✓ Saved','var(--good)');
+    edMsgSet('✓ Saved','var(--good)');
     setTimeout(()=>edMsgSet(''),3500);
   }catch(e2){
     if(btn){ btn.disabled=false; btn.textContent='Save changes'; }
