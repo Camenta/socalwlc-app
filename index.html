@@ -283,7 +283,17 @@
   .ann-del{font-size:11px;color:var(--muted);cursor:pointer;font-weight:700}
   .ann-del:hover{color:var(--bad)}
   .chatcard{display:flex;flex-direction:column}
+  .chat-threads{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+  .chat-th{font-size:12px;font-weight:700;padding:5px 11px;border-radius:20px;border:1px solid var(--line);background:var(--panel2);color:var(--muted);cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+  .chat-th:hover{color:var(--text)}
+  .chat-th.on{background:var(--accent2);border-color:var(--accent2);color:#06121d}
+  .chat-th .kd{font-size:9px;opacity:.7;text-transform:uppercase;letter-spacing:.3px}
+  .chat-th.newchat,.chat-th.newgroup{border-style:dashed;color:var(--accent2);background:transparent}
+  .chat-th.newchat:hover,.chat-th.newgroup:hover{border-color:var(--accent2);color:#7bc0f5}
   .chat-feed{flex:1;min-height:200px;max-height:46vh;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:4px 2px}
+  .grpmem{display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto;margin:10px 0}
+  .grpmem label{display:flex;align-items:center;gap:9px;padding:7px 10px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;cursor:pointer;font-size:13px}
+  .grpmem input{width:17px;height:17px;accent-color:var(--accent2)}
   .msg{display:flex;gap:8px;max-width:85%}
   .msg.me{align-self:flex-end;flex-direction:row-reverse}
   .msg-av{width:26px;height:26px;border-radius:50%;flex:0 0 26px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:10px;color:#0c1116}
@@ -1012,8 +1022,8 @@ async function renderCoach(){
   coachChan = sb.channel('logs-coach')
     .on('postgres_changes', { event:'*', schema:'public', table:'logged_sets' }, ()=>{ if(coachState.screen!=='coach') return; if(ed) refreshEditorActuals(); else renderCoachPanel(); })
     .on('postgres_changes', { event:'*', schema:'public', table:'readiness' }, ()=>{ if(coachState.screen==='coach' && !ed) renderCoachPanel(); })
-    .on('postgres_changes', { event:'INSERT', schema:'public', table:'announcements' }, ()=>{ if(coachState.screen==='console' && conState.tab==='hub') hubReload(); })
-    .on('postgres_changes', { event:'INSERT', schema:'public', table:'messages' }, ()=>{ if(coachState.screen==='console' && conState.tab==='hub') hubReload(); })
+    .on('postgres_changes', { event:'INSERT', schema:'public', table:'announcements' }, ()=>{ if(coachState.screen==='console' && conState.tab==='hub') hubReloadAnn(); })
+    .on('postgres_changes', { event:'INSERT', schema:'public', table:'messages' }, (payload)=>{ if(coachState.screen==='console' && conState.tab==='hub' && payload && payload.new && payload.new.conversation_id===hubState.convId) hubReloadFeed(); })
     .subscribe();
   if(!coachState.screen) coachState.screen='console';
   if(coachState.screen==='coach') paintCoach(); else renderConsole();
@@ -1203,8 +1213,16 @@ window.conDelTeam=async(id,name)=>{
   renderConBody();
 };
 
-/* ---- TEAM HUB (announcements + team chat) ---- */
+/* ---- TEAM HUB (announcements + threaded chat: team / DM / group) ---- */
+let hubState={ convId:null, convs:[], membersByConv:{} };
 function hubName(id){ if(me_&&id===me_.id) return me_.full_name; const a=(coachState.athletes||[]).find(x=>x.id===id); return a?a.full_name:'Someone'; }
+function convName(c){
+  if(!c) return 'Chat';
+  if(c.kind==='team') return 'Team';
+  if(c.kind==='group') return c.name||'Group';
+  const mem=(hubState.membersByConv[c.id]||[]).filter(pid=>pid!==(me_&&me_.id));
+  return mem.length?hubName(mem[0]):'Direct message';
+}
 async function renderHub(host){
   const { error } = await sb.from('announcements').select('id').limit(1);
   if(error){ host.innerHTML=conSoon('Team Hub','post announcements to the whole team and chat with your athletes','the announcements + messages tables — run 15_hub.sql'); return; }
@@ -1216,46 +1234,114 @@ async function renderHub(host){
       </div>
       <div class="ann-list" id="cAnnList"><div class="spin" style="padding:10px">Loading…</div></div>
     </div>
-    <div class="card chatcard"><h2 style="margin:0 0 12px">💬 Team chat</h2>
+    <div class="card chatcard"><h2 style="margin:0 0 12px">💬 Messages</h2>
+      <div class="chat-threads" id="cChatThreads"></div>
       <div class="chat-feed" id="cChatFeed"><div class="spin" style="padding:10px">Loading…</div></div>
-      <div class="chat-compose"><input id="cChatInput" placeholder="Message your athletes…" onkeydown="if(event.key==='Enter')hubSendMsg()"><span class="chat-send" onclick="hubSendMsg()">Send</span></div>
+      <div class="chat-compose"><input id="cChatInput" placeholder="Type a message…" onkeydown="if(event.key==='Enter')hubSendMsg()"><span class="chat-send" onclick="hubSendMsg()">Send</span></div>
     </div>
   </div>`;
-  hubReload();
+  await loadConvs();
+  hubReloadAnn();
+  renderThreads();
+  hubReloadFeed();
 }
-async function hubReload(){
-  const annList=document.getElementById('cAnnList'), feed=document.getElementById('cChatFeed');
-  if(!annList||!feed) return;
+async function loadConvs(){
+  const { data: convs, error } = await sb.from('conversations').select('*').order('created_at',{ascending:true});
+  if(error){ hubState.convs=[]; return; }
+  hubState.convs=convs||[];
+  const ids=hubState.convs.map(c=>c.id);
+  hubState.membersByConv={};
+  if(ids.length){
+    const { data: mem } = await sb.from('conversation_members').select('conversation_id,profile_id').in('conversation_id', ids);
+    (mem||[]).forEach(m=>{ (hubState.membersByConv[m.conversation_id]=hubState.membersByConv[m.conversation_id]||[]).push(m.profile_id); });
+  }
+  if(!hubState.convId || !hubState.convs.find(c=>c.id===hubState.convId)){
+    const team=hubState.convs.find(c=>c.kind==='team'); hubState.convId = team?team.id:(hubState.convs[0]?hubState.convs[0].id:null);
+  }
+}
+function renderThreads(){
+  const host=document.getElementById('cChatThreads'); if(!host) return;
+  const order={team:0,group:1,dm:2};
+  const sorted=hubState.convs.slice().sort((a,b)=>(order[a.kind]-order[b.kind]));
+  host.innerHTML=sorted.map(c=>`<span class="chat-th${c.id===hubState.convId?' on':''}" onclick="hubSelectConv('${c.id}')">${c.kind!=='team'?`<span class="kd">${c.kind==='dm'?'dm':'group'}</span>`:''}${esc(convName(c))}</span>`).join('')
+    +`<span class="chat-th newchat" onclick="hubNewDM()">+ message someone</span><span class="chat-th newgroup" onclick="hubNewGroup()">+ new group</span>`;
+}
+window.hubSelectConv=(id)=>{ hubState.convId=id; renderThreads(); hubReloadFeed(); const i=document.getElementById('cChatInput'); if(i) i.focus(); };
+async function hubReloadAnn(){
+  const annList=document.getElementById('cAnnList'); if(!annList) return;
   const { data: anns } = await sb.from('announcements').select('*').order('created_at',{ascending:false}).limit(50);
   annList.innerHTML=(anns||[]).map(a=>`<div class="ann-item">
     <span class="ann-av" style="background:${avColor(hubName(a.author_id))}">${esc(initials(hubName(a.author_id)))}</span>
     <div class="ann-bd"><div class="ann-top"><span class="ann-who">${esc(hubName(a.author_id))}</span>${a.author_id===(me_&&me_.id)?'<span class="ann-role">coach</span>':''}<span class="ann-time">${relTime(a.created_at)}</span></div>
-      <div class="ann-txt">${esc(a.body)}</div>
-      ${a.author_id===(me_&&me_.id)?`<span class="ann-del" onclick="hubDelAnn('${a.id}')">remove</span>`:''}</div>
-  </div>`).join('')||'<div class="con-empty" style="padding:18px">No announcements yet — post the first one.</div>';
-  const { data: msgs } = await sb.from('messages').select('*').order('created_at',{ascending:true}).limit(120);
+      <div class="ann-txt">${esc(a.body)}</div>${a.author_id===(me_&&me_.id)?`<span class="ann-del" onclick="hubDelAnn('${a.id}')">remove</span>`:''}</div></div>`).join('')||'<div class="con-empty" style="padding:18px">No announcements yet — post the first one.</div>';
+}
+async function hubReloadFeed(){
+  const feed=document.getElementById('cChatFeed'); if(!feed||!hubState.convId) return;
+  const { data: msgs } = await sb.from('messages').select('*').eq('conversation_id', hubState.convId).order('created_at',{ascending:true}).limit(150);
   feed.innerHTML=(msgs||[]).map(m=>{ const mine=m.author_id===(me_&&me_.id);
     return `<div class="msg ${mine?'me':''}"><span class="msg-av" style="background:${avColor(hubName(m.author_id))}">${esc(initials(hubName(m.author_id)))}</span>
       <div class="msg-bub"><div class="msg-who">${esc(hubName(m.author_id))}</div><div class="msg-txt">${esc(m.body)}</div></div></div>`;
   }).join('')||'<div class="con-empty" style="padding:20px">No messages yet — say hi 👋</div>';
   feed.scrollTop=feed.scrollHeight;
 }
+function hubReload(){ loadConvs().then(()=>{ renderThreads(); hubReloadFeed(); }); hubReloadAnn(); }
 window.hubPostAnn=async()=>{
   const ta=document.getElementById('cAnnInput'); const body=(ta.value||'').trim(); if(!body) return;
   const res=await sb.from('announcements').insert({ gym_id:me_.gym_id, author_id:me_.id, body }).select();
   if(res.error||!res.data||!res.data.length){ alert('Post failed — '+(res.error?res.error.message:'sign out and back in')); return; }
-  ta.value=''; hubReload();
+  ta.value=''; hubReloadAnn();
 };
-window.hubDelAnn=async(id)=>{
-  const res=await sb.from('announcements').delete().eq('id', id).select();
-  if(res.error){ alert('Remove failed — '+res.error.message); return; }
-  hubReload();
-};
+window.hubDelAnn=async(id)=>{ const res=await sb.from('announcements').delete().eq('id', id).select(); if(res.error){ alert('Remove failed — '+res.error.message); return; } hubReloadAnn(); };
 window.hubSendMsg=async()=>{
-  const inp=document.getElementById('cChatInput'); const body=(inp.value||'').trim(); if(!body) return;
-  const res=await sb.from('messages').insert({ gym_id:me_.gym_id, author_id:me_.id, body }).select();
+  const inp=document.getElementById('cChatInput'); const body=(inp.value||'').trim(); if(!body||!hubState.convId) return;
+  const res=await sb.from('messages').insert({ gym_id:me_.gym_id, author_id:me_.id, body, conversation_id:hubState.convId }).select();
   if(res.error||!res.data||!res.data.length){ alert('Send failed — '+(res.error?res.error.message:'sign out and back in')); return; }
-  inp.value=''; hubReload();
+  inp.value=''; hubReloadFeed();
+};
+window.hubNewDM=()=>{
+  const athletes=coachState.athletes||[];
+  if(!athletes.length){ alert('No athletes to message yet.'); return; }
+  ovModal('dmModal', `
+    <div class="ov-hd"><h2 style="margin:0">+ Message someone</h2><span class="vid-x" onclick="document.getElementById('dmModal').style.display='none'">✕</span></div>
+    <div class="sub" style="margin:6px 0 12px">Start (or open) a direct message with an athlete.</div>
+    <div class="grpmem">${athletes.map(a=>`<label onclick="hubOpenDM('${a.id}')"><span class="rava" style="width:26px;height:26px;background:${avColor(a.full_name)}">${esc(initials(a.full_name))}</span> ${esc(a.full_name)}</label>`).join('')}</div>`);
+};
+window.hubOpenDM=async(athId)=>{
+  document.getElementById('dmModal').style.display='none';
+  // existing DM with exactly {coach, athlete}?
+  const existing=hubState.convs.find(c=>c.kind==='dm' && (hubState.membersByConv[c.id]||[]).slice().sort().join()===[me_.id,athId].sort().join());
+  if(existing){ hubState.convId=existing.id; renderThreads(); hubReloadFeed(); return; }
+  const id=crypto.randomUUID();
+  const ci=await sb.from('conversations').insert({ id, gym_id:me_.gym_id, kind:'dm', name:null });
+  if(ci.error){ alert('Could not start the chat — '+ci.error.message); return; }
+  const mr=await sb.from('conversation_members').insert([{conversation_id:id,profile_id:me_.id},{conversation_id:id,profile_id:athId}]);
+  if(mr.error){ alert('Could not add members — '+mr.error.message); return; }
+  hubState.convId=id; await loadConvs(); renderThreads(); hubReloadFeed();
+};
+window.hubNewGroup=()=>{
+  const athletes=coachState.athletes||[];
+  if(!athletes.length){ alert('No athletes to add yet.'); return; }
+  ovModal('grpModal', `
+    <div class="ov-hd"><h2 style="margin:0">+ New group</h2><span class="vid-x" onclick="document.getElementById('grpModal').style.display='none'">✕</span></div>
+    <div class="bf-row" style="margin:6px 0 0"><input id="grpName" placeholder="Group name (e.g. Senior Squad)" style="flex:1;min-width:240px;font-weight:700"></div>
+    <div class="sub" style="margin:12px 0 4px">Add athletes (you're included automatically):</div>
+    <div class="grpmem">${athletes.map(a=>`<label><input type="checkbox" class="grpcb" value="${a.id}"><span class="rava" style="width:26px;height:26px;background:${avColor(a.full_name)}">${esc(initials(a.full_name))}</span> ${esc(a.full_name)}</label>`).join('')}</div>
+    <div class="bf-row"><button class="btn" onclick="hubCreateGroup()">Create group</button><span class="saved" id="grpMsg"></span></div>`);
+};
+window.hubCreateGroup=async()=>{
+  const name=(document.getElementById('grpName').value||'').trim();
+  const ids=[].map.call(document.querySelectorAll('.grpcb:checked'),c=>c.value);
+  const msg=document.getElementById('grpMsg');
+  if(!name){ document.getElementById('grpName').focus(); return; }
+  if(!ids.length){ if(msg){msg.style.color='var(--warn)';msg.textContent='Pick at least one athlete.';} return; }
+  const cid=crypto.randomUUID();
+  const ci=await sb.from('conversations').insert({ id:cid, gym_id:me_.gym_id, kind:'group', name });
+  if(ci.error){ if(msg){msg.style.color='var(--bad)';msg.textContent='Failed — '+ci.error.message;} return; }
+  const members=[{conversation_id:cid,profile_id:me_.id}].concat(ids.map(pid=>({conversation_id:cid,profile_id:pid})));
+  const mr=await sb.from('conversation_members').insert(members);
+  if(mr.error){ if(msg){msg.style.color='var(--bad)';msg.textContent='Members failed — '+mr.error.message;} return; }
+  document.getElementById('grpModal').style.display='none';
+  hubState.convId=cid; await loadConvs(); renderThreads(); hubReloadFeed();
 };
 
 /* ================= PROGRAMS (build once → stamp onto athletes) ================= */
