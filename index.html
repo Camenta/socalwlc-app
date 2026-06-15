@@ -343,6 +343,36 @@
   .pb-addex{background:#13202c;border:1px dashed #27425c;color:var(--accent2);font-weight:700;font-size:12.5px;border-radius:8px;padding:8px 13px;cursor:pointer}
   .pb-addday{background:var(--panel2);border:1px dashed var(--line);color:var(--muted);font-weight:700;font-size:13px;border-radius:10px;padding:13px;cursor:pointer;text-align:center}
   .pb-addday:hover{color:var(--accent2);border-color:var(--accent2)}
+  /* Program viewer (month / week / day) */
+  .pv-wrap{max-width:1020px;margin:0 auto;padding:18px 22px 80px}
+  .pv-sub{font-size:12.5px;color:var(--muted);margin-bottom:14px}
+  .pv-cal{display:grid;grid-template-columns:60px repeat(7,1fr);gap:6px}
+  .pv-dowh{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);text-align:center;padding:4px 0}
+  .pv-wklabel{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:11px;font-weight:800;color:var(--muted)}
+  .pv-wklabel .wv{width:11px;height:11px;border-radius:3px}
+  .pv-cell{min-height:78px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:8px;overflow:hidden}
+  .pv-cell.has{cursor:pointer;border-color:#27425c}
+  .pv-cell.has:hover{border-color:var(--accent2)}
+  .pv-cell.empty{background:transparent;border-style:dashed;opacity:.45}
+  .pv-cell .ttl{font-size:11.5px;font-weight:700;color:var(--text);line-height:1.25;margin-bottom:4px}
+  .pv-cell .cnt{font-size:10px;color:var(--accent2);font-weight:800;margin-bottom:3px}
+  .pv-cell .ex{font-size:10px;color:var(--muted);line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .pv-weektabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:16px}
+  .pv-weekgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+  .pv-daycard{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:13px;cursor:pointer}
+  .pv-daycard:hover{border-color:var(--accent2)}
+  .pv-daycard .dow{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)}
+  .pv-daycard h4{margin:2px 0 9px;font-size:14px}
+  .pv-exline{font-size:12.5px;color:var(--text);font-weight:600;padding:6px 0;border-top:1px solid var(--line)}
+  .pv-exline .sets{color:var(--muted);font-size:11px;font-weight:500;margin-top:2px}
+  .pv-dayhd{display:flex;align-items:center;gap:11px;flex-wrap:wrap;margin-bottom:16px}
+  .pv-ex{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:14px 16px;margin-bottom:10px}
+  .pv-ex-top{display:flex;align-items:center;gap:9px;margin-bottom:6px}
+  .pv-ex-top h4{margin:0;font-size:15px}
+  .pv-lt-badge{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--accent2);background:#13202c;border-radius:8px;padding:2px 8px}
+  .pv-setrow{display:flex;gap:12px;font-size:13.5px;padding:6px 0;border-top:1px solid var(--line)}
+  .pv-setrow .n{color:var(--muted);font-weight:700;flex:0 0 48px;font-size:11px}
+  .pv-note{font-size:12.5px;color:var(--muted);margin-top:9px;font-style:italic}
   /* Team Hub */
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   @media(max-width:820px){.grid2{grid-template-columns:1fr}}
@@ -657,7 +687,7 @@ function topbar(roleLabel){
   return `<div class="topbar">
     <div class="brand">SoCal <span class="o">WLC</span></div>
     <div style="display:flex;align-items:center;gap:12px">
-      <div class="who"><b>${esc(me_.full_name)}</b><br>${roleLabel}</div>
+      <div class="who"><b>${esc((me_&&me_.full_name)||'')}</b><br>${roleLabel}</div>
       <button class="btn ghost" onclick="logout()">Sign out</button>
     </div></div>`;
 }
@@ -1481,14 +1511,14 @@ async function loadPrograms(){
 function programCard(p){
   const days=(p.data&&p.data.days)?p.data.days.length:0;
   const wave=Array.isArray(p.wave)?p.wave:null;
-  return `<div class="ccard">
+  return `<div class="ccard" onclick="openProgramView('${p.id}')">
     <h3 style="margin:0 0 4px">${esc(p.name)}</h3>
     <div class="meta">${[p.phase,(p.weeks+' wk'),days+' day'+(days===1?'':'s')].filter(Boolean).map(esc).join(' · ')}</div>
     ${wave?`<div style="display:flex;gap:3px;align-items:flex-end;height:20px;margin-top:8px">${wave.map(lv=>{const L=WAVE_LV[lv]||WAVE_LV.light;return `<i style="display:block;width:8px;border-radius:2px;height:${L[2]}px;background:${L[1]}"></i>`;}).join('')}</div>`:''}
     <div class="extools" style="margin-top:11px;gap:14px">
-      <span class="extool" onclick="stampProgram('${p.id}')">→ stamp</span>
-      <span class="extool" onclick="openProgramBuilder('${p.id}')">✎ edit</span>
-      <span class="extool del" onclick="conDelProgram('${p.id}','${esc(p.name).replace(/'/g,"\\'")}')">✕</span>
+      <span class="extool" onclick="event.stopPropagation();stampProgram('${p.id}')">→ stamp</span>
+      <span class="extool" onclick="event.stopPropagation();openProgramBuilder('${p.id}')">✎ edit</span>
+      <span class="extool del" onclick="event.stopPropagation();conDelProgram('${p.id}','${esc(p.name).replace(/'/g,"\\'")}')">✕</span>
     </div></div>`;
 }
 async function loadAssignments(){
@@ -1626,7 +1656,7 @@ let pbState=null; // {id,name,phase,weeks,wave,days:[{wk,dow,title,exercises:[{n
 const PB_DOW=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const PB_LT=[['percentage','%1RM'],['vbt','VBT m/s'],['weight','Weight kg'],['rpe','RPE'],['rir','RIR'],['open','Open']];
 function pbNum(v){ if(v===''||v==null) return null; const n=parseFloat(v); return isNaN(n)?null:n; }
-window.openProgramBuilder=async function(id){
+window.openProgramBuilder=async function(id, gotoWk, fromView){
   await loadExLib();
   if(id){
     const p=(conState._programs||[]).find(x=>x.id===id); if(!p){ alert('Program not found — reload.'); return; }
@@ -1634,14 +1664,15 @@ window.openProgramBuilder=async function(id){
       wk:d.wk||0, dow:d.dow||0, title:d.title||'',
       exercises:(d.exercises||[]).map(ex=>({ name:ex.name||'', category:ex.category||'primary', load_type:ex.load_type||'percentage', cues:ex.cues||null, coach_note:ex.coach_note||'',
         sets:(ex.sets||[]).map(s=>({ reps:s.reps==null?'':s.reps, pct:s.pct==null?'':s.pct, vel:s.vel==null?'':s.vel, eff:s.eff==null?'':s.eff, kg:s.kg==null?'':s.kg })) })) }));
-    pbState={ id:p.id, name:p.name||'', phase:p.phase||'', weeks:p.weeks||1, wave:p.wave||null, days, wk:0 };
+    const wk=Math.max(0, Math.min((p.weeks||1)-1, gotoWk||0));
+    pbState={ id:p.id, name:p.name||'', phase:p.phase||'', weeks:p.weeks||1, wave:p.wave||null, days, wk, fromView:!!fromView };
   } else {
-    pbState={ id:null, name:'', phase:'', weeks:4, wave:null, days:[], wk:0 };
+    pbState={ id:null, name:'', phase:'', weeks:4, wave:null, days:[], wk:0, fromView:false };
   }
   coachState.screen='builder';
   renderProgramBuilder();
 };
-window.pbExit=()=>{ pbState=null; coachState.screen='console'; renderConsole(); };
+window.pbExit=()=>{ const fv=pbState&&pbState.fromView, id=pbState&&pbState.id; pbState=null; if(fv&&id&&(conState._programs||[]).find(p=>p.id===id)){ openProgramView(id); } else { coachState.screen='console'; renderConsole(); } };
 function renderProgramBuilder(){
   const weeks=pbState.weeks;
   const wkTabs=Array.from({length:weeks},(_,i)=>`<button class="pb-wk${i===pbState.wk?' on':''}" onclick="pbSetWk(${i})">Wk ${i+1}<i>${pbState.days.filter(d=>d.wk===i).length}</i></button>`).join('');
@@ -1749,8 +1780,113 @@ window.pbSave=async function(){
   if(pbState.id) res=await sb.from('programs').update(payload).eq('id',pbState.id).select();
   else res=await sb.from('programs').insert(Object.assign({ gym_id:me_.gym_id }, payload)).select();
   if(res.error||!res.data||!res.data.length){ if(msg){msg.style.color='var(--bad)';msg.textContent='Save failed — '+(res.error?res.error.message:'try again');} return; }
-  conState._programs=undefined; conState.tab='programs'; pbExit();
+  const fromView=pbState.fromView, savedId=pbState.id || (res.data[0]&&res.data[0].id);
+  conState._programs=undefined; await loadPrograms();
+  if(fromView && savedId && (conState._programs||[]).find(p=>p.id===savedId)){ pbState=null; openProgramView(savedId); }
+  else { pbState=null; conState.tab='programs'; coachState.screen='console'; renderConsole(); }
 };
+/* ================= PROGRAM VIEWER (month / week / day, with edit) ================= */
+let pvState=null; // {id, prog, view:'month'|'week'|'day', wk, dayKey}
+function ltLabel(v){ const m=PB_LT.find(x=>x[0]===v); return m?m[1]:(v||'%1RM'); }
+function pgSetText(s, lt){
+  lt=lt||'percentage'; const has=(x)=>x!=null&&x!==''; const r=has(s.reps)?s.reps:'?';
+  if(lt==='vbt')    return r+(has(s.vel)?' @ ≥'+s.vel+' m/s':' · VBT');
+  if(lt==='weight') return r+(has(s.kg)?' × '+s.kg+'kg':' reps');
+  if(lt==='rpe')    return r+(has(s.eff)?' @ RPE '+s.eff:' reps');
+  if(lt==='rir')    return r+(has(s.eff)?' @ '+s.eff+' RIR':' reps');
+  if(lt==='open')   return (has(s.reps)?s.reps+' reps':'open')+' · open';
+  return r+(has(s.pct)?' @ '+s.pct+'%':' reps');
+}
+function pvDayAt(wk,dow){ return ((pvState.prog.data&&pvState.prog.data.days)||[]).find(d=>d.wk===wk && d.dow===dow); }
+function pvExSummary(d){ return (d.exercises||[]).map(e=>e.name).filter(Boolean).join(', '); }
+window.openProgramView=async function(id){
+  if(conState._programs===undefined) await loadPrograms();
+  const p=(conState._programs||[]).find(x=>x.id===id); if(!p){ alert('Program not found — reload.'); return; }
+  pvState={ id, prog:p, view:'month', wk:0, dayKey:null };
+  coachState.screen='pgview';
+  renderProgramView();
+};
+window.pvExit=()=>{ pvState=null; coachState.screen='console'; renderConsole(); };
+window.pvSetView=(v)=>{ pvState.view=v; renderProgramView(); };
+window.pvSetWk=(w)=>{ pvState.wk=w; renderProgramView(); };
+window.pvOpenDay=(wk,dow)=>{ pvState.wk=wk; pvState.dayKey=wk+':'+dow; pvState.view='day'; renderProgramView(); };
+window.pvStamp=()=>{ stampProgram(pvState.id); };
+window.pvEdit=(wk)=>{ openProgramBuilder(pvState.id, wk||0, true); };
+function renderProgramView(){
+  const p=pvState.prog;
+  app.innerHTML = topbar('Coach') + `
+    <div class="pb-bar">
+      <button class="pb-back" onclick="pvExit()">← Console</button>
+      <div class="pb-title">${esc(p.name)}</div>
+      <span class="pv-sub" style="margin:0 0 0 2px">${[p.phase,(p.weeks||1)+' wk'].filter(Boolean).map(esc).join(' · ')}</span>
+      <div style="flex:1"></div>
+      <div class="seg" style="margin-right:8px">
+        <button class="${pvState.view==='month'?'on':''}" onclick="pvSetView('month')">Month</button>
+        <button class="${pvState.view==='week'?'on':''}" onclick="pvSetView('week')">Week</button>
+        <button class="${pvState.view==='day'?'on':''}" onclick="pvSetView('day')">Day</button>
+      </div>
+      <button class="pb-back" onclick="pvEdit(0)">✎ Edit</button>
+      <button class="pb-save" onclick="pvStamp()">→ Stamp</button>
+    </div>
+    <div class="pv-wrap" id="pvBody"></div>`;
+  const host=document.getElementById('pvBody');
+  if(pvState.view==='month') pvRenderMonth(host);
+  else if(pvState.view==='week') pvRenderWeek(host);
+  else pvRenderDay(host);
+}
+function pvRenderMonth(host){
+  const p=pvState.prog, weeks=p.weeks||1;
+  const wave=Array.isArray(p.wave)?p.wave:null;
+  let rows='';
+  for(let w=0; w<weeks; w++){
+    const wv = wave&&wave[w]?WAVE_LV[wave[w]]:null;
+    rows+=`<div class="pv-wklabel">WK ${w+1}${wv?`<span class="wv" style="background:${wv[1]}" title="${esc(wv[0])}"></span>`:''}</div>`;
+    for(let dow=0; dow<7; dow++){
+      const d=pvDayAt(w,dow);
+      if(d){ const cnt=(d.exercises||[]).length;
+        rows+=`<div class="pv-cell has" onclick="pvOpenDay(${w},${dow})"><div class="ttl">${esc(d.title||'Training')}</div><div class="cnt">${cnt} lift${cnt===1?'':'s'}</div><div class="ex">${esc(pvExSummary(d))}</div></div>`;
+      } else { rows+=`<div class="pv-cell empty"></div>`; }
+    }
+  }
+  host.innerHTML=`<div class="pv-sub">Each row is a week of the program · click any day to open the full session. When you stamp, week 1 maps to the Monday you choose.</div>
+    <div class="pv-cal"><div class="pv-dowh"></div>${PB_DOW.map(n=>`<div class="pv-dowh">${n}</div>`).join('')}${rows}</div>`;
+}
+function pvRenderWeek(host){
+  const p=pvState.prog, weeks=p.weeks||1, w=Math.min(pvState.wk, weeks-1);
+  const chips=Array.from({length:weeks},(_,i)=>`<button class="pb-wk${i===w?' on':''}" onclick="pvSetWk(${i})">Wk ${i+1}</button>`).join('');
+  const cards=[];
+  for(let dow=0;dow<7;dow++){ const d=pvDayAt(w,dow); if(!d) continue;
+    cards.push(`<div class="pv-daycard" onclick="pvOpenDay(${w},${dow})"><div class="dow">${PB_DOW[dow]}</div><h4>${esc(d.title||'Training')}</h4>${(d.exercises||[]).map(e=>`<div class="pv-exline">${esc(e.name)}<div class="sets">${(e.sets||[]).map(s=>esc(pgSetText(s,e.load_type))).join('  ·  ')}</div></div>`).join('')}</div>`);
+  }
+  host.innerHTML=`<div class="pv-weektabs">${chips}</div><div class="pv-weekgrid">${cards.join('')||'<div class="con-empty">No training days programmed in week '+(w+1)+'.</div>'}</div>`;
+}
+function pvRenderDay(host){
+  const p=pvState.prog;
+  const allDays=((p.data&&p.data.days)||[]).slice().sort((a,b)=>(a.wk-b.wk)||(a.dow-b.dow));
+  let wk=pvState.wk, dow=null;
+  if(pvState.dayKey){ const parts=pvState.dayKey.split(':'); wk=+parts[0]; dow=+parts[1]; }
+  if(dow==null){ const first=allDays.find(d=>d.wk===wk)||allDays[0]; if(first){ wk=first.wk; dow=first.dow; pvState.dayKey=wk+':'+dow; } }
+  const d=(dow!=null)?pvDayAt(wk,dow):null;
+  if(!d){ host.innerHTML='<div class="con-empty">This program has no training days yet — switch to Month, or ✎ Edit to add some.</div>'; return; }
+  const idx=allDays.findIndex(x=>x.wk===wk && x.dow===dow);
+  const prev=idx>0?allDays[idx-1]:null, next=(idx>-1&&idx<allDays.length-1)?allDays[idx+1]:null;
+  const exs=(d.exercises||[]).map(e=>`<div class="pv-ex">
+    <div class="pv-ex-top"><h4>${esc(e.name)}</h4><span class="pv-lt-badge">${esc(ltLabel(e.load_type))}</span></div>
+    ${(e.sets||[]).map((s,i)=>`<div class="pv-setrow"><span class="n">Set ${i+1}</span><span>${esc(pgSetText(s,e.load_type))}</span></div>`).join('')||'<div class="pv-setrow"><span class="n">—</span><span style="color:var(--muted)">no sets</span></div>'}
+    ${e.coach_note?`<div class="pv-note">📝 ${esc(e.coach_note)}</div>`:''}
+  </div>`).join('')||'<div class="con-empty">No exercises in this day.</div>';
+  host.innerHTML=`
+    <div class="pv-dayhd">
+      <button class="pb-back" onclick="pvSetView('month')">▦ Month</button>
+      <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)">Week ${wk+1} · ${PB_DOW[dow]}</span>
+      <h3 style="margin:0;font-size:18px">${esc(d.title||'Training')}</h3>
+      <div style="flex:1"></div>
+      ${prev?`<button class="pb-back" onclick="pvOpenDay(${prev.wk},${prev.dow})">← prev day</button>`:''}
+      ${next?`<button class="pb-back" onclick="pvOpenDay(${next.wk},${next.dow})">next day →</button>`:''}
+      <button class="pb-back" onclick="pvEdit(${wk})">✎ Edit week ${wk+1}</button>
+    </div>
+    ${exs}`;
+}
 window.conOpenAthlete=(id)=>{ ed=null; cw=null; coachState.selected=id; coachGo('coach'); };
 window.conAddAthlete=()=>{
   ovModal('addAthModal', `
@@ -1794,7 +1930,7 @@ async function renderProgramTemplates(host){
   if(!progs.length){
     body='<div class="con-empty">No templates yet — “+ New template” to build one, or save a block from Coach View.</div>';
   } else if(view==='list'){
-    body=`<div class="clist">`+progs.map(p=>`<div class="prow" onclick="stampProgram('${p.id}')">
+    body=`<div class="clist">`+progs.map(p=>`<div class="prow" onclick="openProgramView('${p.id}')">
       <span class="pl-badge"><span class="badge ${pgType(p)}">${pgTypeLabel(p)}</span></span>
       <span class="pl-name">${esc(p.name)}</span>
       <span class="pl-team">${esc(pgSubLabel(p))}</span>
@@ -1802,7 +1938,7 @@ async function renderProgramTemplates(host){
       <span class="pl-send"><span class="ropen" onclick="event.stopPropagation();stampProgram('${p.id}')">Use →</span><span class="ropen" style="color:var(--muted)" onclick="event.stopPropagation();openProgramBuilder('${p.id}')">Edit</span><span class="ropen" style="color:var(--bad)" onclick="event.stopPropagation();conDelProgram('${p.id}','${esq(p.name)}')">✕</span></span>
     </div>`).join('')+`</div>`;
   } else {
-    body=`<div class="cgrid">`+progs.map(p=>`<div class="ccard" onclick="stampProgram('${p.id}')">
+    body=`<div class="cgrid">`+progs.map(p=>`<div class="ccard" onclick="openProgramView('${p.id}')">
       <div class="row"><h3 style="margin:0">${esc(p.name)}</h3><span class="badge ${pgType(p)}">${pgTypeLabel(p)}</span></div>
       <div class="meta" style="margin-top:6px">${esc(pgSubLabel(p))}<br>${esc(pgTags(p))}</div>
       ${pgWaveHtml(p)}
