@@ -316,6 +316,17 @@
   .pb-wkpick{display:inline-flex;align-items:center;gap:10px;background:#0e151c;border:1px solid var(--line);border-radius:8px;padding:5px 8px}
   .pb-wkpick button{background:#1b2530;border:1px solid var(--line);color:var(--text);width:26px;height:26px;border-radius:6px;cursor:pointer;font-size:16px;font-weight:800;line-height:1}
   .pb-wkpick b{min-width:18px;text-align:center;font-size:14px}
+  .pb-wave{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:13px 16px 14px;margin-bottom:16px}
+  .pb-wave-hd{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .pb-wave-hd .t{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text)}
+  .pb-wave-hd .hint{font-size:11px;color:var(--muted)}
+  .pb-wave-bars{display:flex;gap:10px;align-items:flex-end}
+  .pb-wbar{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;-webkit-user-select:none;user-select:none}
+  .pb-wbar .bar-track{height:78px;width:100%;display:flex;align-items:flex-end;justify-content:center}
+  .pb-wbar .bar{width:62%;max-width:48px;min-width:16px;border-radius:5px 5px 3px 3px;transition:height .12s ease,background .12s ease}
+  .pb-wbar:hover .bar{filter:brightness(1.18)}
+  .pb-wbar .wk{font-size:10px;font-weight:800;color:var(--muted)}
+  .pb-wbar .lv{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.3px}
   .pb-weektabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:16px;border-bottom:1px solid var(--line);padding-bottom:14px}
   .pb-wk{background:var(--panel2);border:1px solid var(--line);color:var(--muted);font-weight:700;font-size:13px;border-radius:8px;padding:8px 14px;cursor:pointer}
   .pb-wk.on{color:var(--text);border-color:var(--accent2);background:#13202c}
@@ -1655,7 +1666,19 @@ window.doStamp=async function(id){
 let pbState=null; // {id,name,phase,weeks,wave,days:[{wk,dow,title,exercises:[{name,category,load_type,cues,coach_note,sets:[{reps,pct,vel,eff,kg}]}]}],wk}
 const PB_DOW=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const PB_LT=[['percentage','%1RM'],['vbt','VBT m/s'],['weight','Weight kg'],['rpe','RPE'],['rir','RIR'],['open','Open']];
+const WAVE_ORDER=['light','moderate','heavy','peak'];
+const WAVE_H={light:20,moderate:38,heavy:56,peak:74};
 function pbNum(v){ if(v===''||v==null) return null; const n=parseFloat(v); return isNaN(n)?null:n; }
+function pbNormWave(wave, n){ const w=Array.isArray(wave)?wave:[]; return Array.from({length:n},(_,i)=>WAVE_LV[w[i]]?w[i]:'moderate'); }
+function pbWaveBarsHtml(){
+  return (pbState.wave||[]).map((lv,i)=>{ const L=WAVE_LV[lv]||WAVE_LV.moderate; const h=WAVE_H[lv]||38;
+    return `<div class="pb-wbar" onclick="pbCycleWave(${i})" title="Click to raise the intensity (wraps light → peak → light)">
+      <div class="bar-track"><div class="bar" style="height:${h}px;background:${L[1]}"></div></div>
+      <div class="wk">WK ${i+1}</div><div class="lv" style="color:${L[1]}">${L[0]}</div>
+    </div>`; }).join('');
+}
+function pbRenderWave(){ const h=document.getElementById('pbWave'); if(h) h.innerHTML=pbWaveBarsHtml(); }
+window.pbCycleWave=(i)=>{ if(!pbState.wave) pbState.wave=[]; const cur=pbState.wave[i]||'moderate'; pbState.wave[i]=WAVE_ORDER[(WAVE_ORDER.indexOf(cur)+1)%WAVE_ORDER.length]; pbRenderWave(); };
 window.openProgramBuilder=async function(id, gotoWk, fromView){
   await loadExLib();
   if(id){
@@ -1665,9 +1688,9 @@ window.openProgramBuilder=async function(id, gotoWk, fromView){
       exercises:(d.exercises||[]).map(ex=>({ name:ex.name||'', category:ex.category||'primary', load_type:ex.load_type||'percentage', cues:ex.cues||null, coach_note:ex.coach_note||'',
         sets:(ex.sets||[]).map(s=>({ reps:s.reps==null?'':s.reps, pct:s.pct==null?'':s.pct, vel:s.vel==null?'':s.vel, eff:s.eff==null?'':s.eff, kg:s.kg==null?'':s.kg })) })) }));
     const wk=Math.max(0, Math.min((p.weeks||1)-1, gotoWk||0));
-    pbState={ id:p.id, name:p.name||'', phase:p.phase||'', weeks:p.weeks||1, wave:p.wave||null, days, wk, fromView:!!fromView };
+    pbState={ id:p.id, name:p.name||'', phase:p.phase||'', weeks:p.weeks||1, wave:pbNormWave(p.wave, p.weeks||1), days, wk, fromView:!!fromView };
   } else {
-    pbState={ id:null, name:'', phase:'', weeks:4, wave:null, days:[], wk:0, fromView:false };
+    pbState={ id:null, name:'', phase:'', weeks:4, wave:pbNormWave(null,4), days:[], wk:0, fromView:false };
   }
   coachState.screen='builder';
   renderProgramBuilder();
@@ -1689,6 +1712,10 @@ function renderProgramBuilder(){
         <span class="bf-wk" style="flex:2"><label>Program name</label><input id="pbName" value="${esc(pbState.name)}" placeholder="e.g. Snatch Strength — Block 1" oninput="pbState.name=this.value"></span>
         <span class="bf-wk"><label>Phase (optional)</label><input id="pbPhase" value="${esc(pbState.phase)}" placeholder="e.g. Accumulation" oninput="pbState.phase=this.value"></span>
         <span class="bf-wk"><label>Weeks</label><span class="pb-wkpick"><button onclick="pbWeeks(-1)">−</button><b id="pbWeeksN">${weeks}</b><button onclick="pbWeeks(1)">+</button></span></span>
+      </div>
+      <div class="pb-wave">
+        <div class="pb-wave-hd"><span class="t">🌊 Loading wave</span><span class="hint">Click a bar to set each week's intensity (light → moderate → heavy → peak)</span></div>
+        <div class="pb-wave-bars" id="pbWave">${pbWaveBarsHtml()}</div>
       </div>
       <div class="pb-weektabs">${wkTabs}</div>
       <div class="pb-days" id="pbDays"></div>
@@ -1746,7 +1773,7 @@ window.pbWeeks=(delta)=>{
     if(!confirm('Reducing to '+n+' week'+(n===1?'':'s')+' will delete any days in week '+(n+1)+' and later. Continue?')) return;
     pbState.days=pbState.days.filter(d=>d.wk<n);
   }
-  pbState.weeks=n; if(pbState.wk>=n) pbState.wk=n-1; renderProgramBuilder();
+  pbState.weeks=n; pbState.wave=pbNormWave(pbState.wave, n); if(pbState.wk>=n) pbState.wk=n-1; renderProgramBuilder();
 };
 window.pbAddDay=()=>{
   const used=new Set(pbState.days.filter(d=>d.wk===pbState.wk).map(d=>d.dow));
@@ -1774,7 +1801,7 @@ window.pbSave=async function(){
   })).filter(d=>d.exercises.length);
   if(!days.length){ if(msg){msg.style.color='var(--warn)';msg.textContent='Add at least one day with a named exercise.';} return; }
   days.sort((a,b)=>(a.wk-b.wk)||(a.dow-b.dow));
-  const payload={ name, phase:(pbState.phase||'').trim()||null, weeks:pbState.weeks, wave:pbState.wave||null, data:{days} };
+  const payload={ name, phase:(pbState.phase||'').trim()||null, weeks:pbState.weeks, wave:pbNormWave(pbState.wave, pbState.weeks), data:{days} };
   if(msg){ msg.style.color=''; msg.textContent='Saving…'; }
   let res;
   if(pbState.id) res=await sb.from('programs').update(payload).eq('id',pbState.id).select();
