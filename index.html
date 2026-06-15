@@ -254,6 +254,12 @@
   .roster thead th[data-sort]:hover{color:var(--text)}
   .roster thead th .sc{font-size:10px;margin-left:5px;color:#3a4654}
   .roster thead th.sorted{color:var(--text)}.roster thead th.sorted .sc{color:var(--accent)}
+  .roster thead th.rsort{cursor:pointer;user-select:none;white-space:nowrap}
+  .roster thead th.rsort:hover{color:var(--text)}
+  .roster thead th.rsort.on{color:var(--text)}.roster thead th.rsort.on .sc{color:var(--accent)}
+  .rprogs{display:flex;flex-direction:column;gap:4px;max-width:280px}
+  .rprog-chip{display:inline-flex;align-items:center;gap:7px;background:#13202c;border:1px solid #27425c;border-radius:8px;padding:3px 9px;font-size:11.5px;font-weight:700;color:var(--text);width:fit-content;max-width:100%}
+  .rprog-chip i{font-style:normal;font-size:10px;font-weight:800;color:var(--accent2);white-space:nowrap}
   .roster tbody tr{border-bottom:1px solid var(--line);cursor:pointer}
   .roster tbody tr:hover{background:var(--panel)}
   .roster td{padding:10px 12px;vertical-align:middle}
@@ -1318,7 +1324,7 @@ function paintCoach(){
 }
 window.selectAthlete = (id)=>{ ed=null; cw=null; coachState.selected=id; paintCoach(); };
 /* ============ COACHING CONSOLE ============ */
-let conState={tab:'athletes', libTab:'programs', rosterQ:'', exQ:'', exGroup:'All', exForm:false, schemeMgrQ:'', progView:'grid', progFilter:'all', progQ:''};
+let conState={tab:'athletes', libTab:'programs', rosterQ:'', exQ:'', exGroup:'All', exForm:false, schemeMgrQ:'', progView:'grid', progFilter:'all', progQ:'', rosterProg:null, rosterSort:{col:'name',dir:1}, teamView:'grid'};
 async function renderConsole(){
   coachState.screen='console';
   app.innerHTML = topbar('Coach') + coachNav('console') + `<div class="spin">Loading console…</div>`;
@@ -1327,16 +1333,17 @@ async function renderConsole(){
   const athletes=coachState.athletes||[];
   const athIds=athletes.map(a=>a.id);
   const todayStr=iso(new Date());
-  let lastByAth={}, rdyByAth={}, loggedToday=new Set(), upcomingByAth={};
+  let lastByAth={}, rdyByAth={}, loggedToday=new Set(), upcomingByAth={}, maxFutureByAth={};
   if(athIds.length){
     const { data: logs } = await sb.from('logged_sets').select('athlete_id,logged_at').in('athlete_id', athIds).order('logged_at',{ascending:false});
     (logs||[]).forEach(l=>{ if(!lastByAth[l.athlete_id]) lastByAth[l.athlete_id]=l.logged_at; if((l.logged_at||'').slice(0,10)===todayStr) loggedToday.add(l.athlete_id); });
     const { data: rk } = await sb.from('readiness').select('athlete_id,check_date,sleep,energy,motivation,soreness,mood,stress,appetite').in('athlete_id', athIds).order('check_date',{ascending:false});
     (rk||[]).forEach(r=>{ if(!(r.athlete_id in rdyByAth)){ const vs=[r.sleep,r.energy,r.motivation,r.soreness,r.mood,r.stress,r.appetite].filter(v=>v!=null); rdyByAth[r.athlete_id]= vs.length? Math.round(vs.reduce((a,b)=>a+b,0)/vs.length*10)/10 : null; } });
-    const { data: sess } = await sb.from('sessions').select('athlete_id,session_date,status').in('athlete_id', athIds).gte('session_date', todayStr).neq('status','draft');
-    (sess||[]).forEach(s=>{ upcomingByAth[s.athlete_id]=true; });
+    const { data: sess } = await sb.from('sessions').select('athlete_id,session_date,status').in('athlete_id', athIds).gte('session_date', todayStr);
+    (sess||[]).forEach(s=>{ if(s.status!=='draft') upcomingByAth[s.athlete_id]=true;
+      if(!maxFutureByAth[s.athlete_id] || s.session_date>maxFutureByAth[s.athlete_id]) maxFutureByAth[s.athlete_id]=s.session_date; });
   }
-  conState._stats={lastByAth, rdyByAth, loggedToday, upcomingByAth};
+  conState._stats={lastByAth, rdyByAth, loggedToday, upcomingByAth, maxFutureByAth};
   conState._teams=null;
   const { data: teams, error: tErr } = await sb.from('teams').select('*').order('name');
   if(!tErr){
@@ -1392,33 +1399,70 @@ function teamCell(a){
   const opts=`<option value="">— no team —</option>`+(conState._teams||[]).map(t=>`<option value="${t.id}"${a.team_id===t.id?' selected':''}>${esc(t.name)}</option>`).join('');
   return `<select class="teamsel" onclick="event.stopPropagation()" onchange="conSetTeam('${a.id}',this.value)">${opts}</select>`;
 }
-function renderRoster(host){
+async function renderRoster(host){
+  if(conState._assigns===undefined) await loadAssignments();
+  if(conState._programs===undefined) await loadPrograms();
   const teamFilter=(conState._teams&&conState._teams.length)?`<div class="cfilter">
-    <span class="cchip ${!conState.rosterTeam?'on':''}" onclick="conState.rosterTeam=null;renderConBody()">All</span>
-    ${conState._teams.map(t=>`<span class="cchip ${conState.rosterTeam===t.id?'on':''}" onclick="conState.rosterTeam='${t.id}';renderConBody()">${esc(t.name)}</span>`).join('')}</div>`:'';
+    <span class="cchip ${!conState.rosterTeam?'on':''}" onclick="conState.rosterTeam=null;renderRosterTable()">All</span>
+    ${conState._teams.map(t=>`<span class="cchip ${conState.rosterTeam===t.id?'on':''}" onclick="conState.rosterTeam='${t.id}';renderRosterTable()">${esc(t.name)}</span>`).join('')}</div>`:'';
+  const progs=(conState._programs||[]);
+  const progFilter = progs.length ? `<select class="cw-sel" onchange="conState.rosterProg=this.value||null;renderRosterTable()" title="Filter by program">
+      <option value=""${!conState.rosterProg?' selected':''}>All programs</option>
+      ${progs.map(p=>`<option value="${p.id}"${conState.rosterProg===p.id?' selected':''}>${esc(p.name)}</option>`).join('')}
+    </select>` : '';
   host.innerHTML=`
     <div class="ctoolbar">
       <input class="csearch" id="rosterSearch" placeholder="Search athletes by name…" value="${esc(conState.rosterQ)}" oninput="conState.rosterQ=this.value;renderRosterTable()">
       ${teamFilter}
+      ${progFilter}
       <span class="cbtn" onclick="conAddAthlete()">+ Add athlete</span>
     </div>
     <div id="rosterTableHost"></div>`;
   renderRosterTable();
 }
+function rosterRunway(a, st){ const m=(st.maxFutureByAth||{})[a.id]; if(!m) return -1; return Math.max(0, Math.round((new Date(m+'T00:00:00')-new Date(iso(new Date())+'T00:00:00'))/864e5)); }
+function rosterProgsFor(aid){
+  return (conState._assigns||[]).filter(x=>x.athlete_id===aid).map(x=>{
+    const p=(conState._programs||[]).find(pp=>pp.id===x.program_id); if(!p) return null;
+    return { name:p.name, pr:asgProgress(x) };
+  }).filter(Boolean);
+}
+window.rosterSortBy=(col)=>{ const s=conState.rosterSort||{col:'name',dir:1}; conState.rosterSort = s.col===col ? {col, dir:-s.dir} : {col, dir:1}; renderRosterTable(); };
 function renderRosterTable(){
   const host=document.getElementById('rosterTableHost'); if(!host) return;
-  const st=conState._stats||{lastByAth:{},rdyByAth:{},upcomingByAth:{}};
+  const st=conState._stats||{lastByAth:{},rdyByAth:{},upcomingByAth:{},maxFutureByAth:{}};
   const q=(conState.rosterQ||'').toLowerCase();
   let list=(coachState.athletes||[]).filter(a=>!q||a.full_name.toLowerCase().indexOf(q)>-1);
   if(conState.rosterTeam) list=list.filter(a=>a.team_id===conState.rosterTeam);
+  if(conState.rosterProg) list=list.filter(a=>(conState._assigns||[]).some(x=>x.athlete_id===a.id && x.program_id===conState.rosterProg));
+  // sort
+  const so=conState.rosterSort||{col:'name',dir:1};
+  const teamName=(a)=>{ const t=(conState._teams||[]).find(x=>x.id===a.team_id); return t?t.name:'~'; };
+  const key={
+    name:a=>a.full_name.toLowerCase(),
+    team:a=>teamName(a).toLowerCase(),
+    last:a=>st.lastByAth[a.id]?new Date(st.lastByAth[a.id]).getTime():0,
+    needs:a=>{ const r=rosterRunway(a,st); return r<0?99999:r; },
+    rdy:a=>st.rdyByAth[a.id]==null?-1:st.rdyByAth[a.id],
+    prog:a=>(rosterProgsFor(a.id)[0]||{name:'~'}).name.toLowerCase()
+  }[so.col]||(a=>a.full_name.toLowerCase());
+  list=list.slice().sort((a,b)=>{ const ka=key(a),kb=key(b); return (ka<kb?-1:ka>kb?1:0)*so.dir; });
+  const arrow=(c)=>so.col===c?(so.dir>0?' ↑':' ↓'):' ↕';
+  const th=(c,lbl,extra)=>`<th class="rsort${so.col===c?' on':''}" onclick="event.stopPropagation();rosterSortBy('${c}')"${extra||''}>${lbl}<span class="sc">${arrow(c)}</span></th>`;
   const rows=list.map(a=>{
-    const rdy=st.rdyByAth[a.id], needs=!st.upcomingByAth[a.id];
+    const rdy=st.rdyByAth[a.id];
+    const rw=rosterRunway(a,st);
+    const rwHtml = rw<0 ? '<span class="dt-flag attention">none</span>'
+      : `<b style="color:${rw===0?'var(--bad)':(rw<7?'var(--warn)':'var(--good)')}">${rw}d</b>`;
+    const ps=rosterProgsFor(a.id);
+    const progHtml = ps.length ? `<div class="rprogs">${ps.map(x=>`<span class="rprog-chip">${esc(x.name)}<i>${esc(x.pr.label)}</i></span>`).join('')}</div>` : '<span class="sub">—</span>';
     return `<tr onclick="conOpenAthlete('${a.id}')">
       <td><div class="rname"><span class="rava" style="background:${avColor(a.full_name)}">${esc(initials(a.full_name))}</span><div><b>${esc(a.full_name)}</b></div></div></td>
       <td>${teamCell(a)}</td>
       <td><span class="sdot active"><i></i>active</span></td>
+      <td>${progHtml}</td>
       <td>${relTime(st.lastByAth[a.id])}</td>
-      <td>${needs?'<span class="dt-flag attention">needs a day</span>':'<span class="dt-flag ok">programmed</span>'}</td>
+      <td>${rwHtml}</td>
       <td>${rdy!=null?`<span class="dt-flag ${rdyClass(rdy)}">${rdy.toFixed(1)}</span>`:'<span class="sub">—</span>'}</td>
       <td style="text-align:right;color:var(--accent2);font-weight:700">open →</td>
     </tr>`;
@@ -1426,7 +1470,7 @@ function renderRosterTable(){
   host.innerHTML=`
     <div class="card" style="padding:6px 4px">
       <table class="roster"><thead><tr>
-        <th>Athlete</th><th>Team</th><th>Status</th><th>Last logged</th><th>Needs programming</th><th>Readiness</th><th></th>
+        ${th('name','Athlete')}${th('team','Team')}<th>Status</th>${th('prog','Programs')}${th('last','Last logged')}${th('needs','Needs programming')}${th('rdy','Readiness')}<th></th>
       </tr></thead><tbody>${rows}</tbody></table>
       ${list.length?'':'<div class="con-empty">No athletes match.</div>'}
     </div>`;
