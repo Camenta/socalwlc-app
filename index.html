@@ -1249,8 +1249,22 @@ function teamCell(a){
   return `<select class="teamsel" onclick="event.stopPropagation()" onchange="conSetTeam('${a.id}',this.value)">${opts}</select>`;
 }
 function renderRoster(host){
+  const teamFilter=(conState._teams&&conState._teams.length)?`<div class="cfilter">
+    <span class="cchip ${!conState.rosterTeam?'on':''}" onclick="conState.rosterTeam=null;renderConBody()">All</span>
+    ${conState._teams.map(t=>`<span class="cchip ${conState.rosterTeam===t.id?'on':''}" onclick="conState.rosterTeam='${t.id}';renderConBody()">${esc(t.name)}</span>`).join('')}</div>`:'';
+  host.innerHTML=`
+    <div class="ctoolbar">
+      <input class="csearch" id="rosterSearch" placeholder="Search athletes by name…" value="${esc(conState.rosterQ)}" oninput="conState.rosterQ=this.value;renderRosterTable()">
+      ${teamFilter}
+      <span class="cbtn" onclick="conAddAthlete()">+ Add athlete</span>
+    </div>
+    <div id="rosterTableHost"></div>`;
+  renderRosterTable();
+}
+function renderRosterTable(){
+  const host=document.getElementById('rosterTableHost'); if(!host) return;
   const st=conState._stats||{lastByAth:{},rdyByAth:{},upcomingByAth:{}};
-  const q=conState.rosterQ.toLowerCase();
+  const q=(conState.rosterQ||'').toLowerCase();
   let list=(coachState.athletes||[]).filter(a=>!q||a.full_name.toLowerCase().indexOf(q)>-1);
   if(conState.rosterTeam) list=list.filter(a=>a.team_id===conState.rosterTeam);
   const rows=list.map(a=>{
@@ -1265,15 +1279,7 @@ function renderRoster(host){
       <td style="text-align:right;color:var(--accent2);font-weight:700">open →</td>
     </tr>`;
   }).join('');
-  const teamFilter=(conState._teams&&conState._teams.length)?`<div class="cfilter">
-    <span class="cchip ${!conState.rosterTeam?'on':''}" onclick="conState.rosterTeam=null;renderConBody()">All</span>
-    ${conState._teams.map(t=>`<span class="cchip ${conState.rosterTeam===t.id?'on':''}" onclick="conState.rosterTeam='${t.id}';renderConBody()">${esc(t.name)}</span>`).join('')}</div>`:'';
   host.innerHTML=`
-    <div class="ctoolbar">
-      <input class="csearch" id="rosterSearch" placeholder="Search athletes by name…" value="${esc(conState.rosterQ)}" oninput="conState.rosterQ=this.value;renderConBody()">
-      ${teamFilter}
-      <span class="cbtn" onclick="conAddAthlete()">+ Add athlete</span>
-    </div>
     <div class="card" style="padding:6px 4px">
       <table class="roster"><thead><tr>
         <th>Athlete</th><th>Team</th><th>Status</th><th>Last logged</th><th>Needs programming</th><th>Readiness</th><th></th>
@@ -1983,12 +1989,10 @@ async function renderProgramTemplates(host){
 async function renderExLibMgr(host){
   await loadExLib();
   const groups=['All'].concat(Array.from(new Set((EXLIB||[]).map(e=>e.grp).filter(Boolean))).sort());
-  const q=conState.exQ.toLowerCase();
-  const filtered=(EXLIB||[]).filter(e=>(conState.exGroup==='All'||e.grp===conState.exGroup) && (!q||e.name.toLowerCase().indexOf(q)>-1));
   const groupOpts=groups.filter(g=>g!=='All').map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join('');
   host.innerHTML=`
     <div class="ctoolbar">
-      <input class="csearch" placeholder="Search the exercise reference list…" value="${esc(conState.exQ)}" oninput="conState.exQ=this.value;renderConBody()">
+      <input class="csearch" id="exLibSearch" placeholder="Search the exercise reference list…" value="${esc(conState.exQ)}" oninput="conState.exQ=this.value;renderExLibList()">
       <span class="cbtn alt" onclick="conState.exForm=!conState.exForm;renderConBody()">+ New exercise</span>
     </div>
     ${conState.exForm?`<div class="exadd-form">
@@ -1998,13 +2002,21 @@ async function renderExLibMgr(host){
       <span class="cbtn" onclick="conSaveExercise()">Save exercise</span>
       <span class="cbtn alt" onclick="conState.exForm=false;renderConBody()">Cancel</span>
     </div>`:''}
-    <div class="cfilter" style="margin-bottom:10px">${groups.map(g=>`<span class="cchip ${conState.exGroup===g?'on':''}" onclick="conState.exGroup='${esc(g).replace(/'/g,"\\'")}';renderConBody()">${esc(g)}</span>`).join('')}</div>
-    <div class="note sub" style="margin:0 0 8px">${filtered.length} of ${(EXLIB||[]).length} exercises</div>
+    <div class="cfilter" id="exLibFilters" style="margin-bottom:10px">${groups.map(g=>`<span class="cchip ${conState.exGroup===g?'on':''}" data-g="${esc(g)}" onclick="setExGroup(this.getAttribute('data-g'))">${esc(g)}</span>`).join('')}</div>
+    <div id="exLibList"></div>`;
+  renderExLibList();
+}
+function renderExLibList(){
+  const host=document.getElementById('exLibList'); if(!host) return;
+  const q=(conState.exQ||'').toLowerCase();
+  const filtered=(EXLIB||[]).filter(e=>(conState.exGroup==='All'||e.grp===conState.exGroup) && (!q||e.name.toLowerCase().indexOf(q)>-1));
+  host.innerHTML=`<div class="note sub" style="margin:0 0 8px">${filtered.length} of ${(EXLIB||[]).length} exercises</div>
     <div class="exlist">${filtered.slice(0,300).map(e=>`<div class="exrow">
       <span class="exn">${esc(e.name)}</span>${e.grp?`<span class="exg">${esc(e.grp)}</span>`:''}
       <span class="extools"><span class="extool del" onclick="conDelExercise('${esc(e.name).replace(/'/g,"\\'")}')">✕ remove</span></span>
     </div>`).join('')}${filtered.length>300?`<div class="note sub" style="padding:8px">…${filtered.length-300} more — refine the search</div>`:''}</div>`;
 }
+window.setExGroup=(g)=>{ conState.exGroup=g; const f=document.getElementById('exLibFilters'); if(f){ [].forEach.call(f.querySelectorAll('.cchip'),c=>c.classList.toggle('on', c.getAttribute('data-g')===g)); } renderExLibList(); };
 window.conSaveExercise=async()=>{
   const name=(document.getElementById('exNewName').value||'').trim();
   if(!name){ document.getElementById('exNewName').focus(); return; }
@@ -2023,14 +2035,19 @@ window.conDelExercise=async(name)=>{
 };
 async function renderSchemeMgr(host){
   if(!schLib.loaded){ const { data } = await sb.from('schemes').select('*').order('name').limit(1000); schLib.rows=data||[]; schLib.loaded=true; }
-  const q=conState.schemeMgrQ.toLowerCase();
-  const list=(schLib.rows||[]).filter(s=>!q||(s.name+' '+(s.movement||'')+' '+(s.phase||'')).toLowerCase().indexOf(q)>-1);
   host.innerHTML=`
     <div class="ctoolbar">
-      <input class="csearch" placeholder="Search your ${(schLib.rows||[]).length} schemes…" value="${esc(conState.schemeMgrQ)}" oninput="conState.schemeMgrQ=this.value;renderConBody()">
+      <input class="csearch" id="schMgrSearch" placeholder="Search your ${(schLib.rows||[]).length} schemes…" value="${esc(conState.schemeMgrQ)}" oninput="conState.schemeMgrQ=this.value;renderSchemeList()">
       <span class="note sub" style="margin:0">Pull schemes onto any exercise from the ⚡ Set/Rep Scheme button. Build new ones there with “Tweak &amp; save as new.”</span>
     </div>
-    <div class="exlist">${list.slice(0,300).map(s=>`<div class="exrow">
+    <div id="schMgrList"></div>`;
+  renderSchemeList();
+}
+function renderSchemeList(){
+  const host=document.getElementById('schMgrList'); if(!host) return;
+  const q=(conState.schemeMgrQ||'').toLowerCase();
+  const list=(schLib.rows||[]).filter(s=>!q||(s.name+' '+(s.movement||'')+' '+(s.phase||'')).toLowerCase().indexOf(q)>-1);
+  host.innerHTML=`<div class="exlist">${list.slice(0,300).map(s=>`<div class="exrow">
       <span class="exn">${esc(s.name)}</span>
       <span class="exg">${[s.movement,s.phase,(s.weeks+'wk')].filter(Boolean).map(esc).join(' · ')}</span>
       <span class="extools"><span class="extool del" onclick="conDelScheme('${s.id}')">✕ remove</span></span>
