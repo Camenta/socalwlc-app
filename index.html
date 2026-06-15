@@ -268,6 +268,24 @@
   .ccard .extool{font-size:11.5px;font-weight:700;cursor:pointer;color:var(--accent2)}
   .ccard .extool:hover{text-decoration:underline}
   .ccard .extool.del{color:var(--bad)}
+  .ccard .row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  /* program templates: grid/list toggle + badges */
+  .viewtoggle{display:flex;gap:2px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:3px}
+  .viewtoggle button{background:none;border:none;color:var(--muted);padding:6px 12px;cursor:pointer;font-size:15px;border-radius:6px;line-height:1}
+  .viewtoggle button.on{background:var(--accent);color:#fff}
+  .badge{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;padding:3px 9px;border-radius:11px}
+  .badge.blk{background:rgba(60,158,232,.16);color:var(--accent2)}
+  .badge.wk{background:rgba(232,100,60,.16);color:var(--accent)}
+  .ropen{font-size:12px;font-weight:700;color:var(--accent);white-space:nowrap;cursor:pointer}
+  .ropen:hover{text-decoration:underline}
+  .clist{display:flex;flex-direction:column;gap:6px}
+  .prow{display:flex;align-items:center;gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:11px 14px;cursor:pointer}
+  .prow:hover{border-color:var(--accent2)}
+  .prow .pl-badge{flex:0 0 76px}
+  .prow .pl-name{font-weight:700;color:var(--text);font-size:14px;flex:0 0 215px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .prow .pl-team{font-size:12px;color:var(--muted);flex:0 0 110px}
+  .prow .pl-meta{font-size:12px;color:var(--muted);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .prow .pl-send{flex:0 0 160px;text-align:right;display:flex;gap:12px;justify-content:flex-end;align-items:center}
   /* Programs: active-program tracking */
   .pb-sec{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:800;margin:20px 0 9px}
   .asg-grid{display:flex;flex-direction:column;gap:10px}
@@ -1757,7 +1775,47 @@ function renderTemplates(host){
   const lb=document.getElementById('libBody');
   if(conState.libTab==='exercises') renderExLibMgr(lb);
   else if(conState.libTab==='schemes') renderSchemeMgr(lb);
-  else renderPrograms(lb);
+  else renderProgramTemplates(lb);
+}
+/* ---- Program templates: grid (card) / list views ---- */
+function pgType(p){ return (p.weeks||1)>1 ? 'blk' : 'wk'; }
+function pgTypeLabel(p){ return pgType(p)==='blk'?'Block':'Week'; }
+function pgSubLabel(p){ const w=p.weeks||1; return w>1 ? w+'-week block' : 'Single week'; }
+function pgTags(p){ const days=(p.data&&p.data.days)?p.data.days.length:0; const bits=[]; if(p.phase) bits.push(p.phase); bits.push(days+' day'+(days===1?'':'s')); return bits.join(' · '); }
+function pgWaveHtml(p){ const wave=Array.isArray(p.wave)?p.wave:null; if(!wave) return ''; return `<div style="display:flex;gap:3px;align-items:flex-end;height:20px;margin-top:8px">${wave.map(lv=>{const L=WAVE_LV[lv]||WAVE_LV.light;return `<i style="display:block;width:8px;border-radius:2px;height:${L[2]}px;background:${L[1]}"></i>`;}).join('')}</div>`; }
+window.setTplView=(v)=>{ conState.tplView=v; renderConBody(); };
+async function renderProgramTemplates(host){
+  if(conState._programs===undefined){ host.innerHTML='<div class="spin">Loading templates…</div>'; await loadPrograms(); }
+  if(conState._programs===null){ host.innerHTML=conSoon('Program templates','build & store whole program templates to stamp onto athletes & teams','the programs table — run 14_programs.sql'); return; }
+  const progs=conState._programs||[];
+  const view=conState.tplView||'grid';
+  const esq=(n)=>esc(n).replace(/'/g,"\\'");
+  let body;
+  if(!progs.length){
+    body='<div class="con-empty">No templates yet — “+ New template” to build one, or save a block from Coach View.</div>';
+  } else if(view==='list'){
+    body=`<div class="clist">`+progs.map(p=>`<div class="prow" onclick="stampProgram('${p.id}')">
+      <span class="pl-badge"><span class="badge ${pgType(p)}">${pgTypeLabel(p)}</span></span>
+      <span class="pl-name">${esc(p.name)}</span>
+      <span class="pl-team">${esc(pgSubLabel(p))}</span>
+      <span class="pl-meta">${esc(pgTags(p))}</span>
+      <span class="pl-send"><span class="ropen" onclick="event.stopPropagation();stampProgram('${p.id}')">Use →</span><span class="ropen" style="color:var(--muted)" onclick="event.stopPropagation();openProgramBuilder('${p.id}')">Edit</span><span class="ropen" style="color:var(--bad)" onclick="event.stopPropagation();conDelProgram('${p.id}','${esq(p.name)}')">✕</span></span>
+    </div>`).join('')+`</div>`;
+  } else {
+    body=`<div class="cgrid">`+progs.map(p=>`<div class="ccard" onclick="stampProgram('${p.id}')">
+      <div class="row"><h3 style="margin:0">${esc(p.name)}</h3><span class="badge ${pgType(p)}">${pgTypeLabel(p)}</span></div>
+      <div class="meta" style="margin-top:6px">${esc(pgSubLabel(p))}<br>${esc(pgTags(p))}</div>
+      ${pgWaveHtml(p)}
+      <div class="extools" style="margin-top:11px;gap:14px"><span class="extool" onclick="event.stopPropagation();stampProgram('${p.id}')">Use template →</span><span class="extool" onclick="event.stopPropagation();openProgramBuilder('${p.id}')">✎ edit</span><span class="extool del" onclick="event.stopPropagation();conDelProgram('${p.id}','${esq(p.name)}')">✕</span></div>
+    </div>`).join('')+`</div>`;
+  }
+  host.innerHTML=`
+    <div class="ctoolbar">
+      <span class="note sub" style="margin:0;flex:1">Whole blocks &amp; weeks you can stamp onto any athlete or team.</span>
+      <div class="viewtoggle"><button class="${view==='grid'?'on':''}" title="Card view" onclick="setTplView('grid')">▦</button><button class="${view==='list'?'on':''}" title="List view" onclick="setTplView('list')">☰</button></div>
+      <span class="cbtn" onclick="openProgramBuilder()">+ New template</span>
+    </div>
+    ${body}`;
 }
 async function renderExLibMgr(host){
   await loadExLib();
