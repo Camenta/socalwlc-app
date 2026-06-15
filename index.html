@@ -178,6 +178,27 @@
   .av-day-dot.up{background:var(--accent2)}
   .av-day-dot.rest{background:#3a4754}
   .av-day-dot.draft{background:var(--warn)}
+  /* expandable week — each day shows its sessions */
+  .cwd-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+  @media(max-width:1100px){.cwd-grid{grid-template-columns:repeat(4,1fr)}}
+  @media(max-width:680px){.cwd-grid{grid-template-columns:repeat(2,1fr)}}
+  .cwd-col{background:#0e151c;border:1px solid var(--line);border-radius:11px;padding:9px;min-height:96px;display:flex;flex-direction:column;gap:6px}
+  .cwd-col.today{border-color:var(--accent)}
+  .cwd-hd{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1px}
+  .cwd-dow{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+  .cwd-col.today .cwd-dow{color:var(--accent)}
+  .cwd-dnum{font-size:15px;font-weight:800;color:var(--text)}
+  .cwd-sess{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--accent2);border-radius:8px;padding:7px 9px;cursor:pointer;transition:border-color .12s}
+  .cwd-sess.draft{border-left-color:var(--warn)}
+  .cwd-sess:hover{border-color:var(--accent2)}
+  .cwd-sess.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+  .cwd-st{font-size:12px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .cwd-dchip{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--warn);background:rgba(232,158,60,.16);border-radius:6px;padding:1px 5px}
+  .cwd-sx{font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.35}
+  .cwd-sm{font-size:10px;color:var(--accent2);font-weight:700;margin-top:3px}
+  .cwd-rest{font-size:10.5px;color:var(--muted);text-align:center;padding:14px 0;opacity:.7}
+  .cwd-add{font-size:10px;color:var(--accent2);font-weight:700;text-align:center;border:1px dashed var(--line);border-radius:7px;padding:5px;cursor:pointer;margin-top:auto}
+  .cwd-add:hover{border-color:var(--accent2)}
   .pv-legend{display:flex;gap:14px;font-size:11px;color:var(--muted);flex-wrap:wrap;align-items:center}
   .pv-legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle}
   /* scheme library picker */
@@ -1262,12 +1283,15 @@ async function renderConsole(){
       </div>
     </div>
     <div class="ctabs">
-      ${[['athletes','Athletes'],['programs','Active Programs'],['templates','Template Library'],['teams','Teams'],['hub','Team Hub']].map(t=>`<button class="${conState.tab===t[0]?'on':''}" onclick="conTab('${t[0]}')">${t[1]}</button>`).join('')}
+      ${[['athletes','Athletes'],['programs','Active Programs'],['templates','Template Library'],['teams','Teams'],['hub','Team Hub']].map(t=>`<button data-tab="${t[0]}" class="${conState.tab===t[0]?'on':''}" onclick="conTab('${t[0]}')">${t[1]}</button>`).join('')}
     </div>
     <div id="conBody"></div>`;
   renderConBody();
 }
-window.conTab=(t)=>{ conState.tab=t; renderConBody(); };
+window.conTab=(t)=>{ conState.tab=t;
+  document.querySelectorAll('.ctabs button').forEach(b=>b.classList.toggle('on', b.getAttribute('data-tab')===t));
+  renderConBody();
+};
 function renderConBody(){
   const host=document.getElementById('conBody'); if(!host) return;
   if(conState.tab==='athletes') return renderRoster(host);
@@ -2343,7 +2367,7 @@ async function renderCoachPanel(){
   const off = (cw && cw.athId===athId) ? (cw.weekOffset||0) : 0;
   const wk=weekDates(off), wkIso=wk.map(iso), todayStr=iso(new Date());
   const { data: weekSess } = await sb.from('sessions')
-    .select('id,title,session_date,status,created_at,prescribed_exercises(prescribed_sets(target_reps,target_pct))')
+    .select('id,title,session_date,status,created_at,prescribed_exercises(name,position,prescribed_sets(target_reps,target_pct))')
     .eq('athlete_id', athId).gte('session_date', wkIso[0]).lte('session_date', wkIso[6])
     .order('session_date',{ascending:true}).order('created_at',{ascending:true});
   const sessByDate={}; (weekSess||[]).forEach(s=>{ (sessByDate[s.session_date]=sessByDate[s.session_date]||[]).push(s); });
@@ -2371,14 +2395,24 @@ async function renderCoachPanel(){
     selDate: keepSel || (sessByDate[todayStr]?todayStr:(Object.keys(sessByDate).sort()[0]||wkIso[0])),
     selSess: keepSess };
   const strip = wk.map((d,i)=>{
-    const dIso=wkIso[i], list=sessByDate[dIso]||[], s=list[0], isSel=cw.selDate===dIso;
-    const anyDraft=list.some(x=>x.status==='draft');
-    const dot = !s ? 'rest' : (anyDraft ? 'draft' : (dIso===todayStr?'today':'up'));
-    const label = !s ? '—' : esc(shortTitle(s.title)) + (list.length>1?` +${list.length-1}`:'');
-    return `<div class="av-day${isSel?' on':''}" onclick="cwSelectDay('${dIso}')">
-      <span class="av-day-dow">${DOW[i]}</span><span class="av-day-d">${d.getDate()}</span>
-      <span class="av-day-type">${label}</span>
-      <span class="av-day-dot ${dot}"></span></div>`;
+    const dIso=wkIso[i], list=sessByDate[dIso]||[], isToday=dIso===todayStr;
+    const cards = list.map(s=>{
+      const draft=s.status==='draft';
+      const sel = cw.selDate===dIso && cw.selSess===s.id;
+      const st=statsFor([s], []);
+      const exNames=(s.prescribed_exercises||[]).slice().sort(sortByPos).map(e=>e.name).filter(Boolean);
+      const summary=exNames.slice(0,3).join(' · ')+(exNames.length>3?' …':'');
+      return `<div class="cwd-sess ${draft?'draft':'pub'}${sel?' on':''}" onclick="cwOpenSess('${dIso}','${s.id}')">
+        <div class="cwd-st">${esc(s.title||'Training')}${draft?'<span class="cwd-dchip">draft</span>':''}</div>
+        ${summary?`<div class="cwd-sx">${esc(summary)}</div>`:''}
+        ${st.vol?`<div class="cwd-sm">${st.vol} vol${st.ari?` · ${st.ari.toFixed(1)}%`:''}</div>`:''}
+      </div>`;
+    }).join('') || `<div class="cwd-rest">Rest day</div>`;
+    return `<div class="cwd-col${isToday?' today':''}">
+      <div class="cwd-hd"><span class="cwd-dow">${DOW[i]}</span><span class="cwd-dnum">${d.getDate()}</span></div>
+      ${cards}
+      <div class="cwd-add" onclick="cwAddSessOn('${dIso}')">＋ session</div>
+    </div>`;
   }).join('');
   const r0=wk[0], r6=wk[6];
   const weekLabel = MONS[r0.getMonth()]+' '+r0.getDate()+' – '+(r6.getMonth()===r0.getMonth()?'':MONS[r6.getMonth()]+' ')+r6.getDate();
@@ -2407,7 +2441,8 @@ async function renderCoachPanel(){
       </div>
       ${blockBannerHtml(block, wk)}
       <div id="blockForm" style="display:none"></div>
-      <div class="av-daystrip">${strip}</div>
+      <div class="sub" style="margin:2px 0 8px;font-size:11px">Click a session to open it below · every session in the week is shown.</div>
+      <div class="cwd-grid">${strip}</div>
       <div class="cw-stats">
         <span class="cv-tile"><b>${wStats.vol||'—'}</b>volume (planned)</span>
         <span class="cv-tile"><b>${ids.length}</b>sessions</span>
@@ -2426,6 +2461,8 @@ async function renderCoachPanel(){
     <div id="cvDay"></div>`;
   renderCoachDay();
 }
+window.cwOpenSess = (dIso, sid)=>{ if(!cw) return; ed=null; cw.selDate=dIso; cw.selSess=sid; renderCoachPanel(); };
+window.cwAddSessOn = (dIso)=>{ if(!cw) return; cw.selDate=dIso; cw.selSess=null; cvCreateSession(); };
 window.cwToggleCopyWeek = ()=>{ const ui=document.getElementById('cwCopyUI'); if(ui) ui.style.display = ui.style.display==='none'?'inline-flex':'none'; };
 window.cwWeekNav = (d)=>{ if(!cw) return; ed=null; cw.weekOffset = d===0 ? 0 : (cw.weekOffset||0)+d; cw.selDate=null; cw.selSess=null; renderCoachPanel(); };
 window.cwPublishWeek = async ()=>{
