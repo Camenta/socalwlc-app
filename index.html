@@ -2441,7 +2441,8 @@ window.cwPublishWeek = async ()=>{
   const drafts=(q.data||[]).filter(s=>s.status==='draft');
   if(!drafts.length){ setMsg('Nothing to publish — this week is already all published.','var(--muted)'); return; }
   const wkLabel=MONS[wkD[0].getMonth()]+' '+wkD[0].getDate();
-  if(!confirm('Publish all '+drafts.length+' draft session'+(drafts.length===1?'':'s')+' the week of '+wkLabel+' to '+name+'? '+name+' will see them right away.')) return;
+  // No native confirm() — browsers silently auto-cancel it after a few dialogs. Publishing
+  // is reversible (Unpublish), so just do it and report clearly.
   const res=await sb.from('sessions').update({status:'published'}).in('id', drafts.map(s=>s.id)).select('id,status');
   console.log('[publish-week] updated=',res.data,'err=',res.error);
   if(res.error){ setMsg('Publish failed — '+res.error.message,'var(--bad)'); return; }
