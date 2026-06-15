@@ -384,6 +384,22 @@
   .pv-setrow{display:flex;gap:12px;font-size:13.5px;padding:6px 0;border-top:1px solid var(--line)}
   .pv-setrow .n{color:var(--muted);font-weight:700;flex:0 0 48px;font-size:11px}
   .pv-note{font-size:12.5px;color:var(--muted);margin-top:9px;font-style:italic}
+  /* Set/Rep scheme builder modal */
+  #schBuildModal .ov-box{max-width:880px;width:95vw}
+  .sb-grid-wrap{overflow-x:auto;margin:4px 0 2px}
+  table.sb-grid{width:100%;border-collapse:collapse;font-size:12px}
+  table.sb-grid th,table.sb-grid td{border:1px solid var(--line);padding:6px 7px;text-align:center}
+  table.sb-grid thead th{background:#16202b;color:var(--accent2);font-size:10px;text-transform:uppercase;letter-spacing:.4px}
+  table.sb-grid td.setlbl{background:var(--panel2);color:var(--muted);text-align:left;font-weight:700;white-space:nowrap}
+  table.sb-grid td.cell{font-variant-numeric:tabular-nums;color:var(--muted)}
+  table.sb-grid td.cell input.sbcell{width:40px;background:#0c1116;border:1px solid var(--line);color:var(--text);text-align:center;border-radius:5px;padding:5px 3px;font-size:12px;font-variant-numeric:tabular-nums;font-weight:700}
+  table.sb-grid td.cell input.sbcell:focus{outline:none;border-color:var(--accent2)}
+  table.sb-grid td.cell input.sbcell.ld{color:var(--accent)}
+  table.sb-grid tr.foot td{background:#11181f;font-size:11px;color:#9fb4c6;font-weight:700}
+  table.sb-grid tr.foot td .fl{display:block;font-size:8.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:1px}
+  table.sb-grid th .wkx,table.sb-grid td.setlbl .setx{cursor:pointer;color:var(--muted);margin-left:7px;font-size:10px}
+  table.sb-grid th .wkx:hover,table.sb-grid td.setlbl .setx:hover{color:var(--bad)}
+  #schBuildModal select.cw-sel{min-width:120px}
   /* Team Hub */
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   @media(max-width:820px){.grid2{grid-template-columns:1fr}}
@@ -1177,7 +1193,7 @@ function paintCoach(){
 }
 window.selectAthlete = (id)=>{ ed=null; cw=null; coachState.selected=id; paintCoach(); };
 /* ============ COACHING CONSOLE ============ */
-let conState={tab:'athletes', libTab:'exercises', rosterQ:'', exQ:'', exGroup:'All', exForm:false, schemeMgrQ:''};
+let conState={tab:'athletes', libTab:'programs', rosterQ:'', exQ:'', exGroup:'All', exForm:false, schemeMgrQ:''};
 async function renderConsole(){
   coachState.screen='console';
   app.innerHTML = topbar('Coach') + coachNav('console') + `<div class="spin">Loading console…</div>`;
@@ -1936,9 +1952,9 @@ function renderTemplates(host){
   host.innerHTML=`
     <div class="note sub" style="margin:0 0 10px">One central library — your exercise reference list and Set/Rep schemes, reused throughout the app.</div>
     <div class="libtabs">
-      <button class="${conState.libTab==='exercises'?'on':''}" onclick="conState.libTab='exercises';renderConBody()">Exercises</button>
-      <button class="${conState.libTab==='schemes'?'on':''}" onclick="conState.libTab='schemes';renderConBody()">Set / Rep schemes</button>
       <button class="${conState.libTab==='programs'?'on':''}" onclick="conState.libTab='programs';renderConBody()">Program templates</button>
+      <button class="${conState.libTab==='schemes'?'on':''}" onclick="conState.libTab='schemes';renderConBody()">Set / Rep schemes</button>
+      <button class="${conState.libTab==='exercises'?'on':''}" onclick="conState.libTab='exercises';renderConBody()">Exercises</button>
     </div>
     <div id="libBody"></div>`;
   const lb=document.getElementById('libBody');
@@ -2038,7 +2054,8 @@ async function renderSchemeMgr(host){
   host.innerHTML=`
     <div class="ctoolbar">
       <input class="csearch" id="schMgrSearch" placeholder="Search your ${(schLib.rows||[]).length} schemes…" value="${esc(conState.schemeMgrQ)}" oninput="conState.schemeMgrQ=this.value;renderSchemeList()">
-      <span class="note sub" style="margin:0">Pull schemes onto any exercise from the ⚡ Set/Rep Scheme button. Build new ones there with “Tweak &amp; save as new.”</span>
+      <span class="note sub" style="margin:0;flex:1">Saved Set/Rep schemes — pull them onto any exercise while building a day or program.</span>
+      <span class="cbtn alt" onclick="openSchemeBuilder()">+ New scheme</span>
     </div>
     <div id="schMgrList"></div>`;
   renderSchemeList();
@@ -2057,6 +2074,89 @@ window.conDelScheme=async(id)=>{
   const res=await sb.from('schemes').delete().eq('id', id).select();
   if(res.error){ alert('Remove failed — '+res.error.message); return; }
   schLib.rows=(schLib.rows||[]).filter(s=>s.id!==id);
+  renderConBody();
+};
+/* ---- Set/Rep scheme BUILDER (+ New scheme) ---- */
+const SCHEME_MVS=['Squat','Snatch','Clean & Jerk','Pull','Press'];
+const SCHEME_PHASES=['Comprehension','Ascension','Summit','Realization'];
+const SCHB_FOOT=[['vol','Volume (NL)'],['ari','Rel. Int.'],['inol','INOL'],['peak','Peak']];
+let schBuild=null;
+function schbBlank(){ const d={name:'',mv:'Squat',ph:'Ascension',grid:[]}; for(let s=0;s<4;s++){ const row=[]; for(let w=0;w<3;w++) row.push({r:'3',l:String(70+w*5)}); d.grid.push(row); } return d; }
+function schbMetrics(grid,w){ const rows=grid.map(set=>{ const c=set[w]||{}; const r=parseFloat(c.r)||0; const p=(c.l!==''&&c.l!=null&&!isNaN(parseFloat(c.l)))?parseFloat(c.l):null; return {s:1, r, p}; }); return wkMetrics(rows); }
+function schbFmt(key,m){ if(key==='vol') return m.vol||0; if(key==='ari') return (m.ari?m.ari.toFixed(1):'0')+'%'; if(key==='inol') return (m.inol?m.inol.toFixed(2):'0.00'); if(key==='peak') return (m.peak||0)+'%'; return ''; }
+function schbRenderGrid(){
+  if(!schBuild) return;
+  const g=schBuild.grid, nw=g[0]?g[0].length:0, ns=g.length;
+  let h='<table class="sb-grid"><thead><tr><th class="setlbl">Set</th>';
+  for(let w=0;w<nw;w++) h+=`<th>WK ${w+1}${nw>1?`<span class="wkx" onclick="schbRmWeek(${w})" title="Remove week">✕</span>`:''}</th>`;
+  h+='</tr></thead><tbody>';
+  for(let s=0;s<ns;s++){
+    h+=`<tr><td class="setlbl">Set ${s+1}${ns>1?`<span class="setx" onclick="schbRmSet(${s})" title="Remove set">✕</span>`:''}</td>`;
+    for(let w=0;w<nw;w++){ const c=g[s][w]||{r:'',l:''};
+      h+=`<td class="cell"><input class="sbcell" inputmode="numeric" value="${esc(c.r)}" placeholder="reps" oninput="schbCell(${s},${w},'r',this.value)">×<input class="sbcell ld" inputmode="numeric" value="${esc(c.l)}" placeholder="%" oninput="schbCell(${s},${w},'l',this.value)">%</td>`;
+    }
+    h+='</tr>';
+  }
+  const mets=[]; for(let w=0;w<nw;w++) mets.push(schbMetrics(g,w));
+  SCHB_FOOT.forEach(f=>{ h+=`<tr class="foot"><td class="setlbl">${f[1]}</td>`;
+    for(let w=0;w<nw;w++) h+=`<td data-foot="${f[0]}" data-fw="${w}"><span class="fl">${f[1]}</span>${schbFmt(f[0],mets[w])}</td>`;
+    h+='</tr>'; });
+  h+='</tbody></table>';
+  const wrap=document.getElementById('schbGrid'); if(wrap) wrap.innerHTML=h;
+  const c=document.getElementById('schbCounts'); if(c) c.textContent=ns+' set'+(ns===1?'':'s')+' · '+nw+' week'+(nw===1?'':'s');
+}
+function schbUpdateFoot(){
+  if(!schBuild) return; const g=schBuild.grid, nw=g[0]?g[0].length:0;
+  for(let w=0;w<nw;w++){ const m=schbMetrics(g,w);
+    SCHB_FOOT.forEach(f=>{ const td=document.querySelector('#schbGrid td[data-foot="'+f[0]+'"][data-fw="'+w+'"]'); if(td) td.innerHTML='<span class="fl">'+f[1]+'</span>'+schbFmt(f[0],m); }); }
+}
+window.schbCell=(s,w,k,val)=>{ if(schBuild.grid[s]&&schBuild.grid[s][w]) schBuild.grid[s][w][k]=val; schbUpdateFoot(); };
+window.schbAddSet=()=>{ const nw=schBuild.grid[0]?schBuild.grid[0].length:1; const row=[]; for(let w=0;w<nw;w++) row.push({r:'',l:''}); schBuild.grid.push(row); schbRenderGrid(); };
+window.schbAddWeek=()=>{ schBuild.grid.forEach(row=>row.push({r:'',l:''})); schbRenderGrid(); };
+window.schbRmSet=(s)=>{ if(schBuild.grid.length>1){ schBuild.grid.splice(s,1); schbRenderGrid(); } };
+window.schbRmWeek=(w)=>{ if((schBuild.grid[0]||[]).length>1){ schBuild.grid.forEach(row=>row.splice(w,1)); schbRenderGrid(); } };
+window.openSchemeBuilder=()=>{
+  schBuild=schbBlank();
+  ovModal('schBuildModal', `
+    <div class="ov-hd"><h2 style="margin:0">New Set / Rep scheme</h2><span class="vid-x" onclick="document.getElementById('schBuildModal').style.display='none'">✕</span></div>
+    <div class="sub" style="margin:6px 0 12px">Build it like the Coach View — pick a movement &amp; phase, then add as many sets, reps, %s and weeks as you need.</div>
+    <div class="bf-row" style="gap:10px">
+      <input id="schbName" placeholder="Scheme name (e.g. Back Squat Ramp 5s)" style="flex:1;min-width:220px" oninput="schBuild.name=this.value">
+      <select id="schbMv" class="cw-sel" onchange="schBuild.mv=this.value">${SCHEME_MVS.map(m=>`<option${m===schBuild.mv?' selected':''}>${esc(m)}</option>`).join('')}</select>
+      <select id="schbPh" class="cw-sel" onchange="schBuild.ph=this.value">${SCHEME_PHASES.map(p=>`<option${p===schBuild.ph?' selected':''}>${esc(p)}</option>`).join('')}</select>
+    </div>
+    <div class="note sub" style="margin:0 0 8px">Each row is one set. Type reps × %1RM into the cells. Volume / intensity metrics update live per week.</div>
+    <div class="sb-grid-wrap" id="schbGrid"></div>
+    <div class="bf-row" style="margin-top:12px;align-items:center">
+      <span class="cbtn alt" onclick="schbAddSet()">＋ add set</span>
+      <span class="cbtn alt" onclick="schbAddWeek()">＋ add week</span>
+      <span class="note sub" id="schbCounts" style="margin:0;flex:1"></span>
+      <span class="saved" id="schbMsg"></span>
+      <span class="cbtn alt" onclick="document.getElementById('schBuildModal').style.display='none'">Cancel</span>
+      <button class="btn" onclick="schbSave()">Save scheme</button>
+    </div>`);
+  schbRenderGrid();
+  setTimeout(()=>{ const n=document.getElementById('schbName'); if(n) n.focus(); }, 40);
+};
+window.schbSave=async()=>{
+  const msg=document.getElementById('schbMsg');
+  const name=(schBuild.name||'').trim();
+  if(!name){ if(msg){msg.style.color='var(--warn)';msg.textContent='Name the scheme.';} const n=document.getElementById('schbName'); if(n) n.focus(); return; }
+  const g=schBuild.grid, nw=g[0]?g[0].length:0;
+  const data=[];
+  for(let w=0;w<nw;w++){ const rows=[]; g.forEach(set=>{ const c=set[w]||{}; const r=parseInt(c.r,10);
+    const p=(c.l!==''&&c.l!=null&&!isNaN(parseFloat(c.l)))?parseFloat(c.l):null; if(!isNaN(r)&&r>0) rows.push({s:1, r, p}); }); data.push(rows); }
+  if(!data.some(wk=>wk.length)){ if(msg){msg.style.color='var(--warn)';msg.textContent='Add at least one set with reps.';} return; }
+  const firstReps=(data[0][0]&&data[0][0].r)||null;
+  const loads=[]; data.forEach(wk=>wk.forEach(r=>{ if(r.p!=null) loads.push(r.p); }));
+  const lo=loads.length?Math.min.apply(null,loads):null, hi=loads.length?Math.max.apply(null,loads):null;
+  const pattern=(lo!=null&&hi!=null)?(lo===hi?lo+'%':lo+'→'+hi+'%'):'custom';
+  const payload={ gym_id:me_.gym_id, name, movement:schBuild.mv, phase:schBuild.ph, weeks:nw, reps_mode:firstReps, pattern, data };
+  if(msg){ msg.style.color=''; msg.textContent='Saving…'; }
+  const res=await sb.from('schemes').insert(payload).select();
+  if(res.error||!res.data||!res.data.length){ if(msg){msg.style.color='var(--bad)';msg.textContent='Save failed — '+(res.error?res.error.message:'try again');} return; }
+  schLib.rows=(schLib.rows||[]).concat(res.data); schLib.rows.sort((a,b)=>a.name.localeCompare(b.name)); schLib.loaded=true;
+  document.getElementById('schBuildModal').style.display='none';
   renderConBody();
 };
 
