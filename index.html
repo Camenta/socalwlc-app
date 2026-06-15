@@ -675,8 +675,15 @@
   .cv-le .vidlink{font-size:11px;font-weight:700}
   /* fixed even column layout so the actual side fills the width (no right-side void) */
   body.view-coach .cvt{table-layout:fixed}
-  .cvt col.c-set{width:44px}.cvt col.c-pn{width:11%}.cvt col.c-an{width:11.5%}.cvt col.c-le{width:23%}.cvt col.c-rm{width:42px}
+  .cvt col.c-set{width:54px}.cvt col.c-pn{width:11%}.cvt col.c-an{width:11%}.cvt col.c-le{width:21%}.cvt col.c-rm{width:42px}
   .cvt td.cva.nolog{text-align:center;padding-left:0}
+  .cvt input.setcount{width:42px;text-align:center;font-weight:800;color:var(--accent)}
+  .cvt input.setcount:focus{border-color:var(--accent)}
+  .cvt .setx{font-size:9px;color:var(--muted);font-weight:700;margin-left:1px}
+  .cvt td.cva.vbt-pk{color:var(--accent2);font-weight:700}
+  .cvt .cv-u{font-size:9px;color:var(--muted);font-weight:600}
+  .cvt td.cva.summ{font-size:11px;color:var(--muted)}
+  .cvt td.cva.summ b{color:var(--text);font-weight:700}
 </style>
 </head>
 <body>
@@ -2731,22 +2738,44 @@ function logResultHtml(lg){
   return `<span class="cv-act">${parts.join(' ')}</span>`;
 }
 // split athlete actuals into mockup-style columns: Reps · Weight · Miss · Lights·Effort
-function actualCells(lg){
-  if(!lg || (lg.actual_reps==null && lg.actual_kg==null && !lg.done))
-    return `<td class="cva nolog" colspan="4"><span class="cv-nolog">not logged</span></td>`;
+function actCols(type){ return type==='vbt'?5:4; }
+function actualCells(lg, type){
+  const vbt = type==='vbt';
+  if(!lg || (lg.actual_reps==null && lg.actual_kg==null && lg.velocity==null && !lg.done))
+    return `<td class="cva nolog" colspan="${actCols(type)}"><span class="cv-nolog">not logged</span></td>`;
   const le=[];
   if(lg.lights!=null) le.push(`<span class="lights le-lts">${lightsHtml(lg.lights)}</span>`);
   if(lg.effort) le.push(`<span class="efftag eff-${esc(lg.effort)}">${esc(lg.effort)}</span>`);
   if(lg.done) le.push('<span class="le-done" title="done">✓</span>');
   if(lg.video_path) le.push(`<span class="vidlink" onclick="playVideo('${esc(lg.video_path)}')">▶ clip</span>`);
-  return `<td class="cva ca-n">${lg.actual_reps??'–'}</td>`
-    +`<td class="cva ca-n">${lg.actual_kg!=null?lg.actual_kg:'–'}</td>`
-    +`<td class="cva ca-n">${lg.miss?`<span style="color:var(--bad)">${lg.miss}</span>`:'0'}</td>`
+  let cells = `<td class="cva ca-n">${lg.actual_reps??'–'}</td>`
+    +`<td class="cva ca-n">${lg.actual_kg!=null?lg.actual_kg:'–'}</td>`;
+  if(vbt) cells += `<td class="cva ca-n${lg.velocity!=null?' vbt-pk':''}">${lg.velocity!=null?lg.velocity+' <span class="cv-u">m/s</span>':'–'}</td>`;
+  cells += `<td class="cva ca-n">${lg.miss?`<span style="color:var(--bad)">${lg.miss}</span>`:'0'}</td>`
     +`<td class="cva ca-le"><span class="cv-le">${le.join('')||'<span class="cv-nolog">–</span>'}</span></td>`;
+  return cells;
+}
+// compact actuals for a collapsed multi-set row (Sets × N)
+function actualsSummary(logs, type){
+  const vbt = type==='vbt';
+  const real=(logs||[]).filter(l=>l && (l.actual_reps!=null||l.actual_kg!=null||l.velocity!=null||l.done));
+  if(!real.length) return `<td class="cva nolog summ" colspan="${actCols(type)}"><span class="cv-nolog">not logged</span></td>`;
+  const list=(arr,suf)=>{ const v=arr.filter(x=>x!=null); if(!v.length) return '–'; const all=v.every(x=>x===v[0]); return (all?`${v[0]}×${v.length}`:v.join('·'))+(suf||''); };
+  const reps=list(real.map(l=>l.actual_reps));
+  const kg=list(real.map(l=>l.actual_kg));
+  const miss=real.reduce((a,l)=>a+(l.miss||0),0);
+  const done=real.filter(l=>l.done).length;
+  const clips=real.filter(l=>l.video_path).map(l=>`<span class="vidlink" onclick="playVideo('${esc(l.video_path)}')">▶</span>`).join('');
+  let cells=`<td class="cva summ"><b>${reps}</b></td><td class="cva summ"><b>${kg}</b></td>`;
+  if(vbt){ cells+=`<td class="cva summ vbt-pk"><b>${list(real.map(l=>l.velocity))}</b></td>`; }
+  cells+=`<td class="cva summ">${miss?`<span style="color:var(--bad)">${miss}</span>`:'0'}</td>`
+    +`<td class="cva summ">${done}/${real.length}✓ ${clips}</td>`;
+  return cells;
 }
 const LOAD_TYPES=[['percentage','Percentage'],['vbt','VBT'],['weight','Weight'],['rpe','RPE'],['rir','RIR'],['open','Open Set']];
 function tgtColHead(type){ return type==='vbt'?'≥ M/S':type==='rpe'?'RPE':type==='rir'?'RIR':type==='percentage'?'%1RM':'·'; }
 function tgtValOf(st,type){ return type==='percentage'?st.pct : type==='vbt'?st.vel : (type==='rpe'||type==='rir')?st.eff : ''; }
+function sameSetVals(a,b){ const k=v=>(v==null?'':String(v)); return k(a.reps)===k(b.reps) && k(a.pct)===k(b.pct) && k(a.kg)===k(b.kg) && k(a.vel)===k(b.vel) && k(a.eff)===k(b.eff); }
 function cueChipsHtml(ex,ei){
   const chips=(ex.cues||[]).map((c,ci)=>{ const ix=c.indexOf('|'); const cat=ix>-1?c.slice(0,ix):''; const val=ix>-1?c.slice(ix+1):c;
     return `<span class="cuechip">${cat?`${esc(cat)} `:''}<b>${esc(val)}</b><i class="cue-x" data-ci="${ci}">×</i></span>`; }).join('');
@@ -2808,19 +2837,26 @@ function paintEditor(){
     const type=ex.loadType||'percentage';
     const orm=oneRMFor(ex.name);
     const showTgt = type!=='weight' && type!=='open';
-    const rows=ex.sets.map((st,si)=>{
-      const lg = st.id ? logBySet[st.id] : null;
-      const tgtDis = type==='percentage' ? (orm?'':'disabled title="no 1RM linked — enter kg directly"') : '';
-      return `<tr data-ei="${ei}" data-si="${si}" data-ps="${st.id||''}">
-        <td class="setn">${si+1}</td>
+    // collapse consecutive identical sets into one display row with a Sets multiplier
+    const groups=[];
+    ex.sets.forEach((st,si)=>{ const prev=groups[groups.length-1];
+      if(prev && (prev.si+prev.count===si) && sameSetVals(ex.sets[prev.si], st)){ prev.count++; prev.ids.push(st.id); }
+      else groups.push({si, count:1, ids:[st.id]}); });
+    const tgtDis = type==='percentage' ? (orm?'':'disabled title="no 1RM linked — enter kg directly"') : '';
+    const rows=groups.map(g=>{
+      const st=ex.sets[g.si];
+      const actuals = g.count===1 ? actualCells(st.id?logBySet[st.id]:null, type)
+                                  : actualsSummary(g.ids.map(id=>id?logBySet[id]:null), type);
+      return `<tr data-ei="${ei}" data-si="${g.si}" data-count="${g.count}" data-ps="${st.id||''}">
+        <td class="setn"><input class="cell setcount" data-f="count" value="${g.count}" inputmode="numeric" title="number of sets"></td>
         <td><input class="cell" data-f="reps" value="${esc(st.reps)}" inputmode="numeric"></td>
         <td>${showTgt?`<input class="cell" data-f="tgt" value="${esc(tgtValOf(st,type))}" inputmode="decimal" ${tgtDis}>`:'<span class="tgt">—</span>'}</td>
         <td><input class="cell" data-f="kg" value="${esc(st.kg)}" inputmode="decimal" ${type==='open'?'disabled':''}></td>
-        ${actualCells(lg)}
-        <td><span class="lg-del" data-rmrow="1" title="Remove set">✕</span></td></tr>`;
+        ${actuals}
+        <td><span class="lg-del" data-rmrow="1" title="Remove these set(s)">✕</span></td></tr>`;
     }).join('');
     const addedRows = ed.logs.filter(l=>!l.prescribed_set_id && l.exercise_id===ex.id)
-      .map((l,j)=>`<tr class="addedr"><td class="setn">+${j+1}</td><td colspan="3"><span class="addedtag">added by athlete</span></td>${actualCells(l)}<td></td></tr>`).join('');
+      .map((l,j)=>`<tr class="addedr"><td class="setn">+${j+1}</td><td colspan="3"><span class="addedtag">added by athlete</span></td>${actualCells(l, type)}<td></td></tr>`).join('');
     const ltSel=`<span class="lt-wrap"><label>Load type</label><select class="cw-sel lt-sel">${LOAD_TYPES.map(t=>`<option value="${t[0]}"${type===t[0]?' selected':''}>${t[1]}</option>`).join('')}</select></span>`;
     return `<div class="b-ex cvx" data-ei="${ei}">
       <div class="cvx-hd">
@@ -2831,9 +2867,9 @@ function paintEditor(){
         <span class="scheme-btn" data-scheme="1">⚡ Set/Rep Scheme</span>
         <span class="rm-ex" data-delex="1" title="Remove exercise">✕ remove</span>
       </div>
-      <div class="logwrap"><table class="logtable cvt"><colgroup><col class="c-set"><col class="c-pn"><col class="c-pn"><col class="c-pn"><col class="c-an"><col class="c-an"><col class="c-an"><col class="c-le"><col class="c-rm"></colgroup><thead>
-        <tr class="bandrow"><th></th><th colspan="3" class="plh">program numbers (planned)</th><th colspan="4" class="ach">athlete numbers (actual)</th><th></th></tr>
-        <tr><th>Set</th><th>Reps</th><th>${tgtColHead(type)}</th><th>Load kg</th><th class="ach">Reps</th><th class="ach">Weight</th><th class="ach">Miss</th><th class="ach le">Lights · Effort</th><th></th></tr>
+      <div class="logwrap"><table class="logtable cvt"><colgroup><col class="c-set"><col class="c-pn"><col class="c-pn"><col class="c-pn"><col class="c-an"><col class="c-an">${type==='vbt'?'<col class="c-an">':''}<col class="c-an"><col class="c-le"><col class="c-rm"></colgroup><thead>
+        <tr class="bandrow"><th></th><th colspan="3" class="plh">program numbers (planned)</th><th colspan="${actCols(type)}" class="ach">athlete numbers (actual)</th><th></th></tr>
+        <tr><th>Sets</th><th>Reps</th><th>${tgtColHead(type)}</th><th>Load kg</th><th class="ach">Reps</th><th class="ach">Weight</th>${type==='vbt'?'<th class="ach">Peak m/s</th>':''}<th class="ach">Miss</th><th class="ach le">Lights · Effort</th><th></th></tr>
       </thead><tbody>${rows}${addedRows}</tbody></table></div>
       <div class="addrow" data-addrow="1"><span class="plus">＋</span> add a set row — type it in</div>
       <div class="cue-row"><span class="cuelbl">Coaching<br>notes</span>${LT_READY?cueChipsHtml(ex,ei):''}</div>
@@ -2955,38 +2991,57 @@ function wireEditor(){
       showExDrop(t, +cvx.dataset.ei);
       return; }
     if(t.dataset.f==='note'){ ex.note=t.value; ed.dirty=true; return; }
+    if(t.dataset.f==='count') return; // handled on 'change' (structural)
     const tr=t.closest('tr[data-si]'); if(!tr) return;
-    const st=ex.sets[+tr.dataset.si]; if(!st) return;
+    const si=+tr.dataset.si, cnt=+(tr.dataset.count||1);
+    const groupSets=ex.sets.slice(si, si+cnt); if(!groupSets.length) return;
     const type=ex.loadType||'percentage';
     const orm=oneRMFor(ex.name);
-    if(t.dataset.f==='reps'){ st.reps=t.value; }
+    if(t.dataset.f==='reps'){ groupSets.forEach(st=>st.reps=t.value); }
     if(t.dataset.f==='tgt'){
-      if(type==='percentage'){ st.pct=t.value;
-        if(orm && t.value!==''){ st.kg=rnd1(orm*parseFloat(t.value)/100); const k=tr.querySelector('[data-f="kg"]'); if(k) k.value=st.kg; } }
-      else if(type==='vbt'){ st.vel=t.value; }
-      else if(type==='rpe'||type==='rir'){ st.eff=t.value; }
+      if(type==='percentage'){ const kg=(orm && t.value!=='')?rnd1(orm*parseFloat(t.value)/100):null;
+        groupSets.forEach(st=>{ st.pct=t.value; if(kg!=null) st.kg=kg; });
+        if(kg!=null){ const k=tr.querySelector('[data-f="kg"]'); if(k) k.value=kg; } }
+      else if(type==='vbt'){ groupSets.forEach(st=>st.vel=t.value); }
+      else if(type==='rpe'||type==='rir'){ groupSets.forEach(st=>st.eff=t.value); }
     }
-    if(t.dataset.f==='kg'){ st.kg=t.value;
-      if(type==='percentage' && orm && t.value!==''){ st.pct=rnd1(parseFloat(t.value)/orm*100); const pi=tr.querySelector('[data-f="tgt"]'); if(pi) pi.value=st.pct; } }
+    if(t.dataset.f==='kg'){ groupSets.forEach(st=>st.kg=t.value);
+      if(type==='percentage' && orm && t.value!==''){ const pct=rnd1(parseFloat(t.value)/orm*100); groupSets.forEach(st=>st.pct=pct); const pi=tr.querySelector('[data-f="tgt"]'); if(pi) pi.value=pct; } }
     ed.dirty=true;
     const tiles=cvx.querySelector('.cv-tiles'); if(tiles) tiles.outerHTML=exTiles(ex);
     const st2=document.getElementById('edTiles'); if(st2) st2.innerHTML=sessionTiles();
     paintRollup();
   });
   card.addEventListener('change', e=>{
-    const sel=e.target.closest('.lt-sel'); if(!sel) return;
+    const t=e.target;
+    if(t.dataset && t.dataset.f==='count'){
+      const cvx=t.closest('.cvx'); const ex=ed.exercises[+cvx.dataset.ei]; if(!ex) return;
+      const tr=t.closest('tr[data-si]'); const si=+tr.dataset.si, cur=+(tr.dataset.count||1);
+      let want=Math.max(1, Math.min(50, parseInt(t.value,10)||1));
+      if(want===cur){ paintEditor(); return; }
+      const tmpl=ex.sets[si];
+      if(want>cur){ const add=want-cur; const at=si+cur;
+        for(let k=0;k<add;k++) ex.sets.splice(at+k, 0, {id:null, reps:tmpl.reps, pct:tmpl.pct, kg:tmpl.kg, vel:tmpl.vel, eff:tmpl.eff}); }
+      else { const drop=cur-want;
+        for(let k=0;k<drop;k++){ const idx=si+cur-1-k; const st=ex.sets[idx]; if(st&&st.id) ex.delSets.push(st.id); }
+        ex.sets.splice(si+want, drop); }
+      ed.dirty=true; paintEditor();
+      const st2=document.getElementById('edTiles'); if(st2) st2.innerHTML=sessionTiles(); paintRollup();
+      return;
+    }
+    const sel=t.closest('.lt-sel'); if(!sel) return;
     const cvx=sel.closest('.cvx'); const ex=ed.exercises[+cvx.dataset.ei]; if(!ex) return;
     ex.loadType=sel.value; ed.dirty=true; paintEditor();
   });
   card.addEventListener('click', e=>{
     const add=e.target.closest('[data-addrow]');
     if(add){ const cvx=add.closest('.cvx'); const ex=ed.exercises[+cvx.dataset.ei];
-      const last=ex.sets[ex.sets.length-1]||{reps:'',pct:'',kg:'',vel:'',eff:''};
-      ex.sets.push({id:null, reps:last.reps, pct:last.pct, kg:last.kg, vel:last.vel, eff:last.eff}); ed.dirty=true; paintEditor(); return; }
+      ex.sets.push({id:null, reps:'', pct:'', kg:'', vel:'', eff:''}); ed.dirty=true; paintEditor(); return; }
     const rm=e.target.closest('[data-rmrow]');
     if(rm){ const tr=rm.closest('tr'); const cvx=rm.closest('.cvx'); const ex=ed.exercises[+cvx.dataset.ei];
-      const st=ex.sets[+tr.dataset.si]; if(st && st.id) ex.delSets.push(st.id);
-      ex.sets.splice(+tr.dataset.si,1); ed.dirty=true; paintEditor(); return; }
+      const si=+tr.dataset.si, cnt=+(tr.dataset.count||1);
+      for(let k=0;k<cnt;k++){ const st=ex.sets[si+k]; if(st && st.id) ex.delSets.push(st.id); }
+      ex.sets.splice(si, cnt); ed.dirty=true; paintEditor(); return; }
     const cu=e.target.closest('.cue-x');
     if(cu){ const cvx=cu.closest('.cvx'); const ex=ed.exercises[+cvx.dataset.ei];
       ex.cues.splice(+cu.dataset.ci,1); ed.dirty=true; paintEditor(); return; }
