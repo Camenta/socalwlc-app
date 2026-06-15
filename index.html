@@ -264,6 +264,67 @@
   .exadd-form input,.exadd-form select{background:#0e151c;border:1px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);font-size:13px}
   .teamsel{background:#1b2530;border:1px solid var(--line);border-radius:12px;color:var(--text);font-size:11.5px;font-weight:700;padding:4px 8px;cursor:pointer}
   .teamsel:focus{outline:none;border-color:var(--accent2)}
+  .ccard .extools{display:flex;gap:14px;flex-wrap:wrap}
+  .ccard .extool{font-size:11.5px;font-weight:700;cursor:pointer;color:var(--accent2)}
+  .ccard .extool:hover{text-decoration:underline}
+  .ccard .extool.del{color:var(--bad)}
+  /* Programs: active-program tracking */
+  .pb-sec{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:800;margin:20px 0 9px}
+  .asg-grid{display:flex;flex-direction:column;gap:10px}
+  .asg-card{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:12px 14px}
+  .asg-hd{display:flex;align-items:baseline;gap:9px;margin-bottom:9px}
+  .asg-hd b{font-size:14px}.asg-hd .meta{font-size:11px;color:var(--muted)}
+  .asg-aths{display:flex;flex-wrap:wrap;gap:8px}
+  .asg-ath{display:inline-flex;align-items:center;gap:7px;background:#0e151c;border:1px solid var(--line);border-radius:20px;padding:4px 11px 4px 4px;font-size:12.5px;font-weight:600}
+  .asg-ath .rava{display:inline-flex;align-items:center;justify-content:center;border-radius:50%;font-weight:800;font-size:10px;color:#0c1116}
+  .asg-wk{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--accent2);background:#13202c;border-radius:9px;padding:2px 7px;font-style:normal}
+  .asg-wk.done{color:var(--good);background:#16261c}
+  .asg-wk.up{color:var(--warn);background:#2a2412}
+  /* segmented control (stamp target) */
+  .seg{display:inline-flex;background:#0e151c;border:1px solid var(--line);border-radius:9px;padding:3px;gap:3px}
+  .seg button{background:transparent;border:0;color:var(--muted);font-size:12.5px;font-weight:700;padding:7px 16px;border-radius:7px;cursor:pointer}
+  .seg button.on{background:#1a2c3c;color:var(--text)}
+  .seg button:disabled{opacity:.4;cursor:not-allowed}
+  /* Program builder */
+  .pb-bar{display:flex;align-items:center;gap:12px;padding:12px 22px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:20}
+  .pb-back{background:#13202c;border:1px solid #27425c;color:var(--accent2);font-weight:700;font-size:13px;border-radius:8px;padding:8px 13px;cursor:pointer}
+  .pb-title{font-size:15px;font-weight:800}
+  .pb-save{background:#16261c;border:1px solid #2f5a3f;color:var(--good);font-weight:800;font-size:13.5px;border-radius:8px;padding:9px 18px;cursor:pointer}
+  .pb-save:hover{background:#1d3325}
+  .pb-wrap{max-width:920px;margin:0 auto;padding:20px 22px 80px}
+  .pb-meta{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px}
+  .pb-meta .bf-wk{flex:1;min-width:150px}
+  .pb-meta .bf-wk input{width:100%;text-align:left;font-weight:700}
+  .pb-wkpick{display:inline-flex;align-items:center;gap:10px;background:#0e151c;border:1px solid var(--line);border-radius:8px;padding:5px 8px}
+  .pb-wkpick button{background:#1b2530;border:1px solid var(--line);color:var(--text);width:26px;height:26px;border-radius:6px;cursor:pointer;font-size:16px;font-weight:800;line-height:1}
+  .pb-wkpick b{min-width:18px;text-align:center;font-size:14px}
+  .pb-weektabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:16px;border-bottom:1px solid var(--line);padding-bottom:14px}
+  .pb-wk{background:var(--panel2);border:1px solid var(--line);color:var(--muted);font-weight:700;font-size:13px;border-radius:8px;padding:8px 14px;cursor:pointer}
+  .pb-wk.on{color:var(--text);border-color:var(--accent2);background:#13202c}
+  .pb-wk i{font-style:normal;color:var(--accent2);font-size:10px;background:#0e151c;border-radius:8px;padding:1px 6px;margin-left:4px}
+  .pb-days{display:flex;flex-direction:column;gap:14px}
+  .pb-day{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .pb-day-hd{display:flex;gap:9px;align-items:center;margin-bottom:11px}
+  .pb-dow{background:#0e151c;border:1px solid var(--line);border-radius:8px;color:var(--text);font-size:13px;font-weight:700;padding:8px 10px;cursor:pointer}
+  .pb-dtitle{flex:1;background:#0e151c;border:1px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);font-size:13.5px;font-weight:700}
+  .pb-dtitle:focus,.pb-exname:focus,.pb-note:focus,.pb-sn:focus{outline:none;border-color:var(--accent2)}
+  .pb-del{background:#2a1414;border:1px solid #5a2f2f;color:var(--bad);width:30px;height:30px;border-radius:7px;cursor:pointer;font-size:13px;flex:0 0 30px}
+  .pb-exs{display:flex;flex-direction:column;gap:10px;margin-bottom:10px}
+  .pb-ex{background:#0c1218;border:1px solid var(--line);border-radius:10px;padding:11px}
+  .pb-ex-hd{display:flex;gap:8px;align-items:center;margin-bottom:9px}
+  .pb-exname{flex:1;background:#0e151c;border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;font-weight:700}
+  .pb-lt{background:#0e151c;border:1px solid var(--line);border-radius:8px;color:var(--accent2);font-size:12px;font-weight:700;padding:7px 8px;cursor:pointer}
+  .pb-sets{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-bottom:8px}
+  .pb-set{display:inline-flex;align-items:center;gap:4px;background:#0e151c;border:1px solid var(--line);border-radius:8px;padding:4px 6px 4px 8px}
+  .pb-sn{width:46px;background:#141d26;border:1px solid var(--line);border-radius:6px;padding:5px 6px;color:var(--text);font-size:12.5px;font-weight:700;text-align:center}
+  .pb-u{font-size:10px;color:var(--muted);font-weight:700}
+  .pb-x{font-size:11px;color:var(--muted);font-weight:700}
+  .pb-delset{background:transparent;border:0;color:var(--bad);cursor:pointer;font-size:12px;padding:0 2px}
+  .pb-addset{background:#13202c;border:1px dashed #27425c;color:var(--accent2);font-size:11.5px;font-weight:700;border-radius:8px;padding:5px 11px;cursor:pointer}
+  .pb-note{width:100%;background:#0e151c;border:1px solid var(--line);border-radius:8px;padding:7px 10px;color:var(--text);font-size:12.5px;margin-top:2px}
+  .pb-addex{background:#13202c;border:1px dashed #27425c;color:var(--accent2);font-weight:700;font-size:12.5px;border-radius:8px;padding:8px 13px;cursor:pointer}
+  .pb-addday{background:var(--panel2);border:1px dashed var(--line);color:var(--muted);font-weight:700;font-size:13px;border-radius:10px;padding:13px;cursor:pointer;text-align:center}
+  .pb-addday:hover{color:var(--accent2);border-color:var(--accent2)}
   /* Team Hub */
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   @media(max-width:820px){.grid2{grid-template-columns:1fr}}
@@ -1372,7 +1433,8 @@ window.saveBlockAsProgram=async function(){
       cues: Array.isArray(ex.cues)?ex.cues:null, coach_note: ex.coach_note||null,
       sets: (ex.prescribed_sets||[]).slice().sort(sortByPos).map(ps=>({
         reps: ps.target_reps, pct: ps.target_pct!=null?parseFloat(ps.target_pct):null,
-        vel: ps.target_vel!=null?parseFloat(ps.target_vel):null, eff: ps.target_eff!=null?parseFloat(ps.target_eff):null }))
+        vel: ps.target_vel!=null?parseFloat(ps.target_vel):null, eff: ps.target_eff!=null?parseFloat(ps.target_eff):null,
+        kg: (ex.load_type==='weight' && ps.target_kg!=null)?parseFloat(ps.target_kg):null }))
     }))
   }));
   const weeksN=Math.max.apply(null, days.map(d=>d.wk+1).concat([1]));
@@ -1406,17 +1468,48 @@ function programCard(p){
     <div class="meta">${[p.phase,(p.weeks+' wk'),days+' day'+(days===1?'':'s')].filter(Boolean).map(esc).join(' · ')}</div>
     ${wave?`<div style="display:flex;gap:3px;align-items:flex-end;height:20px;margin-top:8px">${wave.map(lv=>{const L=WAVE_LV[lv]||WAVE_LV.light;return `<i style="display:block;width:8px;border-radius:2px;height:${L[2]}px;background:${L[1]}"></i>`;}).join('')}</div>`:''}
     <div class="extools" style="margin-top:11px;gap:14px">
-      <span class="extool" onclick="stampProgram('${p.id}')">→ stamp onto athlete</span>
+      <span class="extool" onclick="stampProgram('${p.id}')">→ stamp</span>
+      <span class="extool" onclick="openProgramBuilder('${p.id}')">✎ edit</span>
       <span class="extool del" onclick="conDelProgram('${p.id}','${esc(p.name).replace(/'/g,"\\'")}')">✕</span>
     </div></div>`;
+}
+async function loadAssignments(){
+  const { data, error } = await sb.from('program_assignments').select('*').eq('status','active');
+  conState._assigns = error ? [] : (data||[]);
+  return conState._assigns;
+}
+function asgProgress(a){
+  const start=mondayOfDate(new Date(a.start_date+'T00:00:00'));
+  const wks=a.weeks||1;
+  const elapsed=Math.round((mondayOfDate(new Date())-start)/(7*864e5));
+  if(elapsed<0) return {label:'starts '+a.start_date, upcoming:true};
+  const wk=elapsed+1;
+  if(wk>wks) return {label:'completed', done:true};
+  return {label:'wk '+wk+'/'+wks};
 }
 async function renderPrograms(host){
   if(conState._programs===undefined){ host.innerHTML='<div class="spin">Loading programs…</div>'; await loadPrograms(); }
   if(conState._programs===null){ host.innerHTML=conSoon('Active Programs','build named multi-week blocks once and stamp them onto athletes & teams','the programs table — run 14_programs.sql'); return; }
+  if(conState._assigns===undefined){ await loadAssignments(); }
   const progs=conState._programs||[];
+  const assigns=conState._assigns||[];
+  const athName=(id)=>{ const x=(coachState.athletes||[]).find(a=>a.id===id); return x?x.full_name:'Athlete'; };
+  const byProg={}; assigns.forEach(a=>{ (byProg[a.program_id]=byProg[a.program_id]||[]).push(a); });
+  const activeProgs=progs.filter(p=>byProg[p.id]&&byProg[p.id].length);
+  const activeHtml = activeProgs.length ? activeProgs.map(p=>{
+    const rows=byProg[p.id].slice().sort((a,b)=>athName(a.athlete_id).localeCompare(athName(b.athlete_id))).map(a=>{
+      const pr=asgProgress(a), nm=athName(a.athlete_id);
+      return `<span class="asg-ath"><span class="rava" style="width:22px;height:22px;background:${avColor(nm)}">${esc(initials(nm))}</span>${esc(nm)}<i class="asg-wk ${pr.done?'done':(pr.upcoming?'up':'')}">${esc(pr.label)}</i></span>`;
+    }).join('');
+    return `<div class="asg-card"><div class="asg-hd"><b>${esc(p.name)}</b><span class="meta">${byProg[p.id].length} athlete${byProg[p.id].length===1?'':'s'}</span></div><div class="asg-aths">${rows}</div></div>`;
+  }).join('') : '<div class="con-empty" style="padding:16px">No active programs yet — stamp one onto an athlete or team below.</div>';
   host.innerHTML=`
-    <div class="ctoolbar"><span class="note sub" style="margin:0;flex:1">Programs you've saved — stamp one onto any athlete to generate their sessions (loads price off their maxes). Build one from <b>Coach View → block banner → ⊞ save as program</b>.</span></div>
-    <div class="cgrid">${progs.map(programCard).join('')||'<div class="con-empty">No programs yet — build a block in Coach View, then “⊞ save as program”.</div>'}</div>`;
+    <div class="ctoolbar"><span class="note sub" style="margin:0;flex:1">Build a program once, then stamp it onto an athlete or a whole team — %1RM loads re-price off each athlete's maxes. You can also save a block straight from <b>Coach View → block banner</b>.</span>
+      <span class="cbtn" onclick="openProgramBuilder()">⊞ Build program</span></div>
+    <h3 class="pb-sec">On program now</h3>
+    <div class="asg-grid">${activeHtml}</div>
+    <h3 class="pb-sec">Program library</h3>
+    <div class="cgrid">${progs.map(programCard).join('')||'<div class="con-empty">No programs yet — “⊞ Build program”, or save a block from Coach View.</div>'}</div>`;
 }
 window.conDelProgram=async(id,name)=>{
   const res=await sb.from('programs').delete().eq('id', id).select();
@@ -1424,53 +1517,221 @@ window.conDelProgram=async(id,name)=>{
   conState._programs=(conState._programs||[]).filter(p=>p.id!==id);
   renderConBody();
 };
+window._stampMode='ath';
 window.stampProgram=async function(id){
   const p=(conState._programs||[]).find(x=>x.id===id); if(!p) return;
+  if(conState._teams===undefined){ const { data: tms } = await sb.from('teams').select('*').order('name'); conState._teams=tms||[]; }
   const athletes=coachState.athletes||[];
+  const teams=conState._teams||[];
   const nextMon=mondayOfDate(new Date()); nextMon.setDate(nextMon.getDate()+7);
+  const dayN=(p.data&&p.data.days?p.data.days.length:0);
+  window._stampMode='ath';
   ovModal('stampModal', `
     <div class="ov-hd"><h2 style="margin:0">→ Stamp "${esc(p.name)}"</h2><span class="vid-x" onclick="document.getElementById('stampModal').style.display='none'">✕</span></div>
-    <div class="sub" style="margin:6px 0 12px">Creates ${(p.data&&p.data.days?p.data.days.length:0)} draft session${(p.data&&p.data.days&&p.data.days.length===1)?'':'s'} for the athlete, week 1 starting the Monday you pick. %1RM loads re-price off their maxes. Publish them when ready.</div>
-    <div class="bf-row">
-      <span class="bf-wk"><label>Athlete</label><select id="stampAth" class="cw-sel">${athletes.map(a=>`<option value="${a.id}">${esc(a.full_name)}</option>`).join('')}</select></span>
+    <div class="sub" style="margin:6px 0 12px">Creates ${dayN} draft session${dayN===1?'':'s'} per athlete, week 1 starting the Monday you pick. %1RM loads re-price off each athlete's maxes. Publish them when ready.</div>
+    <div class="seg" id="stampSeg">
+      <button class="on" data-t="ath" onclick="stampSeg('ath')">Individual</button>
+      <button data-t="team" onclick="stampSeg('team')"${teams.length?'':' disabled'}>Whole team</button>
+    </div>
+    <div class="bf-row" style="margin-top:10px">
+      <span class="bf-wk" id="stampTgtWrap"><label>Athlete</label><select id="stampAth" class="cw-sel">${athletes.map(a=>`<option value="${a.id}">${esc(a.full_name)}</option>`).join('')}</select></span>
       <span class="bf-wk"><label>Week 1 starts (Mon)</label><input id="stampStart" type="date" value="${iso(nextMon)}"></span>
     </div>
     <div class="bf-row" style="margin-top:12px"><button class="btn" onclick="doStamp('${id}')">Stamp program</button><span class="saved" id="stampMsg"></span></div>`);
 };
+window.stampSeg=(t)=>{
+  window._stampMode=t;
+  document.querySelectorAll('#stampSeg button').forEach(b=>b.classList.toggle('on', b.dataset.t===t));
+  const wrap=document.getElementById('stampTgtWrap'); if(!wrap) return;
+  if(t==='team'){
+    const teams=conState._teams||[];
+    wrap.innerHTML=`<label>Team</label><select id="stampTeam" class="cw-sel">${teams.map(tm=>{const n=(coachState.athletes||[]).filter(a=>a.team_id===tm.id).length;return `<option value="${tm.id}">${esc(tm.name)} · ${n} athlete${n===1?'':'s'}</option>`;}).join('')}</select>`;
+  } else {
+    const athletes=coachState.athletes||[];
+    wrap.innerHTML=`<label>Athlete</label><select id="stampAth" class="cw-sel">${athletes.map(a=>`<option value="${a.id}">${esc(a.full_name)}</option>`).join('')}</select>`;
+  }
+};
 window.doStamp=async function(id){
   const p=(conState._programs||[]).find(x=>x.id===id); if(!p) return;
-  const athId=document.getElementById('stampAth').value;
   const start=document.getElementById('stampStart').value;
+  let targets=[];
+  if(window._stampMode==='team'){
+    const teamId=document.getElementById('stampTeam').value;
+    targets=(coachState.athletes||[]).filter(a=>a.team_id===teamId).map(a=>a.id);
+    if(!targets.length){ const m=document.getElementById('stampMsg'); if(m){m.style.color='var(--warn)';m.textContent='That team has no athletes yet.';} return; }
+  } else {
+    targets=[document.getElementById('stampAth').value];
+  }
   const msg=document.getElementById('stampMsg'); if(msg){ msg.style.color=''; msg.textContent='Stamping…'; }
   const btn=document.querySelector('#stampModal .btn'); if(btn) btn.disabled=true;
+  const startMon=mondayOfDate(new Date(start+'T00:00:00'));
+  let athDone=0, totalSessions=0;
   try{
-    const { data: mx } = await sb.from('maxes').select('lift,kg').eq('athlete_id', athId);
-    const maxes={}; (mx||[]).forEach(m=>maxes[m.lift]=parseFloat(m.kg));
-    const startMon=mondayOfDate(new Date(start+'T00:00:00'));
-    let made=0;
-    for(const day of (p.data.days||[])){
-      const d=new Date(startMon); d.setDate(d.getDate()+ (day.wk||0)*7 + (day.dow||0));
-      const { data: ns, error: se } = await sb.from('sessions').insert({ gym_id:me_.gym_id, athlete_id:athId, session_date:iso(d), title:day.title||'Training', status:'draft' }).select().single();
-      if(se) throw se;
-      let pos=0;
-      for(const ex of (day.exercises||[])){
-        const exIns={ gym_id:me_.gym_id, session_id:ns.id, position:pos++, name:ex.name, category:ex.category||'primary', coach_note:ex.coach_note||null };
-        if(LT_READY){ exIns.load_type=ex.load_type||'percentage'; exIns.cues=ex.cues||null; }
-        const { data: ne, error: ee } = await sb.from('prescribed_exercises').insert(exIns).select().single(); if(ee) throw ee;
-        const orm=(ex.load_type||'percentage')==='percentage'?ormLookup(ex.name, maxes):null;
-        const rows=(ex.sets||[]).map((s,si)=>{ const st={reps:s.reps,pct:s.pct,kg:(s.pct!=null&&orm)?Math.round(orm*s.pct/100):null,vel:s.vel,eff:s.eff};
-          const row={ gym_id:me_.gym_id, exercise_id:ne.id, position:si,
-            target_reps:s.reps!=null?s.reps:null, target_pct:s.pct!=null?s.pct:null, target_kg:st.kg,
-            target_text:targetText({reps:s.reps==null?'':s.reps,pct:s.pct==null?'':s.pct,kg:st.kg==null?'':st.kg,vel:s.vel==null?'':s.vel,eff:s.eff==null?'':s.eff}, ex.load_type||'percentage') };
-          if(LT_READY){ row.target_vel=s.vel!=null?s.vel:null; row.target_eff=s.eff!=null?s.eff:null; } return row; });
-        if(rows.length){ const { error: re } = await sb.from('prescribed_sets').insert(rows); if(re) throw re; }
+    for(const athId of targets){
+      const { data: mx } = await sb.from('maxes').select('lift,kg').eq('athlete_id', athId);
+      const maxes={}; (mx||[]).forEach(m=>maxes[m.lift]=parseFloat(m.kg));
+      for(const day of (p.data.days||[])){
+        const d=new Date(startMon); d.setDate(d.getDate()+ (day.wk||0)*7 + (day.dow||0));
+        const { data: ns, error: se } = await sb.from('sessions').insert({ gym_id:me_.gym_id, athlete_id:athId, session_date:iso(d), title:day.title||'Training', status:'draft' }).select().single();
+        if(se) throw se;
+        let pos=0;
+        for(const ex of (day.exercises||[])){
+          const exIns={ gym_id:me_.gym_id, session_id:ns.id, position:pos++, name:ex.name, category:ex.category||'primary', coach_note:ex.coach_note||null };
+          if(LT_READY){ exIns.load_type=ex.load_type||'percentage'; exIns.cues=ex.cues||null; }
+          const { data: ne, error: ee } = await sb.from('prescribed_exercises').insert(exIns).select().single(); if(ee) throw ee;
+          const orm=(ex.load_type||'percentage')==='percentage'?ormLookup(ex.name, maxes):null;
+          const rows=(ex.sets||[]).map((s,si)=>{ const kg=(s.kg!=null&&s.kg!=='')?s.kg:((s.pct!=null&&orm)?Math.round(orm*s.pct/100):null);
+            const st={reps:s.reps,pct:s.pct,kg,vel:s.vel,eff:s.eff};
+            const row={ gym_id:me_.gym_id, exercise_id:ne.id, position:si,
+              target_reps:s.reps!=null?s.reps:null, target_pct:s.pct!=null?s.pct:null, target_kg:st.kg,
+              target_text:targetText({reps:s.reps==null?'':s.reps,pct:s.pct==null?'':s.pct,kg:st.kg==null?'':st.kg,vel:s.vel==null?'':s.vel,eff:s.eff==null?'':s.eff}, ex.load_type||'percentage') };
+            if(LT_READY){ row.target_vel=s.vel!=null?s.vel:null; row.target_eff=s.eff!=null?s.eff:null; } return row; });
+          if(rows.length){ const { error: re } = await sb.from('prescribed_sets').insert(rows); if(re) throw re; }
+        }
+        totalSessions++;
       }
-      made++;
+      await sb.from('program_assignments').upsert({ gym_id:me_.gym_id, program_id:p.id, athlete_id:athId, start_date:start, weeks:p.weeks||1, status:'active' }, { onConflict:'program_id,athlete_id' });
+      athDone++;
+      if(msg) msg.textContent='Stamping… '+athDone+'/'+targets.length;
     }
     document.getElementById('stampModal').style.display='none';
-    const ath=(coachState.athletes||[]).find(a=>a.id===athId);
-    alert('✓ Stamped "'+p.name+'" onto '+(ath?ath.full_name:'athlete')+' — '+made+' draft session'+(made===1?'':'s')+' created starting '+start+'. Open them in Coach View to review & publish.');
+    conState._assigns=undefined;
+    const who = window._stampMode==='team'
+      ? (athDone+' athlete'+(athDone===1?'':'s'))
+      : (((coachState.athletes||[]).find(a=>a.id===targets[0])||{}).full_name || 'athlete');
+    alert('✓ Stamped "'+p.name+'" onto '+who+' — '+totalSessions+' draft session'+(totalSessions===1?'':'s')+' created starting '+start+'. Open them in Coach View to review & publish.');
+    if(coachState.screen==='console' && conState.tab==='programs') renderConBody();
   }catch(e){ if(btn) btn.disabled=false; if(msg){ msg.style.color='var(--bad)'; msg.textContent='Stamp failed — '+(e.message||e); } }
+};
+/* ================= PROGRAM BUILDER (build from scratch) ================= */
+let pbState=null; // {id,name,phase,weeks,wave,days:[{wk,dow,title,exercises:[{name,category,load_type,cues,coach_note,sets:[{reps,pct,vel,eff,kg}]}]}],wk}
+const PB_DOW=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const PB_LT=[['percentage','%1RM'],['vbt','VBT m/s'],['weight','Weight kg'],['rpe','RPE'],['rir','RIR'],['open','Open']];
+function pbNum(v){ if(v===''||v==null) return null; const n=parseFloat(v); return isNaN(n)?null:n; }
+window.openProgramBuilder=async function(id){
+  await loadExLib();
+  if(id){
+    const p=(conState._programs||[]).find(x=>x.id===id); if(!p){ alert('Program not found — reload.'); return; }
+    const days=JSON.parse(JSON.stringify((p.data&&p.data.days)||[])).map(d=>({
+      wk:d.wk||0, dow:d.dow||0, title:d.title||'',
+      exercises:(d.exercises||[]).map(ex=>({ name:ex.name||'', category:ex.category||'primary', load_type:ex.load_type||'percentage', cues:ex.cues||null, coach_note:ex.coach_note||'',
+        sets:(ex.sets||[]).map(s=>({ reps:s.reps==null?'':s.reps, pct:s.pct==null?'':s.pct, vel:s.vel==null?'':s.vel, eff:s.eff==null?'':s.eff, kg:s.kg==null?'':s.kg })) })) }));
+    pbState={ id:p.id, name:p.name||'', phase:p.phase||'', weeks:p.weeks||1, wave:p.wave||null, days, wk:0 };
+  } else {
+    pbState={ id:null, name:'', phase:'', weeks:4, wave:null, days:[], wk:0 };
+  }
+  coachState.screen='builder';
+  renderProgramBuilder();
+};
+window.pbExit=()=>{ pbState=null; coachState.screen='console'; renderConsole(); };
+function renderProgramBuilder(){
+  const weeks=pbState.weeks;
+  const wkTabs=Array.from({length:weeks},(_,i)=>`<button class="pb-wk${i===pbState.wk?' on':''}" onclick="pbSetWk(${i})">Wk ${i+1}<i>${pbState.days.filter(d=>d.wk===i).length}</i></button>`).join('');
+  app.innerHTML = topbar('Coach') + `
+    <div class="pb-bar">
+      <button class="pb-back" onclick="pbExit()">← Console</button>
+      <div class="pb-title">${pbState.id?'✎ Edit program':'⊞ Build a program'}</div>
+      <div style="flex:1"></div>
+      <span class="saved" id="pbMsg"></span>
+      <button class="pb-save" onclick="pbSave()">${pbState.id?'Save changes':'Save to library'}</button>
+    </div>
+    <div class="pb-wrap">
+      <div class="pb-meta">
+        <span class="bf-wk" style="flex:2"><label>Program name</label><input id="pbName" value="${esc(pbState.name)}" placeholder="e.g. Snatch Strength — Block 1" oninput="pbState.name=this.value"></span>
+        <span class="bf-wk"><label>Phase (optional)</label><input id="pbPhase" value="${esc(pbState.phase)}" placeholder="e.g. Accumulation" oninput="pbState.phase=this.value"></span>
+        <span class="bf-wk"><label>Weeks</label><span class="pb-wkpick"><button onclick="pbWeeks(-1)">−</button><b id="pbWeeksN">${weeks}</b><button onclick="pbWeeks(1)">+</button></span></span>
+      </div>
+      <div class="pb-weektabs">${wkTabs}</div>
+      <div class="pb-days" id="pbDays"></div>
+    </div>
+    <datalist id="pbExList">${(EXLIB||[]).map(e=>`<option value="${esc(e.name)}">`).join('')}</datalist>`;
+  pbRenderDays();
+}
+function pbRenderDays(){
+  const host=document.getElementById('pbDays'); if(!host) return;
+  const idx=pbState.days.map((d,di)=>di).filter(di=>pbState.days[di].wk===pbState.wk);
+  host.innerHTML=idx.map(di=>pbDayHtml(pbState.days[di],di)).join('')
+    +`<button class="pb-addday" onclick="pbAddDay()">＋ Add a training day to week ${pbState.wk+1}</button>`;
+}
+function pbDayHtml(d,di){
+  const dowSel=PB_DOW.map((n,i)=>`<option value="${i}"${d.dow===i?' selected':''}>${n}</option>`).join('');
+  return `<div class="pb-day">
+    <div class="pb-day-hd">
+      <select class="pb-dow" onchange="pbState.days[${di}].dow=+this.value">${dowSel}</select>
+      <input class="pb-dtitle" value="${esc(d.title||'')}" placeholder="Day title (e.g. Snatch + Squat)" oninput="pbState.days[${di}].title=this.value">
+      <button class="pb-del" title="Remove day" onclick="pbDelDay(${di})">✕</button>
+    </div>
+    <div class="pb-exs">${(d.exercises||[]).map((ex,xi)=>pbExHtml(ex,di,xi)).join('')}</div>
+    <button class="pb-addex" onclick="pbAddEx(${di})">＋ Add exercise</button>
+  </div>`;
+}
+function pbExHtml(ex,di,xi){
+  const lt=ex.load_type||'percentage';
+  const ltSel=PB_LT.map(([v,l])=>`<option value="${v}"${lt===v?' selected':''}>${l}</option>`).join('');
+  return `<div class="pb-ex">
+    <div class="pb-ex-hd">
+      <input class="pb-exname" list="pbExList" value="${esc(ex.name||'')}" placeholder="Exercise name" oninput="pbState.days[${di}].exercises[${xi}].name=this.value">
+      <select class="pb-lt" onchange="pbSetLt(${di},${xi},this.value)">${ltSel}</select>
+      <button class="pb-del" title="Remove exercise" onclick="pbDelEx(${di},${xi})">✕</button>
+    </div>
+    <div class="pb-sets">${(ex.sets||[]).map((s,si)=>pbSetHtml(s,di,xi,si,lt)).join('')}<button class="pb-addset" onclick="pbAddSet(${di},${xi})">＋ set</button></div>
+    <input class="pb-note" value="${esc(ex.coach_note||'')}" placeholder="Coach note (optional)" oninput="pbState.days[${di}].exercises[${xi}].coach_note=this.value">
+  </div>`;
+}
+function pbSetHtml(s,di,xi,si,lt){
+  const b=`pbState.days[${di}].exercises[${xi}].sets[${si}]`;
+  const reps=`<input class="pb-sn" type="number" min="0" value="${s.reps==null?'':s.reps}" placeholder="reps" oninput="${b}.reps=this.value"><span class="pb-u">reps</span>`;
+  let val='';
+  if(lt==='percentage') val=`<span class="pb-x">@</span><input class="pb-sn" type="number" step="0.5" value="${s.pct==null?'':s.pct}" placeholder="%" oninput="${b}.pct=this.value"><span class="pb-u">%</span>`;
+  else if(lt==='vbt') val=`<span class="pb-x">@≥</span><input class="pb-sn" type="number" step="0.01" value="${s.vel==null?'':s.vel}" placeholder="m/s" oninput="${b}.vel=this.value"><span class="pb-u">m/s</span>`;
+  else if(lt==='weight') val=`<span class="pb-x">×</span><input class="pb-sn" type="number" step="0.5" value="${s.kg==null?'':s.kg}" placeholder="kg" oninput="${b}.kg=this.value"><span class="pb-u">kg</span>`;
+  else if(lt==='rpe') val=`<span class="pb-x">@RPE</span><input class="pb-sn" type="number" step="0.5" value="${s.eff==null?'':s.eff}" placeholder="" oninput="${b}.eff=this.value">`;
+  else if(lt==='rir') val=`<span class="pb-x">@</span><input class="pb-sn" type="number" step="1" value="${s.eff==null?'':s.eff}" placeholder="" oninput="${b}.eff=this.value"><span class="pb-u">RIR</span>`;
+  return `<span class="pb-set">${reps}${val}<button class="pb-delset" title="Remove set" onclick="pbDelSet(${di},${xi},${si})">✕</button></span>`;
+}
+window.pbSetWk=(i)=>{ pbState.wk=i; renderProgramBuilder(); };
+window.pbWeeks=(delta)=>{
+  const n=Math.max(1,Math.min(26,pbState.weeks+delta));
+  if(n===pbState.weeks) return;
+  if(n<pbState.weeks && pbState.days.some(d=>d.wk>=n)){
+    if(!confirm('Reducing to '+n+' week'+(n===1?'':'s')+' will delete any days in week '+(n+1)+' and later. Continue?')) return;
+    pbState.days=pbState.days.filter(d=>d.wk<n);
+  }
+  pbState.weeks=n; if(pbState.wk>=n) pbState.wk=n-1; renderProgramBuilder();
+};
+window.pbAddDay=()=>{
+  const used=new Set(pbState.days.filter(d=>d.wk===pbState.wk).map(d=>d.dow));
+  let dow=0; for(let i=0;i<7;i++){ if(!used.has(i)){ dow=i; break; } }
+  pbState.days.push({ wk:pbState.wk, dow, title:'', exercises:[{name:'',category:'primary',load_type:'percentage',cues:null,coach_note:'',sets:[{reps:'',pct:'',vel:'',eff:'',kg:''}]}] });
+  pbRenderDays();
+};
+window.pbDelDay=(di)=>{ pbState.days.splice(di,1); pbRenderDays(); };
+window.pbAddEx=(di)=>{ pbState.days[di].exercises.push({name:'',category:'primary',load_type:'percentage',cues:null,coach_note:'',sets:[{reps:'',pct:'',vel:'',eff:'',kg:''}]}); pbRenderDays(); };
+window.pbDelEx=(di,xi)=>{ pbState.days[di].exercises.splice(xi,1); pbRenderDays(); };
+window.pbSetLt=(di,xi,v)=>{ pbState.days[di].exercises[xi].load_type=v; pbRenderDays(); };
+window.pbAddSet=(di,xi)=>{ pbState.days[di].exercises[xi].sets.push({reps:'',pct:'',vel:'',eff:'',kg:''}); pbRenderDays(); };
+window.pbDelSet=(di,xi,si)=>{ pbState.days[di].exercises[xi].sets.splice(si,1); pbRenderDays(); };
+window.pbSave=async function(){
+  const msg=document.getElementById('pbMsg');
+  const name=(pbState.name||'').trim();
+  if(!name){ if(msg){msg.style.color='var(--warn)';msg.textContent='Give the program a name.';} const n=document.getElementById('pbName'); if(n) n.focus(); return; }
+  const days=pbState.days.map(d=>({
+    wk:d.wk, dow:d.dow, title:(d.title||'Training').trim()||'Training',
+    exercises:(d.exercises||[]).filter(ex=>(ex.name||'').trim()).map(ex=>({
+      name:ex.name.trim(), category:ex.category||'primary', load_type:ex.load_type||'percentage',
+      cues:ex.cues||null, coach_note:(ex.coach_note||'').trim()||null,
+      sets:(ex.sets||[]).map(s=>({ reps:pbNum(s.reps), pct:pbNum(s.pct), vel:pbNum(s.vel), eff:pbNum(s.eff), kg:pbNum(s.kg) }))
+    }))
+  })).filter(d=>d.exercises.length);
+  if(!days.length){ if(msg){msg.style.color='var(--warn)';msg.textContent='Add at least one day with a named exercise.';} return; }
+  days.sort((a,b)=>(a.wk-b.wk)||(a.dow-b.dow));
+  const payload={ name, phase:(pbState.phase||'').trim()||null, weeks:pbState.weeks, wave:pbState.wave||null, data:{days} };
+  if(msg){ msg.style.color=''; msg.textContent='Saving…'; }
+  let res;
+  if(pbState.id) res=await sb.from('programs').update(payload).eq('id',pbState.id).select();
+  else res=await sb.from('programs').insert(Object.assign({ gym_id:me_.gym_id }, payload)).select();
+  if(res.error||!res.data||!res.data.length){ if(msg){msg.style.color='var(--bad)';msg.textContent='Save failed — '+(res.error?res.error.message:'try again');} return; }
+  conState._programs=undefined; conState.tab='programs'; pbExit();
 };
 window.conOpenAthlete=(id)=>{ ed=null; cw=null; coachState.selected=id; coachGo('coach'); };
 window.conAddAthlete=()=>{
