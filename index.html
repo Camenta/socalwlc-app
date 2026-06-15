@@ -2429,15 +2429,24 @@ window.cwToggleCopyWeek = ()=>{ const ui=document.getElementById('cwCopyUI'); if
 window.cwWeekNav = (d)=>{ if(!cw) return; ed=null; cw.weekOffset = d===0 ? 0 : (cw.weekOffset||0)+d; cw.selDate=null; cw.selSess=null; renderCoachPanel(); };
 window.cwPublishWeek = async ()=>{
   if(!cw) return;
-  const drafts=(cw.weekSessFull||[]).filter(s=>s.status==='draft');
-  if(!drafts.length) return;
+  const setMsg=(t,c)=>{ const m=document.getElementById('cwMsg'); if(m){ m.style.color=c||''; m.textContent=t; if(c==='var(--good)'||c==='var(--muted)') setTimeout(()=>{ if(m.isConnected && m.textContent===t) m.textContent=''; },3500); } };
   const name=cw.ath.full_name.split(' ')[0];
-  if(!confirm('Publish all '+drafts.length+' draft session'+(drafts.length===1?'':'s')+' this week to '+name+'? '+name+' will see them right away.')) return;
-  const res=await sb.from('sessions').update({status:'published'}).in('id', drafts.map(s=>s.id)).select();
-  if(res.error){ alert('Publish failed — '+res.error.message); return; }
+  // re-fetch the EXACT week currently on screen so we never publish a stale snapshot
+  const wkD=weekDates(cw.weekOffset||0), wkIso=wkD.map(iso);
+  const { data: rows, error: fe } = await sb.from('sessions').select('id,status')
+    .eq('athlete_id', cw.athId).gte('session_date', wkIso[0]).lte('session_date', wkIso[6]);
+  if(fe){ setMsg('Couldn\'t load the week — '+fe.message,'var(--bad)'); return; }
+  const drafts=(rows||[]).filter(s=>s.status==='draft');
+  if(!drafts.length){ setMsg('Nothing to publish — this week is already all published.','var(--muted)'); return; }
+  const wkLabel=MONS[wkD[0].getMonth()]+' '+wkD[0].getDate();
+  if(!confirm('Publish all '+drafts.length+' draft session'+(drafts.length===1?'':'s')+' the week of '+wkLabel+' to '+name+'? '+name+' will see them right away.')) return;
+  const res=await sb.from('sessions').update({status:'published'}).in('id', drafts.map(s=>s.id)).select('id');
+  if(res.error){ setMsg('Publish failed — '+res.error.message,'var(--bad)'); return; }
+  const n=(res.data||[]).length;
+  if(!n){ setMsg('Nothing got published — try reloading and again.','var(--bad)'); return; }
   conState._progSess=undefined; if(cw) cw.rollupCache=null;
   await renderCoachPanel();
-  const m=document.getElementById('cwMsg'); if(m){ m.style.color='var(--good)'; m.textContent='✓ Published '+drafts.length+' session'+(drafts.length===1?'':'s')+' to '+name; setTimeout(()=>{ if(m.isConnected){ m.textContent=''; } },3500); }
+  setMsg('✓ Published '+n+' session'+(n===1?'':'s')+' to '+name+' (week of '+wkLabel+')','var(--good)');
 };
 function statsFor(sessRows, logs){
   let vol=0, vw=0, pv=0, peak=0, totalSets=0;
@@ -3455,11 +3464,13 @@ async function saveEditor(publishAfter){
     const wkEntry = cw && cw.sessByDate && (cw.sessByDate[cw.selDate]||[]).find(s=>s.id===ed.session.id);
     if(wkEntry){ wkEntry.title=ed.session.title; if(statusChanged) wkEntry.status=ed.session.status; }
     if(statusChanged){
+      // the status write already committed above (sessPatch) — refresh defensively so a
+      // render hiccup can never make a successful publish look like it failed
       conState._progSess=undefined;            // program publish-bar recomputes
       const ath=cw.ath.full_name.split(' ')[0];
-      await renderCoachPanel();                // refresh week strip + tabs + editor with new status
-      edMsgSet(publishAfter===true?('✓ Published — it\'s on '+ath+'\'s phone'):'✓ Unpublished — back to a draft','var(--good)');
-      setTimeout(()=>edMsgSet(''),3500);
+      const okMsg = publishAfter===true?('✓ Published — it\'s on '+ath+'\'s phone'):'✓ Unpublished — back to a draft';
+      try{ await renderCoachPanel(); }catch(_){ paintEditor(); }
+      const m=document.getElementById('edMsg'); if(m){ m.style.color='var(--good)'; m.textContent=okMsg; setTimeout(()=>{ if(m.isConnected && m.textContent===okMsg) m.textContent=''; },3500); }
       return;
     }
     refreshStripDot();
