@@ -986,6 +986,7 @@
 <input type="file" id="vidInput" accept="video/*" onchange="onVidPicked()" style="display:none">
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 const SUPA_URL = "https://jurlbzobhdkijyvijjfg.supabase.co";
 const SUPA_KEY = "sb_publishable_3DfhkND-7yxN3yziwJ7Qhg_SuZr8eAB";
@@ -1644,6 +1645,43 @@ function dashHeatmap(trainedSet){
   }
   return '<div class="heatgrid">'+cells+'</div>';
 }
+/* ---- velocity (VBT) charts ---- */
+const VBT_MVT={ 'back squat':0.30,'front squat':0.32,'squat':0.30,'deadlift':0.18,'bench press':0.15,'bench':0.15,'press':0.19,'snatch':0.62,'clean':0.50,'jerk':0.55,'default':0.30 };
+function vbtMvt(ex){ const k=(ex||'').toLowerCase(); for(const key in VBT_MVT){ if(k.includes(key)) return VBT_MVT[key]; } return VBT_MVT.default; }
+function vbtReg(pts){ const n=pts.length; if(n<2) return null; let sx=0,sy=0,sxx=0,sxy=0; pts.forEach(p=>{sx+=p.x;sy+=p.y;sxx+=p.x*p.x;sxy+=p.x*p.y;}); const d=n*sxx-sx*sx; if(!d) return null; const a=(n*sxy-sx*sy)/d; return {a, b:(sy-a*sx)/n}; }
+// load-velocity profile: best mean velocity per load + linear fit -> estimated 1RM at the lift's min-velocity threshold
+function vbtLVSVG(reps, ex){
+  const byLoad={}; reps.forEach(r=>{ if(r.load_kg==null||r.mean_vel==null) return; if(byLoad[r.load_kg]==null||r.mean_vel>byLoad[r.load_kg]) byLoad[r.load_kg]=r.mean_vel; });
+  const pts=Object.keys(byLoad).map(l=>({x:+l,y:byLoad[l]})).sort((a,b)=>a.x-b.x);
+  if(pts.length<3) return {svg:'<div class="note sub" style="padding:8px 0">Need a few different loads to build the load–velocity profile.</div>', est:null};
+  const reg=vbtReg(pts), mvt=vbtMvt(ex);
+  const est=(reg&&reg.a<0)?(mvt-reg.b)/reg.a:null;
+  const W=720,H=270,pL=42,pR=14,pT=18,pB=36,iw=W-pL-pR,ih=H-pT-pB;
+  const xmax=Math.max(est||0,...pts.map(p=>p.x))*1.06, ymax=Math.max(...pts.map(p=>p.y))*1.12;
+  const X=v=>pL+iw*(v/(xmax||1)), Y=v=>pT+ih-ih*(v/(ymax||1));
+  const grid=[0,0.25,0.5,0.75,1].map(f=>{ const y=pT+ih-ih*f, v=(ymax*f).toFixed(2); return `<line x1="${pL}" y1="${y.toFixed(1)}" x2="${W-pR}" y2="${y.toFixed(1)}" stroke="#1b2530"/><text x="6" y="${(y+3).toFixed(1)}" font-size="10" fill="#7e93a6">${v}</text>`; }).join('');
+  const xt=[0,0.25,0.5,0.75,1].map(f=>{ const x=pL+iw*f, v=Math.round(xmax*f); return `<text x="${x.toFixed(1)}" y="${H-8}" font-size="10" fill="#7e93a6" text-anchor="middle">${v}kg</text>`; }).join('');
+  const x2=est||xmax, fit=reg?`<line x1="${X(0).toFixed(1)}" y1="${Y(reg.b).toFixed(1)}" x2="${X(x2).toFixed(1)}" y2="${Y(reg.a*x2+reg.b).toFixed(1)}" stroke="#5a6b7a" stroke-width="1.8" stroke-dasharray="5 3"/>`:'';
+  const mvtL=`<line x1="${pL}" y1="${Y(mvt).toFixed(1)}" x2="${W-pR}" y2="${Y(mvt).toFixed(1)}" stroke="#e85c5c" stroke-width="1" stroke-dasharray="2 3" opacity="0.55"/><text x="${W-pR-2}" y="${(Y(mvt)-4).toFixed(1)}" font-size="9.5" fill="#e85c5c" text-anchor="end">MVT ${mvt} m/s</text>`;
+  const dots=pts.map(p=>`<circle cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="3.4" fill="#3c9ee8"/>`).join('');
+  let e1=''; if(est&&est>0&&est<xmax*1.2){ e1=`<circle cx="${X(est).toFixed(1)}" cy="${Y(mvt).toFixed(1)}" r="5.5" fill="#e8643c"/><text x="${X(est).toFixed(1)}" y="${(Y(mvt)-11).toFixed(1)}" font-size="12" fill="#e8643c" text-anchor="middle" font-weight="800">est 1RM ~${Math.round(est)}kg</text>`; }
+  return { svg:`<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${grid}${xt}${mvtL}${fit}${dots}${e1}</svg>`, est };
+}
+// bar speed by session: best mean velocity per date (readiness/fatigue signal)
+function vbtSpeedSVG(reps){
+  const byDate={}; reps.forEach(r=>{ if(r.mean_vel==null) return; if(byDate[r.lift_date]==null||r.mean_vel>byDate[r.lift_date]) byDate[r.lift_date]=r.mean_vel; });
+  const days=Object.keys(byDate).sort(); if(days.length<2) return '<div class="note sub" style="padding:8px 0">Bar-speed trend builds over a few sessions.</div>';
+  const pts=days.map(d=>({d, v:byDate[d]}));
+  const W=720,H=210,pL=36,pR=12,pT=14,pB=26,iw=W-pL-pR,ih=H-pT-pB,n=pts.length;
+  const vmax=Math.max(...pts.map(p=>p.v))*1.1, vmin=Math.min(...pts.map(p=>p.v))*0.9;
+  const X=i=>pL+iw*(i/(n-1||1)), Y=v=>pT+ih-ih*((v-vmin)/(vmax-vmin||1));
+  const line=pts.map((p,i)=>X(i).toFixed(1)+','+Y(p.v).toFixed(1)).join(' ');
+  const dots=pts.map((p,i)=>`<circle cx="${X(i).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="3" fill="#e8643c"/>`).join('');
+  const D=s=>new Date(s+'T00:00:00');
+  const lbls=[0,Math.floor(n/2),n-1].map(i=>`<text x="${X(i).toFixed(1)}" y="${H-7}" font-size="10" fill="#7e93a6" text-anchor="middle">${MONS[D(pts[i].d).getMonth()]+' '+D(pts[i].d).getDate()}</text>`).join('');
+  const gy=[vmin,(vmin+vmax)/2,vmax].map(v=>`<text x="4" y="${(Y(v)+3).toFixed(1)}" font-size="10" fill="#7e93a6">${v.toFixed(2)}</text>`).join('');
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet"><polyline points="${line}" fill="none" stroke="#e8643c" stroke-width="2.4"/>${dots}${gy}${lbls}</svg>`;
+}
 async function renderAthDash(){
   athState.screen='dash';
   app.innerHTML = topbar('Athlete') + athNav('dash') + `<div class="spin">Loading your dashboard…</div>`;
@@ -1754,7 +1792,26 @@ async function renderAthDash(){
   const blockCard = phase
     ? `<div class="card"><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span class="pill phase">${esc((phase.kind||'').toUpperCase()||'BLOCK')}</span><b style="font-size:16px">${esc(phase.name)}</b><span class="sub">Cycle Wk ${cycleWk} · ${blockDone}/${blockTot||0} sessions done this block</span></div></div>`
     : '';
-  const lockCard = `<div class="card dlock"><span class="di">📊</span><div><b>The climb — competition total &amp; classification</b><div class="note sub" style="padding:2px 0 0">Your meet totals, classification thresholds and force-plate data appear here once competition results and Hawkin uploads are flowing in.</div></div></div>`;
+  // ---- velocity (VBT) from parsed uploads ----
+  let vbtCard='';
+  const vbtR=await sb.from('vbt_reps').select('*').eq('athlete_id', me_.id).gte('lift_date', startStr).lte('lift_date', todayStr).order('lift_date',{ascending:true});
+  const vreps = vbtR.error?[]:(vbtR.data||[]);
+  if(vreps.length){
+    const exs=[...new Set(vreps.map(r=>r.exercise))];
+    if(!dashState.vbtEx || !exs.includes(dashState.vbtEx)) dashState.vbtEx=exs[0];
+    const exReps=vreps.filter(r=>r.exercise===dashState.vbtEx);
+    const lv=vbtLVSVG(exReps, dashState.vbtEx); const speed=vbtSpeedSVG(exReps);
+    const sel=`<select class="scopesel" onchange="dashSetVbtEx(this.value)">${exs.map(e=>`<option${e===dashState.vbtEx?' selected':''}>${esc(e)}</option>`).join('')}</select>`;
+    vbtCard=`<div class="card">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px"><h2 style="margin:0">⚡ Bar speed — velocity (VBT)</h2>${sel}</div>
+      <div class="note" style="margin:2px 0 8px">From your velocity uploads · ${vreps.length} reps across ${exs.length} lift${exs.length>1?'s':''}.</div>
+      <div class="grid2">
+        <div><div style="font-size:13px;font-weight:700;margin-bottom:4px">Load–velocity profile${lv.est?' · <span style="color:var(--accent)">est 1RM ~'+Math.round(lv.est)+'kg</span>':''}</div>${lv.svg}<div class="note">Each dot is your fastest mean velocity at that load; the dashed line extrapolates to your minimum-velocity threshold for an estimated 1RM.</div></div>
+        <div><div style="font-size:13px;font-weight:700;margin-bottom:4px">Bar speed by session</div>${speed}<div class="note">Top-set mean velocity per session — when it dips at the same loads, that's a fatigue / readiness signal.</div></div>
+      </div>
+    </div>`;
+  }
+  const lockCard = `<div class="card dlock"><span class="di">📊</span><div><b>The climb — competition total &amp; classification${vreps.length?'':' &amp; force plates'}</b><div class="note sub" style="padding:2px 0 0">Your meet totals and classification progress appear here once competition results are logged${vreps.length?'':'; force-plate metrics arrive with Hawkin uploads'}.</div></div></div>`;
 
   app.innerHTML = topbar('Athlete') + athNav('dash') + subtabs + `
     <div class="card">
@@ -1765,10 +1822,12 @@ async function renderAthDash(){
     </div>
     ${kpis}
     ${blockCard}
+    ${vbtCard}
     ${trendCard}
     <div class="grid2">${heatCard}${bwCard}</div>
     ${lockCard}`;
 }
+window.dashSetVbtEx=(v)=>{ dashState.vbtEx=v; renderAthDash(); };
 /* ---------------- uploads (coach inbox + athlete share) ---------------- */
 let upState={ mode:'athlete' };
 function uploadKind(name){ const n=(name||'').toLowerCase();
@@ -1806,10 +1865,12 @@ async function paintUploads(){
     const tag = k==='ovr'?'<span class="up-tag ovr">OVR</span>':(k==='hawkin'?'<span class="up-tag hawkin">Hawkin</span>':'');
     const proc = (k==='ovr'||k==='hawkin') ? (f.processed?'<span class="up-tag proc">✓ processed'+(f.matched_date?' → '+fmtDate(f.matched_date):'')+'</span>':'<span class="up-tag pend">awaiting processing</span>') : '';
     const mine = f.uploader_id===me_.id || f.athlete_id===me_.id;
+    const canProcess = !f.processed && (k==='ovr'||k==='hawkin'||k==='sheet');
     return `<div class="up-row">
       <span class="up-ic">${uploadIcon(k)}</span>
       <div class="up-meta"><div class="up-name">${esc(f.file_name)}${tag}${proc}</div>
         <div class="up-sub">${who?esc(who)+' · ':''}${fmtSize(f.size_bytes)} · ${relTime(f.created_at)}${f.note?' · '+esc(f.note):''}</div></div>
+      ${canProcess?`<span class="up-dl" style="color:var(--accent)" onclick="processUpload('${f.id}')">⚡ process</span>`:''}
       <span class="up-dl" onclick="uploadDownload('${f.id}')">download</span>
       ${mine?`<span class="up-del" onclick="uploadDelete('${f.id}')" title="Remove">✕</span>`:''}
     </div>`;
@@ -1848,10 +1909,13 @@ async function uploadFiles(fileList){
     const path=me_.gym_id+'/'+me_.id+'/'+Date.now()+'_'+safe;
     const up=await sb.storage.from('uploads').upload(path, file, { contentType:file.type||'application/octet-stream', upsert:false });
     if(up.error){ fail++; continue; }
-    const row={ gym_id:me_.gym_id, athlete_id: ath?me_.id:null, uploader_id:me_.id, file_name:file.name, file_path:path, kind:uploadKind(file.name), size_bytes:file.size };
+    const kind=uploadKind(file.name);
+    const row={ gym_id:me_.gym_id, athlete_id: ath?me_.id:null, uploader_id:me_.id, file_name:file.name, file_path:path, kind, size_bytes:file.size };
     const ins=await sb.from('uploads').insert(row).select();
     if(ins.error){ fail++; await sb.storage.from('uploads').remove([path]); continue; }
     ok++;
+    // auto-parse spreadsheets/VBT exports so velocity data lands without a manual step
+    if(ath && ins.data && ins.data[0] && /\.(xlsx?|csv|tsv)$/i.test(file.name)){ upState.files=[ins.data[0],...(upState.files||[])]; try{ await processUpload(ins.data[0].id); }catch(e){} }
   }
   if(msg){ msg.style.color = fail?'var(--bad)':'var(--good)'; msg.textContent = (ok?'✓ '+ok+' file'+(ok>1?'s':'')+' shared'+(ath?' with your coach':''):'') + (fail?'  ·  '+fail+' failed':''); }
   paintUploads();
@@ -1868,6 +1932,79 @@ window.uploadDelete=async(id)=>{
   const res=await sb.from('uploads').delete().eq('id', id).select();
   if(res.error){ const m=document.getElementById('upMsg'); if(m){ m.style.color='var(--bad)'; m.textContent='Couldn’t remove — '+res.error.message; } return; }
   paintUploads();
+};
+
+/* ---------------- VBT parsing (velocity engine) ---------------- */
+const LB2KG=0.45359237, IN2CM=2.54;
+function vNum(v){ if(v==null||v==='') return null; const n=typeof v==='number'?v:parseFloat(String(v).replace(/[^0-9.\-]/g,'')); return isNaN(n)?null:n; }
+function vDate(v){ if(v==null||v==='') return null;
+  if(v instanceof Date){ return v.getFullYear()+'-'+String(v.getMonth()+1).padStart(2,'0')+'-'+String(v.getDate()).padStart(2,'0'); }
+  const s=String(v).trim(); let m=s.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m) return m[1]+'-'+m[2]+'-'+m[3];
+  m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(m) return m[3]+'-'+String(+m[1]).padStart(2,'0')+'-'+String(+m[2]).padStart(2,'0');
+  const d=new Date(s); return isNaN(d)?null:vDate(d); }
+// figure out which brand a workbook came from, by its sheets/columns
+function detectVbtSource(wb){
+  const sheets=wb.SheetNames||[];
+  if(sheets.includes('Velocity')){ const hdr=vbtHeaders(wb.Sheets['Velocity']); if(hdr.some(h=>/avg velocity/i.test(h))) return 'ovr'; }
+  // Flex / Metric (single-sheet CSV) — detect by columns
+  const first=wb.Sheets[sheets[0]]; const hdr=vbtHeaders(first);
+  if(hdr.some(h=>/velocity/i.test(h)) && hdr.some(h=>/load|weight/i.test(h)) && hdr.some(h=>/exercise|movement|lift/i.test(h))){
+    if(hdr.some(h=>/flex/i.test(h))) return 'flex';
+    return 'metric'; // generic single-sheet velocity csv
+  }
+  return null;
+}
+function vbtHeaders(ws){ const j=XLSX.utils.sheet_to_json(ws,{header:1,range:0}); return (j[0]||[]).map(x=>String(x==null?'':x)); }
+function pick(row, names){ for(const n of names){ for(const k of Object.keys(row)){ if(k.toLowerCase().trim()===n.toLowerCase()){ return row[k]; } } }
+  for(const n of names){ for(const k of Object.keys(row)){ if(k.toLowerCase().includes(n.toLowerCase())){ return row[k]; } } } return undefined; }
+// normalize any supported VBT workbook -> array of rep objects
+function vbtParse(wb, source){
+  source = source || detectVbtSource(wb);
+  if(!source) return { source:null, reps:[] };
+  const sheetName = (source==='ovr') ? 'Velocity' : wb.SheetNames[0];
+  const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval:null });
+  const reps=[];
+  rows.forEach(r=>{
+    const ex = pick(r,['Exercise','Movement','Lift']); const dt = vDate(pick(r,['Date','Session Date','Timestamp']));
+    const mv = vNum(pick(r,['Avg Velocity (m/s)','Mean Velocity','Avg Velocity','MPV (m/s)','Mean Velocity (m/s)','Velocity']));
+    const pv = vNum(pick(r,['Peak Velocity (m/s)','Peak Velocity','Max Velocity']));
+    if(!ex || !dt || (mv==null && pv==null)) return;
+    let loadLb=vNum(pick(r,['Load (lb)','Weight (lb)','Load lb'])), loadKg=vNum(pick(r,['Load (kg)','Weight (kg)','Load kg']));
+    if(loadLb==null && loadKg!=null) loadLb=loadKg/LB2KG;
+    if(loadKg==null && loadLb!=null) loadKg=loadLb*LB2KG;
+    const romIn=vNum(pick(r,['ROM (in)'])); const romCm=romIn!=null?romIn*IN2CM:vNum(pick(r,['ROM (cm)']));
+    reps.push({ source, exercise:String(ex).trim(), lift_date:dt,
+      set_no:vNum(pick(r,['Set #','Set'])), rep_no:vNum(pick(r,['Rep #','Rep'])),
+      load_lb:loadLb!=null?Math.round(loadLb*100)/100:null, load_kg:loadKg!=null?Math.round(loadKg*100)/100:null,
+      mean_vel:mv, peak_vel:pv,
+      mean_power:vNum(pick(r,['Avg Power (W)','Mean Power'])), peak_power:vNum(pick(r,['Peak Power (W)','Peak Power'])),
+      rom_cm:romCm!=null?Math.round(romCm*10)/10:null, duration_s:vNum(pick(r,['Duration (s)','Duration'])) });
+  });
+  return { source, reps };
+}
+// fetch a stored upload, parse it, write vbt_reps, mark processed
+window.processUpload=async(id)=>{
+  const f=(upState.files||[]).find(x=>x.id===id); if(!f) return;
+  const msg=document.getElementById('upMsg'); const set=(c,t)=>{ if(msg){ msg.style.color=c; msg.textContent=t; } };
+  if(typeof XLSX==='undefined'){ set('var(--bad)','Spreadsheet reader still loading — try again in a second.'); return; }
+  set('', 'Reading '+f.file_name+'…');
+  try{
+    const sig=await sb.storage.from('uploads').createSignedUrl(f.file_path, 600);
+    if(sig.error||!sig.data) { set('var(--bad)','Couldn’t open the file.'); return; }
+    const buf=await (await fetch(sig.data.signedUrl)).arrayBuffer();
+    const wb=XLSX.read(buf, { type:'array', cellDates:true });
+    const { source, reps }=vbtParse(wb);
+    if(!source || !reps.length){ set('var(--warn)','No velocity data recognized in that file. (Supported now: OVR exports.)'); return; }
+    const athId=f.athlete_id||me_.id;
+    await sb.from('vbt_reps').delete().eq('upload_id', id);          // reprocess-safe
+    const payload=reps.map(r=>Object.assign({ gym_id:me_.gym_id, athlete_id:athId, upload_id:id }, r));
+    for(let i=0;i<payload.length;i+=300){ const ins=await sb.from('vbt_reps').insert(payload.slice(i,i+300)); if(ins.error){ set('var(--bad)','Save failed — '+ins.error.message); return; } }
+    const dates=[...new Set(reps.map(r=>r.lift_date))].sort();
+    const exs=[...new Set(reps.map(r=>r.exercise))];
+    await sb.from('uploads').update({ processed:true, kind:source, matched_date:dates[dates.length-1] }).eq('id', id);
+    set('var(--good)','✓ Processed '+reps.length+' reps · '+exs.length+' exercise'+(exs.length>1?'s':'')+' · '+dates.length+' day'+(dates.length>1?'s':''));
+    setTimeout(paintUploads, 900);
+  }catch(e){ set('var(--bad)','Couldn’t read that file — '+(e.message||e)); }
 };
 
 async function renderAthlete(selDate){
