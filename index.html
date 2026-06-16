@@ -1658,14 +1658,23 @@ function dashHeatmap(trainedSet){
 /* ---- velocity (VBT) charts ---- */
 const VBT_MVT={ 'back squat':0.30,'front squat':0.32,'squat':0.30,'deadlift':0.18,'bench press':0.15,'bench':0.15,'press':0.19,'snatch':0.62,'clean':0.50,'jerk':0.55,'default':0.30 };
 function vbtMvt(ex){ const k=(ex||'').toLowerCase(); for(const key in VBT_MVT){ if(k.includes(key)) return VBT_MVT[key]; } return VBT_MVT.default; }
+// which velocity metric a lift is tracked by: squats + pulls -> mean (avg); competition lifts -> peak.
+function vbtMetricFor(ex){ const k=(ex||'').toLowerCase();
+  if(/pull|deadlift|\bdl\b|rdl|high\s*pull/.test(k)) return 'mean';   // pulls
+  if(/snatch|clean|jerk/.test(k)) return 'peak';                      // snatch / clean & jerk (and their power/hang variants)
+  return 'mean';                                                      // squats + everything else
+}
+const VBT_METRIC_LBL={ mean:'Avg velocity', peak:'Peak velocity' };
 function vbtReg(pts){ const n=pts.length; if(n<2) return null; let sx=0,sy=0,sxx=0,sxy=0; pts.forEach(p=>{sx+=p.x;sy+=p.y;sxx+=p.x*p.x;sxy+=p.x*p.y;}); const d=n*sxx-sx*sx; if(!d) return null; const a=(n*sxy-sx*sy)/d; return {a, b:(sy-a*sx)/n}; }
 // load-velocity profile: best mean velocity per load + linear fit -> estimated 1RM at the lift's min-velocity threshold
-function vbtLVSVG(reps, ex){
-  const byLoad={}; reps.forEach(r=>{ if(r.load_kg==null||r.mean_vel==null) return; if(byLoad[r.load_kg]==null||r.mean_vel>byLoad[r.load_kg]) byLoad[r.load_kg]=r.mean_vel; });
+function vbtLVSVG(reps, ex, metric){
+  metric = metric || 'mean'; const fld = metric==='peak'?'peak_vel':'mean_vel';
+  const byLoad={}; reps.forEach(r=>{ const v=r[fld]; if(r.load_kg==null||v==null) return; if(byLoad[r.load_kg]==null||v>byLoad[r.load_kg]) byLoad[r.load_kg]=v; });
   const pts=Object.keys(byLoad).map(l=>({x:+l,y:byLoad[l]})).sort((a,b)=>a.x-b.x);
-  if(pts.length<3) return {svg:'<div class="note sub" style="padding:8px 0">Need a few different loads to build the load–velocity profile.</div>', est:null};
+  if(pts.length<3) return {svg:'<div class="note sub" style="padding:8px 0">Need a few different loads to build the profile.</div>', est:null};
+  const showFit = metric==='mean';   // est-1RM only makes sense off avg velocity (squats/pulls)
   const reg=vbtReg(pts), mvt=vbtMvt(ex);
-  const est=(reg&&reg.a<0)?(mvt-reg.b)/reg.a:null;
+  const est=(showFit&&reg&&reg.a<0)?(mvt-reg.b)/reg.a:null;
   const W=720,H=270,pL=42,pR=14,pT=18,pB=36,iw=W-pL-pR,ih=H-pT-pB;
   const xmax=Math.max(est||0,...pts.map(p=>p.x))*1.06, ymax=Math.max(...pts.map(p=>p.y))*1.12;
   const X=v=>pL+iw*(v/(xmax||1)), Y=v=>pT+ih-ih*(v/(ymax||1));
@@ -1675,11 +1684,12 @@ function vbtLVSVG(reps, ex){
   const mvtL=`<line x1="${pL}" y1="${Y(mvt).toFixed(1)}" x2="${W-pR}" y2="${Y(mvt).toFixed(1)}" stroke="#e85c5c" stroke-width="1" stroke-dasharray="2 3" opacity="0.55"/><text x="${W-pR-2}" y="${(Y(mvt)-4).toFixed(1)}" font-size="9.5" fill="#e85c5c" text-anchor="end">MVT ${mvt} m/s</text>`;
   const dots=pts.map(p=>`<circle cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="3.4" fill="#3c9ee8"/>`).join('');
   let e1=''; if(est&&est>0&&est<xmax*1.2){ e1=`<circle cx="${X(est).toFixed(1)}" cy="${Y(mvt).toFixed(1)}" r="5.5" fill="#e8643c"/><text x="${X(est).toFixed(1)}" y="${(Y(mvt)-11).toFixed(1)}" font-size="12" fill="#e8643c" text-anchor="middle" font-weight="800">est 1RM ~${Math.round(est)}kg</text>`; }
-  return { svg:`<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${grid}${xt}${mvtL}${fit}${dots}${e1}</svg>`, est };
+  return { svg:`<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${grid}${xt}${showFit?mvtL+fit:''}${dots}${showFit?e1:''}</svg>`, est };
 }
-// bar speed by session: best mean velocity per date (readiness/fatigue signal)
-function vbtSpeedSVG(reps){
-  const byDate={}; reps.forEach(r=>{ if(r.mean_vel==null) return; if(byDate[r.lift_date]==null||r.mean_vel>byDate[r.lift_date]) byDate[r.lift_date]=r.mean_vel; });
+// bar speed by session: best velocity per date (readiness/fatigue signal). metric = mean|peak
+function vbtSpeedSVG(reps, metric){
+  const fld = metric==='peak'?'peak_vel':'mean_vel';
+  const byDate={}; reps.forEach(r=>{ const v=r[fld]; if(v==null) return; if(byDate[r.lift_date]==null||v>byDate[r.lift_date]) byDate[r.lift_date]=v; });
   const days=Object.keys(byDate).sort(); if(days.length<2) return '<div class="note sub" style="padding:8px 0">Bar-speed trend builds over a few sessions.</div>';
   const pts=days.map(d=>({d, v:byDate[d]}));
   const W=720,H=210,pL=36,pR=12,pT=14,pB=26,iw=W-pL-pR,ih=H-pT-pB,n=pts.length;
@@ -1823,14 +1833,18 @@ async function renderAthDash(){
     const exs=[...new Set(vreps.map(r=>r.exercise))];
     if(!dashState.vbtEx || !exs.includes(dashState.vbtEx)) dashState.vbtEx=exs[0];
     const exReps=vreps.filter(r=>r.exercise===dashState.vbtEx);
-    const lv=vbtLVSVG(exReps, dashState.vbtEx); const speed=vbtSpeedSVG(exReps);
-    const sel=`<select class="scopesel" onchange="dashSetVbtEx(this.value)">${exs.map(e=>`<option${e===dashState.vbtEx?' selected':''}>${esc(e)}</option>`).join('')}</select>`;
+    const metric=vbtMetricFor(dashState.vbtEx), mLbl=VBT_METRIC_LBL[metric].toLowerCase(), isPeak=metric==='peak';
+    const lv=vbtLVSVG(exReps, dashState.vbtEx, metric); const speed=vbtSpeedSVG(exReps, metric);
+    const sel=`<select class="scopesel" onchange="dashSetVbtEx(this.value)">${exs.map(e=>`<option${e===dashState.vbtEx?' selected':''}>${esc(e)} · ${VBT_METRIC_LBL[vbtMetricFor(e)]}</option>`).join('')}</select>`;
+    const profTitle = isPeak ? 'Peak velocity by load' : ('Load–velocity profile'+(lv.est?' · <span style="color:var(--accent)">est 1RM ~'+Math.round(lv.est)+'kg</span>':''));
+    const profNote = isPeak ? 'Each dot is the fastest <b>peak</b> velocity hit at that load — speed off the floor / out of the bottom, not an est-1RM lift.' : 'Each dot is the fastest <b>average</b> velocity at that load; the dashed line extrapolates to the minimum-velocity threshold for an estimated 1RM.';
+    const speedNote = isPeak ? 'Top <b>peak</b> velocity per session — track snap on the competition lifts.' : 'Top-set <b>average</b> velocity per session — when it dips at the same loads, that’s a fatigue / readiness signal.';
     vbtCard=`<div class="card">
-      <div style="display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px"><h2 style="margin:0">⚡ Bar speed — velocity (VBT)</h2>${sel}</div>
-      <div class="note" style="margin:2px 0 8px">From your velocity uploads · ${vreps.length} reps across ${exs.length} lift${exs.length>1?'s':''}.</div>
+      <div style="display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px"><h2 style="margin:0">⚡ Velocity (VBT) — ${esc(dashState.vbtEx)}</h2>${sel}</div>
+      <div class="note" style="margin:2px 0 8px">${vreps.length} reps across ${exs.length} lift${exs.length>1?'s':''} from velocity uploads · tracking <b style="color:${isPeak?'#c08be8':'var(--accent2)'}">${mLbl}</b> for ${isPeak?'this lift':'squats &amp; pulls'}.</div>
       <div class="grid2">
-        <div><div style="font-size:13px;font-weight:700;margin-bottom:4px">Load–velocity profile${lv.est?' · <span style="color:var(--accent)">est 1RM ~'+Math.round(lv.est)+'kg</span>':''}</div>${lv.svg}<div class="note">Each dot is your fastest mean velocity at that load; the dashed line extrapolates to your minimum-velocity threshold for an estimated 1RM.</div></div>
-        <div><div style="font-size:13px;font-weight:700;margin-bottom:4px">Bar speed by session</div>${speed}<div class="note">Top-set mean velocity per session — when it dips at the same loads, that's a fatigue / readiness signal.</div></div>
+        <div><div style="font-size:13px;font-weight:700;margin-bottom:4px">${profTitle}</div>${lv.svg}<div class="note">${profNote}</div></div>
+        <div><div style="font-size:13px;font-weight:700;margin-bottom:4px">${VBT_METRIC_LBL[metric]} by session</div>${speed}<div class="note">${speedNote}</div></div>
       </div>
     </div>`;
   }
