@@ -470,6 +470,11 @@
   .up-del{color:var(--muted);cursor:pointer;font-weight:700;padding:0 6px}
   .up-del:hover{color:var(--bad)}
   .up-empty{color:var(--muted);font-size:13px;padding:8px}
+  /* coach-view per-exercise velocity summary */
+  .cvx-vbt{font-size:12px;color:var(--muted);padding:6px 2px 2px;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+  .cvx-vbt .vk{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--accent2);background:rgba(60,158,232,.14);padding:2px 6px;border-radius:5px}
+  .cvx-vbt.peak .vk{color:#c08be8;background:rgba(192,139,232,.16)}
+  .cvx-vbt b{color:var(--text)} .cvx-vbt .ve{color:var(--accent);font-weight:700}
   /* Annual Plan */
   .aptabs{display:flex;gap:4px;margin:4px 0 16px}
   .aptabs button{background:var(--panel2);border:1px solid var(--line);color:var(--muted);padding:8px 18px;cursor:pointer;font-size:13.5px;font-weight:700;border-radius:8px}
@@ -4010,6 +4015,30 @@ function coachReadinessCard(rk){
     ${rk.note?`<div class="rkc-note">“${esc(rk.note)}”</div>`:''}
   </div>`;
 }
+function normEx(n){ return (n||'').toLowerCase().replace(/\s+/g,' ').trim(); }
+// most-recent-session velocity summary for one exercise (Coach View option A)
+function coachVbtSummary(reps, exName){
+  const metric=vbtMetricFor(exName), fld=metric==='peak'?'peak_vel':'mean_vel';
+  const dates=[...new Set(reps.map(r=>r.lift_date))].sort(); const last=dates[dates.length-1]; if(!last) return null;
+  const day=reps.filter(r=>r.lift_date===last && r.load_kg!=null && r[fld]!=null); if(!day.length) return null;
+  const topLoad=Math.max(...day.map(r=>r.load_kg));
+  const vel=Math.max(...day.filter(r=>r.load_kg===topLoad).map(r=>r[fld]));
+  let est=null;
+  if(metric==='mean'){
+    const byLoad={}; day.forEach(r=>{ if(r.mean_vel!=null && (byLoad[r.load_kg]==null||r.mean_vel>byLoad[r.load_kg])) byLoad[r.load_kg]=r.mean_vel; });
+    const pts=Object.keys(byLoad).map(l=>({x:+l,y:byLoad[l]}));
+    if(pts.length>=3){ const reg=vbtReg(pts), mvt=vbtMvt(exName); if(reg&&reg.a<0){ const e=(mvt-reg.b)/reg.a; if(e>topLoad*0.8 && e<topLoad*2.2) est=Math.round(e); } }
+  }
+  return { metric, date:last, topLoad:Math.round(topLoad), vel:Math.round(vel*100)/100, est, nDates:dates.length };
+}
+async function loadCoachVbt(athId){
+  const out={};
+  const r=await sb.from('vbt_reps').select('exercise,lift_date,load_kg,mean_vel,peak_vel').eq('athlete_id', athId).order('lift_date',{ascending:false}).limit(4000);
+  if(r.error || !r.data) return out;
+  const byEx={}; r.data.forEach(x=>{ const k=normEx(x.exercise); (byEx[k]=byEx[k]||[]).push(x); });
+  Object.keys(byEx).forEach(k=>{ const sm=coachVbtSummary(byEx[k], byEx[k][0].exercise); if(sm) out[k]=sm; });
+  return out;
+}
 async function renderCoachPanel(){
   const panel = document.getElementById('coachPanel'); if(!panel) return;
   const athId = coachState.selected; if(!athId){ panel.innerHTML=''; return; }
@@ -4050,6 +4079,7 @@ async function renderCoachPanel(){
   cw = { athId, ath, sessByDate, maxes, block, weekOffset: off, weekSessFull: allWeek, weekLogs,
     selDate: keepSel || (sessByDate[todayStr]?todayStr:(Object.keys(sessByDate).sort()[0]||wkIso[0])),
     selSess: keepSess };
+  cw.vbt = await loadCoachVbt(athId);   // per-exercise velocity summaries from VBT uploads
   const strip = wk.map((d,i)=>{
     const dIso=wkIso[i], list=sessByDate[dIso]||[], isToday=dIso===todayStr;
     const cards = list.map(s=>{
@@ -4516,6 +4546,9 @@ function paintEditor(){
         <span class="scheme-btn" data-scheme="1">⚡ Set/Rep Scheme</span>
         <span class="rm-ex" data-delex="1" title="Remove exercise">✕ remove</span>
       </div>
+      ${(()=>{ const v=cw.vbt&&cw.vbt[normEx(ex.name)]; if(!v) return '';
+        const same=v.date===s.session_date;
+        return `<div class="cvx-vbt ${v.metric}"><span class="vk">⚡ OVR</span><span>${same?'this session':'last '+fmtShort(v.date)}: top set <b>${v.metric==='peak'?'peak':'avg'} ${v.vel.toFixed(2)} m/s</b> @ ${v.topLoad}kg${v.est?` · <span class="ve">est 1RM ~${v.est}kg</span>`:''}</span></div>`; })()}
       <div class="logwrap"><table class="logtable cvt"><colgroup><col class="c-set"><col class="c-pn"><col class="c-pn"><col class="c-pn"><col class="c-an"><col class="c-an">${type==='vbt'?'<col class="c-an">':''}<col class="c-an"><col class="c-le"><col class="c-rm"></colgroup><thead>
         <tr class="bandrow"><th></th><th colspan="3" class="plh">program numbers (planned)</th><th colspan="${actCols(type)}" class="ach">athlete numbers (actual)</th><th></th></tr>
         <tr><th>Sets</th><th>Reps</th><th>${tgtColHead(type)}</th><th>Load kg</th><th class="ach">Reps</th><th class="ach">Weight</th>${type==='vbt'?'<th class="ach">Peak m/s</th>':''}<th class="ach">Miss</th><th class="ach le">Lights · Effort</th><th></th></tr>
