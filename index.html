@@ -450,6 +450,23 @@
   .dev-cl-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700}
   .dev-cl{font-size:30px;font-weight:800;color:var(--accent);margin:2px 0}
   .dev-cl-next{font-size:12px;color:var(--muted)}
+  /* athlete profile screen */
+  .pf-hero{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;background:linear-gradient(110deg,#141d26,#0f1822 70%);border-left:3px solid var(--accent)}
+  .pf-name{font-size:22px;font-weight:800;color:var(--text)}
+  .pf-id{font-size:13px;color:var(--muted);margin-top:6px} .pf-id b{color:var(--text)}
+  .pf-class{font-size:34px;font-weight:800;color:var(--accent);line-height:1}
+  .pf-mx{width:100%;border-collapse:collapse;font-size:13px}
+  .pf-mx th{text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:700;padding:4px 6px;border-bottom:1px solid var(--line)}
+  .pf-mx td{padding:3px 6px;border-bottom:1px solid var(--line)}
+  .pf-lift{font-weight:600;white-space:nowrap}
+  .pf-max{width:66px;background:#0e151c;border:1px solid var(--line);border-radius:6px;padding:5px 7px;color:var(--text);font-size:13px;font-weight:700;text-align:center}
+  .pf-max:focus{outline:none;border-color:var(--accent2)}
+  .pf-dt{color:var(--muted);font-size:11px;white-space:nowrap}
+  .pf-tot td{border-top:1px solid var(--line);border-bottom:none;font-weight:800} .pf-tot .pf-lift{color:var(--accent)}
+  .pf-thr{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px;text-align:center}
+  .pf-thr th{font-size:9px;text-transform:uppercase;color:var(--muted);font-weight:700;padding:4px 3px}
+  .pf-thr td{padding:5px 3px;font-weight:700;color:var(--muted)}
+  .pf-thr .on{color:var(--good)}
   /* Uploads */
   .dropzone{border:2px dashed #2c3d4d;border-radius:14px;padding:46px 20px;text-align:center;cursor:pointer;transition:.15s;background:#0e151c}
   .dropzone:hover,.dropzone.drag{border-color:var(--accent2);background:#101a26}
@@ -1708,33 +1725,43 @@ function vbtSpeedSVG(reps, metric){
   return `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet"><polyline points="${line}" fill="none" stroke="#e8643c" stroke-width="2.4"/>${dots}${gy}${lbls}</svg>`;
 }
 /* ---- classification engine (standards are versioned DATA, swappable — classification-modernization.md §9) ---- */
+const CLASS_RANKS=['Class III','Class II','Class I','CMS','MS','IMS'];
 const CLASS_STANDARDS = {
-  'takano-american-v1': {
-    label:'Takano (American)',
-    ranks:['Class III','Class II','Class I','CMS','MS','IMS'],
-    // [bodyweight cap, ClassIII, ClassII, ClassI, CMS, MS, IMS]  (total kg = best Sn + best C&J)
+  // SoCal-Modern v1 — Chris's template totals. TODO: only Female 59 transcribed so far;
+  // other classes fall back to Takano until Chris provides the full template table.
+  'socal-modern-v1': { label:'SoCal-Modern v1', ranks:CLASS_RANKS,
+    M:[], F:[[59,93,103,114,132,153,193]] },
+  // Takano (American) — complete table, all classes/sexes (classification-modernization §9)
+  'takano-american-v1': { label:'Takano (American)', ranks:CLASS_RANKS,
     M:[[60,135,150,167,192,222,280],[65,145,161,178,205,238,300],[71,157,174,193,222,258,325],[79,169,188,208,239,278,350],[88,181,201,223,257,298,375],[98,193,214,238,274,317,400],[110,205,228,253,291,337,425],[999,212,236,262,301,349,440]],
-    F:[[48,87,96,107,123,143,180],[53,97,107,119,137,159,200],[58,106,118,131,151,175,220],[63,116,129,143,164,190,240],[69,126,139,155,178,206,260],[77,135,150,167,192,222,280],[86,145,161,178,205,238,300],[999,155,172,190,219,254,320]]
-  }
+    F:[[48,87,96,107,123,143,180],[53,97,107,119,137,159,200],[58,106,118,131,151,175,220],[63,116,129,143,164,190,240],[69,126,139,155,178,206,260],[77,135,150,167,192,222,280],[86,145,161,178,205,238,300],[999,155,172,190,219,254,320]] }
 };
-const CLASS_VERSION='takano-american-v1';
-function classRow(sex, bw, version){ const std=CLASS_STANDARDS[version||CLASS_VERSION]; if(!std||bw==null) return null;
-  const rows=std[sex==='F'?'F':'M']; if(!rows) return null;
-  const lastReal=rows[rows.length-2][0];                                // e.g. women 86, men 110
-  if(bw>lastReal) return { row:rows[rows.length-1], ranks:std.ranks };  // open / top class
-  let best=rows[0], bd=Infinity;                                        // else NEAREST cap (59kg -> 58 row, not 63)
-  for(let i=0;i<rows.length-1;i++){ const d=Math.abs(rows[i][0]-bw); if(d<bd){ bd=d; best=rows[i]; } }
-  return { row:best, ranks:std.ranks }; }
-function classify(sex, bw, total, version){
-  const cr=classRow(sex,bw,version); if(!cr || total==null) return null;
-  const ranks=cr.ranks, thresholds=cr.row.slice(1);
+const CLASS_VERSION='socal-modern-v1';
+function classifyWith(sex, bw, total, version){
+  const std=CLASS_STANDARDS[version]; if(!std||bw==null||total==null) return null;
+  const rows=std[sex==='F'?'F':'M']; if(!rows||!rows.length) return null;
+  const open=rows.find(r=>r[0]>=900); const real=rows.filter(r=>r[0]<900);
+  let best=null, bd=Infinity; real.forEach(r=>{ const d=Math.abs(r[0]-bw); if(d<bd){ bd=d; best=r; } });
+  if(open && (!best || bw>real[real.length-1][0])) best=open, bd=0;
+  if(!best) return null;
+  const tooFar = best[0]<900 && bd>4;                  // sparse version → let caller fall back
+  const ranks=std.ranks, thresholds=best.slice(1);
   let idx=-1; for(let i=0;i<thresholds.length;i++){ if(total>=thresholds[i]) idx=i; }
-  const nextIdx = idx+1<ranks.length ? idx+1 : -1;
-  const curThresh = idx>=0 ? thresholds[idx] : (thresholds[0]*0.7);     // floor below Class III for a sane bar
-  const nextTotal = nextIdx>=0 ? thresholds[nextIdx] : null;
-  const pct = nextTotal!=null ? Math.max(0,Math.min(100, Math.round((total-curThresh)/(nextTotal-curThresh)*100))) : 100;
-  const toGo = nextTotal!=null ? Math.max(0, Math.round((nextTotal-total)*10)/10) : 0;
-  return { rank: idx>=0?ranks[idx]:null, rankIdx:idx, nextRank: nextIdx>=0?ranks[nextIdx]:null, nextTotal, pct, toGo, rowBw:cr.row[0], thresholds, ranks };
+  const nextIdx=idx+1<ranks.length?idx+1:-1;
+  const curThresh=idx>=0?thresholds[idx]:thresholds[0]*0.7;
+  const nextTotal=nextIdx>=0?thresholds[nextIdx]:null;
+  const pct=nextTotal!=null?Math.max(0,Math.min(100,Math.round((total-curThresh)/(nextTotal-curThresh)*100))):100;
+  const toGo=nextTotal!=null?Math.max(0,Math.round((nextTotal-total)*10)/10):0;
+  return { rank:idx>=0?ranks[idx]:null, rankIdx:idx, nextRank:nextIdx>=0?ranks[nextIdx]:null, nextTotal, pct, toGo, rowBw:best[0], thresholds, ranks, tooFar };
+}
+function classify(sex, bw, total, version){
+  version=version||CLASS_VERSION;
+  let res=classifyWith(sex,bw,total,version);
+  if((!res || res.tooFar) && version!=='takano-american-v1'){          // fall back to the complete table
+    const fb=classifyWith(sex,bw,total,'takano-american-v1');
+    if(fb) return Object.assign(fb,{version:'takano-american-v1', label:CLASS_STANDARDS['takano-american-v1'].label});
+  }
+  return res?Object.assign(res,{version, label:CLASS_STANDARDS[version].label}):null;
 }
 function totalFromMaxes(rows){
   if(!rows||!rows.length) return null;
@@ -1746,6 +1773,40 @@ function totalFromMaxes(rows){
   if(sn==null && cj==null) return null;
   return { sn, cj, total:Math.round(((sn||0)+(cj||0))*10)/10, hasBoth: sn!=null&&cj!=null };
 }
+const PF_MAXES_L=['Snatch','Clean & Jerk','Clean','Jerk','Back Squat','Front Squat','Push Press'];
+const PF_MAXES_R=['Snatch DL','Clean DL','Power Snatch','Power Clean','Power Jerk','Snatch Balance','OH Squat','Hang Snatch'];
+const SKILL_LEVELS=['Novice','Beginner','Intermediate','Advanced','Elite'];
+const EXP_BANDS=['<1 yr','1–2.5 yrs','2.5–5 yrs','5–10 yrs','10+ yrs'];
+window.saveMax=async(athId,lift,val)=>{
+  const v=parseFloat(val);
+  if(isNaN(v)){ await sb.from('maxes').delete().eq('athlete_id',athId).eq('lift',lift); renderAthDash(); return; }
+  await sb.from('maxes').upsert({gym_id:me_.gym_id,athlete_id:athId,lift,kg:v,tested_at:iso(new Date())},{onConflict:'athlete_id,lift'});
+  renderAthDash();
+};
+window.editProfile=(athId, p)=>{
+  p=p||{};
+  ovModal('profModal', `
+    <div class="ov-hd"><h2 style="margin:0">Edit profile</h2><span class="vid-x" onclick="document.getElementById('profModal').style.display='none'">✕</span></div>
+    <div class="bf-row" style="margin-top:8px;flex-wrap:wrap;gap:12px">
+      <span class="bf-wk"><label>Sex</label><select id="pfSex" class="cw-sel"><option value=""${!p.sex?' selected':''}>—</option><option value="M"${p.sex==='M'?' selected':''}>Male</option><option value="F"${p.sex==='F'?' selected':''}>Female</option></select></span>
+      <span class="bf-wk"><label>Birthdate</label><input id="pfDob" type="date" style="width:160px;text-align:left" value="${p.birthdate||''}"></span>
+      <span class="bf-wk"><label>Weight class (kg)</label><input id="pfWc" type="text" style="width:110px;text-align:left" placeholder="59" value="${esc(p.weight_class||'')}"></span>
+    </div>
+    <div class="bf-row" style="margin-top:10px;flex-wrap:wrap;gap:12px">
+      <span class="bf-wk"><label>Skill level</label><select id="pfSkill" class="cw-sel"><option value="">—</option>${SKILL_LEVELS.map(s=>`<option${p.skill_level===s?' selected':''}>${s}</option>`).join('')}</select></span>
+      <span class="bf-wk"><label>WL experience</label><select id="pfExp" class="cw-sel"><option value="">—</option>${EXP_BANDS.map(s=>`<option${p.experience===s?' selected':''}>${s}</option>`).join('')}</select></span>
+    </div>
+    <div class="bf-row" style="margin-top:12px"><button class="btn" onclick="saveProfile('${athId}')">Save profile</button><span class="saved" id="pfMsg"></span></div>`);
+};
+window.saveProfile=async(athId)=>{
+  const g=id=>(document.getElementById(id)||{}).value;
+  const payload={ sex:g('pfSex')||null, birthdate:g('pfDob')||null, weight_class:g('pfWc')||null, skill_level:g('pfSkill')||null, experience:g('pfExp')||null };
+  const msg=document.getElementById('pfMsg'); if(msg){ msg.style.color=''; msg.textContent='Saving…'; }
+  const r=await sb.from('profiles').update(payload).eq('id',athId);
+  if(r.error){ if(msg){ msg.style.color='var(--bad)'; msg.textContent='Save failed — '+r.error.message; } return; }
+  const m=document.getElementById('profModal'); if(m) m.style.display='none';
+  renderAthDash();
+};
 function classBar(cls, totM){
   if(!cls||!totM) return '';
   const goal = cls.nextRank ? `<span>Next: <b>${esc(cls.nextRank)}</b> @ ${cls.rowBw>900?'top':cls.rowBw+'kg'} = <b>${cls.nextTotal}kg</b></span>` : '<span>🏆 Top of the standards</span>';
@@ -1823,12 +1884,15 @@ async function renderAthDash(){
   // ---- bodyweight series ----
   const bwPts=rd.filter(r=>r.bodyweight!=null).map(r=>({ lbl:MONS[D(r.check_date).getMonth()]+' '+D(r.check_date).getDate(), bw:parseFloat(r.bodyweight) })).filter(p=>!isNaN(p.bw));
   const latestBw = bwPts.length? bwPts[bwPts.length-1].bw : null;
-  // ---- classification inputs (sex + maxes -> total) ----
-  let sex = viewAth&&viewAth.sex;
-  if(sex==null){ const pr=await sb.from('profiles').select('sex').eq('id', viewId).maybeSingle(); sex=pr.data&&pr.data.sex; if(viewAth) viewAth.sex=sex; }
-  const maxesRows = (await sb.from('maxes').select('lift,kg').eq('athlete_id', viewId)).data||[];
+  // ---- profile identity + classification inputs ----
+  let prof = (viewAth && viewAth.weight_class!==undefined) ? viewAth : null;
+  if(!prof){ const pr=await sb.from('profiles').select('*').eq('id', viewId).maybeSingle(); prof = Object.assign({}, viewAth||{}, pr.data||{}); }
+  const sex = prof&&prof.sex;
+  const maxesRows = (await sb.from('maxes').select('lift,kg,tested_at').eq('athlete_id', viewId)).data||[];
+  const maxMap={}; maxesRows.forEach(m=>{ maxMap[normEx(m.lift)]={kg:parseFloat(m.kg), tested_at:m.tested_at, lift:m.lift}; });
   const totM = totalFromMaxes(maxesRows);
-  const cls = (sex && latestBw!=null && totM) ? classify(sex, latestBw, totM.total) : null;
+  const clsBw = (prof&&prof.weight_class)? (parseFloat(String(prof.weight_class))||latestBw) : latestBw;  // prefer declared weight class
+  const cls = (sex && clsBw!=null && totM && totM.hasBoth) ? classify(sex, clsBw, totM.total) : null;
   // ---- 52-week heatmap (own query, fixed window) ----
   const heatStart=new Date(today); heatStart.setDate(heatStart.getDate()-7*52);
   const hsR=await sb.from('sessions').select('id,session_date').eq('athlete_id', viewId).neq('status','draft').gte('session_date', iso(heatStart)).lte('session_date', todayStr);
@@ -1850,38 +1914,43 @@ async function renderAthDash(){
   </div>`;
 
   if(dashState.tab==='profile'){
-    const memberSince = viewAth&&viewAth.created_at? D(iso(new Date(viewAth.created_at))).toLocaleDateString(undefined,{month:'long',year:'numeric'}) : null;
+    const age = prof&&prof.birthdate ? Math.floor((Date.now()-new Date(prof.birthdate).getTime())/(365.25*864e5)) : null;
+    let nextComp=null; const ncR=await sb.from('competitions').select('name,comp_date').gte('comp_date', todayStr).order('comp_date',{ascending:true}).limit(1); if(!ncR.error && ncR.data && ncR.data[0]) nextComp=ncR.data[0];
+    const idChips=[ sex?(sex==='F'?'Female':'Male'):null, age!=null?'Age <b>'+age+'</b>':null,
+      prof&&prof.weight_class?'Weight class <b>'+esc(prof.weight_class)+' kg</b>':null,
+      prof&&prof.skill_level?'Skill <b>'+esc(prof.skill_level)+'</b>':null,
+      prof&&prof.experience?'Experience <b>'+esc(prof.experience)+'</b>':null,
+      nextComp?'Next comp <b>'+fmtShort(nextComp.comp_date)+'</b>':null
+    ].filter(Boolean).join('<span style="color:var(--line);margin:0 7px">·</span>');
+    const editable = coach || !coach; // both can edit own/athlete maxes (RLS enforces)
+    const maxRow=(lift)=>{ const m=maxMap[normEx(lift)]; const v=m&&m.kg!=null?m.kg:''; const dt=m&&m.tested_at?fmtShort(m.tested_at):'—';
+      return `<tr><td class="pf-lift">${esc(lift)}</td><td><input class="pf-max" type="number" step="0.5" inputmode="decimal" value="${v}" onchange="saveMax('${viewId}','${esc(lift).replace(/'/g,"\\'")}',this.value)" placeholder="—"></td><td class="pf-dt">${dt}</td></tr>`; };
+    const totRow=`<tr class="pf-tot"><td class="pf-lift">Total (Sn+CJ)</td><td><b style="font-size:15px">${totM?totM.total:'—'}</b></td><td class="pf-dt">computed</td></tr>`;
+    const thr = cls ? `<table class="pf-thr"><thead><tr>${cls.ranks.map((r,i)=>`<th class="${i===cls.rankIdx?'on':''}">${r==='Class III'?'III':r==='Class II'?'II':r==='Class I'?'I':r}</th>`).join('')}</tr></thead><tbody><tr>${cls.thresholds.map((t,i)=>`<td class="${i===cls.rankIdx?'on':''}">${t}</td>`).join('')}</tr></tbody></table>` : '';
     app.innerHTML = chrome + picker + subtabs + `
-      <div class="card dev-hero">
-        <div class="dev-hero-l">
-          <div class="dev-since">${esc(viewName)}${memberSince?' · since '+memberSince:''}</div>
-          <div class="dev-totalrow"><span class="dev-big">${latestBw!=null?latestBw.toFixed(1):'—'}<span class="u">kg</span></span></div>
-          <div class="dev-split">Current bodyweight${latestBw==null?(coach?' — none logged yet':' — log it on your check-in'):''}</div>
+      <div class="card pf-hero">
+        <div style="flex:1;min-width:240px">
+          <div class="pf-name">${esc(viewName)} · Athlete Profile</div>
+          <div class="pf-id">${idChips||'<span class="sub">No profile details yet'+(coach?' — hit Edit profile':'')+'</span>'}</div>
         </div>
-        <div class="dev-hero-r">
-          ${cls?`<div class="dev-cl-lbl">Current classification</div><div class="dev-cl">${esc(cls.rank||'—')}</div><div class="dev-cl-next">${cls.nextRank?cls.toGo+'kg to '+esc(cls.nextRank):'top of the table'}</div>`
-            :`<div class="dev-cl-lbl">Training days · 52 wks</div><div class="dev-cl">${trainingDays}</div><div class="dev-cl-next">days on the platform</div>`}
+        <div style="text-align:right">
+          ${coach?`<button class="cbtn alt" onclick='editProfile(${JSON.stringify(viewId)}, ${JSON.stringify({sex:sex||'',birthdate:prof&&prof.birthdate||'',weight_class:prof&&prof.weight_class||'',skill_level:prof&&prof.skill_level||'',experience:prof&&prof.experience||''})})'>✎ Edit profile</button>`:''}
+          ${cls?`<div style="margin-top:12px"><div class="pf-class">${esc(cls.rank||'—')}</div><div class="dev-cl-lbl">current class</div></div>`:''}
         </div>
       </div>
-      ${coach
-        ? `<div class="card"><h2 style="margin:0 0 4px">🥇 Classification &amp; maxes</h2>
-            <div class="note sub" style="padding:2px 0 12px">Set sex + best Snatch / Clean &amp; Jerk — this drives the classification bar (Takano standard). Bodyweight comes from check-ins (latest ${latestBw!=null?latestBw.toFixed(1)+'kg':'—'}).</div>
-            <div class="bf-row" style="gap:14px;align-items:flex-end;flex-wrap:wrap">
-              <span class="bf-wk"><label>Sex</label><select id="clsSex" class="cw-sel"><option value=""${!sex?' selected':''}>—</option><option value="M"${sex==='M'?' selected':''}>Male</option><option value="F"${sex==='F'?' selected':''}>Female</option></select></span>
-              <span class="bf-wk"><label>Best Snatch (kg)</label><input id="clsSn" type="number" step="0.5" style="width:120px;text-align:left" value="${totM&&totM.sn!=null?totM.sn:''}"></span>
-              <span class="bf-wk"><label>Best C&amp;J (kg)</label><input id="clsCj" type="number" step="0.5" style="width:120px;text-align:left" value="${totM&&totM.cj!=null?totM.cj:''}"></span>
-              <button class="btn" onclick="saveClassInputs('${viewId}')">Save</button><span class="saved" id="clsMsg"></span>
-            </div>
-            ${cls?'<div style="margin-top:14px">'+classBar(cls,totM)+'<div class="note" style="margin-top:8px">Takano (American) · '+(sex==='F'?'women':'men')+' '+(cls.rowBw>900?'top':cls.rowBw+'kg')+' class.</div></div>':''}
-          </div>`
-        : (cls
-            ? `<div class="card"><h2>🥇 Your classification</h2>${classBar(cls,totM)}<div class="note" style="margin-top:8px">Takano (American) standard · ${sex==='F'?'women':'men'} ${cls.rowBw>900?'top':cls.rowBw+'kg'} class. Your coach sets your sex &amp; maxes.</div></div>`
-            : `<div class="card dlock"><span class="di">🥇</span><div><b>Classification</b><div class="note sub" style="padding:2px 0 0">Your coach sets your sex + Snatch/C&amp;J maxes to light this up.</div></div></div>`)}
-      <div class="card"><h2>${coach?'Logged training':'Your training'}</h2>
-        <div class="dev-stats">
-          <div class="dev-stat"><div class="v">${sessLogged||'—'}</div><div class="l">Sessions logged (${label.toLowerCase()})</div></div>
-          <div class="dev-stat"><div class="v">${tonTxt}</div><div class="l">Tonnage moved</div></div>
-          <div class="dev-stat"><div class="v">${trainingDays}</div><div class="l">Training days · 52w</div></div>
+      <div class="grid2">
+        <div class="card"><h2 style="margin:0 0 4px">Current maxes</h2>
+          <div class="note sub" style="padding:2px 0 10px">Each max is a dated entry — <b>tap a number to edit</b>. Snatch &amp; C&amp;J recompute the Total + classification.</div>
+          <div class="grid2" style="gap:0 24px">
+            <table class="pf-mx"><thead><tr><th>Lift</th><th>1RM (kg)</th><th>Last</th></tr></thead><tbody>${PF_MAXES_L.map(maxRow).join('')}${totRow}</tbody></table>
+            <table class="pf-mx"><thead><tr><th>Lift</th><th>1RM (kg)</th><th>Last</th></tr></thead><tbody>${PF_MAXES_R.map(maxRow).join('')}</tbody></table>
+          </div>
+        </div>
+        <div class="card">
+          <h2 style="margin:0 0 8px">Classification — ${cls?esc(cls.label):'standard'}</h2>
+          ${cls
+            ? `${classBar(cls,totM)}${thr}<div class="note" style="margin-top:10px">Thresholds come from the versioned Classifications table (${sex==='F'?'Female':'Male'} ${cls.rowBw>900?'top':cls.rowBw}) — never typed per athlete.${cls.version==='takano-american-v1' && CLASS_VERSION!=='takano-american-v1'?' <span style="color:var(--warn)">Using Takano — no SoCal-Modern row for this class yet.</span>':''}</div>`
+            : `<div class="note sub" style="padding:8px 0">Set ${[!sex?'sex':null,(!totM||!totM.hasBoth)?'Snatch + C&amp;J maxes':null,clsBw==null?'weight class':null].filter(Boolean).join(' + ')} to light up the classification bar.${coach?' (Edit profile + the maxes table.)':' Your coach sets these.'}</div>`}
         </div>
       </div>`;
     return;
