@@ -480,6 +480,18 @@
   .eff-read.ineff{background:rgba(232,92,92,.16);color:var(--bad)}
   .eff-read.eff{background:rgba(62,201,122,.16);color:var(--good)}
   .eff-read.hyper{background:rgba(60,158,232,.16);color:var(--accent2)}
+  .rm-tbl{border-collapse:collapse;font-size:12px;min-width:760px}
+  .rm-tbl th{font-size:10px;text-transform:uppercase;color:var(--muted);font-weight:700;padding:8px 6px;text-align:center;border-bottom:1px solid var(--line)}
+  .rm-tbl th.rm-1rm{color:var(--accent2)}
+  .rm-tbl td{padding:6px 5px;border-bottom:1px solid var(--line);text-align:center;vertical-align:top}
+  .rm-mv{text-align:left;font-weight:700;color:var(--text);white-space:nowrap;padding-right:14px}
+  .rm-cell input{width:58px;background:#0e151c;border:1px dashed #2c3d4d;border-radius:7px;padding:6px 4px;color:var(--text);font-weight:700;text-align:center;font-size:13px}
+  .rm-cell input:not(:placeholder-shown){border-style:solid;border-color:var(--line)}
+  .rm-cell.c1 input{border-style:solid;border-color:var(--accent2)}
+  .rm-cell input:focus{outline:none;border-color:var(--accent2)}
+  .rm-pct{font-size:10px;color:var(--accent2);margin-top:3px;font-weight:700}
+  .rm-pct.over{color:var(--good)}
+  .rm-cell.off{opacity:.35} .rm-cell.off .dash{color:var(--muted);font-size:14px}
   /* Uploads */
   .dropzone{border:2px dashed #2c3d4d;border-radius:14px;padding:46px 20px;text-align:center;cursor:pointer;transition:.15s;background:#0e151c}
   .dropzone:hover,.dropzone.drag{border-color:var(--accent2);background:#101a26}
@@ -1820,6 +1832,22 @@ function effStory(groups){
   return s.trim();
 }
 window.dashEffFilter=(f)=>{ dashState.effFilter=f; renderAthDash(); };
+// rep-max chart
+const REP_MAX_DEFAULT=['Snatch','Clean & Jerk','Clean','Jerk','Back Squat','Front Squat','Snatch DL','Clean DL','Push Press'];
+const REP_COLS=[1,2,3,4,5,6,8,10];
+const RM_CLASSIC=new Set(['snatch','clean & jerk','clean','jerk']);   // cap at 5RM
+window.saveRepMax=async(athId,lift,reps,val)=>{
+  const v=parseFloat(val);
+  if(isNaN(v)){ await sb.from('rep_maxes').delete().eq('athlete_id',athId).eq('lift',lift).eq('reps',reps); renderAthDash(); return; }
+  await sb.from('rep_maxes').upsert({gym_id:me_.gym_id,athlete_id:athId,lift,reps,kg:v,tested_at:iso(new Date())},{onConflict:'athlete_id,lift,reps'});
+  renderAthDash();
+};
+window.addRepMaxMove=()=>{
+  const pool=[...PF_MAXES_L,...PF_MAXES_R];
+  ovModal('rmAddModal',`<div class="ov-hd"><h2 style="margin:0">Add a movement</h2><span class="vid-x" onclick="document.getElementById('rmAddModal').style.display='none'">✕</span></div>
+    <div class="bf-row" style="margin-top:10px;gap:10px"><select id="rmAddSel" class="cw-sel" style="min-width:200px">${pool.map(l=>`<option>${esc(l)}</option>`).join('')}</select><button class="btn" onclick="addRepMaxMoveGo()">Add</button></div>`);
+};
+window.addRepMaxMoveGo=()=>{ const l=(document.getElementById('rmAddSel')||{}).value; if(l){ dashState.rmExtra=dashState.rmExtra||[]; if(!dashState.rmExtra.includes(l)) dashState.rmExtra.push(l); } const m=document.getElementById('rmAddModal'); if(m) m.style.display='none'; renderAthDash(); };
 window.saveMax=async(athId,lift,val)=>{
   const v=parseFloat(val);
   if(isNaN(v)){ await sb.from('maxes').delete().eq('athlete_id',athId).eq('lift',lift); renderAthDash(); return; }
@@ -1959,6 +1987,15 @@ async function renderAthDash(){
   if(dashState.tab==='profile'){
     const age = prof&&prof.birthdate ? Math.floor((Date.now()-new Date(prof.birthdate).getTime())/(365.25*864e5)) : null;
     let nextComp=null; const ncR=await sb.from('competitions').select('name,comp_date').gte('comp_date', todayStr).order('comp_date',{ascending:true}).limit(1); if(!ncR.error && ncR.data && ncR.data[0]) nextComp=ncR.data[0];
+    const rmMap={}; const rmR=await sb.from('rep_maxes').select('lift,reps,kg').eq('athlete_id', viewId); if(!rmR.error)(rmR.data||[]).forEach(r=>{ const k=normEx(r.lift); (rmMap[k]=rmMap[k]||{})[r.reps]=parseFloat(r.kg); });
+    const rmMoves=[]; const rmSeen=new Set(); const rmAdd=n=>{ const k=normEx(n); if(!rmSeen.has(k)){ rmSeen.add(k); rmMoves.push(n); } };
+    REP_MAX_DEFAULT.forEach(rmAdd); Object.keys(rmMap).forEach(k=>{ const nm=(maxMap[k]&&maxMap[k].lift)||k; rmAdd(nm); }); (dashState.rmExtra||[]).forEach(rmAdd);
+    const rmCell=(lift,reps)=>{ const k=normEx(lift); const base=maxMap[k]?maxMap[k].kg:null;
+      if(RM_CLASSIC.has(k) && reps>5) return '<td class="rm-cell off"><span class="dash">–</span></td>';
+      if(reps===1){ const v=base!=null?base:''; return `<td class="rm-cell c1"><input type="number" step="0.5" inputmode="decimal" value="${v}" onchange="saveMax('${viewId}','${esc(lift).replace(/'/g,"\\'")}',this.value)" placeholder="–"><div class="rm-pct">${v!==''?'100%':''}</div></td>`; }
+      const rmv = rmMap[k]&&rmMap[k][reps]!=null ? rmMap[k][reps] : '';
+      const pct = (rmv!==''&&base)? Math.round(rmv/base*1000)/10 : null;
+      return `<td class="rm-cell"><input type="number" step="0.5" inputmode="decimal" value="${rmv!==''?rmv:''}" onchange="saveRepMax('${viewId}','${esc(lift).replace(/'/g,"\\'")}',${reps},this.value)" placeholder="–"><div class="rm-pct ${pct!=null&&pct>100?'over':''}">${pct!=null?pct+'%':''}</div></td>`; };
     const idChips=[ sex?(sex==='F'?'Female':'Male'):null, age!=null?'Age <b>'+age+'</b>':null,
       prof&&prof.weight_class?'Weight class <b>'+esc(prof.weight_class)+' kg</b>':null,
       prof&&prof.skill_level?'Skill <b>'+esc(prof.skill_level)+'</b>':null,
@@ -2014,7 +2051,13 @@ async function renderAthDash(){
           <div class="eff-filter">${[['all','All'],['ineff','Inefficient'],['eff','Efficient'],['hyper','Hyper Efficient']].map(f=>`<button class="${filt===f[0]?'on':''}" onclick="dashEffFilter('${f[0]}')">${f[1]}</button>`).join('')}</div>
           <div style="overflow-x:auto"><table class="eff-tbl"><thead><tr><th>Movement</th><th>Parent</th><th class="eff-num">Current 1RM</th><th class="eff-num">Current eff</th><th class="eff-num">Target ratio</th><th class="eff-num">Ideal 1RM</th><th class="eff-num">Gap</th><th>Read</th></tr></thead><tbody>${body||'<tr><td colspan="8" class="sub" style="padding:14px;text-align:center">'+(anyMax?'No lifts match this filter.':'Fill in the Current maxes above to see efficiency.')+'</td></tr>'}</tbody></table></div>
           ${story?`<div class="note" style="margin-top:10px"><b>Story:</b> ${esc(story)}</div>`:''}
-        </div>`; })()}`;
+        </div>`; })()}
+      <div class="card">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px"><h2 style="margin:0">Rep-max chart</h2><span class="cbtn alt" onclick="addRepMaxMove()">＋ Add movement</span></div>
+        <div class="note sub" style="padding:2px 0 10px">Log the best lift at each rep count — <b>% of 1RM computes automatically</b>. Tap a cell to type.</div>
+        <div style="overflow-x:auto"><table class="rm-tbl"><thead><tr><th class="rm-mv">Movement</th>${REP_COLS.map(c=>`<th class="${c===1?'rm-1rm':''}">${c}RM</th>`).join('')}</tr></thead><tbody>${rmMoves.map(mv=>`<tr><td class="rm-mv">${esc(mv)}</td>${REP_COLS.map(c=>rmCell(mv,c)).join('')}</tr>`).join('')}</tbody></table></div>
+        <div class="note" style="margin-top:10px">Classic lifts (Snatch, C&amp;J, Clean, Jerk) cap at 5RM. A rep-max above <b style="color:var(--good)">100%</b> means the tested 1RM is conservative — flag for a re-test. Editing a 1RM here syncs to maxes &amp; classification above.</div>
+      </div>`;
     return;
   }
 
