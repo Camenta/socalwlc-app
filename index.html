@@ -922,7 +922,7 @@ async function boot(){
   if(joinTok){ try{ history.replaceState({}, '', location.pathname); }catch(e){} }
   await probeLoadTypes();
   await probeProgramId();
-  if(profile.role === 'coach') renderCoach(); else renderAthlete();
+  if(profile.role === 'coach') renderCoach(); else athGo(athState.screen||'athlete');
 }
 async function renderJoin(token){
   let info=null;
@@ -1290,15 +1290,42 @@ async function submitCheckin(){
   repaintCheckin();
 }
 
+/* ---------------- athlete nav + router ---------------- */
+let athState = { screen:'athlete' };
+function athNav(active){
+  return `<div class="cnav">
+    <button class="${active==='home'?'on':''}" onclick="athGo('home')">⌂ Athlete Home</button>
+    <button class="${active==='plan'?'on':''}" onclick="athGo('plan')">🗓 Annual Plan</button>
+    <button class="${active==='athlete'?'on':''}" onclick="athGo('athlete')">🏋 Athlete View</button>
+    <button class="${active==='dash'?'on':''}" onclick="athGo('dash')">📊 Dashboard</button>
+    <button class="${active==='uploads'?'on':''}" onclick="athGo('uploads')">📤 Uploads</button>
+  </div>`;
+}
+window.athGo=(s)=>{ athState.screen=s;
+  if(s==='athlete') renderAthlete();
+  else if(s==='plan') renderAthPlan();
+  else if(s==='dash') renderAthDash();
+  else if(s==='uploads') renderAthUploads();
+  else renderAthHome();
+};
+function athSoon(title, what){
+  return topbar('Athlete')+athNav(athState.screen)+`<div class="card con-empty"><h2 style="margin:0 0 6px;color:var(--text)">${esc(title)}</h2><div>${esc(what)}</div><div class="sub" style="margin-top:8px">Building this next — it mirrors the coach side, scoped to you.</div></div>`;
+}
+function renderAthHome(){ app.innerHTML = athSoon('Athlete Home','Your hub: today’s session, team announcements & chat, check-ins, your schedule, weekly wins, and how you’re trending.'); }
+function renderAthPlan(){ app.innerHTML = athSoon('Annual Plan','Your season at a glance — the calendar (your sessions + your own events) and the macrocycle (phases, peaks, loading). Mirrors the coach Annual Plan, scoped to you.'); }
+function renderAthDash(){ app.innerHTML = athSoon('Athlete Dashboard','Your numbers — readiness & volume trends, classification progress, and planned vs actual.'); }
+function renderAthUploads(){ app.innerHTML = athSoon('Uploads','Share your OVR velocity and Hawkin force-plate files with your coach.'); }
+
 async function renderAthlete(selDate){
-  app.innerHTML = topbar('Athlete') + `<div class="spin">Loading your week…</div>`;
+  athState.screen='athlete';
+  app.innerHTML = topbar('Athlete') + athNav('athlete') + `<div class="spin">Loading your week…</div>`;
   if(!(await requireSession())) return;
   const wk=weekDates(), wkIso=wk.map(iso), todayStr=iso(new Date());
   // all of this week's sessions
   const { data: weekSess, error: wkErr } = await sb.from('sessions').select(SESSION_SELECT)
     .eq('athlete_id', me_.id).neq('status','draft').gte('session_date', wkIso[0]).lte('session_date', wkIso[6])
     .order('session_date',{ascending:true}).order('created_at',{ascending:true});
-  if(wkErr){ app.innerHTML = topbar('Athlete') + `<div class="card"><div class="empty" style="color:var(--bad)">⚠ Couldn't load your training — ${esc(wkErr.message)}. Pull to refresh or sign out and back in.</div></div>`; return; }
+  if(wkErr){ app.innerHTML = topbar('Athlete') + athNav('athlete') + `<div class="card"><div class="empty" style="color:var(--bad)">⚠ Couldn't load your training — ${esc(wkErr.message)}. Pull to refresh or sign out and back in.</div></div>`; return; }
   const byDate={}; (weekSess||[]).forEach(s=>{ (byDate[s.session_date]=byDate[s.session_date]||[]).push(s); });
   // fallback: latest session ever, if nothing this week
   let fallback=null;
@@ -1306,7 +1333,7 @@ async function renderAthlete(selDate){
     const { data: latest } = await sb.from('sessions').select(SESSION_SELECT)
       .eq('athlete_id', me_.id).neq('status','draft').order('session_date',{ascending:false}).order('created_at',{ascending:false}).limit(1);
     fallback = latest && latest[0];
-    if(!fallback){ app.innerHTML = topbar('Athlete') + `<div class="card"><div class="empty">No session assigned yet — your coach will publish your training here.</div></div>`; return; }
+    if(!fallback){ app.innerHTML = topbar('Athlete') + athNav('athlete') + `<div class="card"><div class="empty">No session assigned yet — your coach will publish your training here.</div></div>`; return; }
   }
   // logs for everything in view (prefill + status dots)
   const ids=[]; Object.values(byDate).forEach(list=>list.forEach(s=>ids.push(s.id))); if(fallback) ids.push(fallback.id);
@@ -1403,7 +1430,7 @@ async function renderAthlete(selDate){
     </div>`;
   });
 
-  app.innerHTML = topbar('Athlete') + `
+  app.innerHTML = topbar('Athlete') + athNav('athlete') + `
     <div class="card">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <span class="pill phase">${esc((session.status||'training').toUpperCase())}</span>
