@@ -1811,6 +1811,23 @@ window.saveGuardrail=async(athId,key,val)=>{
   if(val&&val.trim()) bio.guardrails[key]=val.trim(); else delete bio.guardrails[key];
   await sb.from('profiles').update({bio}).eq('id',athId); renderAthDash();
 };
+// background & goals (athlete-profile-spec §9) — free-text in profiles.bio.bg
+const BG_FIELDS=[['occupation','Occupation'],['hours_avail','Hours/wk available'],['primary_goal','Primary goal'],['secondary_goal','Secondary goal'],['injuries','Injury history'],['athletic_background','Athletic background'],['prev_sports','Previous sports'],['family','Family status'],['hobbies','Hobbies'],['potential','Athletic potential']];
+window.editBackground=async(athId)=>{
+  const pr=await sb.from('profiles').select('bio').eq('id',athId).maybeSingle();
+  const bg=(pr.data&&pr.data.bio&&pr.data.bio.bg)||{};
+  ovModal('bgModal', `<div class="ov-hd"><h2 style="margin:0">Edit background &amp; goals</h2><span class="vid-x" onclick="document.getElementById('bgModal').style.display='none'">✕</span></div>
+    <div style="max-height:60vh;overflow-y:auto;padding-right:4px">${BG_FIELDS.map(([k,l])=>`<div class="bf-row" style="margin-top:8px"><span class="bf-wk" style="flex:1"><label>${l}</label><input id="bg_${k}" value="${esc(bg[k]||'')}" style="width:100%;text-align:left"></span></div>`).join('')}</div>
+    <div class="bf-row" style="margin-top:12px"><button class="btn" onclick="saveBackground('${athId}')">Save</button><span class="saved" id="bgMsg"></span></div>`);
+};
+window.saveBackground=async(athId)=>{
+  const pr=await sb.from('profiles').select('bio').eq('id',athId).maybeSingle();
+  const bio=(pr.data&&pr.data.bio)||{}; bio.bg=bio.bg||{};
+  BG_FIELDS.forEach(([k])=>{ const v=(document.getElementById('bg_'+k)||{}).value; if(v&&v.trim()) bio.bg[k]=v.trim(); else delete bio.bg[k]; });
+  const r=await sb.from('profiles').update({bio}).eq('id',athId);
+  if(r.error){ const m=document.getElementById('bgMsg'); if(m){ m.style.color='var(--bad)'; m.textContent='Save failed — '+r.error.message; } return; }
+  const m=document.getElementById('bgModal'); if(m) m.style.display='none'; renderAthDash();
+};
 function totalFromMaxes(rows){
   if(!rows||!rows.length) return null;
   const norm=s=>(s||'').toLowerCase().replace(/\s+/g,' ').trim();
@@ -2091,6 +2108,13 @@ async function renderAthDash(){
           <h2 style="margin:0 0 4px">Class guardrails — <span style="color:var(--accent)">${esc(rank)} defaults</span>, hybrid</h2>
           <div class="note sub" style="padding:2px 0 8px">Defaults flow from the athlete's class (methodology norms). ${coach?'Type a value to <b style="color:var(--warn)">override</b> for this athlete; clear it to fall back to the class default. Refining the class norms updates everyone else automatically.':'An <b style="color:var(--warn)">amber</b> value is a coach override for you; the rest are your class’s norms.'}</div>
           ${rows}
+        </div>`; })()}
+      ${(()=>{ const bg=(prof&&prof.bio&&prof.bio.bg)||{};
+        const bgRows=BG_FIELDS.map(([k,l])=>`<div class="gr-row"><span class="gr-lbl">${l}</span><span class="gr-val" style="max-width:62%;text-align:right;font-weight:600">${bg[k]?esc(bg[k]):'<span class="sub" style="font-weight:400">—</span>'}</span></div>`).join('');
+        return `<div class="card">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px"><h2 style="margin:0">Background &amp; goals</h2>${coach?`<span class="cbtn alt" onclick="editBackground('${viewId}')">✎ Edit</span>`:''}</div>
+          <div class="note sub" style="padding:2px 0 8px">Free-text context — not in the math, but it's what you (and the AI assistant) read to interpret everything above (e.g. hours/wk sanity-checks the loading band).</div>
+          ${bgRows}
         </div>`; })()}`;
     return;
   }
