@@ -396,6 +396,58 @@
   .pl-item:hover{color:var(--accent2)}
   .pl-item b{font-weight:700}.pl-item .sub{margin-left:auto;font-size:11.5px}
   .pl-dot{width:11px;height:11px;border-radius:3px;flex:0 0 11px}
+  /* macrocycle — 52-week banner */
+  .mc2-head{display:flex;align-items:stretch;gap:18px;flex-wrap:wrap;margin-bottom:14px}
+  .mc2-hb{display:flex;flex-direction:column;gap:2px}
+  .mc2-hb .l{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+  .mc2-hb .v{font-size:14px;font-weight:800;color:var(--text)}
+  .mc2-hb .v.sm{font-size:12.5px;font-weight:700}
+  .mc2-peaks{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
+  .mc2-peak{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:7px 12px;min-width:120px;cursor:pointer}
+  .mc2-peak.next{border-color:var(--accent)}
+  .mc2-peak .nm{font-size:12.5px;font-weight:800;color:var(--text);white-space:nowrap}
+  .mc2-peak .wo{font-size:10.5px;color:var(--muted);margin-top:1px}
+  .mc2-peak .wo b{color:var(--accent2)}
+  .mc2-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:#0c1218}
+  .mc2{display:inline-block;min-width:100%;--cw:46px}
+  .mc2-row{display:flex;align-items:stretch;border-bottom:1px solid rgba(255,255,255,.05)}
+  .mc2-row:last-child{border-bottom:0}
+  .mc2-lbl{flex:0 0 134px;position:sticky;left:0;z-index:6;background:#0e151c;border-right:1px solid var(--line);display:flex;align-items:center;padding:0 12px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)}
+  .mc2-track{flex:1;display:grid;grid-auto-rows:1fr;background-image:repeating-linear-gradient(to right,transparent,transparent calc(var(--cw) - 1px),rgba(255,255,255,.05) var(--cw))}
+  .mc2-cell{display:flex;align-items:center;justify-content:center;font-size:9.5px;color:var(--muted);min-height:28px}
+  .mc2-mon{justify-content:flex-start;padding-left:7px;font-size:11px;font-weight:700;color:#9fb1c2;border-left:1px solid rgba(255,255,255,.08)}
+  .mc2-wk.today{color:var(--accent);font-weight:800;background:rgba(232,100,60,.14);border-radius:4px}
+  .mc2-seg{margin:3px 2px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;padding:0 6px;overflow:hidden;white-space:nowrap;cursor:pointer;min-height:26px}
+  .mc2-seg:hover{filter:brightness(1.25)}
+  .mc2-comp{display:flex;flex-direction:column;align-items:center;font-size:8.5px;font-weight:700;cursor:pointer;padding-top:4px;text-align:center;line-height:1.2;overflow:hidden}
+  .mc2-comp .dot{width:9px;height:9px;border-radius:50%;margin-bottom:2px;flex:0 0 9px}
+  .mc2-comp.star .dot{border-radius:2px;transform:rotate(45deg)}
+  .mc2-bcell{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-height:48px;padding-bottom:2px}
+  .mc2-bar{width:9px;border-radius:2px 2px 0 0}
+  .mc2-bl{font-size:7px;color:var(--muted);margin-top:1px}
+  .mc2-pcell{padding:3px 2px}
+  .mc2-pcell select{width:100%;font-size:9.5px;background:#0c1116;border:1px solid var(--line);border-radius:5px;color:var(--text);padding:3px 2px;cursor:pointer}
+  .mc2-today-line{position:relative}
+  /* track groups */
+  .tg{border:1px solid var(--line);border-radius:10px;margin-top:12px;overflow:hidden}
+  .tg-head{display:flex;align-items:center;gap:10px;padding:11px 14px;background:#0e151c;cursor:pointer}
+  .tg-head .ti{font-size:13px;font-weight:800;color:var(--text);text-transform:uppercase;letter-spacing:.4px}
+  .tg-head .tc{font-size:11px;color:var(--muted)}
+  .tg-head .ar{color:var(--muted);font-size:11px}
+  .tg-body{padding:0}
+  .tg-row{display:flex;align-items:stretch;border-top:1px solid var(--line)}
+  .tg-lbl{flex:0 0 134px;position:sticky;left:0;z-index:6;background:#0c1218;border-right:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:6px;padding:0 10px;font-size:11.5px;font-weight:700;color:var(--text);min-height:42px}
+  .tg-lbl .tdel{color:var(--bad);font-size:11px;cursor:pointer;opacity:.6}
+  .tg-lbl .tdel:hover{opacity:1}
+  .tg-track{flex:1;display:grid;grid-auto-rows:1fr;min-height:42px;background-image:repeating-linear-gradient(to right,transparent,transparent calc(var(--cw) - 1px),rgba(255,255,255,.05) var(--cw))}
+  .tg-seg{margin:4px 2px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:700;padding:0 6px;overflow:hidden;white-space:nowrap;cursor:pointer;min-height:32px}
+  .tg-seg:hover{filter:brightness(1.25)}
+  .tg-add{display:flex;align-items:center;gap:14px;padding:9px 14px;border-top:1px solid var(--line)}
+  .tg-add span{font-size:12px;font-weight:700;color:var(--accent2);cursor:pointer}
+  .mc2-detail{display:flex;gap:26px;flex-wrap:wrap;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:14px 16px;margin-top:14px}
+  .mc2-db{display:flex;flex-direction:column;gap:2px}
+  .mc2-db .l{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+  .mc2-db .v{font-size:14px;font-weight:700;color:var(--text)}
   /* plan calendar month */
   .px-dow{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px}
   .px-dow span{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);padding-left:3px}
@@ -2458,17 +2510,49 @@ function calColor(k){ return (CAL_KINDS[k]||CAL_KINDS.other)[0]; }
 function calLbl(k){ return (CAL_KINDS[k]||CAL_KINDS.other)[1]; }
 const _td=new Date();
 let planState={ tab:'macro', teamId:'', athleteId:'', year:_td.getFullYear(), calView:'month', month:_td.getMonth(),
-  cur:{y:_td.getFullYear(), m:_td.getMonth(), d:_td.getDate()}, phases:[], comps:[], events:[], calSess:{} };
+  cur:{y:_td.getFullYear(), m:_td.getMonth(), d:_td.getDate()}, selWk:null, openGroups:{}, phases:[], comps:[], events:[], tracks:[], segments:[], calSess:{} };
 async function loadPlan(){
   if(conState._teams===undefined){ const { data:tms } = await sb.from('teams').select('*').order('name'); conState._teams=tms||[]; }
   const ph=await sb.from('plan_phases').select('*').order('start_date');
   const cp=await sb.from('competitions').select('*').order('comp_date');
   const ev=await sb.from('calendar_events').select('*').order('start_date');
+  const tr=await sb.from('plan_tracks').select('*').order('sort_order');
+  const sg=await sb.from('plan_segments').select('*').order('start_date');
   PLAN_READY = !ph.error && !cp.error;   // macrocycle tables are the gate
   planState.phases = ph.error?[]:(ph.data||[]);
   planState.comps  = cp.error?[]:(cp.data||[]);
   planState.events = ev.error?[]:(ev.data||[]);
+  planState.tracks = tr.error?[]:(tr.data||[]);
+  planState.segments = sg.error?[]:(sg.data||[]);
 }
+/* macrocycle: subtle-tint colors + 52-week grid math + loading wave */
+const SEG_COLORS={ blue:'#3c9ee8', green:'#3ec97a', amber:'#e8b13c', orange:'#e8643c', red:'#e85c5c', purple:'#9b6dd1', teal:'#2fb6a8', slate:'#5a6b7a' };
+const SEG_LIST=[['blue','Blue'],['green','Green'],['amber','Amber'],['orange','Orange'],['red','Red'],['purple','Purple'],['teal','Teal'],['slate','Slate']];
+const PHASE_COLORKEY={ exposure:'blue', comprehension:'green', ascension:'amber', summit:'orange', realization:'red', transition:'slate' };
+function _hx(h){ h=(h||'#000').replace('#',''); return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]; }
+function tintText(hex){ const [r,g,b]=_hx(hex); const m=(c)=>Math.round(c+(255-c)*0.42); return `rgb(${m(r)},${m(g)},${m(b)})`; }
+function tintStyle(hex){ return `background:${hexA(hex,0.16)};border:1px solid ${hexA(hex,0.5)};color:${tintText(hex)}`; }
+function segColor(c){ return SEG_COLORS[c]||SEG_COLORS.blue; }
+const LOAD_PATTERNS=['Linear Ascending','Linear Descending','Peak on W2','Peak on W3','Undulating','Flat','Deload'];
+const WAVE_LVL={ light:['#5a6b7a',9], moderate:['#3c9ee8',15], heavy:['#e8b13c',21], peak:['#e8643c',27], comp:['#e85c5c',30] };
+function waveLevels(pattern,n){ const L=['light','moderate','heavy','peak']; const out=[];
+  for(let i=0;i<n;i++){ let lv;
+    if(pattern==='Linear Ascending') lv=L[Math.min(3,Math.floor(i/Math.max(1,n-1)*3.99))];
+    else if(pattern==='Linear Descending') lv=L[Math.min(3,Math.floor((n-1-i)/Math.max(1,n-1)*3.99))];
+    else if(pattern==='Peak on W2') lv = i===1?'peak':(i===0?'moderate':'light');
+    else if(pattern==='Peak on W3') lv = i===2?'peak':(i<2?L[Math.min(2,i+1)]:'light');
+    else if(pattern==='Undulating') lv = (i%2===0)?'moderate':'heavy';
+    else if(pattern==='Deload') lv='light';
+    else lv='moderate';
+    out.push(lv); }
+  if(n>1) out[n-1] = out[n-1]; // last week keeps its level
+  return out; }
+// week grid: Monday-aligned weeks across the plan year
+function planMonday(d){ const x=new Date(d); x.setHours(0,0,0,0); x.setDate(x.getDate()-((x.getDay()+6)%7)); return x; }
+function planYearStart(){ return planMonday(new Date(planState.year,0,1)); }
+function planWeeksInYear(){ const s=planYearStart(); const e=planMonday(new Date(planState.year,11,31)); return Math.round((e-s)/(7*864e5))+1; }
+function planWeekIdx(dateStr){ const s=planYearStart(); const d=planMonday(new Date(dateStr+'T00:00:00')); return Math.round((d-s)/(7*864e5)); }
+function planWkDate(i){ const s=planYearStart(); const d=new Date(s); d.setDate(d.getDate()+i*7); return d; }
 function planScopedPhases(){ return planState.phases.filter(p=> !planState.teamId || p.team_id===planState.teamId || !p.team_id); }
 function planScopedComps(){ return planState.comps.filter(c=> !planState.teamId || c.team_id===planState.teamId || !c.team_id); }
 async function renderPlan(){
@@ -2499,33 +2583,92 @@ function paintPlan(){
 }
 function macBounds(){ const y=planState.year; const a=new Date(y,0,1); const b=new Date(y,11,31); return { a, days:Math.round((b-a)/864e5)+1 }; }
 function macPct(dateStr){ const {a,days}=macBounds(); const d=new Date(dateStr+'T00:00:00'); return Math.max(0,Math.min(100,((d-a)/864e5)/days*100)); }
+window.planSelWk=(i)=>{ planState.selWk=i; renderMacro(); };
+window.planToggleGroup=(g)=>{ planState.openGroups[g]=!(planState.openGroups[g]!==false); renderMacro(); };
+window.planSetPattern=async(id,val)=>{ const res=await sb.from('plan_phases').update({pattern:val}).eq('id',id).select(); if(!res.error){ const p=planState.phases.find(x=>x.id===id); if(p) p.pattern=val; renderMacro(); } };
+window.planOpenWeekCoach=(dStr)=>{ if(!planState.athleteId){ alert('Pick an athlete (top-right) to open their week.'); return; } planOpenInCoach(planState.athleteId, dStr); };
 function renderMacro(){
   const host=document.getElementById('planBody'); if(!host) return;
-  const y=planState.year, ys=String(y), {days}=macBounds();
-  const phases=planScopedPhases().filter(p=> p.start_date.slice(0,4)<=ys && p.end_date.slice(0,4)>=ys);
-  const comps=planScopedComps().filter(c=> c.comp_date.slice(0,4)===ys);
-  let months='';
-  for(let m=0;m<12;m++){ const l=macPct(iso(new Date(y,m,1))); const r=macPct(iso(new Date(y,m+1,0)))+(100/days);
-    months+=`<div class="mc-mlabel" style="left:${l}%;width:${Math.max(0,r-l)}%">${MONS[m]}</div><div class="mc-grid" style="left:${l}%"></div>`; }
-  const segs=phases.map(p=>{ const l=macPct(p.start_date); const w=Math.max(1.2,(macPct(p.end_date)+(100/days))-l);
-    return `<div class="mc-seg" style="left:${l}%;width:${w}%;background:${phaseColor(p.kind)}" onclick="planEditPhase('${p.id}')" title="${esc(p.name)} · ${phaseLabel(p.kind)}">${w>7?esc(p.name):''}</div>`; }).join('');
-  const pins=comps.map(c=>`<div class="mc-comp" style="left:${macPct(c.comp_date)}%" onclick="planEditComp('${c.id}')" title="${esc(c.name)} · ${fmtShort(c.comp_date)}"><span class="flag" style="background:${compColor(c.kind)}">${esc(c.name)}</span><span class="pin" style="background:${compColor(c.kind)}"></span></div>`).join('');
-  const td=new Date(); const todayLine = td.getFullYear()===y ? `<div class="mc-today" style="left:${macPct(iso(td))}%"></div>` : '';
-  const phList = phases.length ? phases.map(p=>`<div class="pl-item" onclick="planEditPhase('${p.id}')"><span class="pl-dot" style="background:${phaseColor(p.kind)}"></span><b>${esc(p.name)}</b><span class="sub">${phaseLabel(p.kind)} · ${fmtShort(p.start_date)} – ${fmtShort(p.end_date)}</span></div>`).join('') : '<div class="sub" style="padding:8px 0">No phases for '+y+' yet — “+ Add phase”.</div>';
-  const cpList = comps.length ? comps.map(c=>`<div class="pl-item" onclick="planEditComp('${c.id}')"><span class="pl-dot" style="background:${compColor(c.kind)}"></span><b>${esc(c.name)}</b><span class="sub">${esc(c.kind)} · ${fmtShort(c.comp_date)}</span></div>`).join('') : '<div class="sub" style="padding:8px 0">No comps for '+y+' yet — “+ Add comp”.</div>';
+  const y=planState.year, N=planWeeksInYear(), start=planYearStart(), td=new Date();
+  const esq=(t)=>esc(t).replace(/'/g,"\\'");
+  const col=(dateStr)=>Math.max(0,Math.min(N-1,planWeekIdx(dateStr)));
+  const todayWk = (planMonday(td)>=start && planMonday(td)<=planMonday(new Date(y,11,31))) ? planWeekIdx(iso(td)) : -1;
+  if(planState.selWk==null) planState.selWk = (todayWk>=0&&todayWk<N)?todayWk:0;
+  const phases=planScopedPhases();
+  const comps=planScopedComps().map(c=>({id:c.id,name:c.name,kind:c.kind,comp_date:c.comp_date}));
+  const compEv=planState.events.filter(e=>e.kind==='competition' && (!planState.teamId||!e.team_id||e.team_id===planState.teamId)).map(e=>({id:null,name:e.title,kind:'comp',comp_date:e.start_date}));
+  const allComps=comps.concat(compEv).filter(c=>{const i=planWeekIdx(c.comp_date);return i>=0&&i<N;});
+  const phaseAt=(i)=>phases.find(p=> col(p.start_date)<=i && i<=col(p.end_date));
+  const compWk=new Set(allComps.map(c=>col(c.comp_date)));
+  const gridStyle=`grid-template-columns:repeat(${N},var(--cw))`;
+  // month row
+  let monthCells=''; let mi=0;
+  while(mi<N){ const dd=planWkDate(mi); dd.setDate(dd.getDate()+3); const mon=dd.getMonth(); let span=1;
+    while(mi+span<N){ const d2=planWkDate(mi+span); d2.setDate(d2.getDate()+3); if(d2.getMonth()!==mon) break; span++; }
+    monthCells+=`<div class="mc2-cell mc2-mon" style="grid-column:span ${span}">${MONS[mon]}</div>`; mi+=span; }
+  // microcycle
+  let wkCells=''; for(let i=0;i<N;i++) wkCells+=`<div class="mc2-cell mc2-wk${i===todayWk?' today':''}" onclick="planSelWk(${i})"${i===planState.selWk?' style="box-shadow:inset 0 0 0 1px var(--accent2)"':''}>${i+1}</div>`;
+  // mesocycle
+  const mesoRow=phases.map(p=>{ const ck=PHASE_COLORKEY[p.kind]||'green'; return `<div class="mc2-seg" style="grid-column:${col(p.start_date)+1}/${col(p.end_date)+2};${tintStyle(segColor(ck))}" onclick="planEditPhase('${p.id}')" title="${esc(p.name)} · ${phaseLabel(p.kind)}">${esc(p.name)}</div>`; }).join('');
+  // comps
+  const compsRow=allComps.map(c=>{ const cc=col(c.comp_date)+1; const color=compColor(c.kind); return `<div class="mc2-comp${c.kind==='peak'?' star':''}" style="grid-column:${cc};color:${tintText(color)}"${c.id?` onclick="planEditComp('${c.id}')"`:''}><span class="dot" style="background:${color}"></span>${esc(c.name)}<br>${fmtShort(c.comp_date)}</div>`; }).join('');
+  // loading wave
+  let waveCells=''; for(let i=0;i<N;i++){ const p=phaseAt(i); let lvl='light';
+    if(compWk.has(i)) lvl='comp'; else if(p){ const pw=col(p.end_date)-col(p.start_date)+1, wi=i-col(p.start_date); lvl=waveLevels(p.pattern||'Linear Ascending',pw)[wi]||'moderate'; }
+    const W=WAVE_LVL[lvl]; waveCells+=`<div class="mc2-bcell"><div class="mc2-bar" style="height:${W[1]}px;background:${W[0]}" title="${lvl}"></div></div>`; }
+  // loading pattern
+  const patCells=phases.map(p=>`<div class="mc2-pcell" style="grid-column:${col(p.start_date)+1}/${col(p.end_date)+2}"><select onchange="planSetPattern('${p.id}',this.value)">${LOAD_PATTERNS.map(pt=>`<option${(p.pattern||'Linear Ascending')===pt?' selected':''}>${pt}</option>`).join('')}</select></div>`).join('');
+  // upcoming peaks
+  const todStr=iso(td);
+  const upcoming=allComps.filter(c=>c.comp_date>=todStr).sort((a,b)=>a.comp_date<b.comp_date?-1:1).slice(0,3);
+  const peakChips=upcoming.map((c,idx)=>{ const wo=Math.max(0,Math.ceil((new Date(c.comp_date+'T00:00:00')-new Date(todStr+'T00:00:00'))/(7*864e5))); return `<div class="mc2-peak${idx===0?' next':''}"${c.id?` onclick="planEditComp('${c.id}')"`:''}><div class="nm">${idx===0?'★ ':''}${esc(c.name)}</div><div class="wo">${fmtShort(c.comp_date)} · <b>${wo} wk out</b></div></div>`; }).join('');
+  // track groups
+  const trks=planState.tracks.filter(t=>!planState.teamId || !t.team_id || t.team_id===planState.teamId);
+  const segByTrack={}; planState.segments.forEach(s=>{ (segByTrack[s.track_id]=segByTrack[s.track_id]||[]).push(s); });
+  const grps=[]; trks.forEach(t=>{ let g=grps.find(x=>x.name===t.grp); if(!g){ g={name:t.grp,tracks:[]}; grps.push(g); } g.tracks.push(t); });
+  let tgHtml=grps.map(g=>{ const open=planState.openGroups[g.name]!==false;
+    const rows=open ? (g.tracks.map(t=>{ const segs=(segByTrack[t.id]||[]).map(s=>`<div class="tg-seg" style="grid-column:${col(s.start_date)+1}/${col(s.end_date)+2};${tintStyle(segColor(s.color))}" onclick="event.stopPropagation();planEditSegment('${t.id}','${s.id}')">${esc(s.label)}</div>`).join('');
+        return `<div class="tg-row"><div class="tg-lbl"><span>${esc(t.name)}</span><span class="tdel" onclick="event.stopPropagation();planDelTrack('${t.id}','${esq(t.name)}')">✕</span></div><div class="tg-track" style="${gridStyle}" onclick="planEditSegment('${t.id}')" title="click an empty spot to add a block">${segs}</div></div>`;
+      }).join('')+`<div class="tg-add"><span onclick="planAddTrack('${esq(g.name)}')">＋ Add track</span></div>`) : '';
+    return `<div class="tg"><div class="tg-head" onclick="planToggleGroup('${esq(g.name)}')"><span class="ar">${open?'▾':'▸'}</span><span class="ti">${esc(g.name)}</span><span class="tc">${g.tracks.length} track${g.tracks.length===1?'':'s'}</span></div>${rows}</div>`;
+  }).join('');
+  tgHtml+=`<div class="tg-add" style="border:1px dashed var(--line);border-radius:10px;margin-top:12px"><span onclick="planAddTrack()">＋ Add track group</span></div>`;
+  // detail bar
+  const sw=planState.selWk, swStr=iso(planWkDate(sw)), sp=phaseAt(sw);
+  const spw=sp?col(sp.end_date)-col(sp.start_date)+1:0, swi=sp?sw-col(sp.start_date):0;
+  const swLvl=compWk.has(sw)?'comp':(sp?waveLevels(sp.pattern||'Linear Ascending',spw)[swi]:null);
+  const cap=(s)=>s?s.charAt(0).toUpperCase()+s.slice(1):'—';
+  // legend
+  const legend=`<div class="cal-legend" style="margin-top:10px">${PHASE_KINDS.map(k=>`<span><i style="background:${hexA(segColor(PHASE_COLORKEY[k[0]]),0.55)}"></i>${k[1]}</span>`).join('')}<span style="margin-left:8px;color:#7e93a6">Load: ${Object.keys(WAVE_LVL).map(l=>`<i style="background:${WAVE_LVL[l][0]}"></i>${l}`).join(' ')}</span></div>`;
   host.innerHTML=`
     <div class="card">
-      <div class="calx-head"><div class="calx-title">${y}</div><span style="flex:1"></span><span class="calx-nav"><button onclick="planState.year--;paintPlan()">‹</button><button onclick="planState.year=(new Date()).getFullYear();paintPlan()">This year</button><button onclick="planState.year++;paintPlan()">›</button></span></div>
-      <div class="mc-wrap"><div class="mc">
-        <div class="mc-row"><div class="mc-lbl"></div><div class="mc-track mhdr">${months}</div></div>
-        <div class="mc-row"><div class="mc-lbl">Phases</div><div class="mc-track">${segs}${todayLine}</div></div>
-        <div class="mc-row"><div class="mc-lbl">Comps / peaks</div><div class="mc-track comps">${pins}${todayLine}</div></div>
+      <div class="mc2-head">
+        <div class="mc2-hb"><span class="l">Annual Plan</span><span class="v">${y} · ${N} weeks</span></div>
+        <div class="mc2-hb"><span class="l">Program start</span><span class="v sm">${fmtShort(iso(start))}, ${start.getFullYear()}</span></div>
+        <div class="mc2-hb"><span class="l">Today</span><span class="v sm">${fmtShort(todStr)} · Wk ${todayWk>=0?todayWk+1:'—'}</span></div>
+        <div class="mc2-peaks">${peakChips||'<span class="sub" style="align-self:center">No upcoming comps</span>'}</div>
+        <span class="calx-nav" style="align-self:center"><button onclick="planState.year--;planState.selWk=null;paintPlan()">‹</button><button onclick="planState.year=(new Date()).getFullYear();planState.selWk=null;paintPlan()">This year</button><button onclick="planState.year++;planState.selWk=null;paintPlan()">›</button></span>
+      </div>
+      <div class="ctoolbar" style="margin-bottom:10px"><span class="note sub" style="margin:0;flex:1">Click a mesocycle band or track block to edit · click an empty track spot to add one.</span><span class="cbtn alt" onclick="planEditPhase()">＋ Mesocycle</span><span class="cbtn alt" onclick="planEditComp()">＋ Comp</span></div>
+      <div class="mc2-wrap"><div class="mc2">
+        <div class="mc2-row"><div class="mc2-lbl">Month</div><div class="mc2-track" style="${gridStyle}">${monthCells}</div></div>
+        <div class="mc2-row"><div class="mc2-lbl">Microcycle</div><div class="mc2-track" style="${gridStyle}">${wkCells}</div></div>
+        <div class="mc2-row"><div class="mc2-lbl">Mesocycle</div><div class="mc2-track" style="${gridStyle}">${mesoRow}</div></div>
+        <div class="mc2-row"><div class="mc2-lbl">Comps / tests</div><div class="mc2-track" style="${gridStyle};min-height:48px">${compsRow}</div></div>
+        <div class="mc2-row"><div class="mc2-lbl">Loading wave</div><div class="mc2-track" style="${gridStyle}">${waveCells}</div></div>
+        <div class="mc2-row"><div class="mc2-lbl">Loading pattern</div><div class="mc2-track" style="${gridStyle}">${patCells}</div></div>
       </div></div>
-      <div class="cal-legend" style="margin-top:10px">${PHASE_KINDS.map(k=>`<span><i style="background:${k[2]}"></i>${k[1]}</span>`).join('')}</div>
-    </div>
-    <div class="grid2" style="margin-top:14px">
-      <div class="card"><div class="ctoolbar" style="margin-bottom:6px"><h2 style="margin:0;font-size:15px;flex:1">Training phases</h2><span class="cbtn alt" onclick="planEditPhase()">+ Add phase</span></div>${phList}</div>
-      <div class="card"><div class="ctoolbar" style="margin-bottom:6px"><h2 style="margin:0;font-size:15px;flex:1">Competitions &amp; peaks</h2><span class="cbtn alt" onclick="planEditComp()">+ Add comp</span></div>${cpList}</div>
+      ${legend}
+      ${tgHtml}
+      <div class="mc2-detail">
+        <div class="mc2-db"><span class="l">Selected week</span><span class="v">Wk ${sw+1} · ${fmtShort(swStr)}</span></div>
+        <div class="mc2-db"><span class="l">Mesocycle</span><span class="v">${sp?esc(sp.name):'—'}</span></div>
+        <div class="mc2-db"><span class="l">Cycle week</span><span class="v">${sp?('Week '+(swi+1)+' of '+spw):'—'}</span></div>
+        <div class="mc2-db"><span class="l">Loading pattern</span><span class="v">${sp?esc(sp.pattern||'Linear Ascending'):'—'}</span></div>
+        <div class="mc2-db"><span class="l">This week</span><span class="v">${cap(swLvl)}</span></div>
+        <span style="flex:1"></span>
+        <button class="openbtn" onclick="planOpenWeekCoach('${swStr}')">Open this week in Coach View →</button>
+      </div>
     </div>`;
 }
 function phaseForDay(dStr){ return planScopedPhases().find(p=> p.start_date<=dStr && p.end_date>=dStr); }
@@ -2680,6 +2823,7 @@ window.planEditPhase=(id)=>{
       <span class="bf-wk"><label>Start</label><input id="phStart" type="date" value="${p?p.start_date:iso(new Date(planState.year,planState.month,1))}"></span>
       <span class="bf-wk"><label>End</label><input id="phEnd" type="date" value="${p?p.end_date:iso(new Date(planState.year,planState.month,28))}"></span>
       <span class="bf-wk"><label>Team</label><select id="phTeam" class="cw-sel"><option value="">Whole gym</option>${teams.map(t=>`<option value="${t.id}"${(p&&p.team_id===t.id)||(!p&&planState.teamId===t.id)?' selected':''}>${esc(t.name)}</option>`).join('')}</select></span>
+      <span class="bf-wk"><label>Loading pattern</label><select id="phPattern" class="cw-sel">${LOAD_PATTERNS.map(pt=>`<option${(p&&p.pattern===pt)?' selected':''}>${pt}</option>`).join('')}</select></span>
     </div>
     <div class="bf-row" style="margin-top:12px"><button class="btn" onclick="planSavePhase('${id||''}')">Save phase</button>${p?`<span class="extool del" style="margin-left:10px" onclick="planDelPhase('${id}')">✕ delete</span>`:''}<span class="saved" id="phMsg"></span></div>`);
 };
@@ -2689,7 +2833,7 @@ window.planSavePhase=async(id)=>{
   const start=document.getElementById('phStart').value, end=document.getElementById('phEnd').value;
   if(!start||!end){ if(msg){msg.style.color='var(--warn)';msg.textContent='Pick start & end dates.';} return; }
   if(end<start){ if(msg){msg.style.color='var(--warn)';msg.textContent='End must be after start.';} return; }
-  const payload={ name, kind:document.getElementById('phKind').value, start_date:start, end_date:end, team_id:document.getElementById('phTeam').value||null };
+  const payload={ name, kind:document.getElementById('phKind').value, start_date:start, end_date:end, team_id:document.getElementById('phTeam').value||null, pattern:document.getElementById('phPattern').value };
   let res; if(id) res=await sb.from('plan_phases').update(payload).eq('id',id).select(); else res=await sb.from('plan_phases').insert(Object.assign({gym_id:me_.gym_id},payload)).select();
   if(res.error||!res.data||!res.data.length){ if(msg){msg.style.color='var(--bad)';msg.textContent='Save failed — '+(res.error?res.error.message:'try again');} return; }
   document.getElementById('phaseModal').style.display='none'; await loadPlan(); paintPlan();
@@ -2718,6 +2862,58 @@ window.planSaveComp=async(id)=>{
   document.getElementById('compModal').style.display='none'; await loadPlan(); paintPlan();
 };
 window.planDelComp=async(id)=>{ const res=await sb.from('competitions').delete().eq('id',id).select(); if(res.error){ alert('Delete failed — '+res.error.message); return; } const m=document.getElementById('compModal'); if(m) m.style.display='none'; await loadPlan(); paintPlan(); };
+/* ---- track groups + segments ---- */
+window.planAddTrack=(grp)=>{
+  const teams=conState._teams||[];
+  ovModal('trackModal', `
+    <div class="ov-hd"><h2 style="margin:0">＋ Add track</h2><span class="vid-x" onclick="document.getElementById('trackModal').style.display='none'">✕</span></div>
+    <div class="sub" style="margin:6px 0 12px">A track is one row of the macrocycle (e.g. group <b>Physical Preparation</b> → track <b>Strength</b>). Reuse a group name to add the track under it.</div>
+    <div class="bf-row"><input id="tkGrp" placeholder="Group (e.g. Physical Preparation)" value="${grp?esc(grp):''}" style="flex:1;min-width:200px" list="tkGrpList"><datalist id="tkGrpList">${[...new Set(planState.tracks.map(t=>t.grp))].map(g=>`<option value="${esc(g)}">`).join('')}</datalist></div>
+    <div class="bf-row" style="margin-top:10px"><input id="tkName" placeholder="Track name (e.g. Strength)" style="flex:1;min-width:180px">
+      <span class="bf-wk"><label>Team</label><select id="tkTeam" class="cw-sel"><option value="">Whole gym</option>${teams.map(t=>`<option value="${t.id}"${planState.teamId===t.id?' selected':''}>${esc(t.name)}</option>`).join('')}</select></span></div>
+    <div class="bf-row" style="margin-top:12px"><button class="btn" onclick="planSaveTrack()">Add track</button><span class="saved" id="tkMsg"></span></div>`);
+  setTimeout(()=>{ const el=document.getElementById(grp?'tkName':'tkGrp'); if(el) el.focus(); },30);
+};
+window.planSaveTrack=async()=>{
+  const grp=(document.getElementById('tkGrp').value||'').trim(), name=(document.getElementById('tkName').value||'').trim(); const msg=document.getElementById('tkMsg');
+  if(!grp||!name){ if(msg){msg.style.color='var(--warn)';msg.textContent='Group and track name are required.';} return; }
+  const sort=planState.tracks.filter(t=>t.grp===grp).length;
+  const res=await sb.from('plan_tracks').insert({ gym_id:me_.gym_id, grp, name, sort_order:sort, team_id:document.getElementById('tkTeam').value||null }).select();
+  if(res.error||!res.data||!res.data.length){ if(msg){msg.style.color='var(--bad)';msg.textContent='Save failed — '+(res.error?res.error.message:'try again');} return; }
+  planState.openGroups[grp]=true;
+  document.getElementById('trackModal').style.display='none'; await loadPlan(); paintPlan();
+};
+window.planDelTrack=async(id,name)=>{
+  ovModal('confirmModal', `<div class="ov-hd"><h2 style="margin:0">Delete track?</h2><span class="vid-x" onclick="document.getElementById('confirmModal').style.display='none'">✕</span></div>
+    <div class="sub" style="margin:6px 0 14px">Remove the <b>${esc(name||'track')}</b> track and all its blocks? This can't be undone.</div>
+    <div class="bf-row"><button class="btn" style="background:var(--bad)" onclick="planDelTrackGo('${id}')">Delete track</button><span class="cbtn alt" onclick="document.getElementById('confirmModal').style.display='none'">Cancel</span></div>`);
+};
+window.planDelTrackGo=async(id)=>{ const res=await sb.from('plan_tracks').delete().eq('id',id).select(); const m=document.getElementById('confirmModal'); if(m)m.style.display='none'; if(res.error){ alert('Delete failed — '+res.error.message); return; } await loadPlan(); paintPlan(); };
+window.planEditSegment=(trackId,segId)=>{
+  const s = segId ? planState.segments.find(x=>x.id===segId) : null;
+  const defStart = iso(planWkDate(planState.selWk||0)), defEnd = iso(planWkDate(Math.min(planWeeksInYear()-1,(planState.selWk||0)+3)));
+  ovModal('segModal', `
+    <div class="ov-hd"><h2 style="margin:0">${s?'Edit block':'＋ Add block'}</h2><span class="vid-x" onclick="document.getElementById('segModal').style.display='none'">✕</span></div>
+    <div class="bf-row"><input id="sgLabel" placeholder="Label (e.g. Max strength)" value="${s?esc(s.label):''}" style="flex:1;min-width:200px">
+      <select id="sgColor" class="cw-sel">${SEG_LIST.map(c=>`<option value="${c[0]}"${(s?s.color:'blue')===c[0]?' selected':''}>${c[1]}</option>`).join('')}</select></div>
+    <div class="bf-row" style="margin-top:10px">
+      <span class="bf-wk"><label>Start</label><input id="sgStart" type="date" value="${s?s.start_date:defStart}"></span>
+      <span class="bf-wk"><label>End</label><input id="sgEnd" type="date" value="${s?s.end_date:defEnd}"></span>
+    </div>
+    <div class="bf-row" style="margin-top:12px"><button class="btn" onclick="planSaveSegment('${trackId}','${segId||''}')">Save block</button>${s?`<span class="extool del" style="margin-left:10px" onclick="planDelSegment('${segId}')">✕ delete</span>`:''}<span class="saved" id="sgMsg"></span></div>`);
+  setTimeout(()=>{ const el=document.getElementById('sgLabel'); if(el) el.focus(); },30);
+};
+window.planSaveSegment=async(trackId,segId)=>{
+  const label=(document.getElementById('sgLabel').value||'').trim(); const msg=document.getElementById('sgMsg');
+  if(!label){ document.getElementById('sgLabel').focus(); return; }
+  const start=document.getElementById('sgStart').value, end=document.getElementById('sgEnd').value;
+  if(!start||!end||end<start){ if(msg){msg.style.color='var(--warn)';msg.textContent='Pick a valid start & end.';} return; }
+  const payload={ label, color:document.getElementById('sgColor').value, start_date:start, end_date:end };
+  let res; if(segId) res=await sb.from('plan_segments').update(payload).eq('id',segId).select(); else res=await sb.from('plan_segments').insert(Object.assign({gym_id:me_.gym_id, track_id:trackId},payload)).select();
+  if(res.error||!res.data||!res.data.length){ if(msg){msg.style.color='var(--bad)';msg.textContent='Save failed — '+(res.error?res.error.message:'try again');} return; }
+  document.getElementById('segModal').style.display='none'; await loadPlan(); paintPlan();
+};
+window.planDelSegment=async(id)=>{ const res=await sb.from('plan_segments').delete().eq('id',id).select(); const m=document.getElementById('segModal'); if(m)m.style.display='none'; if(res.error){ alert('Delete failed — '+res.error.message); return; } await loadPlan(); paintPlan(); };
 /* ---- athlete invites (secure self-signup links) ---- */
 let inviteState={ link:null, justName:null };
 function inviteBase(){ return location.origin + location.pathname; }
