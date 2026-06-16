@@ -450,6 +450,26 @@
   .dev-cl-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700}
   .dev-cl{font-size:30px;font-weight:800;color:var(--accent);margin:2px 0}
   .dev-cl-next{font-size:12px;color:var(--muted)}
+  /* Uploads */
+  .dropzone{border:2px dashed #2c3d4d;border-radius:14px;padding:46px 20px;text-align:center;cursor:pointer;transition:.15s;background:#0e151c}
+  .dropzone:hover,.dropzone.drag{border-color:var(--accent2);background:#101a26}
+  .dz-icon{font-size:34px;color:var(--accent2)}
+  .dz-big{font-size:18px;font-weight:800;margin-top:8px}
+  .dz-sub{font-size:13px;color:var(--muted);margin-top:6px}
+  .dz-browse{color:var(--accent2);font-weight:700;text-decoration:underline}
+  .up-list{display:flex;flex-direction:column;gap:8px}
+  .up-row{display:flex;align-items:center;gap:12px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+  .up-ic{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px;flex:0 0 38px;background:#16202b}
+  .up-meta{flex:1;min-width:0}
+  .up-name{font-weight:700;font-size:14px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .up-sub{font-size:11px;color:var(--muted)}
+  .up-tag{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;padding:2px 7px;border-radius:5px;margin-left:6px}
+  .up-tag.ovr{background:rgba(60,158,232,.16);color:var(--accent2)} .up-tag.hawkin{background:rgba(192,139,232,.18);color:#c08be8}
+  .up-tag.proc{background:rgba(62,201,122,.16);color:var(--good)} .up-tag.pend{background:rgba(232,177,60,.16);color:var(--warn)}
+  .up-dl{color:var(--accent2);cursor:pointer;font-weight:700;font-size:12px;padding:0 6px}
+  .up-del{color:var(--muted);cursor:pointer;font-weight:700;padding:0 6px}
+  .up-del:hover{color:var(--bad)}
+  .up-empty{color:var(--muted);font-size:13px;padding:8px}
   /* Annual Plan */
   .aptabs{display:flex;gap:4px;margin:4px 0 16px}
   .aptabs button{background:var(--panel2);border:1px solid var(--line);color:var(--muted);padding:8px 18px;cursor:pointer;font-size:13.5px;font-weight:700;border-radius:8px}
@@ -1749,7 +1769,106 @@ async function renderAthDash(){
     <div class="grid2">${heatCard}${bwCard}</div>
     ${lockCard}`;
 }
-function renderAthUploads(){ app.innerHTML = athSoon('Uploads','Share your OVR velocity and Hawkin force-plate files with your coach.'); }
+/* ---------------- uploads (coach inbox + athlete share) ---------------- */
+let upState={ mode:'athlete' };
+function uploadKind(name){ const n=(name||'').toLowerCase();
+  if(/ovr|velocity|vbt|gymaware|flex/.test(n)) return 'ovr';
+  if(/hawkin|cmj|force.?plate|forcedeck/.test(n)) return 'hawkin';
+  if(/\.(png|jpe?g|gif|webp|heic)$/.test(n)) return 'image';
+  if(/\.(mp4|mov|webm|m4v)$/.test(n)) return 'video';
+  if(/\.(csv|xlsx?|tsv|numbers)$/.test(n)) return 'sheet';
+  if(/\.(pdf|docx?|txt|pages)$/.test(n)) return 'doc';
+  return 'other'; }
+function uploadIcon(k){ return {ovr:'⚡',hawkin:'🦘',image:'🖼️',video:'🎬',sheet:'📊',doc:'📄',other:'📎'}[k]||'📎'; }
+function fmtSize(b){ if(b==null) return ''; if(b<1024) return b+' B'; if(b<1048576) return (b/1024).toFixed(0)+' KB'; return (b/1048576).toFixed(1)+' MB'; }
+window.renderAthUploads=()=>{ upState.mode='athlete'; paintUploads(); };
+window.renderCoachUploads=()=>{ upState.mode='coach'; coachState.screen='uploads'; paintUploads(); };
+async function paintUploads(){
+  const ath = upState.mode==='athlete';
+  const chrome = ath ? topbar('Athlete')+athNav('uploads') : topbar('Coach')+coachNav('uploads');
+  app.innerHTML = chrome + `<div class="spin">Loading uploads…</div>`;
+  if(!(await requireSession())) return;
+  // probe: is the uploads table live?
+  const probe = await sb.from('uploads').select('id').limit(1);
+  if(probe.error){
+    app.innerHTML = chrome + `<div class="card con-empty"><h2 style="margin:0 0 6px;color:var(--text)">Uploads</h2><div>${ath?'Share your OVR velocity &amp; Hawkin force-plate exports with your coach here.':'Your athletes’ shared files (OVR velocity, Hawkin force plates, docs) land here.'}</div><div class="sub" style="margin-top:8px">Almost ready — run <b>24_uploads.sql</b> in Supabase to switch this on.</div></div>`;
+    return;
+  }
+  let q = sb.from('uploads').select('*').order('created_at',{ascending:false}).limit(200);
+  if(ath) q = q.eq('athlete_id', me_.id);
+  const { data: files } = await q;
+  // resolve uploader/athlete names (coach view)
+  let nameById={};
+  if(!ath){ const ids=[...new Set((files||[]).flatMap(f=>[f.athlete_id,f.uploader_id]).filter(Boolean))];
+    if(ids.length){ const pr=await sb.from('profiles').select('id,full_name').in('id', ids); (pr.data||[]).forEach(p=>nameById[p.id]=p.full_name); } }
+  const rows=(files||[]).map(f=>{
+    const k=f.kind||uploadKind(f.file_name); const who = ath ? '' : (nameById[f.athlete_id]||nameById[f.uploader_id]||'Gym');
+    const tag = k==='ovr'?'<span class="up-tag ovr">OVR</span>':(k==='hawkin'?'<span class="up-tag hawkin">Hawkin</span>':'');
+    const proc = (k==='ovr'||k==='hawkin') ? (f.processed?'<span class="up-tag proc">✓ processed'+(f.matched_date?' → '+fmtDate(f.matched_date):'')+'</span>':'<span class="up-tag pend">awaiting processing</span>') : '';
+    const mine = f.uploader_id===me_.id || f.athlete_id===me_.id;
+    return `<div class="up-row">
+      <span class="up-ic">${uploadIcon(k)}</span>
+      <div class="up-meta"><div class="up-name">${esc(f.file_name)}${tag}${proc}</div>
+        <div class="up-sub">${who?esc(who)+' · ':''}${fmtSize(f.size_bytes)} · ${relTime(f.created_at)}${f.note?' · '+esc(f.note):''}</div></div>
+      <span class="up-dl" onclick="uploadDownload('${f.id}')">download</span>
+      ${mine?`<span class="up-del" onclick="uploadDelete('${f.id}')" title="Remove">✕</span>`:''}
+    </div>`;
+  }).join('') || `<div class="up-empty">${ath?'No files yet. Drop your first OVR or Hawkin export above.':'No files shared yet. Your athletes’ uploads will show up here.'}</div>`;
+  upState.files=files||[];
+  app.innerHTML = chrome + `
+    <div class="card"><h2 style="margin:0 0 6px">Uploads</h2>
+      <div class="note" style="margin:0">${ath
+        ? 'Share your <b>OVR</b> velocity and <b>Hawkin</b> force-plate exports — your coach gets them instantly. CSV · sheet · PDF · image · video.'
+        : 'Files your athletes share (OVR velocity, Hawkin force plates, docs). You can also drop gym-wide files here (travel, lodging, meet info).'}</div></div>
+    <div class="card">
+      <div class="dropzone" id="dzone" onclick="document.getElementById('upFile').click()">
+        <div class="dz-icon">⤴</div>
+        <div class="dz-big">Drag &amp; drop files here</div>
+        <div class="dz-sub">or <span class="dz-browse">browse your device</span> &nbsp;·&nbsp; CSV · PDF · Doc · Image · Video</div>
+        <input type="file" id="upFile" multiple style="display:none">
+      </div>
+      <div id="upMsg" class="saved" style="margin-top:10px"></div>
+    </div>
+    <div class="card"><h2 style="margin:0 0 10px">${ath?'Your files':'Shared with you'}</h2><div class="up-list" id="upList">${rows}</div></div>`;
+  wireDropzone();
+}
+function wireDropzone(){
+  const dz=document.getElementById('dzone'), fi=document.getElementById('upFile'); if(!dz||!fi) return;
+  fi.addEventListener('change', e=>{ if(e.target.files&&e.target.files.length) uploadFiles(e.target.files); });
+  ['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev, e=>{ e.preventDefault(); dz.classList.add('drag'); }));
+  ['dragleave','drop'].forEach(ev=>dz.addEventListener(ev, e=>{ e.preventDefault(); dz.classList.remove('drag'); }));
+  dz.addEventListener('drop', e=>{ if(e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files); });
+}
+async function uploadFiles(fileList){
+  const msg=document.getElementById('upMsg'); const ath = upState.mode==='athlete';
+  const files=[...fileList]; let ok=0, fail=0;
+  for(const file of files){
+    if(msg){ msg.style.color=''; msg.textContent='Uploading '+file.name+'…'; }
+    const safe=file.name.replace(/[^\w.\-]+/g,'_');
+    const path=me_.gym_id+'/'+me_.id+'/'+Date.now()+'_'+safe;
+    const up=await sb.storage.from('uploads').upload(path, file, { contentType:file.type||'application/octet-stream', upsert:false });
+    if(up.error){ fail++; continue; }
+    const row={ gym_id:me_.gym_id, athlete_id: ath?me_.id:null, uploader_id:me_.id, file_name:file.name, file_path:path, kind:uploadKind(file.name), size_bytes:file.size };
+    const ins=await sb.from('uploads').insert(row).select();
+    if(ins.error){ fail++; await sb.storage.from('uploads').remove([path]); continue; }
+    ok++;
+  }
+  if(msg){ msg.style.color = fail?'var(--bad)':'var(--good)'; msg.textContent = (ok?'✓ '+ok+' file'+(ok>1?'s':'')+' shared'+(ath?' with your coach':''):'') + (fail?'  ·  '+fail+' failed':''); }
+  paintUploads();
+}
+window.uploadDownload=async(id)=>{
+  const f=(upState.files||[]).find(x=>x.id===id); if(!f) return;
+  const { data, error } = await sb.storage.from('uploads').createSignedUrl(f.file_path, 3600);
+  if(error||!data){ const m=document.getElementById('upMsg'); if(m){ m.style.color='var(--bad)'; m.textContent='Couldn’t open that file — try again.'; } return; }
+  window.open(data.signedUrl, '_blank');
+};
+window.uploadDelete=async(id)=>{
+  const f=(upState.files||[]).find(x=>x.id===id); if(!f) return;
+  await sb.storage.from('uploads').remove([f.file_path]);
+  const res=await sb.from('uploads').delete().eq('id', id).select();
+  if(res.error){ const m=document.getElementById('upMsg'); if(m){ m.style.color='var(--bad)'; m.textContent='Couldn’t remove — '+res.error.message; } return; }
+  paintUploads();
+};
 
 async function renderAthlete(selDate){
   athState.screen='athlete';
@@ -1947,9 +2066,10 @@ function coachNav(active){
     <button class="${active==='console'?'on':''}" onclick="coachGo('console')">⌂ Console</button>
     <button class="${active==='coach'?'on':''}" onclick="coachGo('coach')">Coach View</button>
     <button class="${active==='plan'?'on':''}" onclick="coachGo('plan')">🗓 Annual Plan</button>
+    <button class="${active==='uploads'?'on':''}" onclick="coachGo('uploads')">📤 Uploads</button>
   </div>`;
 }
-window.coachGo=(s)=>{ coachState.screen=s; ed=null; if(s==='coach') paintCoach(); else if(s==='plan') renderPlan(); else renderConsole(); };
+window.coachGo=(s)=>{ coachState.screen=s; ed=null; if(s==='coach') paintCoach(); else if(s==='plan') renderPlan(); else if(s==='uploads') renderCoachUploads(); else renderConsole(); };
 
 function paintCoach(){
   coachState.screen='coach';
