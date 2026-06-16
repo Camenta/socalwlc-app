@@ -370,6 +370,55 @@
   .bufchip.full{background:rgba(62,201,122,.16);color:var(--good)}
   .bufchip.draftb{background:rgba(232,158,60,.16);color:var(--warn)}
   .bufmini{font-size:11px;font-weight:700;color:var(--accent2)}
+  /* Annual Plan */
+  .aptabs{display:flex;gap:4px;margin:4px 0 16px}
+  .aptabs button{background:var(--panel2);border:1px solid var(--line);color:var(--muted);padding:8px 18px;cursor:pointer;font-size:13.5px;font-weight:700;border-radius:8px}
+  .aptabs button.on{color:var(--text);border-color:var(--accent2)}
+  .cal-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--muted);align-items:center}
+  .cal-legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:middle}
+  /* macrocycle timeline */
+  .mc-wrap{overflow-x:auto;padding-bottom:4px}
+  .mc{min-width:780px}
+  .mc-row{display:flex;align-items:stretch;margin-bottom:9px}
+  .mc-lbl{flex:0 0 100px;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);display:flex;align-items:center}
+  .mc-track{position:relative;flex:1;height:32px;background:#0c1218;border:1px solid var(--line);border-radius:7px}
+  .mc-track.comps{height:42px;background:transparent;border-color:transparent}
+  .mc-track.mhdr{height:24px;background:transparent;border:0}
+  .mc-mlabel{position:absolute;top:4px;text-align:center;font-size:10px;font-weight:700;color:var(--muted)}
+  .mc-grid{position:absolute;top:0;bottom:-340px;width:1px;background:rgba(255,255,255,.04);z-index:0}
+  .mc-seg{position:absolute;top:3px;bottom:3px;border-radius:5px;display:flex;align-items:center;padding:0 8px;font-size:10.5px;font-weight:800;color:#0c1116;overflow:hidden;white-space:nowrap;cursor:pointer;z-index:2}
+  .mc-seg:hover{filter:brightness(1.1)}
+  .mc-comp{position:absolute;top:0;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;cursor:pointer;z-index:2}
+  .mc-comp .flag{font-size:9px;font-weight:800;padding:2px 6px;border-radius:6px;color:#fff;white-space:nowrap;margin-bottom:0}
+  .mc-comp .pin{width:2px;height:20px}
+  .mc-today{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--accent);z-index:4}
+  .pl-item{display:flex;align-items:center;gap:9px;padding:8px 4px;border-top:1px solid var(--line);cursor:pointer;font-size:13px}
+  .pl-item:hover{color:var(--accent2)}
+  .pl-item b{font-weight:700}.pl-item .sub{margin-left:auto;font-size:11.5px}
+  .pl-dot{width:11px;height:11px;border-radius:3px;flex:0 0 11px}
+  /* plan calendar month */
+  .px-dow{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px}
+  .px-dow span{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);padding-left:3px}
+  .px-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+  .px-cell{min-height:84px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:5px 6px;display:flex;flex-direction:column;gap:3px}
+  .px-cell.dim{background:transparent;border-color:transparent}
+  .px-cell.today{outline:2px solid var(--accent)}
+  .px-d{font-size:12px;font-weight:700;color:var(--text)}
+  .px-ph{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .px-comp{font-size:10px;font-weight:700;color:#fff;border-radius:4px;padding:2px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+  /* plan calendar year (12 minis) */
+  .pm-year{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  @media(max-width:900px){.pm-year{grid-template-columns:repeat(2,1fr)}}
+  .pm-card{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:11px;cursor:pointer}
+  .pm-card:hover{border-color:var(--accent2)}
+  .pm-card h4{margin:0 0 7px;font-size:13px}
+  .pm-dow{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:3px}
+  .pm-dow span{font-size:8px;text-align:center;color:#5f748a}
+  .pm-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+  .pm-d{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--muted);border-radius:3px;position:relative}
+  .pm-d.dim{visibility:hidden}
+  .pm-d.today{outline:1.5px solid var(--accent);color:var(--text);font-weight:800}
+  .pm-dot{width:4px;height:4px;border-radius:50%;position:absolute;bottom:1px;right:1px}
   .ccard .cprog-bar,.ccard .pub-bar{margin-top:10px}
   /* segmented control (stamp target) */
   .seg{display:inline-flex;background:#0e151c;border:1px solid var(--line);border-radius:9px;padding:3px;gap:3px}
@@ -1320,9 +1369,10 @@ function coachNav(active){
   return `<div class="cnav">
     <button class="${active==='console'?'on':''}" onclick="coachGo('console')">⌂ Console</button>
     <button class="${active==='coach'?'on':''}" onclick="coachGo('coach')">Coach View</button>
+    <button class="${active==='plan'?'on':''}" onclick="coachGo('plan')">🗓 Annual Plan</button>
   </div>`;
 }
-window.coachGo=(s)=>{ coachState.screen=s; ed=null; if(s==='coach') paintCoach(); else renderConsole(); };
+window.coachGo=(s)=>{ coachState.screen=s; ed=null; if(s==='coach') paintCoach(); else if(s==='plan') renderPlan(); else renderConsole(); };
 
 function paintCoach(){
   coachState.screen='coach';
@@ -2331,6 +2381,162 @@ function pvRenderDay(host){
     ${exs}`;
 }
 window.conOpenAthlete=(id)=>{ ed=null; cw=null; coachState.selected=id; coachGo('coach'); };
+/* ================= ANNUAL PLAN (macrocycle timeline + calendar) ================= */
+const PHASE_KINDS=[['exposure','Exposure','#3c9ee8'],['comprehension','Comprehension','#3ec97a'],['ascension','Ascension','#e8b13c'],['summit','Summit','#e8643c'],['realization','Realization','#e85c5c'],['transition','Transition','#3a4654']];
+const COMP_KINDS=[['comp','Comp','#e85c5c'],['test','Test','#3c9ee8'],['peak','Peak','#e8643c']];
+function phaseColor(k){ const m=PHASE_KINDS.find(x=>x[0]===k); return m?m[2]:'#3ec97a'; }
+function phaseLabel(k){ const m=PHASE_KINDS.find(x=>x[0]===k); return m?m[1]:k; }
+function compColor(k){ const m=COMP_KINDS.find(x=>x[0]===k); return m?m[2]:'#e85c5c'; }
+function fmtShort(d){ if(!d) return '—'; const dt=new Date(d+'T00:00:00'); return MONS[dt.getMonth()]+' '+dt.getDate(); }
+function hexA(hex,a){ const h=hex.replace('#',''); return `rgba(${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)},${a})`; }
+let PLAN_READY=true;
+let planState={ tab:'macro', teamId:'', year:(new Date()).getFullYear(), calView:'month', month:(new Date()).getMonth(), phases:[], comps:[] };
+async function loadPlan(){
+  if(conState._teams===undefined){ const { data:tms } = await sb.from('teams').select('*').order('name'); conState._teams=tms||[]; }
+  const ph=await sb.from('plan_phases').select('*').order('start_date');
+  const cp=await sb.from('competitions').select('*').order('comp_date');
+  PLAN_READY = !ph.error && !cp.error;
+  planState.phases = ph.error?[]:(ph.data||[]);
+  planState.comps  = cp.error?[]:(cp.data||[]);
+}
+function planScopedPhases(){ return planState.phases.filter(p=> !planState.teamId || p.team_id===planState.teamId || !p.team_id); }
+function planScopedComps(){ return planState.comps.filter(c=> !planState.teamId || c.team_id===planState.teamId || !c.team_id); }
+async function renderPlan(){
+  coachState.screen='plan';
+  app.innerHTML = topbar('Coach') + coachNav('plan') + `<div class="spin">Loading the plan…</div>`;
+  if(!(await requireSession())) return;
+  await loadPlan();
+  paintPlan();
+}
+function paintPlan(){
+  if(!PLAN_READY){ app.innerHTML = topbar('Coach') + coachNav('plan') + conSoon('Annual Plan','map the macrocycle — mesocycle phases, peaks &amp; competitions across the year, on a timeline and a calendar','the plan tables — run 21_annual_plan.sql'); return; }
+  const teams=conState._teams||[];
+  app.innerHTML = topbar('Coach') + coachNav('plan') + `
+    <div class="console-head">
+      <div><h1>Annual Plan</h1><div class="sub">Map the macrocycle — phases, peaks &amp; comps across the year.</div></div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <select class="cw-sel" onchange="planState.teamId=this.value;paintPlan()"><option value="">Whole gym</option>${teams.map(t=>`<option value="${t.id}"${planState.teamId===t.id?' selected':''}>${esc(t.name)}</option>`).join('')}</select>
+        <span class="cw-nav"><button class="cw-arr" onclick="planState.year--;paintPlan()">‹</button><b style="min-width:54px;text-align:center;display:inline-block">${planState.year}</b><button class="cw-arr" onclick="planState.year++;paintPlan()">›</button></span>
+      </div>
+    </div>
+    <div class="aptabs">
+      <button class="${planState.tab==='calendar'?'on':''}" onclick="planState.tab='calendar';paintPlan()">Calendar</button>
+      <button class="${planState.tab==='macro'?'on':''}" onclick="planState.tab='macro';paintPlan()">Macrocycle</button>
+    </div>
+    <div id="planBody"></div>`;
+  if(planState.tab==='macro') renderMacro(); else renderPlanCal();
+}
+function macBounds(){ const y=planState.year; const a=new Date(y,0,1); const b=new Date(y,11,31); return { a, days:Math.round((b-a)/864e5)+1 }; }
+function macPct(dateStr){ const {a,days}=macBounds(); const d=new Date(dateStr+'T00:00:00'); return Math.max(0,Math.min(100,((d-a)/864e5)/days*100)); }
+function renderMacro(){
+  const host=document.getElementById('planBody'); if(!host) return;
+  const y=planState.year, ys=String(y), {days}=macBounds();
+  const phases=planScopedPhases().filter(p=> p.start_date.slice(0,4)<=ys && p.end_date.slice(0,4)>=ys);
+  const comps=planScopedComps().filter(c=> c.comp_date.slice(0,4)===ys);
+  let months='';
+  for(let m=0;m<12;m++){ const l=macPct(iso(new Date(y,m,1))); const r=macPct(iso(new Date(y,m+1,0)))+(100/days);
+    months+=`<div class="mc-mlabel" style="left:${l}%;width:${Math.max(0,r-l)}%">${MONS[m]}</div><div class="mc-grid" style="left:${l}%"></div>`; }
+  const segs=phases.map(p=>{ const l=macPct(p.start_date); const w=Math.max(1.2,(macPct(p.end_date)+(100/days))-l);
+    return `<div class="mc-seg" style="left:${l}%;width:${w}%;background:${phaseColor(p.kind)}" onclick="planEditPhase('${p.id}')" title="${esc(p.name)} · ${phaseLabel(p.kind)}">${w>7?esc(p.name):''}</div>`; }).join('');
+  const pins=comps.map(c=>`<div class="mc-comp" style="left:${macPct(c.comp_date)}%" onclick="planEditComp('${c.id}')" title="${esc(c.name)} · ${fmtShort(c.comp_date)}"><span class="flag" style="background:${compColor(c.kind)}">${esc(c.name)}</span><span class="pin" style="background:${compColor(c.kind)}"></span></div>`).join('');
+  const td=new Date(); const todayLine = td.getFullYear()===y ? `<div class="mc-today" style="left:${macPct(iso(td))}%"></div>` : '';
+  const phList = phases.length ? phases.map(p=>`<div class="pl-item" onclick="planEditPhase('${p.id}')"><span class="pl-dot" style="background:${phaseColor(p.kind)}"></span><b>${esc(p.name)}</b><span class="sub">${phaseLabel(p.kind)} · ${fmtShort(p.start_date)} – ${fmtShort(p.end_date)}</span></div>`).join('') : '<div class="sub" style="padding:8px 0">No phases for '+y+' yet — “+ Add phase”.</div>';
+  const cpList = comps.length ? comps.map(c=>`<div class="pl-item" onclick="planEditComp('${c.id}')"><span class="pl-dot" style="background:${compColor(c.kind)}"></span><b>${esc(c.name)}</b><span class="sub">${esc(c.kind)} · ${fmtShort(c.comp_date)}</span></div>`).join('') : '<div class="sub" style="padding:8px 0">No comps for '+y+' yet — “+ Add comp”.</div>';
+  host.innerHTML=`
+    <div class="card">
+      <div class="mc-wrap"><div class="mc">
+        <div class="mc-row"><div class="mc-lbl"></div><div class="mc-track mhdr">${months}</div></div>
+        <div class="mc-row"><div class="mc-lbl">Phases</div><div class="mc-track">${segs}${todayLine}</div></div>
+        <div class="mc-row"><div class="mc-lbl">Comps / peaks</div><div class="mc-track comps">${pins}${todayLine}</div></div>
+      </div></div>
+      <div class="cal-legend" style="margin-top:10px">${PHASE_KINDS.map(k=>`<span><i style="background:${k[2]}"></i>${k[1]}</span>`).join('')}</div>
+    </div>
+    <div class="grid2" style="margin-top:14px">
+      <div class="card"><div class="ctoolbar" style="margin-bottom:6px"><h2 style="margin:0;font-size:15px;flex:1">Training phases</h2><span class="cbtn alt" onclick="planEditPhase()">+ Add phase</span></div>${phList}</div>
+      <div class="card"><div class="ctoolbar" style="margin-bottom:6px"><h2 style="margin:0;font-size:15px;flex:1">Competitions &amp; peaks</h2><span class="cbtn alt" onclick="planEditComp()">+ Add comp</span></div>${cpList}</div>
+    </div>`;
+}
+function phaseForDay(dStr){ return planScopedPhases().find(p=> p.start_date<=dStr && p.end_date>=dStr); }
+function compsForDay(dStr){ return planScopedComps().filter(c=> c.comp_date===dStr); }
+window.planMonthNav=(d)=>{ let m=planState.month+d, y=planState.year; if(m<0){m=11;y--;} if(m>11){m=0;y++;} planState.month=m; planState.year=y; paintPlan(); };
+function renderPlanCal(){
+  const host=document.getElementById('planBody'); if(!host) return;
+  if(planState.calView==='year'){ return renderPlanYear(host); }
+  const y=planState.year, m=planState.month, todayStr=iso(new Date());
+  const startDow=(new Date(y,m,1).getDay()+6)%7, daysIn=new Date(y,m+1,0).getDate();
+  let cells=''; for(let i=0;i<startDow;i++) cells+=`<div class="px-cell dim"></div>`;
+  for(let d=1;d<=daysIn;d++){ const dStr=iso(new Date(y,m,d)); const ph=phaseForDay(dStr); const cs=compsForDay(dStr);
+    const bg=ph?`background:${hexA(phaseColor(ph.kind),0.12)};border-color:${hexA(phaseColor(ph.kind),0.4)}`:'';
+    cells+=`<div class="px-cell${dStr===todayStr?' today':''}" style="${bg}"><div class="px-d">${d}</div>${ph?`<div class="px-ph" style="color:${phaseColor(ph.kind)}">${esc(ph.name)}</div>`:''}${cs.map(c=>`<div class="px-comp" style="background:${compColor(c.kind)}" onclick="event.stopPropagation();planEditComp('${c.id}')">${esc(c.name)}</div>`).join('')}</div>`; }
+  host.innerHTML=`<div class="card">
+    <div class="ctoolbar">
+      <span class="cw-nav"><button class="cw-arr" onclick="planMonthNav(-1)">‹</button><b style="min-width:130px;text-align:center;display:inline-block">${MONS[m]} ${y}</b><button class="cw-arr" onclick="planMonthNav(1)">›</button></span>
+      <span style="flex:1"></span>
+      <div class="viewtoggle"><button class="on">Month</button><button onclick="planState.calView='year';paintPlan()">Year</button></div>
+      <span class="cbtn alt" onclick="planEditComp()">+ Add comp</span>
+    </div>
+    <div class="px-dow">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<span>${d}</span>`).join('')}</div>
+    <div class="px-grid">${cells}</div></div>`;
+}
+function renderPlanYear(host){
+  const y=planState.year, todayStr=iso(new Date());
+  let minis='';
+  for(let m=0;m<12;m++){ const startDow=(new Date(y,m,1).getDay()+6)%7, daysIn=new Date(y,m+1,0).getDate();
+    let cells=''; for(let i=0;i<startDow;i++) cells+=`<span class="pm-d dim"></span>`;
+    for(let d=1;d<=daysIn;d++){ const dStr=iso(new Date(y,m,d)); const ph=phaseForDay(dStr); const cs=compsForDay(dStr);
+      cells+=`<span class="pm-d${dStr===todayStr?' today':''}" style="${ph?`background:${hexA(phaseColor(ph.kind),0.32)};color:#fff`:''}">${d}${cs.length?`<i class="pm-dot" style="background:${compColor(cs[0].kind)}"></i>`:''}</span>`; }
+    minis+=`<div class="pm-card" onclick="planState.calView='month';planState.month=${m};paintPlan()"><h4>${MONS[m]} ${y}</h4><div class="pm-dow">${['M','T','W','T','F','S','S'].map(x=>`<span>${x}</span>`).join('')}</div><div class="pm-grid">${cells}</div></div>`; }
+  host.innerHTML=`<div class="card"><div class="ctoolbar"><span class="note sub" style="margin:0;flex:1">Day tint = training phase · dot = comp. Click a month to zoom in.</span><div class="viewtoggle"><button onclick="planState.calView='month';paintPlan()">Month</button><button class="on">Year</button></div></div><div class="pm-year">${minis}</div></div>`;
+}
+window.planEditPhase=(id)=>{
+  const p = id ? planState.phases.find(x=>x.id===id) : null;
+  const teams=conState._teams||[];
+  ovModal('phaseModal', `
+    <div class="ov-hd"><h2 style="margin:0">${p?'Edit phase':'＋ Add phase'}</h2><span class="vid-x" onclick="document.getElementById('phaseModal').style.display='none'">✕</span></div>
+    <div class="bf-row"><input id="phName" placeholder="Phase name (e.g. Base Build)" value="${p?esc(p.name):''}" style="flex:1;min-width:200px">
+      <select id="phKind" class="cw-sel">${PHASE_KINDS.map(k=>`<option value="${k[0]}"${p&&p.kind===k[0]?' selected':''}>${k[1]}</option>`).join('')}</select></div>
+    <div class="bf-row" style="margin-top:10px">
+      <span class="bf-wk"><label>Start</label><input id="phStart" type="date" value="${p?p.start_date:iso(new Date(planState.year,planState.month,1))}"></span>
+      <span class="bf-wk"><label>End</label><input id="phEnd" type="date" value="${p?p.end_date:iso(new Date(planState.year,planState.month,28))}"></span>
+      <span class="bf-wk"><label>Team</label><select id="phTeam" class="cw-sel"><option value="">Whole gym</option>${teams.map(t=>`<option value="${t.id}"${(p&&p.team_id===t.id)||(!p&&planState.teamId===t.id)?' selected':''}>${esc(t.name)}</option>`).join('')}</select></span>
+    </div>
+    <div class="bf-row" style="margin-top:12px"><button class="btn" onclick="planSavePhase('${id||''}')">Save phase</button>${p?`<span class="extool del" style="margin-left:10px" onclick="planDelPhase('${id}')">✕ delete</span>`:''}<span class="saved" id="phMsg"></span></div>`);
+};
+window.planSavePhase=async(id)=>{
+  const name=(document.getElementById('phName').value||'').trim(); const msg=document.getElementById('phMsg');
+  if(!name){ document.getElementById('phName').focus(); return; }
+  const start=document.getElementById('phStart').value, end=document.getElementById('phEnd').value;
+  if(!start||!end){ if(msg){msg.style.color='var(--warn)';msg.textContent='Pick start & end dates.';} return; }
+  if(end<start){ if(msg){msg.style.color='var(--warn)';msg.textContent='End must be after start.';} return; }
+  const payload={ name, kind:document.getElementById('phKind').value, start_date:start, end_date:end, team_id:document.getElementById('phTeam').value||null };
+  let res; if(id) res=await sb.from('plan_phases').update(payload).eq('id',id).select(); else res=await sb.from('plan_phases').insert(Object.assign({gym_id:me_.gym_id},payload)).select();
+  if(res.error||!res.data||!res.data.length){ if(msg){msg.style.color='var(--bad)';msg.textContent='Save failed — '+(res.error?res.error.message:'try again');} return; }
+  document.getElementById('phaseModal').style.display='none'; await loadPlan(); paintPlan();
+};
+window.planDelPhase=async(id)=>{ const res=await sb.from('plan_phases').delete().eq('id',id).select(); if(res.error){ alert('Delete failed — '+res.error.message); return; } const m=document.getElementById('phaseModal'); if(m) m.style.display='none'; await loadPlan(); paintPlan(); };
+window.planEditComp=(id)=>{
+  const c = id ? planState.comps.find(x=>x.id===id) : null;
+  const teams=conState._teams||[];
+  ovModal('compModal', `
+    <div class="ov-hd"><h2 style="margin:0">${c?'Edit competition':'＋ Add competition'}</h2><span class="vid-x" onclick="document.getElementById('compModal').style.display='none'">✕</span></div>
+    <div class="bf-row"><input id="cpName" placeholder="Name (e.g. Nationals)" value="${c?esc(c.name):''}" style="flex:1;min-width:200px">
+      <select id="cpKind" class="cw-sel">${COMP_KINDS.map(k=>`<option value="${k[0]}"${c&&c.kind===k[0]?' selected':''}>${k[1]}</option>`).join('')}</select></div>
+    <div class="bf-row" style="margin-top:10px">
+      <span class="bf-wk"><label>Date</label><input id="cpDate" type="date" value="${c?c.comp_date:iso(new Date(planState.year,planState.month,15))}"></span>
+      <span class="bf-wk"><label>Team</label><select id="cpTeam" class="cw-sel"><option value="">Whole gym</option>${teams.map(t=>`<option value="${t.id}"${(c&&c.team_id===t.id)||(!c&&planState.teamId===t.id)?' selected':''}>${esc(t.name)}</option>`).join('')}</select></span>
+    </div>
+    <div class="bf-row" style="margin-top:12px"><button class="btn" onclick="planSaveComp('${id||''}')">Save</button>${c?`<span class="extool del" style="margin-left:10px" onclick="planDelComp('${id}')">✕ delete</span>`:''}<span class="saved" id="cpMsg"></span></div>`);
+};
+window.planSaveComp=async(id)=>{
+  const name=(document.getElementById('cpName').value||'').trim(); const msg=document.getElementById('cpMsg');
+  if(!name){ document.getElementById('cpName').focus(); return; }
+  const date=document.getElementById('cpDate').value; if(!date){ if(msg){msg.style.color='var(--warn)';msg.textContent='Pick a date.';} return; }
+  const payload={ name, kind:document.getElementById('cpKind').value, comp_date:date, team_id:document.getElementById('cpTeam').value||null };
+  let res; if(id) res=await sb.from('competitions').update(payload).eq('id',id).select(); else res=await sb.from('competitions').insert(Object.assign({gym_id:me_.gym_id},payload)).select();
+  if(res.error||!res.data||!res.data.length){ if(msg){msg.style.color='var(--bad)';msg.textContent='Save failed — '+(res.error?res.error.message:'try again');} return; }
+  document.getElementById('compModal').style.display='none'; await loadPlan(); paintPlan();
+};
+window.planDelComp=async(id)=>{ const res=await sb.from('competitions').delete().eq('id',id).select(); if(res.error){ alert('Delete failed — '+res.error.message); return; } const m=document.getElementById('compModal'); if(m) m.style.display='none'; await loadPlan(); paintPlan(); };
 /* ---- athlete invites (secure self-signup links) ---- */
 let inviteState={ link:null, justName:null };
 function inviteBase(){ return location.origin + location.pathname; }
