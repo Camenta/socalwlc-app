@@ -419,6 +419,69 @@
   .pm-d.dim{visibility:hidden}
   .pm-d.today{outline:1.5px solid var(--accent);color:var(--text);font-weight:800}
   .pm-dot{width:4px;height:4px;border-radius:50%;position:absolute;bottom:1px;right:1px}
+  /* full calendar (year/month/week/day) */
+  .calx-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+  .calx-title{font-size:20px;font-weight:800;color:var(--text);min-width:150px}
+  .calx-views{display:flex;gap:2px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:2px}
+  .calx-views button{background:none;border:none;color:var(--muted);padding:6px 14px;cursor:pointer;font-size:13px;font-weight:700;border-radius:6px}
+  .calx-views button.on{background:var(--accent);color:#fff}
+  .calx-nav{display:flex;gap:4px}
+  .calx-nav button{background:var(--panel2);border:1px solid var(--line);color:var(--text);height:32px;min-width:32px;border-radius:7px;cursor:pointer;font-size:14px;font-weight:700;padding:0 10px}
+  .calx-nav button:hover{border-color:var(--accent2)}
+  .cx-year{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  @media(max-width:900px){.cx-year{grid-template-columns:repeat(2,1fr)}}
+  .cx-mini{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px;cursor:pointer}
+  .cx-mini:hover{border-color:var(--accent2)}
+  .cx-mini h4{margin:0 0 6px;font-size:13px;color:var(--text)}
+  .cx-mini-dow{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:3px}
+  .cx-mini-dow span{font-size:8px;text-align:center;color:#5f748a}
+  .cx-mini-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+  .cx-md{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--muted);position:relative;border-radius:3px}
+  .cx-md.dim{visibility:hidden}
+  .cx-md.today{background:var(--accent);color:#fff;font-weight:700}
+  .cx-md .cx-dot{width:4px;height:4px;border-radius:50%;position:absolute;bottom:1px;right:1px}
+  .cx-dow{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px}
+  .cx-dow span{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;padding-left:4px}
+  .cx-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+  .cx-cell{min-height:96px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:5px 6px;display:flex;flex-direction:column;gap:3px;cursor:pointer}
+  .cx-cell:hover{border-color:var(--accent2)}
+  .cx-cell.dim{opacity:.35;cursor:default}
+  .cx-cell.today{border-color:var(--accent)}
+  .cx-date{font-size:12px;font-weight:700;color:var(--text)}
+  .cx-cell.today .cx-date{color:var(--accent)}
+  .cx-ev{font-size:10px;font-weight:600;color:#fff;border-radius:4px;padding:2px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+  .cx-ev.cont{opacity:.5}
+  .cx-week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+  .cx-wcol{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px;min-height:300px;display:flex;flex-direction:column;gap:4px;cursor:pointer}
+  .cx-wcol.today{border-color:var(--accent)}
+  .cx-wcol h5{margin:0;font-size:11px;color:var(--muted);text-align:center;text-transform:uppercase;letter-spacing:.5px}
+  .cx-wd{font-size:18px;font-weight:700;color:var(--text);text-align:center;margin-bottom:4px}
+  .cx-wcol.today .cx-wd{color:var(--accent)}
+  .cx-wmet{font-size:9px;color:var(--muted);text-align:center;margin-top:-1px}
+  .cx-sess{font-size:10px;font-weight:600;border-radius:4px;padding:2px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:#152433;color:#cfe0f2;border-left:3px solid #3c9ee8}
+  .cx-sess.done{background:#13241a;color:#cfeede;border-left-color:#3ec97a}
+  .cx-sess.draft{background:transparent;color:#8fb0cc;border:1px dashed #3c5a7a;border-left:3px dashed #3c9ee8;font-style:italic}
+  .cx-day{max-width:720px}
+  .cx-day-hd{font-size:18px;font-weight:700;margin-bottom:12px}
+  .cx-evrow{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--panel2);border:1px solid var(--line);border-left-width:4px;border-radius:8px;padding:10px 12px;margin-bottom:8px;cursor:pointer}
+  .cx-etype{font-size:11px;color:var(--muted)}
+  .cx-scard{background:var(--panel2);border:1px solid var(--line);border-left:4px solid #3c9ee8;border-radius:10px;padding:14px;margin-bottom:10px}
+  .cx-scard.done{border-left-color:#3ec97a}
+  .cx-scard.draft{border-left-style:dashed}
+  .cx-scard-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px}
+  .cx-sbadge{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}
+  .cx-sbadge.pub{background:rgba(60,158,232,.18);color:#7bc0f5}
+  .cx-sbadge.done{background:rgba(62,201,122,.18);color:#7fdca8}
+  .cx-sbadge.draft{background:rgba(126,147,166,.16);color:#a9bccd}
+  .cx-mets{display:flex;gap:22px;flex-wrap:wrap}
+  .cx-met{display:flex;flex-direction:column;gap:2px}
+  .cx-met b{font-size:20px;color:var(--text);font-weight:800}
+  .cx-met span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  .cx-legend2{display:flex;gap:14px;flex-wrap:wrap;margin-top:16px;font-size:11px;color:var(--muted)}
+  .cx-legend2 span{display:flex;align-items:center;gap:5px}
+  .cx-legend2 i{width:10px;height:10px;border-radius:2px;display:inline-block}
+  .openbtn{background:var(--accent);color:#0c1116;border:none;border-radius:7px;padding:10px 16px;font-weight:800;font-size:12.5px;cursor:pointer}
+  .openbtn:hover{filter:brightness(1.08)}
   .ccard .cprog-bar,.ccard .pub-bar{margin-top:10px}
   /* segmented control (stamp target) */
   .seg{display:inline-flex;background:#0e151c;border:1px solid var(--line);border-radius:9px;padding:3px;gap:3px}
@@ -2390,14 +2453,21 @@ function compColor(k){ const m=COMP_KINDS.find(x=>x[0]===k); return m?m[2]:'#e85
 function fmtShort(d){ if(!d) return '—'; const dt=new Date(d+'T00:00:00'); return MONS[dt.getMonth()]+' '+dt.getDate(); }
 function hexA(hex,a){ const h=hex.replace('#',''); return `rgba(${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)},${a})`; }
 let PLAN_READY=true;
-let planState={ tab:'macro', teamId:'', year:(new Date()).getFullYear(), calView:'month', month:(new Date()).getMonth(), phases:[], comps:[] };
+const CAL_KINDS={ competition:['#e8643c','Competition'], team:['#2fb6a8','Team event'], testing:['#8a6bd1','Testing'], deload:['#3c9ee8','Deload'], travel:['#5a6b7a','Travel / camp'], work:['#c98a3e','Work / school'], life:['#9b6dd1','Life / personal'], unavail:['#d6504f','Unavailable'], other:['#7e93a6','Other'] };
+function calColor(k){ return (CAL_KINDS[k]||CAL_KINDS.other)[0]; }
+function calLbl(k){ return (CAL_KINDS[k]||CAL_KINDS.other)[1]; }
+const _td=new Date();
+let planState={ tab:'macro', teamId:'', athleteId:'', year:_td.getFullYear(), calView:'month', month:_td.getMonth(),
+  cur:{y:_td.getFullYear(), m:_td.getMonth(), d:_td.getDate()}, phases:[], comps:[], events:[], calSess:{} };
 async function loadPlan(){
   if(conState._teams===undefined){ const { data:tms } = await sb.from('teams').select('*').order('name'); conState._teams=tms||[]; }
   const ph=await sb.from('plan_phases').select('*').order('start_date');
   const cp=await sb.from('competitions').select('*').order('comp_date');
-  PLAN_READY = !ph.error && !cp.error;
+  const ev=await sb.from('calendar_events').select('*').order('start_date');
+  PLAN_READY = !ph.error && !cp.error;   // macrocycle tables are the gate
   planState.phases = ph.error?[]:(ph.data||[]);
   planState.comps  = cp.error?[]:(cp.data||[]);
+  planState.events = ev.error?[]:(ev.data||[]);
 }
 function planScopedPhases(){ return planState.phases.filter(p=> !planState.teamId || p.team_id===planState.teamId || !p.team_id); }
 function planScopedComps(){ return planState.comps.filter(c=> !planState.teamId || c.team_id===planState.teamId || !c.team_id); }
@@ -2411,12 +2481,13 @@ async function renderPlan(){
 function paintPlan(){
   if(!PLAN_READY){ app.innerHTML = topbar('Coach') + coachNav('plan') + conSoon('Annual Plan','map the macrocycle — mesocycle phases, peaks &amp; competitions across the year, on a timeline and a calendar','the plan tables — run 21_annual_plan.sql'); return; }
   const teams=conState._teams||[];
+  const aths=coachState.athletes||[];
   app.innerHTML = topbar('Coach') + coachNav('plan') + `
     <div class="console-head">
-      <div><h1>Annual Plan</h1><div class="sub">Map the macrocycle — phases, peaks &amp; comps across the year.</div></div>
-      <div style="display:flex;align-items:center;gap:12px">
-        <select class="cw-sel" onchange="planState.teamId=this.value;paintPlan()"><option value="">Whole gym</option>${teams.map(t=>`<option value="${t.id}"${planState.teamId===t.id?' selected':''}>${esc(t.name)}</option>`).join('')}</select>
-        <span class="cw-nav"><button class="cw-arr" onclick="planState.year--;paintPlan()">‹</button><b style="min-width:54px;text-align:center;display:inline-block">${planState.year}</b><button class="cw-arr" onclick="planState.year++;paintPlan()">›</button></span>
+      <div><h1>Annual Plan</h1><div class="sub">Map the season — phases, comps, events &amp; sessions across the year.</div></div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <select class="cw-sel" onchange="planState.teamId=this.value;paintPlan()" title="Team scope"><option value="">Whole gym</option>${teams.map(t=>`<option value="${t.id}"${planState.teamId===t.id?' selected':''}>${esc(t.name)}</option>`).join('')}</select>
+        <select class="cw-sel" onchange="planState.athleteId=this.value;paintPlan()" title="Overlay an athlete's sessions"><option value="">No sessions</option>${aths.map(a=>`<option value="${a.id}"${planState.athleteId===a.id?' selected':''}>${esc(a.full_name)}</option>`).join('')}</select>
       </div>
     </div>
     <div class="aptabs">
@@ -2444,6 +2515,7 @@ function renderMacro(){
   const cpList = comps.length ? comps.map(c=>`<div class="pl-item" onclick="planEditComp('${c.id}')"><span class="pl-dot" style="background:${compColor(c.kind)}"></span><b>${esc(c.name)}</b><span class="sub">${esc(c.kind)} · ${fmtShort(c.comp_date)}</span></div>`).join('') : '<div class="sub" style="padding:8px 0">No comps for '+y+' yet — “+ Add comp”.</div>';
   host.innerHTML=`
     <div class="card">
+      <div class="calx-head"><div class="calx-title">${y}</div><span style="flex:1"></span><span class="calx-nav"><button onclick="planState.year--;paintPlan()">‹</button><button onclick="planState.year=(new Date()).getFullYear();paintPlan()">This year</button><button onclick="planState.year++;paintPlan()">›</button></span></div>
       <div class="mc-wrap"><div class="mc">
         <div class="mc-row"><div class="mc-lbl"></div><div class="mc-track mhdr">${months}</div></div>
         <div class="mc-row"><div class="mc-lbl">Phases</div><div class="mc-track">${segs}${todayLine}</div></div>
@@ -2458,36 +2530,145 @@ function renderMacro(){
 }
 function phaseForDay(dStr){ return planScopedPhases().find(p=> p.start_date<=dStr && p.end_date>=dStr); }
 function compsForDay(dStr){ return planScopedComps().filter(c=> c.comp_date===dStr); }
-window.planMonthNav=(d)=>{ let m=planState.month+d, y=planState.year; if(m<0){m=11;y--;} if(m>11){m=0;y++;} planState.month=m; planState.year=y; paintPlan(); };
-function renderPlanCal(){
+/* ---- full calendar: events (calendar_events + competitions) + session overlay ---- */
+const CAL_DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], CAL_DOWm=['S','M','T','W','T','F','S'], MONF=['January','February','March','April','May','June','July','August','September','October','November','December'];
+function dIdx(y,m,d){ return Math.round(new Date(y,m,d).getTime()/864e5); }
+function calEventsList(){
+  const out=[];
+  planState.events.forEach(e=>{
+    if(planState.teamId && e.team_id && e.team_id!==planState.teamId) return;
+    if(e.athlete_id && e.athlete_id!==planState.athleteId) return;
+    out.push({ id:e.id, src:'ev', title:e.title, kind:e.kind, y:+e.start_date.slice(0,4), m:+e.start_date.slice(5,7)-1, d:+e.start_date.slice(8,10), days:e.days||1 });
+  });
+  planState.comps.forEach(c=>{
+    if(planState.teamId && c.team_id && c.team_id!==planState.teamId) return;
+    out.push({ id:c.id, src:'comp', title:c.name, kind:(c.kind==='test'?'testing':'competition'), y:+c.comp_date.slice(0,4), m:+c.comp_date.slice(5,7)-1, d:+c.comp_date.slice(8,10), days:1 });
+  });
+  return out;
+}
+function evOn(y,m,d){ const idx=dIdx(y,m,d); return calEventsList().filter(e=>{ const s=dIdx(e.y,e.m,e.d); return idx>=s && idx<=s+(e.days||1)-1; }).map(e=>{ const s=dIdx(e.y,e.m,e.d); return Object.assign({}, e, { cont: idx>s, start: idx===s }); }); }
+function evChip(e){ const lbl=e.cont?('↳ '+e.title):(e.title+(e.days>1?' · '+e.days+'d':'')); const click=e.cont?'':`onclick="event.stopPropagation();planEditEvent('${e.src}','${e.id}')"`; return `<div class="cx-ev${e.cont?' cont':''}" style="background:${calColor(e.kind)}" title="${esc(e.title)}" ${click}>${esc(lbl)}</div>`; }
+async function loadCalSessions(){
+  planState.calSess={};
+  if(!planState.athleteId || planState.calView==='year') return;
+  const c=planState.cur; let a,b;
+  if(planState.calView==='month'){ a=iso(new Date(c.y,c.m,1)); b=iso(new Date(c.y,c.m+1,0)); }
+  else if(planState.calView==='week'){ const base=new Date(c.y,c.m,c.d); base.setDate(base.getDate()-base.getDay()); const e=new Date(base); e.setDate(e.getDate()+6); a=iso(base); b=iso(e); }
+  else { a=b=iso(new Date(c.y,c.m,c.d)); }
+  const { data: sess } = await sb.from('sessions').select('id,title,session_date,status,prescribed_exercises(name,position,prescribed_sets(target_reps,target_pct))').eq('athlete_id', planState.athleteId).gte('session_date', a).lte('session_date', b).order('created_at',{ascending:true});
+  const ids=(sess||[]).map(s=>s.id); let logged=new Set();
+  if(ids.length){ const r=await sb.from('logged_sets').select('session_id').in('session_id', ids); (r.data||[]).forEach(l=>logged.add(l.session_id)); }
+  (sess||[]).forEach(s=>{ if(planState.calSess[s.session_date]) return; const st=statsFor([s],[]);
+    const status = logged.has(s.id)?'done':(s.status==='draft'?'draft':'pub');
+    planState.calSess[s.session_date]={ id:s.id, title:s.title, status, nl:st.vol, ari:st.ari?Math.round(st.ari):null, exs:(s.prescribed_exercises||[]).slice().sort(sortByPos).map(e=>e.name).filter(Boolean).slice(0,3).join(' · ') }; });
+}
+function sessOn(y,m,d){ return planState.calSess[iso(new Date(y,m,d))]; }
+function sessChip(s){ const cls=s.status==='draft'?'draft':(s.status==='done'?'done':''); const txt=s.status==='draft'?'Training · draft':('Training · '+s.nl+'NL'); return `<div class="cx-sess ${cls}">${txt}</div>`; }
+function calLegend(){ return `<div class="cx-legend2">${Object.keys(CAL_KINDS).map(k=>`<span><i style="background:${CAL_KINDS[k][0]}"></i>${CAL_KINDS[k][1]}</span>`).join('')}<span style="margin-left:6px"><i style="background:#3c9ee8"></i>Session · published</span><span><i style="background:#3ec97a"></i>Session · done</span><span><i style="border:1px dashed #3c5a7a;background:transparent"></i>Session · draft</span></div>`; }
+window.planSetView=(v)=>{ planState.calView=v; paintPlan(); };
+window.planToday=()=>{ const t=new Date(); planState.cur={y:t.getFullYear(),m:t.getMonth(),d:t.getDate()}; paintPlan(); };
+window.planNav=(dir)=>{ const c=planState.cur, v=planState.calView;
+  if(v==='year') c.y+=dir;
+  else if(v==='month'){ c.m+=dir; if(c.m<0){c.m=11;c.y--;} if(c.m>11){c.m=0;c.y++;} }
+  else { const st=v==='week'?7:1; const dt=new Date(c.y,c.m,c.d); dt.setDate(dt.getDate()+st*dir); c.y=dt.getFullYear(); c.m=dt.getMonth(); c.d=dt.getDate(); }
+  paintPlan(); };
+window.planOpenMonth=(m)=>{ planState.cur.m=m; planState.calView='month'; paintPlan(); };
+window.planOpenDay=(y,m,d)=>{ planState.cur={y,m,d}; planState.calView='day'; paintPlan(); };
+async function renderPlanCal(){
   const host=document.getElementById('planBody'); if(!host) return;
-  if(planState.calView==='year'){ return renderPlanYear(host); }
-  const y=planState.year, m=planState.month, todayStr=iso(new Date());
-  const startDow=(new Date(y,m,1).getDay()+6)%7, daysIn=new Date(y,m+1,0).getDate();
-  let cells=''; for(let i=0;i<startDow;i++) cells+=`<div class="px-cell dim"></div>`;
-  for(let d=1;d<=daysIn;d++){ const dStr=iso(new Date(y,m,d)); const ph=phaseForDay(dStr); const cs=compsForDay(dStr);
-    const bg=ph?`background:${hexA(phaseColor(ph.kind),0.12)};border-color:${hexA(phaseColor(ph.kind),0.4)}`:'';
-    cells+=`<div class="px-cell${dStr===todayStr?' today':''}" style="${bg}"><div class="px-d">${d}</div>${ph?`<div class="px-ph" style="color:${phaseColor(ph.kind)}">${esc(ph.name)}</div>`:''}${cs.map(c=>`<div class="px-comp" style="background:${compColor(c.kind)}" onclick="event.stopPropagation();planEditComp('${c.id}')">${esc(c.name)}</div>`).join('')}</div>`; }
+  await loadCalSessions();
+  const v=planState.calView, c=planState.cur, td=new Date(), isToday=(y,m,d)=>y===td.getFullYear()&&m===td.getMonth()&&d===td.getDate();
+  let title='', body='';
+  if(v==='year'){
+    title=String(c.y);
+    let minis='';
+    for(let m=0;m<12;m++){ const fd=new Date(c.y,m,1).getDay(), n=new Date(c.y,m+1,0).getDate();
+      let cells=''; for(let i=0;i<fd;i++) cells+=`<div class="cx-md dim"></div>`;
+      for(let d=1;d<=n;d++){ const e=evOn(c.y,m,d); const dot=e.length?`<span class="cx-dot" style="background:${calColor(e[0].kind)}"></span>`:''; cells+=`<div class="cx-md${isToday(c.y,m,d)?' today':''}">${d}${dot}</div>`; }
+      minis+=`<div class="cx-mini" onclick="planOpenMonth(${m})"><h4>${MONF[m]}</h4><div class="cx-mini-dow">${CAL_DOWm.map(x=>`<span>${x}</span>`).join('')}</div><div class="cx-mini-grid">${cells}</div></div>`; }
+    body=`<div class="cx-year">${minis}</div>`;
+  } else if(v==='month'){
+    title=MONF[c.m]+' '+c.y; const fd=new Date(c.y,c.m,1).getDay(), n=new Date(c.y,c.m+1,0).getDate();
+    const pm=c.m===0?11:c.m-1, py=c.m===0?c.y-1:c.y, pn=new Date(py,pm+1,0).getDate();
+    let cells=''; for(let i=0;i<fd;i++) cells+=`<div class="cx-cell dim"><span class="cx-date">${pn-fd+1+i}</span></div>`;
+    for(let d=1;d<=n;d++){ cells+=`<div class="cx-cell${isToday(c.y,c.m,d)?' today':''}" onclick="planOpenDay(${c.y},${c.m},${d})"><span class="cx-date">${d}</span>${evOn(c.y,c.m,d).map(evChip).join('')}${(()=>{const s=sessOn(c.y,c.m,d);return s?sessChip(s):'';})()}</div>`; }
+    const trail=(7-((fd+n)%7))%7; for(let t=1;t<=trail;t++) cells+=`<div class="cx-cell dim"><span class="cx-date">${t}</span></div>`;
+    body=`<div class="cx-dow">${CAL_DOW.map(d=>`<span>${d}</span>`).join('')}</div><div class="cx-grid">${cells}</div>`;
+  } else if(v==='week'){
+    const base=new Date(c.y,c.m,c.d); base.setDate(base.getDate()-base.getDay()); const end=new Date(base); end.setDate(end.getDate()+6);
+    title=MONS[base.getMonth()]+' '+base.getDate()+' – '+MONS[end.getMonth()]+' '+end.getDate()+', '+end.getFullYear();
+    let cols=''; for(let i=0;i<7;i++){ const dt=new Date(base); dt.setDate(dt.getDate()+i); const y=dt.getFullYear(),m=dt.getMonth(),d=dt.getDate(); const s=sessOn(y,m,d);
+      cols+=`<div class="cx-wcol${isToday(y,m,d)?' today':''}" onclick="planOpenDay(${y},${m},${d})"><h5>${CAL_DOW[i]}</h5><div class="cx-wd">${d}</div>${evOn(y,m,d).map(evChip).join('')}${s?sessChip(s)+(s.status!=='draft'?`<div class="cx-wmet">${s.nl}NL${s.ari?' · '+s.ari+'%':''}</div>`:''):''}</div>`; }
+    body=`<div class="cx-week">${cols}</div>`;
+  } else {
+    const dt=new Date(c.y,c.m,c.d); title=CAL_DOW[dt.getDay()]+', '+MONF[c.m]+' '+c.d+', '+c.y;
+    const evs=evOn(c.y,c.m,c.d), s=sessOn(c.y,c.m,c.d);
+    let h=`<div class="cx-day"><div class="cx-day-hd">${MONF[c.m]} ${c.d}${isToday(c.y,c.m,c.d)?' · Today':''}</div>`;
+    if(!evs.length && !s) h+='<div class="note sub">Nothing scheduled. Use ＋ Add event to put a meet, test, deload or team event on this day.</div>';
+    evs.forEach(e=>{ h+=`<div class="cx-evrow" style="border-left-color:${calColor(e.kind)}" onclick="planEditEvent('${e.src}','${e.id}')"><b>${esc(e.title)}</b><span class="cx-etype">${calLbl(e.kind)}${e.days>1?' · '+e.days+'d':''}</span></div>`; });
+    if(s){ const sc=s.status==='draft'?'draft':(s.status==='done'?'done':''); const badge=s.status==='draft'?'<span class="cx-sbadge draft">Draft · not published</span>':(s.status==='done'?'<span class="cx-sbadge done">Done</span>':'<span class="cx-sbadge pub">Published</span>');
+      h+=`<div class="cx-scard ${sc}"><div class="cx-scard-hd"><div><b>${esc(s.title||'Training')}</b><div class="cx-etype">${esc(s.exs||'')}</div></div>${badge}</div>
+        <div class="cx-mets"><div class="cx-met"><b>${s.nl}</b><span>Vol (NL)</span></div>${s.ari?`<div class="cx-met"><b>${s.ari}%</b><span>ARI</span></div>`:''}</div>
+        <div class="note sub" style="margin-top:8px;font-size:11px">${s.status==='done'?'Logged — actuals are in.':(s.status==='draft'?'Planned — built ahead; publish the week to release it.':'Planned — published; the athlete can see it.')}</div>
+        <div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="openbtn" onclick="planOpenInCoach('${planState.athleteId}','${iso(new Date(c.y,c.m,c.d))}')">Open in Coach View — edit / build / publish →</button></div></div>`; }
+    h+='</div>'; body=h;
+  }
   host.innerHTML=`<div class="card">
-    <div class="ctoolbar">
-      <span class="cw-nav"><button class="cw-arr" onclick="planMonthNav(-1)">‹</button><b style="min-width:130px;text-align:center;display:inline-block">${MONS[m]} ${y}</b><button class="cw-arr" onclick="planMonthNav(1)">›</button></span>
+    <div class="calx-head">
+      <div class="calx-title">${esc(title)}</div>
+      <div class="calx-views">${[['year','Year'],['month','Month'],['week','Week'],['day','Day']].map(x=>`<button class="${v===x[0]?'on':''}" onclick="planSetView('${x[0]}')">${x[1]}</button>`).join('')}</div>
+      <div class="calx-nav"><button onclick="planNav(-1)">‹</button><button onclick="planToday()">Today</button><button onclick="planNav(1)">›</button></div>
       <span style="flex:1"></span>
-      <div class="viewtoggle"><button class="on">Month</button><button onclick="planState.calView='year';paintPlan()">Year</button></div>
-      <span class="cbtn alt" onclick="planEditComp()">+ Add comp</span>
+      <span class="cbtn" onclick="planAddEvent()">＋ Add event</span>
     </div>
-    <div class="px-dow">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<span>${d}</span>`).join('')}</div>
-    <div class="px-grid">${cells}</div></div>`;
+    ${body}
+    ${calLegend()}
+  </div>`;
 }
-function renderPlanYear(host){
-  const y=planState.year, todayStr=iso(new Date());
-  let minis='';
-  for(let m=0;m<12;m++){ const startDow=(new Date(y,m,1).getDay()+6)%7, daysIn=new Date(y,m+1,0).getDate();
-    let cells=''; for(let i=0;i<startDow;i++) cells+=`<span class="pm-d dim"></span>`;
-    for(let d=1;d<=daysIn;d++){ const dStr=iso(new Date(y,m,d)); const ph=phaseForDay(dStr); const cs=compsForDay(dStr);
-      cells+=`<span class="pm-d${dStr===todayStr?' today':''}" style="${ph?`background:${hexA(phaseColor(ph.kind),0.32)};color:#fff`:''}">${d}${cs.length?`<i class="pm-dot" style="background:${compColor(cs[0].kind)}"></i>`:''}</span>`; }
-    minis+=`<div class="pm-card" onclick="planState.calView='month';planState.month=${m};paintPlan()"><h4>${MONS[m]} ${y}</h4><div class="pm-dow">${['M','T','W','T','F','S','S'].map(x=>`<span>${x}</span>`).join('')}</div><div class="pm-grid">${cells}</div></div>`; }
-  host.innerHTML=`<div class="card"><div class="ctoolbar"><span class="note sub" style="margin:0;flex:1">Day tint = training phase · dot = comp. Click a month to zoom in.</span><div class="viewtoggle"><button onclick="planState.calView='month';paintPlan()">Month</button><button class="on">Year</button></div></div><div class="pm-year">${minis}</div></div>`;
-}
+window.planOpenInCoach=(athId,dStr)=>{ if(!athId) return; coachState.selected=athId; cw=null; ed=null; coachState.screen='coach'; paintCoach();
+  setTimeout(()=>{ if(window.cw){ cw.selDate=dStr; renderCoachDay&&renderCoachDay(); } },400); };
+window.planAddEvent=(presetDate)=>{
+  const teams=conState._teams||[], c=planState.cur;
+  const d = presetDate || iso(new Date(c.y, c.m, planState.calView==='year'||planState.calView==='month'?15:c.d));
+  ovModal('calEvtModal', `
+    <div class="ov-hd"><h2 style="margin:0">＋ Add to calendar</h2><span class="vid-x" onclick="document.getElementById('calEvtModal').style.display='none'">✕</span></div>
+    <div class="sub" style="margin:6px 0 12px">Pick a start date and how many days it runs.</div>
+    <div class="bf-row"><input id="ceTitle" placeholder="e.g. Squat max test" style="flex:1;min-width:220px"></div>
+    <div class="bf-row" style="margin-top:10px">
+      <span class="bf-wk"><label>Start date</label><input id="ceDate" type="date" value="${d}"></span>
+      <span class="bf-wk"><label>Length</label><select id="ceDays" class="cw-sel">${[1,2,3,4,5,6,7,10,14].map(n=>`<option value="${n}">${n} day${n===1?'':'s'}</option>`).join('')}</select></span>
+      <span class="bf-wk"><label>Type</label><select id="ceType" class="cw-sel">${Object.keys(CAL_KINDS).map(k=>`<option value="${k}">${CAL_KINDS[k][1]}</option>`).join('')}</select></span>
+    </div>
+    <div class="bf-row" style="margin-top:8px"><span class="bf-wk"><label>Team (optional)</label><select id="ceTeam" class="cw-sel"><option value="">Whole gym</option>${teams.map(t=>`<option value="${t.id}"${planState.teamId===t.id?' selected':''}>${esc(t.name)}</option>`).join('')}</select></span></div>
+    <div class="bf-row" style="margin-top:12px"><button class="btn" onclick="planSaveEvent()">Add event</button><span class="saved" id="ceMsg"></span></div>`);
+  setTimeout(()=>{ const t=document.getElementById('ceTitle'); if(t) t.focus(); },30);
+};
+window.planEditEvent=(src,id)=>{
+  if(src==='comp'){ planEditComp(id); return; } // comps edit via the macrocycle modal
+  const e=planState.events.find(x=>x.id===id); if(!e) return;
+  const teams=conState._teams||[];
+  ovModal('calEvtModal', `
+    <div class="ov-hd"><h2 style="margin:0">Edit event</h2><span class="vid-x" onclick="document.getElementById('calEvtModal').style.display='none'">✕</span></div>
+    <div class="bf-row"><input id="ceTitle" value="${esc(e.title)}" style="flex:1;min-width:220px"></div>
+    <div class="bf-row" style="margin-top:10px">
+      <span class="bf-wk"><label>Start date</label><input id="ceDate" type="date" value="${e.start_date}"></span>
+      <span class="bf-wk"><label>Length</label><select id="ceDays" class="cw-sel">${[1,2,3,4,5,6,7,10,14].map(n=>`<option value="${n}"${(e.days||1)===n?' selected':''}>${n} day${n===1?'':'s'}</option>`).join('')}</select></span>
+      <span class="bf-wk"><label>Type</label><select id="ceType" class="cw-sel">${Object.keys(CAL_KINDS).map(k=>`<option value="${k}"${e.kind===k?' selected':''}>${CAL_KINDS[k][1]}</option>`).join('')}</select></span>
+    </div>
+    <div class="bf-row" style="margin-top:8px"><span class="bf-wk"><label>Team (optional)</label><select id="ceTeam" class="cw-sel"><option value="">Whole gym</option>${teams.map(t=>`<option value="${t.id}"${e.team_id===t.id?' selected':''}>${esc(t.name)}</option>`).join('')}</select></span></div>
+    <div class="bf-row" style="margin-top:12px"><button class="btn" onclick="planSaveEvent('${id}')">Save</button><span class="extool del" style="margin-left:10px" onclick="planDelEvent('${id}')">✕ delete</span><span class="saved" id="ceMsg"></span></div>`);
+};
+window.planSaveEvent=async(id)=>{
+  const title=(document.getElementById('ceTitle').value||'').trim(); const msg=document.getElementById('ceMsg');
+  if(!title){ document.getElementById('ceTitle').focus(); return; }
+  const date=document.getElementById('ceDate').value; if(!date){ if(msg){msg.style.color='var(--warn)';msg.textContent='Pick a start date.';} return; }
+  const payload={ title, kind:document.getElementById('ceType').value, start_date:date, days:+document.getElementById('ceDays').value||1, team_id:document.getElementById('ceTeam').value||null };
+  let res; if(id) res=await sb.from('calendar_events').update(payload).eq('id',id).select(); else res=await sb.from('calendar_events').insert(Object.assign({gym_id:me_.gym_id},payload)).select();
+  if(res.error||!res.data||!res.data.length){ if(msg){msg.style.color='var(--bad)';msg.textContent='Save failed — '+(res.error?res.error.message:'try again');} return; }
+  const p=date.split('-'); planState.cur={y:+p[0],m:+p[1]-1,d:+p[2]}; if(planState.calView==='year') planState.calView='month';
+  document.getElementById('calEvtModal').style.display='none'; await loadPlan(); paintPlan();
+};
+window.planDelEvent=async(id)=>{ const res=await sb.from('calendar_events').delete().eq('id',id).select(); if(res.error){ alert('Delete failed — '+res.error.message); return; } const m=document.getElementById('calEvtModal'); if(m) m.style.display='none'; await loadPlan(); paintPlan(); };
 window.planEditPhase=(id)=>{
   const p = id ? planState.phases.find(x=>x.id===id) : null;
   const teams=conState._teams||[];
