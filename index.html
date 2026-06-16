@@ -496,6 +496,11 @@
   .gr-row:last-child{border-bottom:none}
   .gr-lbl{color:#aebccd} .gr-ov{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--warn);margin-left:8px}
   span.gr-val{font-weight:800;color:var(--text);text-align:right} span.gr-val.ovd{color:var(--warn)}
+  .ru-head{display:flex;align-items:center;gap:10px}
+  .ru-htoggle{display:flex;align-items:center;gap:10px;cursor:pointer;flex:1;min-width:0;user-select:none}
+  .ru-htoggle:hover .ru-chev{color:var(--text)}
+  .ru-chev{color:var(--muted);font-size:13px;width:13px;flex-shrink:0}
+  .ru-body{margin-top:8px}
   input.gr-val{width:130px;background:#0e151c;border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-size:13px;font-weight:700;color:var(--text);text-align:right}
   input.gr-val.ovd{border-color:var(--warn);color:var(--warn)}
   input.gr-val:focus{outline:none;border-color:var(--accent2)}
@@ -1838,8 +1843,8 @@ function totalFromMaxes(rows){
   if(sn==null && cj==null) return null;
   return { sn, cj, total:Math.round(((sn||0)+(cj||0))*10)/10, hasBoth: sn!=null&&cj!=null };
 }
-const PF_MAXES_L=['Snatch','Clean & Jerk','Clean','Jerk','Back Squat','Front Squat','Push Press'];
-const PF_MAXES_R=['Snatch DL','Clean DL','Power Snatch','Power Clean','Power Jerk','Snatch Balance','OH Squat','Hang Snatch'];
+const PF_MAXES_L=['Snatch','Clean & Jerk','Clean','Jerk','Back Squat','Front Squat','OH Squat','Push Press'];
+const PF_MAXES_R=['Snatch DL','Clean DL','Power Snatch','Power Clean','Power Jerk','Snatch Balance','Block Snatch','Hang Snatch','Block Clean','Hang Clean'];
 const SKILL_LEVELS=['Novice','Beginner','Intermediate','Advanced','Elite'];
 const EXP_BANDS=['<1 yr','1–2.5 yrs','2.5–5 yrs','5–10 yrs','10+ yrs'];
 // lift-efficiency: [movement, parent-display, house target ratio] grouped (athlete-profile-spec §7)
@@ -1872,6 +1877,16 @@ function effStory(groups){
   return s.trim();
 }
 window.dashEffFilter=(f)=>{ dashState.effFilter=f; renderAthDash(); };
+// collapsible roll-up sections (DOM toggle, state persists in dashState.collapsed)
+window.dashToggle=(k)=>{ dashState.collapsed=dashState.collapsed||{}; const c=!dashState.collapsed[k]; dashState.collapsed[k]=c;
+  const b=document.getElementById('ru_'+k); if(b) b.style.display=c?'none':''; const ch=document.getElementById('chev_'+k); if(ch) ch.textContent=c?'▸':'▾'; };
+function rollup(key, titleHtml, bodyHtml, headerRight){
+  const c = dashState.collapsed && dashState.collapsed[key];
+  return `<div class="card ru-card">
+    <div class="ru-head"><span class="ru-htoggle" onclick="dashToggle('${key}')"><span class="ru-chev" id="chev_${key}">${c?'▸':'▾'}</span><h2 style="margin:0">${titleHtml}</h2></span>${headerRight||''}</div>
+    <div id="ru_${key}" class="ru-body"${c?' style="display:none"':''}>${bodyHtml}</div>
+  </div>`;
+}
 // rep-max chart
 const REP_MAX_DEFAULT=['Snatch','Clean & Jerk','Clean','Jerk','Back Squat','Front Squat','Snatch DL','Clean DL','Push Press'];
 const REP_COLS=[1,2,3,4,5,6,8,10];
@@ -2085,37 +2100,29 @@ async function renderAthDash(){
             <td>${r.read?`<span class="eff-read ${r.read}">${EFF_READLBL[r.read]}</span>`:'<span class="sub">no max</span>'}</td></tr>`).join(''); }).join('');
         const story=effStory(groups);
         const anyMax=groups.some(g=>g.rows.some(r=>r.read));
-        return `<div class="card">
-          <h2 style="margin:0 0 4px">Strengths &amp; weaknesses — lift efficiency</h2>
-          <div class="note sub" style="padding:2px 0 4px">Each lift is measured against its parent competition lift. <b>Current eff = lift ÷ parent</b>. <b>Ideal = target ratio × parent</b>. The flag compares the two — surfaced automatically.</div>
+        return rollup('eff','Strengths &amp; weaknesses — lift efficiency',
+          `<div class="note sub" style="padding:2px 0 4px">Each lift is measured against its parent competition lift. <b>Current eff = lift ÷ parent</b>. <b>Ideal = target ratio × parent</b>. The flag compares the two — surfaced automatically.</div>
           <div class="eff-filter">${[['all','All'],['ineff','Inefficient'],['eff','Efficient'],['hyper','Hyper Efficient']].map(f=>`<button class="${filt===f[0]?'on':''}" onclick="dashEffFilter('${f[0]}')">${f[1]}</button>`).join('')}</div>
           <div style="overflow-x:auto"><table class="eff-tbl"><thead><tr><th>Movement</th><th>Parent</th><th class="eff-num">Current 1RM</th><th class="eff-num">Current eff</th><th class="eff-num">Target ratio</th><th class="eff-num">Ideal 1RM</th><th class="eff-num">Gap</th><th>Read</th></tr></thead><tbody>${body||'<tr><td colspan="8" class="sub" style="padding:14px;text-align:center">'+(anyMax?'No lifts match this filter.':'Fill in the Current maxes above to see efficiency.')+'</td></tr>'}</tbody></table></div>
-          ${story?`<div class="note" style="margin-top:10px"><b>Story:</b> ${esc(story)}</div>`:''}
-        </div>`; })()}
-      <div class="card">
-        <div style="display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px"><h2 style="margin:0">Rep-max chart</h2><span class="cbtn alt" onclick="addRepMaxMove()">＋ Add movement</span></div>
-        <div class="note sub" style="padding:2px 0 10px">Log the best lift at each rep count — <b>% of 1RM computes automatically</b>. Tap a cell to type.</div>
+          ${story?`<div class="note" style="margin-top:10px"><b>Story:</b> ${esc(story)}</div>`:''}`); })()}
+      ${rollup('repmax','Rep-max chart',
+        `<div class="note sub" style="padding:2px 0 10px">Log the best lift at each rep count — <b>% of 1RM computes automatically</b>. Tap a cell to type.</div>
         <div style="overflow-x:auto"><table class="rm-tbl"><thead><tr><th class="rm-mv">Movement</th>${REP_COLS.map(c=>`<th class="${c===1?'rm-1rm':''}">${c}RM</th>`).join('')}</tr></thead><tbody>${rmMoves.map(mv=>`<tr><td class="rm-mv">${esc(mv)}</td>${REP_COLS.map(c=>rmCell(mv,c)).join('')}</tr>`).join('')}</tbody></table></div>
-        <div class="note" style="margin-top:10px">Classic lifts (Snatch, C&amp;J, Clean, Jerk) cap at 5RM. A rep-max above <b style="color:var(--good)">100%</b> means the tested 1RM is conservative — flag for a re-test. Editing a 1RM here syncs to maxes &amp; classification above.</div>
-      </div>
+        <div class="note" style="margin-top:10px">Classic lifts (Snatch, C&amp;J, Clean, Jerk) cap at 5RM. A rep-max above <b style="color:var(--good)">100%</b> means the tested 1RM is conservative — flag for a re-test. Editing a 1RM here syncs to maxes &amp; classification above.</div>`,
+        `<span class="cbtn alt" onclick="addRepMaxMove()">＋ Add movement</span>`)}
       ${(()=>{ const rank=cls&&cls.rank; const g=rank?CLASS_GUARDRAILS[rank]:null; const ov=(prof&&prof.bio&&prof.bio.guardrails)||{};
         if(!g) return `<div class="card dlock"><span class="di">🛡️</span><div><b>Class guardrails</b><div class="note sub" style="padding:2px 0 0">Set the athlete's classification (sex + maxes + weight class) to see the loading guardrails for their level.</div></div></div>`;
         const rows=GUARD_PARAMS.map(([key,lbl])=>{ const def=g[key]||'—'; const o=ov[key]; const val=o||def;
           return `<div class="gr-row"><span class="gr-lbl">${lbl}${o?'<span class="gr-ov">override</span>':''}</span>${
             coach ? `<input class="gr-val${o?' ovd':''}" value="${o?esc(o):''}" placeholder="${esc(def)}" onchange="saveGuardrail('${viewId}','${key}',this.value)" title="blank = class default (${esc(def)})">`
                   : `<span class="gr-val${o?' ovd':''}">${esc(val)}</span>`}</div>`; }).join('');
-        return `<div class="card">
-          <h2 style="margin:0 0 4px">Class guardrails — <span style="color:var(--accent)">${esc(rank)} defaults</span>, hybrid</h2>
-          <div class="note sub" style="padding:2px 0 8px">Defaults flow from the athlete's class (methodology norms). ${coach?'Type a value to <b style="color:var(--warn)">override</b> for this athlete; clear it to fall back to the class default. Refining the class norms updates everyone else automatically.':'An <b style="color:var(--warn)">amber</b> value is a coach override for you; the rest are your class’s norms.'}</div>
-          ${rows}
-        </div>`; })()}
+        return rollup('guard',`Class guardrails — <span style="color:var(--accent)">${esc(rank)} defaults</span>, hybrid`,
+          `<div class="note sub" style="padding:2px 0 8px">Defaults flow from the athlete's class (methodology norms). ${coach?'Type a value to <b style="color:var(--warn)">override</b> for this athlete; clear it to fall back to the class default. Refining the class norms updates everyone else automatically.':'An <b style="color:var(--warn)">amber</b> value is a coach override for you; the rest are your class’s norms.'}</div>${rows}`); })()}
       ${(()=>{ const bg=(prof&&prof.bio&&prof.bio.bg)||{};
         const bgRows=BG_FIELDS.map(([k,l])=>`<div class="gr-row"><span class="gr-lbl">${l}</span><span class="gr-val" style="max-width:62%;text-align:right;font-weight:600">${bg[k]?esc(bg[k]):'<span class="sub" style="font-weight:400">—</span>'}</span></div>`).join('');
-        return `<div class="card">
-          <div style="display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px"><h2 style="margin:0">Background &amp; goals</h2>${coach?`<span class="cbtn alt" onclick="editBackground('${viewId}')">✎ Edit</span>`:''}</div>
-          <div class="note sub" style="padding:2px 0 8px">Free-text context — not in the math, but it's what you (and the AI assistant) read to interpret everything above (e.g. hours/wk sanity-checks the loading band).</div>
-          ${bgRows}
-        </div>`; })()}`;
+        return rollup('bg','Background &amp; goals',
+          `<div class="note sub" style="padding:2px 0 8px">Free-text context — not in the math, but it's what you (and the AI assistant) read to interpret everything above (e.g. hours/wk sanity-checks the loading band).</div>${bgRows}`,
+          coach?`<span class="cbtn alt" onclick="editBackground('${viewId}')">✎ Edit</span>`:''); })()}`;
     return;
   }
 
