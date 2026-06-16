@@ -1998,7 +1998,12 @@ window.processUpload=async(id)=>{
     const athId=f.athlete_id||me_.id;
     await sb.from('vbt_reps').delete().eq('upload_id', id);          // reprocess-safe
     const payload=reps.map(r=>Object.assign({ gym_id:me_.gym_id, athlete_id:athId, upload_id:id }, r));
-    for(let i=0;i<payload.length;i+=300){ const ins=await sb.from('vbt_reps').insert(payload.slice(i,i+300)); if(ins.error){ set('var(--bad)','Save failed — '+ins.error.message); return; } }
+    for(let i=0;i<payload.length;i+=300){ const ins=await sb.from('vbt_reps').insert(payload.slice(i,i+300));
+      if(ins.error){
+        let diag=''; try{ const rr=await sb.rpc('app_role'); const gg=await sb.rpc('app_gym_id');
+          diag=' · [you: role='+(rr.error?'err':JSON.stringify(rr.data))+', gym '+(gg.data===me_.gym_id?'matches':'MISMATCH (db='+JSON.stringify(gg.data)+' vs me='+JSON.stringify(me_.gym_id)+')')+', file owner='+JSON.stringify(athId)+']'; }catch(e){}
+        set('var(--bad)','Save failed — '+ins.error.message+diag); return; }
+    }
     const dates=[...new Set(reps.map(r=>r.lift_date))].sort();
     const exs=[...new Set(reps.map(r=>r.exercise))];
     await sb.from('uploads').update({ processed:true, kind:source, matched_date:dates[dates.length-1] }).eq('id', id);
