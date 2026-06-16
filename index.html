@@ -1707,6 +1707,64 @@ function vbtSpeedSVG(reps, metric){
   const gy=[vmin,(vmin+vmax)/2,vmax].map(v=>`<text x="4" y="${(Y(v)+3).toFixed(1)}" font-size="10" fill="#7e93a6">${v.toFixed(2)}</text>`).join('');
   return `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet"><polyline points="${line}" fill="none" stroke="#e8643c" stroke-width="2.4"/>${dots}${gy}${lbls}</svg>`;
 }
+/* ---- classification engine (standards are versioned DATA, swappable — classification-modernization.md §9) ---- */
+const CLASS_STANDARDS = {
+  'takano-american-v1': {
+    label:'Takano (American)',
+    ranks:['Class III','Class II','Class I','CMS','MS','IMS'],
+    // [bodyweight cap, ClassIII, ClassII, ClassI, CMS, MS, IMS]  (total kg = best Sn + best C&J)
+    M:[[60,135,150,167,192,222,280],[65,145,161,178,205,238,300],[71,157,174,193,222,258,325],[79,169,188,208,239,278,350],[88,181,201,223,257,298,375],[98,193,214,238,274,317,400],[110,205,228,253,291,337,425],[999,212,236,262,301,349,440]],
+    F:[[48,87,96,107,123,143,180],[53,97,107,119,137,159,200],[58,106,118,131,151,175,220],[63,116,129,143,164,190,240],[69,126,139,155,178,206,260],[77,135,150,167,192,222,280],[86,145,161,178,205,238,300],[999,155,172,190,219,254,320]]
+  }
+};
+const CLASS_VERSION='takano-american-v1';
+function classRow(sex, bw, version){ const std=CLASS_STANDARDS[version||CLASS_VERSION]; if(!std||bw==null) return null;
+  const rows=std[sex==='F'?'F':'M']; if(!rows) return null;
+  const lastReal=rows[rows.length-2][0];                                // e.g. women 86, men 110
+  if(bw>lastReal) return { row:rows[rows.length-1], ranks:std.ranks };  // open / top class
+  let best=rows[0], bd=Infinity;                                        // else NEAREST cap (59kg -> 58 row, not 63)
+  for(let i=0;i<rows.length-1;i++){ const d=Math.abs(rows[i][0]-bw); if(d<bd){ bd=d; best=rows[i]; } }
+  return { row:best, ranks:std.ranks }; }
+function classify(sex, bw, total, version){
+  const cr=classRow(sex,bw,version); if(!cr || total==null) return null;
+  const ranks=cr.ranks, thresholds=cr.row.slice(1);
+  let idx=-1; for(let i=0;i<thresholds.length;i++){ if(total>=thresholds[i]) idx=i; }
+  const nextIdx = idx+1<ranks.length ? idx+1 : -1;
+  const curThresh = idx>=0 ? thresholds[idx] : (thresholds[0]*0.7);     // floor below Class III for a sane bar
+  const nextTotal = nextIdx>=0 ? thresholds[nextIdx] : null;
+  const pct = nextTotal!=null ? Math.max(0,Math.min(100, Math.round((total-curThresh)/(nextTotal-curThresh)*100))) : 100;
+  const toGo = nextTotal!=null ? Math.max(0, Math.round((nextTotal-total)*10)/10) : 0;
+  return { rank: idx>=0?ranks[idx]:null, rankIdx:idx, nextRank: nextIdx>=0?ranks[nextIdx]:null, nextTotal, pct, toGo, rowBw:cr.row[0], thresholds, ranks };
+}
+function totalFromMaxes(rows){
+  if(!rows||!rows.length) return null;
+  const norm=s=>(s||'').toLowerCase().replace(/\s+/g,' ').trim();
+  let sn=null, cj=null;
+  rows.forEach(m=>{ const n=norm(m.lift), v=parseFloat(m.kg); if(isNaN(v)) return;
+    if(n==='snatch' && (sn==null||v>sn)) sn=v;
+    if((n==='clean & jerk'||n==='clean and jerk'||n==='c&j'||n==='cj'||n==='clean+jerk') && (cj==null||v>cj)) cj=v; });
+  if(sn==null && cj==null) return null;
+  return { sn, cj, total:Math.round(((sn||0)+(cj||0))*10)/10, hasBoth: sn!=null&&cj!=null };
+}
+function classBar(cls, totM){
+  if(!cls||!totM) return '';
+  const goal = cls.nextRank ? `<span>Next: <b>${esc(cls.nextRank)}</b> @ ${cls.rowBw>900?'top':cls.rowBw+'kg'} = <b>${cls.nextTotal}kg</b></span>` : '<span>🏆 Top of the standards</span>';
+  return `<div style="display:flex;justify-content:space-between;font-size:13px;flex-wrap:wrap;gap:6px">
+      <span>Total <b>${totM.total}kg</b> (Sn ${totM.sn!=null?totM.sn:'—'} + CJ ${totM.cj!=null?totM.cj:'—'}) — <b>${esc(cls.rank||'Below Class III')}</b></span>${goal}</div>
+    <div class="progress" style="margin-top:8px"><i style="width:${cls.pct}%"></i></div>
+    <div class="classrow"><span>${cls.nextRank?cls.pct+'% from '+esc(cls.rank||'start')+' → '+esc(cls.nextRank):'Maxed the table'}</span>${cls.nextRank?`<span><b>${cls.toGo}kg</b> to go</span>`:''}</div>`;
+}
+window.saveClassInputs=async(athId)=>{
+  const sexV=(document.getElementById('clsSex')||{}).value||null;
+  const sn=parseFloat((document.getElementById('clsSn')||{}).value), cj=parseFloat((document.getElementById('clsCj')||{}).value);
+  const msg=document.getElementById('clsMsg'); if(msg){ msg.style.color=''; msg.textContent='Saving…'; }
+  const pu=await sb.from('profiles').update({sex:sexV}).eq('id',athId);
+  if(pu.error){ if(msg){ msg.style.color='var(--bad)'; msg.textContent='Save failed — '+pu.error.message; } return; }
+  for(const u of [ !isNaN(sn)?{gym_id:me_.gym_id,athlete_id:athId,lift:'Snatch',kg:sn}:null, !isNaN(cj)?{gym_id:me_.gym_id,athlete_id:athId,lift:'Clean & Jerk',kg:cj}:null ].filter(Boolean)){
+    const r=await sb.from('maxes').upsert(u,{onConflict:'athlete_id,lift'}); if(r.error){ if(msg){ msg.style.color='var(--bad)'; msg.textContent='Maxes failed — '+r.error.message; } return; }
+  }
+  renderAthDash();
+};
 async function renderAthDash(){
   const coach = dashState.mode==='coach';
   if(coach) coachState.screen='dash'; else athState.screen='dash';
@@ -1764,6 +1822,13 @@ async function renderAthDash(){
   const hasTrend=buckets.some(b=>b.vol>0||b.rd!=null);
   // ---- bodyweight series ----
   const bwPts=rd.filter(r=>r.bodyweight!=null).map(r=>({ lbl:MONS[D(r.check_date).getMonth()]+' '+D(r.check_date).getDate(), bw:parseFloat(r.bodyweight) })).filter(p=>!isNaN(p.bw));
+  const latestBw = bwPts.length? bwPts[bwPts.length-1].bw : null;
+  // ---- classification inputs (sex + maxes -> total) ----
+  let sex = viewAth&&viewAth.sex;
+  if(sex==null){ const pr=await sb.from('profiles').select('sex').eq('id', viewId).maybeSingle(); sex=pr.data&&pr.data.sex; if(viewAth) viewAth.sex=sex; }
+  const maxesRows = (await sb.from('maxes').select('lift,kg').eq('athlete_id', viewId)).data||[];
+  const totM = totalFromMaxes(maxesRows);
+  const cls = (sex && latestBw!=null && totM) ? classify(sex, latestBw, totM.total) : null;
   // ---- 52-week heatmap (own query, fixed window) ----
   const heatStart=new Date(today); heatStart.setDate(heatStart.getDate()-7*52);
   const hsR=await sb.from('sessions').select('id,session_date').eq('athlete_id', viewId).neq('status','draft').gte('session_date', iso(heatStart)).lte('session_date', todayStr);
@@ -1785,7 +1850,6 @@ async function renderAthDash(){
   </div>`;
 
   if(dashState.tab==='profile'){
-    const latestBw = bwPts.length? bwPts[bwPts.length-1].bw : null;
     const memberSince = viewAth&&viewAth.created_at? D(iso(new Date(viewAth.created_at))).toLocaleDateString(undefined,{month:'long',year:'numeric'}) : null;
     app.innerHTML = chrome + picker + subtabs + `
       <div class="card dev-hero">
@@ -1795,20 +1859,31 @@ async function renderAthDash(){
           <div class="dev-split">Current bodyweight${latestBw==null?(coach?' — none logged yet':' — log it on your check-in'):''}</div>
         </div>
         <div class="dev-hero-r">
-          <div class="dev-cl-lbl">Training days · 52 wks</div>
-          <div class="dev-cl">${trainingDays}</div>
-          <div class="dev-cl-next">days on the platform</div>
+          ${cls?`<div class="dev-cl-lbl">Current classification</div><div class="dev-cl">${esc(cls.rank||'—')}</div><div class="dev-cl-next">${cls.nextRank?cls.toGo+'kg to '+esc(cls.nextRank):'top of the table'}</div>`
+            :`<div class="dev-cl-lbl">Training days · 52 wks</div><div class="dev-cl">${trainingDays}</div><div class="dev-cl-next">days on the platform</div>`}
         </div>
       </div>
-      <div class="card"><h2>${coach?'Profile':'Your profile'}</h2>
-        <div class="note sub" style="padding:4px 0 10px">${coach?'Classification targets &amp; competition history are managed by you (coach). Personal bests below are pulled from logged training.':'Your coach manages classification targets and competition history. Personal bests below are pulled from what you’ve logged.'}</div>
+      ${coach
+        ? `<div class="card"><h2 style="margin:0 0 4px">🥇 Classification &amp; maxes</h2>
+            <div class="note sub" style="padding:2px 0 12px">Set sex + best Snatch / Clean &amp; Jerk — this drives the classification bar (Takano standard). Bodyweight comes from check-ins (latest ${latestBw!=null?latestBw.toFixed(1)+'kg':'—'}).</div>
+            <div class="bf-row" style="gap:14px;align-items:flex-end;flex-wrap:wrap">
+              <span class="bf-wk"><label>Sex</label><select id="clsSex" class="cw-sel"><option value=""${!sex?' selected':''}>—</option><option value="M"${sex==='M'?' selected':''}>Male</option><option value="F"${sex==='F'?' selected':''}>Female</option></select></span>
+              <span class="bf-wk"><label>Best Snatch (kg)</label><input id="clsSn" type="number" step="0.5" style="width:120px;text-align:left" value="${totM&&totM.sn!=null?totM.sn:''}"></span>
+              <span class="bf-wk"><label>Best C&amp;J (kg)</label><input id="clsCj" type="number" step="0.5" style="width:120px;text-align:left" value="${totM&&totM.cj!=null?totM.cj:''}"></span>
+              <button class="btn" onclick="saveClassInputs('${viewId}')">Save</button><span class="saved" id="clsMsg"></span>
+            </div>
+            ${cls?'<div style="margin-top:14px">'+classBar(cls,totM)+'<div class="note" style="margin-top:8px">Takano (American) · '+(sex==='F'?'women':'men')+' '+(cls.rowBw>900?'top':cls.rowBw+'kg')+' class.</div></div>':''}
+          </div>`
+        : (cls
+            ? `<div class="card"><h2>🥇 Your classification</h2>${classBar(cls,totM)}<div class="note" style="margin-top:8px">Takano (American) standard · ${sex==='F'?'women':'men'} ${cls.rowBw>900?'top':cls.rowBw+'kg'} class. Your coach sets your sex &amp; maxes.</div></div>`
+            : `<div class="card dlock"><span class="di">🥇</span><div><b>Classification</b><div class="note sub" style="padding:2px 0 0">Your coach sets your sex + Snatch/C&amp;J maxes to light this up.</div></div></div>`)}
+      <div class="card"><h2>${coach?'Logged training':'Your training'}</h2>
         <div class="dev-stats">
           <div class="dev-stat"><div class="v">${sessLogged||'—'}</div><div class="l">Sessions logged (${label.toLowerCase()})</div></div>
           <div class="dev-stat"><div class="v">${tonTxt}</div><div class="l">Tonnage moved</div></div>
           <div class="dev-stat"><div class="v">${trainingDays}</div><div class="l">Training days · 52w</div></div>
         </div>
-      </div>
-      <div class="card dlock"><span class="di">🏅</span><div><b>Competition history &amp; classification</b><div class="note sub" style="padding:2px 0 0">Your meets, totals and classification progress live here once your coach starts logging competition results.</div></div></div>`;
+      </div>`;
     return;
   }
 
@@ -1853,7 +1928,28 @@ async function renderAthDash(){
       </div>
     </div>`;
   }
-  const lockCard = `<div class="card dlock"><span class="di">📊</span><div><b>The climb — competition total &amp; classification${vreps.length?'':' &amp; force plates'}</b><div class="note sub" style="padding:2px 0 0">Your meet totals and classification progress appear here once competition results are logged${vreps.length?'':'; force-plate metrics arrive with Hawkin uploads'}.</div></div></div>`;
+  // ---- classification goal card ----
+  let classCard;
+  if(cls){
+    const sexLbl = sex==='F'?'women':'men';
+    const goalLine = cls.nextRank
+      ? `<span>Next: <b>${esc(cls.nextRank)}</b> @ ${cls.rowBw>900?'+':cls.rowBw+'kg'} = <b>${cls.nextTotal}kg</b></span>`
+      : `<span>🏆 Top of the standards</span>`;
+    classCard = `<div class="card">
+      <h2 style="margin:0 0 8px">🥇 ${coach?'Classification':'Your goal — next classification'}</h2>
+      <div style="display:flex;justify-content:space-between;font-size:13px;flex-wrap:wrap;gap:6px">
+        <span>Total now <b>${totM.total}kg</b> (Sn ${totM.sn!=null?totM.sn:'—'} + CJ ${totM.cj!=null?totM.cj:'—'}) — <b>${esc(cls.rank||'Below Class III')}</b></span>
+        ${goalLine}
+      </div>
+      <div class="progress"><i style="width:${cls.pct}%"></i></div>
+      <div class="classrow"><span>${cls.nextRank?cls.pct+'% from '+esc(cls.rank||'start')+' → '+esc(cls.nextRank):'Maxed the table'}</span>${cls.nextRank?`<span><b>${cls.toGo}kg</b> to go</span>`:''}</div>
+      <div class="note" style="margin-top:8px">Standard: <b>Takano (American)</b> · ${sexLbl} ${cls.rowBw>900?'top':cls.rowBw+'kg'} class.${totM.hasBoth?'':' <span style="color:var(--warn)">Add a '+(totM.sn==null?'Snatch':'Clean &amp; Jerk')+' max for the full total.</span>'} ${coach?'Set sex &amp; maxes on the <b>Athlete Profile</b> tab.':'Every Sn / C&amp;J PR moves this bar.'}</div>
+    </div>`;
+  } else {
+    const need=[]; if(!sex) need.push('sex (M/F)'); if(latestBw==null) need.push('a logged bodyweight'); if(!totM) need.push('Snatch &amp; C&amp;J maxes');
+    classCard = `<div class="card dlock"><span class="di">🥇</span><div><b>Next classification</b><div class="note sub" style="padding:2px 0 0">Add ${need.join(' + ')} to light up the classification bar.${coach?' Sex &amp; maxes live on the <b>Athlete Profile</b> tab.':' Your coach sets these.'}</div></div></div>`;
+  }
+  const fpLock = vreps.length ? '' : `<div class="card dlock"><span class="di">📊</span><div><b>Force plates</b><div class="note sub" style="padding:2px 0 0">Jump &amp; force-plate metrics light up once those exports are flowing in.</div></div></div>`;
 
   app.innerHTML = chrome + picker + subtabs + `
     <div class="card">
@@ -1867,7 +1963,8 @@ async function renderAthDash(){
     ${vbtCard}
     ${trendCard}
     <div class="grid2">${heatCard}${bwCard}</div>
-    ${lockCard}`;
+    ${classCard}
+    ${fpLock}`;
 }
 window.dashSetVbtEx=(v)=>{ dashState.vbtEx=v; renderAthDash(); };
 /* ---------------- uploads (coach inbox + athlete share) ---------------- */
