@@ -1406,7 +1406,7 @@ function athNav(active){
 window.athGo=(s)=>{ athState.screen=s;
   if(s==='athlete') renderAthlete();
   else if(s==='plan') renderAthPlan();
-  else if(s==='dash') renderAthDash();
+  else if(s==='dash'){ dashState.mode='athlete'; renderAthDash(); }
   else if(s==='uploads') renderAthUploads();
   else renderAthHome();
 };
@@ -1616,7 +1616,17 @@ async function renderAthPlan(){
   paintPlan();
 }
 /* ---------------- athlete dashboard ---------------- */
-let dashState={ tab:'dash', range:'1y' };
+let dashState={ tab:'dash', range:'1y', mode:'athlete', athleteId:null };
+window.renderCoachAthDash=async()=>{
+  dashState.mode='coach'; coachState.screen='dash';
+  if(!coachState.athletes || !coachState.athletes.length){
+    const r=await sb.from('profiles').select('id,full_name').eq('role','athlete').order('full_name'); coachState.athletes=r.data||[];
+  }
+  const aths=coachState.athletes||[];
+  if(!dashState.athleteId || !aths.find(a=>a.id===dashState.athleteId)) dashState.athleteId = aths[0]?aths[0].id:null;
+  renderAthDash();
+};
+window.dashPickAth=(id)=>{ dashState.athleteId=id; dashState.vbtEx=null; renderAthDash(); };
 const DASH_RANGES=[['12w','Last 12 weeks'],['ytd','This year'],['1y','Last 12 months'],['career','Full career']];
 window.dashGo=(t)=>{ dashState.tab=t; renderAthDash(); };
 window.dashSetRange=(r)=>{ dashState.range=r; renderAthDash(); };
@@ -1683,9 +1693,22 @@ function vbtSpeedSVG(reps){
   return `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet"><polyline points="${line}" fill="none" stroke="#e8643c" stroke-width="2.4"/>${dots}${gy}${lbls}</svg>`;
 }
 async function renderAthDash(){
-  athState.screen='dash';
-  app.innerHTML = topbar('Athlete') + athNav('dash') + `<div class="spin">Loading your dashboard…</div>`;
+  const coach = dashState.mode==='coach';
+  if(coach) coachState.screen='dash'; else athState.screen='dash';
+  const chrome = coach ? topbar('Coach')+coachNav('dash') : topbar('Athlete')+athNav('dash');
+  app.innerHTML = chrome + `<div class="spin">Loading ${coach?'the':'your'} dashboard…</div>`;
   if(!(await requireSession())) return;
+  const aths = coachState.athletes||[];
+  const viewId = coach ? dashState.athleteId : (me_&&me_.id);
+  const viewAth = coach ? aths.find(a=>a.id===viewId) : me_;
+  const viewName = (viewAth&&viewAth.full_name)||'Athlete';
+  // coach athlete-picker bar
+  const picker = coach ? `<div class="card" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <span class="fl" style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Viewing</span>
+      <select class="scopesel" onchange="dashPickAth(this.value)">${aths.map(a=>`<option value="${a.id}"${a.id===viewId?' selected':''}>${esc(a.full_name)}</option>`).join('')||'<option>No athletes</option>'}</select>
+      <span class="sub" style="margin-left:auto">Read-only — this is exactly what ${esc((viewName||'').split(/\s+/)[0]||'they')} sees.</span>
+    </div>` : '';
+  if(coach && !viewId){ app.innerHTML = chrome + `<div class="card con-empty"><h2 style="margin:0 0 6px;color:var(--text)">Athlete Dashboard</h2><div>No athletes yet — add one from the Console to see their dashboard.</div></div>`; return; }
   const today=new Date(), todayStr=iso(today); const D=s=>new Date(s+'T00:00:00');
   const rdScoreOf=r=>{ const vs=RK_METRICS.map(m=>r[m[0]]).filter(v=>v!=null); return vs.length?vs.reduce((a,b)=>a+b,0)/vs.length:null; };
   // ---- date range ----
@@ -1696,11 +1719,11 @@ async function renderAthDash(){
   else { start=new Date(today); start.setFullYear(start.getFullYear()-1); label='Last 12 months'; }
   const startStr=iso(start);
   // ---- pull sessions + logs + readiness in range ----
-  const sR=await sb.from('sessions').select('id,session_date,'+'prescribed_exercises(prescribed_sets(target_reps,target_pct))').eq('athlete_id', me_.id).neq('status','draft').gte('session_date', startStr).lte('session_date', todayStr);
+  const sR=await sb.from('sessions').select('id,session_date,'+'prescribed_exercises(prescribed_sets(target_reps,target_pct))').eq('athlete_id', viewId).neq('status','draft').gte('session_date', startStr).lte('session_date', todayStr);
   const sess=sR.data||[]; const sById={}; sess.forEach(s=>sById[s.id]=s);
   const ids=sess.map(s=>s.id);
   let logs=[]; if(ids.length){ for(let i=0;i<ids.length;i+=200){ const r=await sb.from('logged_sets').select('session_id,done,miss,prescribed_set_id,actual_kg,actual_reps,velocity,lights').in('session_id', ids.slice(i,i+200)); if(r.data) logs=logs.concat(r.data); } }
-  const rR=await sb.from('readiness').select('*').eq('athlete_id', me_.id).gte('check_date', startStr).lte('check_date', todayStr).order('check_date',{ascending:true});
+  const rR=await sb.from('readiness').select('*').eq('athlete_id', viewId).gte('check_date', startStr).lte('check_date', todayStr).order('check_date',{ascending:true});
   const rd=rR.data||[];
   // ---- KPIs ----
   const trainedSess=new Set(logs.filter(l=>l.done).map(l=>l.session_id));
@@ -1728,7 +1751,7 @@ async function renderAthDash(){
   const bwPts=rd.filter(r=>r.bodyweight!=null).map(r=>({ lbl:MONS[D(r.check_date).getMonth()]+' '+D(r.check_date).getDate(), bw:parseFloat(r.bodyweight) })).filter(p=>!isNaN(p.bw));
   // ---- 52-week heatmap (own query, fixed window) ----
   const heatStart=new Date(today); heatStart.setDate(heatStart.getDate()-7*52);
-  const hsR=await sb.from('sessions').select('id,session_date').eq('athlete_id', me_.id).neq('status','draft').gte('session_date', iso(heatStart)).lte('session_date', todayStr);
+  const hsR=await sb.from('sessions').select('id,session_date').eq('athlete_id', viewId).neq('status','draft').gte('session_date', iso(heatStart)).lte('session_date', todayStr);
   const hSess=hsR.data||[]; const hIds=hSess.map(s=>s.id); const hDate={}; hSess.forEach(s=>hDate[s.id]=s.session_date);
   let hLogs=[]; if(hIds.length){ for(let i=0;i<hIds.length;i+=200){ const r=await sb.from('logged_sets').select('session_id,done').in('session_id', hIds.slice(i,i+200)); if(r.data) hLogs=hLogs.concat(r.data); } }
   const trainedSet=new Set(); hLogs.forEach(l=>{ if(l.done && hDate[l.session_id]) trainedSet.add(hDate[l.session_id]); });
@@ -1748,13 +1771,13 @@ async function renderAthDash(){
 
   if(dashState.tab==='profile'){
     const latestBw = bwPts.length? bwPts[bwPts.length-1].bw : null;
-    const memberSince = me_&&me_.created_at? D(iso(new Date(me_.created_at))).toLocaleDateString(undefined,{month:'long',year:'numeric'}) : null;
-    app.innerHTML = topbar('Athlete') + athNav('dash') + subtabs + `
+    const memberSince = viewAth&&viewAth.created_at? D(iso(new Date(viewAth.created_at))).toLocaleDateString(undefined,{month:'long',year:'numeric'}) : null;
+    app.innerHTML = chrome + picker + subtabs + `
       <div class="card dev-hero">
         <div class="dev-hero-l">
-          <div class="dev-since">${esc((me_&&me_.full_name)||'Athlete')}${memberSince?' · since '+memberSince:''}</div>
+          <div class="dev-since">${esc(viewName)}${memberSince?' · since '+memberSince:''}</div>
           <div class="dev-totalrow"><span class="dev-big">${latestBw!=null?latestBw.toFixed(1):'—'}<span class="u">kg</span></span></div>
-          <div class="dev-split">Current bodyweight${latestBw==null?' — log it on your check-in':''}</div>
+          <div class="dev-split">Current bodyweight${latestBw==null?(coach?' — none logged yet':' — log it on your check-in'):''}</div>
         </div>
         <div class="dev-hero-r">
           <div class="dev-cl-lbl">Training days · 52 wks</div>
@@ -1762,8 +1785,8 @@ async function renderAthDash(){
           <div class="dev-cl-next">days on the platform</div>
         </div>
       </div>
-      <div class="card"><h2>Your profile</h2>
-        <div class="note sub" style="padding:4px 0 10px">Your coach manages classification targets and competition history. Personal bests below are pulled from what you’ve logged.</div>
+      <div class="card"><h2>${coach?'Profile':'Your profile'}</h2>
+        <div class="note sub" style="padding:4px 0 10px">${coach?'Classification targets &amp; competition history are managed by you (coach). Personal bests below are pulled from logged training.':'Your coach manages classification targets and competition history. Personal bests below are pulled from what you’ve logged.'}</div>
         <div class="dev-stats">
           <div class="dev-stat"><div class="v">${sessLogged||'—'}</div><div class="l">Sessions logged (${label.toLowerCase()})</div></div>
           <div class="dev-stat"><div class="v">${tonTxt}</div><div class="l">Tonnage moved</div></div>
@@ -1794,7 +1817,7 @@ async function renderAthDash(){
     : '';
   // ---- velocity (VBT) from parsed uploads ----
   let vbtCard='';
-  const vbtR=await sb.from('vbt_reps').select('*').eq('athlete_id', me_.id).gte('lift_date', startStr).lte('lift_date', todayStr).order('lift_date',{ascending:true});
+  const vbtR=await sb.from('vbt_reps').select('*').eq('athlete_id', viewId).gte('lift_date', startStr).lte('lift_date', todayStr).order('lift_date',{ascending:true});
   const vreps = vbtR.error?[]:(vbtR.data||[]);
   if(vreps.length){
     const exs=[...new Set(vreps.map(r=>r.exercise))];
@@ -1813,7 +1836,7 @@ async function renderAthDash(){
   }
   const lockCard = `<div class="card dlock"><span class="di">📊</span><div><b>The climb — competition total &amp; classification${vreps.length?'':' &amp; force plates'}</b><div class="note sub" style="padding:2px 0 0">Your meet totals and classification progress appear here once competition results are logged${vreps.length?'':'; force-plate metrics arrive with Hawkin uploads'}.</div></div></div>`;
 
-  app.innerHTML = topbar('Athlete') + athNav('dash') + subtabs + `
+  app.innerHTML = chrome + picker + subtabs + `
     <div class="card">
       <div class="filterbar"><span class="fl">Date range</span>
         <div class="drng">${DASH_RANGES.map(r=>`<button class="${dashState.range===r[0]?'on':''}" onclick="dashSetRange('${r[0]}')">${r[1]}</button>`).join('')}</div>
@@ -2208,10 +2231,11 @@ function coachNav(active){
     <button class="${active==='console'?'on':''}" onclick="coachGo('console')">⌂ Console</button>
     <button class="${active==='coach'?'on':''}" onclick="coachGo('coach')">Coach View</button>
     <button class="${active==='plan'?'on':''}" onclick="coachGo('plan')">🗓 Annual Plan</button>
+    <button class="${active==='dash'?'on':''}" onclick="coachGo('dash')">📊 Athlete Dashboard</button>
     <button class="${active==='uploads'?'on':''}" onclick="coachGo('uploads')">📤 Uploads</button>
   </div>`;
 }
-window.coachGo=(s)=>{ coachState.screen=s; ed=null; if(s==='coach') paintCoach(); else if(s==='plan') renderPlan(); else if(s==='uploads') renderCoachUploads(); else renderConsole(); };
+window.coachGo=(s)=>{ coachState.screen=s; ed=null; if(s==='coach') paintCoach(); else if(s==='plan') renderPlan(); else if(s==='dash') renderCoachAthDash(); else if(s==='uploads') renderCoachUploads(); else renderConsole(); };
 
 function paintCoach(){
   coachState.screen='coach';
