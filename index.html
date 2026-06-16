@@ -2820,8 +2820,8 @@ window.planEditPhase=(id)=>{
     <div class="bf-row"><input id="phName" placeholder="Phase name (e.g. Base Build)" value="${p?esc(p.name):''}" style="flex:1;min-width:200px">
       <select id="phKind" class="cw-sel">${PHASE_KINDS.map(k=>`<option value="${k[0]}"${p&&p.kind===k[0]?' selected':''}>${k[1]}</option>`).join('')}</select></div>
     <div class="bf-row" style="margin-top:10px">
-      <span class="bf-wk"><label>Start</label><input id="phStart" type="date" value="${p?p.start_date:iso(new Date(planState.year,planState.month,1))}"></span>
-      <span class="bf-wk"><label>End</label><input id="phEnd" type="date" value="${p?p.end_date:iso(new Date(planState.year,planState.month,28))}"></span>
+      <span class="bf-wk"><label>Start</label><input id="phStart" type="date" style="width:150px;text-align:left" value="${p?p.start_date:iso(new Date(planState.year,planState.month,1))}"></span>
+      <span class="bf-wk"><label>End</label><input id="phEnd" type="date" style="width:150px;text-align:left" value="${p?p.end_date:iso(new Date(planState.year,planState.month,28))}"></span>
       <span class="bf-wk"><label>Team</label><select id="phTeam" class="cw-sel"><option value="">Whole gym</option>${teams.map(t=>`<option value="${t.id}"${(p&&p.team_id===t.id)||(!p&&planState.teamId===t.id)?' selected':''}>${esc(t.name)}</option>`).join('')}</select></span>
       <span class="bf-wk"><label>Loading pattern</label><select id="phPattern" class="cw-sel">${LOAD_PATTERNS.map(pt=>`<option${(p&&p.pattern===pt)?' selected':''}>${pt}</option>`).join('')}</select></span>
     </div>
