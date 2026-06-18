@@ -4571,6 +4571,27 @@ window.cwPublishWeek = async ()=>{
   await renderCoachPanel();
   setMsg('✓ Published '+n+' session'+(n===1?'':'s')+' to '+name+' (week of '+wkLabel+')','var(--good)');
 };
+/* ---------------- methodology engine (methodology-spec §3) ---------------- */
+// Rep-Max table: % of 1RM achievable for N reps (powers RI). Off-curve reps interpolate.
+const REP_MAX_PCT={1:100,2:95,3:92.5,4:90,5:87.5,6:85,7:82.5,8:80,9:78.5,10:75,12:67,15:62,20:43};
+const RM_KEYS=Object.keys(REP_MAX_PCT).map(Number).sort((a,b)=>a-b);
+function repMaxPct(reps){ reps=Math.max(1,Math.round(reps||1));
+  if(REP_MAX_PCT[reps]!=null) return REP_MAX_PCT[reps];
+  if(reps<RM_KEYS[0]) return REP_MAX_PCT[RM_KEYS[0]];
+  if(reps>RM_KEYS[RM_KEYS.length-1]){ const a=RM_KEYS[RM_KEYS.length-2], b=RM_KEYS[RM_KEYS.length-1]; const slope=(REP_MAX_PCT[b]-REP_MAX_PCT[a])/(b-a); return Math.max(1,REP_MAX_PCT[b]+slope*(reps-b)); }
+  let lo=RM_KEYS[0], hi=RM_KEYS[RM_KEYS.length-1];
+  for(let i=0;i<RM_KEYS.length-1;i++){ if(reps>RM_KEYS[i] && reps<RM_KEYS[i+1]){ lo=RM_KEYS[i]; hi=RM_KEYS[i+1]; break; } }
+  return REP_MAX_PCT[lo]+((reps-lo)/(hi-lo))*(REP_MAX_PCT[hi]-REP_MAX_PCT[lo]);
+}
+// metrics from a list of {reps, pct} sets (pct = %1RM as a number, e.g. 80). per methodology §3b.
+function liftMetrics(sets){
+  let vol=0,vw=0,pv=0,riw=0,inol=0,peak=0;
+  (sets||[]).forEach(s=>{ const r=parseInt(s.reps)||0, p=parseFloat(s.pct)||0; if(!r) return; vol+=r;
+    if(p>0){ vw+=p*r; pv+=r; riw+=r*(p/repMaxPct(r)); if(p>peak)peak=p; inol+=r/Math.max(1,(100-p)); } });
+  return { vol, ari: pv?vw/pv:0, ri: pv?riw/pv:0, inol, peak, pv,
+    _vw:vw, _riw:riw };   // _vw/_riw/pv let callers volume-weight a roll-up
+}
+function riDisplay(ri){ return ri? (ri*10).toFixed(1) : '—'; }   // RI on a 0–10 (RPE-like) scale per spec
 function statsFor(sessRows, logs){
   let vol=0, vw=0, pv=0, peak=0, totalSets=0;
   (sessRows||[]).forEach(s=>(s.prescribed_exercises||[]).forEach(ex=>(ex.prescribed_sets||[]).forEach(ps=>{
@@ -4775,26 +4796,25 @@ async function cloneSessionTo(full, targetDate){
   return ns;
 }
 function exTiles(ex){
-  let vol=0,ton=0,vw=0,pv=0,peak=0,inol=0;
-  ex.sets.forEach(st=>{ const r=parseInt(st.reps)||0,k=parseFloat(st.kg)||0,p=parseFloat(st.pct)||0;
-    vol+=r; ton+=r*k; if(p&&r){ vw+=p*r; pv+=r; if(p>peak)peak=p; if(p<100) inol+=r/(100-p); } });
-  const avg=vol?ton/vol:0, ari=pv?vw/pv:0;
+  const m=liftMetrics(ex.sets);
+  let ton=0; ex.sets.forEach(st=>{ const r=parseInt(st.reps)||0,k=parseFloat(st.kg)||0; ton+=r*k; });
+  const avg=m.vol?ton/m.vol:0;
   const ids=new Set(ex.sets.map(s=>s.id).filter(Boolean));
   let miss=0, lit=0, legal=0;
   (ed?ed.logs:[]).forEach(l=>{ const mine=(l.prescribed_set_id&&ids.has(l.prescribed_set_id))||(!l.prescribed_set_id&&l.exercise_id===ex.id);
     if(!mine) return; miss+=(l.miss||0); if(l.lights!=null){ lit++; if(l.lights>=2) legal++; } });
   const legalPct=lit?Math.round(legal/lit*100):null;
   const t=(v,l,col)=>`<span class="cv-tile"><b${col?` style="color:${col}"`:''}>${v}</b>${l}</span>`;
-  return `<div class="cv-tiles">${t(vol||'—','volume')}${t(avg?avg.toFixed(1):'—','avg int (kg)')}${t(ari?ari.toFixed(1)+'%':'—','ARI')}${t('—','RI (effort)')}${t(inol?inol.toFixed(2):'—','INOL')}${t(peak?peak+'%':'—','peak %')}${t(String(miss),'misses',miss?'var(--bad)':null)}${t(legalPct!=null?legalPct+'%':'—','comp-legal',legalPct!=null?(legalPct>=90?'var(--good)':'var(--warn)'):null)}</div>`;
+  return `<div class="cv-tiles">${t(m.vol||'—','volume')}${t(avg?avg.toFixed(1):'—','avg int (kg)')}${t(m.ari?m.ari.toFixed(1)+'%':'—','ARI')}${t(riDisplay(m.ri),'RI (effort)')}${t(m.inol?m.inol.toFixed(2):'—','INOL')}${t(m.peak?m.peak+'%':'—','peak %')}${t(String(miss),'misses',miss?'var(--bad)':null)}${t(legalPct!=null?legalPct+'%':'—','comp-legal',legalPct!=null?(legalPct>=90?'var(--good)':'var(--warn)'):null)}</div>`;
 }
 function sessionTiles(){
   if(!ed) return '';
-  let vol=0,vw=0,pv=0;
+  let vol=0,vw=0,pv=0,riw=0;          // volume-weighted ARI + RI across the whole session (§3d)
   ed.exercises.forEach(ex=>ex.sets.forEach(st=>{ const r=parseInt(st.reps)||0,p=parseFloat(st.pct)||0;
-    vol+=r; if(p&&r){ vw+=p*r; pv+=r; } }));
-  const ari=pv?vw/pv:0;
+    vol+=r; if(p&&r){ vw+=p*r; pv+=r; riw+=r*(p/repMaxPct(r)); } }));
+  const ari=pv?vw/pv:0, ri=pv?riw/pv:0;
   let miss=0; ed.logs.forEach(l=>{ miss+=(l.miss||0); });
-  return `<span><label>vol</label><b>${vol||'—'}</b></span><span><label>ari</label><b>${ari?ari.toFixed(1)+'%':'—'}</b></span><span><label>misses</label><b${miss?' style="color:var(--bad)"':''}>${miss}</b></span>`;
+  return `<span><label>vol</label><b>${vol||'—'}</b></span><span><label>ari</label><b>${ari?ari.toFixed(1)+'%':'—'}</b></span><span><label>RI</label><b>${riDisplay(ri)}</b></span><span><label>misses</label><b${miss?' style="color:var(--bad)"':''}>${miss}</b></span>`;
 }
 function copyDateOptions(){
   const out=[]; const base=new Date(ed.session.session_date+'T00:00:00');
