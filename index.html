@@ -4608,20 +4608,29 @@ window.cwSelectDay = (d)=>{ ed=null; cw.selDate=d; renderCoachPanel(); };
 let ed = null;   // open day-editor state
 let cw = null;   // coach week state (selected athlete's week)
 function rnd1(n){ return Math.round(n); }
-function ormLookup(name, maxes){
+// Resolve which 1RM a movement prices off. Chris's rule: the whole SNATCH family
+// (variations + complexes, incl. "Snatch DL + Snatch") prices off the Snatch; the
+// whole CLEAN family off the Clean (full C&J off C&J); squats/presses keep their own max.
+function ormResolve(name, maxes){
   if(!maxes) return null;
-  if(maxes[name]!=null) return maxes[name];
   const n=(name||'').toLowerCase();
-  const rules=[[/power\s*snatch/,'Power Snatch'],[/power\s*clean/,'Power Clean'],
-    [/snatch.*(dl|pull|deadlift)/,'Snatch DL'],[/clean.*(dl|pull|deadlift)/,'Clean DL'],
-    [/clean\s*(&|and|\+)\s*jerk/,'Clean & Jerk'],
-    [/hang\s*snatch|block\s*snatch|snatch\s*balance/,'Snatch'],[/hang\s*clean|block\s*clean/,'Clean'],
-    [/front\s*squat/,'Front Squat'],[/squat/,'Back Squat'],
-    [/push\s*press|strict\s*press/,'Push Press'],[/jerk/,'Jerk'],[/snatch/,'Snatch'],[/clean/,'Clean']];
-  for(const r of rules){ if(r[0].test(n) && maxes[r[1]]!=null) return maxes[r[1]]; }
+  const has=(...ws)=>ws.some(w=>n.includes(w));
+  const pick=(...lifts)=>{ for(const l of lifts){ if(maxes[l]!=null) return {kg:maxes[l], lift:l}; } return null; };
+  const sn=has('snatch'), cl=has('clean'), jk=/\bjerk\b/.test(n);
+  if(has('front squat')) return pick('Front Squat','Back Squat');
+  if(has('overhead squat','oh squat')) return pick('Snatch','Back Squat');          // OH squat = snatch family
+  if(/\bsquat\b/.test(n) && !sn && !cl) return pick('Back Squat');
+  if(has('push press','strict press','bench press')) return pick('Push Press','Jerk');
+  if(sn) return pick('Snatch');                          // any snatch variation / complex → Snatch
+  if(cl && jk) return pick('Clean & Jerk','Clean');      // the full clean & jerk
+  if(cl) return pick('Clean','Clean & Jerk');            // any clean variation / complex (incl. pull+clean) → Clean
+  if(jk) return pick('Jerk','Clean & Jerk');             // jerk variations → Jerk
+  if(maxes[name]!=null) return {kg:maxes[name], lift:name};   // exact fallback for custom lifts
   return null;
 }
+function ormLookup(name, maxes){ const r=ormResolve(name, maxes); return r?r.kg:null; }
 function oneRMFor(name){ return ormLookup(name, cw&&cw.maxes); }
+function ormSrc(name){ const r=ormResolve(name, cw&&cw.maxes); return r?r.lift:null; }
 const WAVE_LV={light:['LIGHT','#8b9aa8',8],moderate:['MODERATE','#3c9ee8',12],heavy:['HEAVY','#e8b13c',16],peak:['PEAK','#e8643c',20]};
 function blockWeekIdx(block, wk){
   const mon0=new Date(block.start_date+'T00:00:00');
@@ -4957,7 +4966,7 @@ function paintEditor(){
       <div class="cvx-hd">
         <span class="pill ${ex.category==='accessory'?'accessory':'primary'}">${esc(ex.category||'primary')}</span>
         <input class="cvx-name" data-f="name" value="${esc(ex.name)}" placeholder="Exercise name">
-        <span class="cvx-orm">${(orm&&type==='percentage')?`1RM <b>${orm}</b> · from maxes`:(type==='percentage'&&cw.maxes?'<span class="cv-nolog">no 1RM link</span>':'')}</span>
+        <span class="cvx-orm">${(orm&&type==='percentage')?`1RM <b>${orm}</b> · ${esc(ormSrc(ex.name)||'maxes')}`:(type==='percentage'&&cw.maxes?'<span class="cv-nolog">no 1RM link</span>':'')}</span>
         ${LT_READY?ltSel:''}
         <span class="scheme-btn" data-scheme="1">⚡ Set/Rep Scheme</span>
         <span class="rm-ex" data-delex="1" title="Remove exercise">✕ remove</span>
@@ -5084,7 +5093,7 @@ function wireEditor(){
     const ex=ed.exercises[+cvx.dataset.ei]; if(!ex) return;
     if(t.dataset.f==='name'){ ex.name=t.value; ed.dirty=true;
       const orm=oneRMFor(ex.name);
-      cvx.querySelector('.cvx-orm').innerHTML = (orm&&(ex.loadType||'percentage')==='percentage')?`1RM <b>${orm}</b> · from maxes`:((ex.loadType||'percentage')==='percentage'&&cw.maxes?'<span class="cv-nolog">no 1RM link</span>':'');
+      cvx.querySelector('.cvx-orm').innerHTML = (orm&&(ex.loadType||'percentage')==='percentage')?`1RM <b>${orm}</b> · ${esc(ormSrc(ex.name)||'maxes')}`:((ex.loadType||'percentage')==='percentage'&&cw.maxes?'<span class="cv-nolog">no 1RM link</span>':'');
       cvx.querySelectorAll('[data-f="tgt"]').forEach(p=>{ p.disabled=false; });   // % always editable — it records + drives metrics even w/o a 1RM
       showExDrop(t, +cvx.dataset.ei);
       return; }
