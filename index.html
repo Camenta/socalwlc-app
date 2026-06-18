@@ -966,6 +966,9 @@
   .cvx-name:focus{outline:none;border-color:var(--accent2)}
   .cvx-orm{font-size:12px;color:var(--accent2);white-space:nowrap}
   .cvx-orm b{font-weight:800}
+  .cvx-ovr{width:96px;background:#0e151c;border:1px solid var(--line);border-radius:7px;padding:6px 8px;color:var(--warn);font-size:12px;font-weight:700}
+  .cvx-ovr:focus{outline:none;border-color:var(--warn)}
+  .cvx-ovr::placeholder{color:var(--muted);font-weight:600}
   .cvx-note{display:block;width:calc(100% - 26px);margin:9px 13px;background:#0e151c;border:1px solid var(--line);border-radius:8px;padding:8px 11px;color:var(--text);font-size:12.5px}
   .cvx-note:focus{outline:none;border-color:var(--accent2)}
   .cvt th.plh{background:rgba(60,158,232,.10);color:var(--accent2);text-align:center}
@@ -1346,13 +1349,14 @@ function wireLogging(){
     const del=e.target.closest('.lg-del'); if(del){ removeSetRow(id); return; }
   });
 }
-let LT_READY=false;
+let LT_READY=false, OVR_READY=false;
 let SESSION_SELECT='id,gym_id,title,session_date,status,prescribed_exercises(id,name,position,category,coach_note,prescribed_sets(id,position,target_text,target_reps,target_kg,target_pct))';
 async function probeLoadTypes(){
   const { error } = await sb.from('prescribed_exercises').select('load_type').limit(1);
   if(!error){
     LT_READY=true;
-    SESSION_SELECT='id,gym_id,title,session_date,status,prescribed_exercises(id,name,position,category,coach_note,load_type,cues,prescribed_sets(id,position,target_text,target_reps,target_kg,target_pct,target_vel,target_eff))';
+    const ovr = await sb.from('prescribed_exercises').select('base_override').limit(1); OVR_READY = !ovr.error;
+    SESSION_SELECT='id,gym_id,title,session_date,status,prescribed_exercises(id,name,position,category,coach_note,load_type,cues'+(OVR_READY?',base_override':'')+',prescribed_sets(id,position,target_text,target_reps,target_kg,target_pct,target_vel,target_eff))';
   }
 }
 let PROG_ID_READY=false, PROG_META_READY=false, TEAM_META_READY=false;
@@ -4608,29 +4612,57 @@ window.cwSelectDay = (d)=>{ ed=null; cw.selDate=d; renderCoachPanel(); };
 let ed = null;   // open day-editor state
 let cw = null;   // coach week state (selected athlete's week)
 function rnd1(n){ return Math.round(n); }
-// Resolve which 1RM a movement prices off. Chris's rule: the whole SNATCH family
-// (variations + complexes, incl. "Snatch DL + Snatch") prices off the Snatch; the
-// whole CLEAN family off the Clean (full C&J off C&J); squats/presses keep their own max.
-function ormResolve(name, maxes){
-  if(!maxes) return null;
-  const n=(name||'').toLowerCase();
-  const has=(...ws)=>ws.some(w=>n.includes(w));
-  const pick=(...lifts)=>{ for(const l of lifts){ if(maxes[l]!=null) return {kg:maxes[l], lift:l}; } return null; };
-  const sn=has('snatch'), cl=has('clean'), jk=/\bjerk\b/.test(n);
-  if(has('front squat')) return pick('Front Squat','Back Squat');
-  if(has('overhead squat','oh squat')) return pick('Snatch','Back Squat');          // OH squat = snatch family
-  if(/\bsquat\b/.test(n) && !sn && !cl) return pick('Back Squat');
-  if(has('push press','strict press','bench press')) return pick('Push Press','Jerk');
-  if(sn) return pick('Snatch');                          // any snatch variation / complex → Snatch
-  if(cl && jk) return pick('Clean & Jerk','Clean');      // the full clean & jerk
-  if(cl) return pick('Clean','Clean & Jerk');            // any clean variation / complex (incl. pull+clean) → Clean
-  if(jk) return pick('Jerk','Clean & Jerk');             // jerk variations → Jerk
-  if(maxes[name]!=null) return {kg:maxes[name], lift:name};   // exact fallback for custom lifts
+// classify one movement -> the canonical lift it should price off (handles abbreviations).
+// pulls/DLs/extensions price off the DL; snatch/clean variations off the comp lift.
+function classifyLift(seg){
+  const s=(seg||'').toLowerCase();
+  const sn=/snatch/.test(s)||/\bsn\b/.test(s);
+  const cl=/clean/.test(s)||/\bcl\b/.test(s);
+  const jk=/\bjerk\b/.test(s)||/\bjk\b/.test(s);
+  const pull=/\b(dl|deadlift|pull|extension|ext|rdl|high\s*pull|halting|segment)\b/.test(s);
+  const squat=/squat/.test(s);
+  const press=/press/.test(s);
+  if(/front\s*squat/.test(s)) return 'Front Squat';
+  if(/(overhead|oh)\s*squat/.test(s)) return 'Snatch';       // OH squat = snatch family
+  if(squat && !sn && !cl) return 'Back Squat';
+  if(press) return 'Push Press';
+  if(sn) return pull ? 'Snatch DL' : 'Snatch';
+  if(cl && jk) return 'Clean & Jerk';
+  if(cl) return pull ? 'Clean DL' : 'Clean';
+  if(jk) return 'Jerk';
   return null;
 }
-function ormLookup(name, maxes){ const r=ormResolve(name, maxes); return r?r.kg:null; }
+// resolve a movement name -> {kg, lift}. For a complex (A + B [+ C]), the LAST movement drives the load.
+function ormResolveName(name, maxes){
+  if(!maxes||!name) return null;
+  if(maxes[name]!=null) return {kg:maxes[name], lift:name};         // exact custom-lift match
+  const segs=String(name).split('+').map(s=>s.trim()).filter(Boolean);
+  const last=segs.length?segs[segs.length-1]:name;
+  let lift=classifyLift(last) || classifyLift(name);
+  if(lift && maxes[lift]!=null) return {kg:maxes[lift], lift};
+  // fall back to whatever lift in the whole name has a max (first hit)
+  for(const seg of segs.length?segs:[name]){ const l=classifyLift(seg); if(l && maxes[l]!=null) return {kg:maxes[l], lift:l}; }
+  return null;
+}
+// the load base for an exercise, honouring a per-exercise override (a kg number OR a lift name).
+function resolveBase(ex, maxes){
+  maxes = maxes || (cw&&cw.maxes);
+  const ov=(ex && ex.baseOverride||'').trim();
+  if(ov){
+    if(/^[0-9]+(\.[0-9]+)?$/.test(ov)) return { kg:parseFloat(ov), lift:ov+'kg', override:true };
+    const r=ormResolveName(ov, maxes); if(r) return { kg:r.kg, lift:r.lift, override:true };
+    return { kg:null, lift:ov, override:true, missing:true };       // named override with no max on file
+  }
+  return ormResolveName(ex&&ex.name, maxes);
+}
+function ormLookup(name, maxes){ const r=ormResolveName(name, maxes); return r?r.kg:null; }
 function oneRMFor(name){ return ormLookup(name, cw&&cw.maxes); }
-function ormSrc(name){ const r=ormResolve(name, cw&&cw.maxes); return r?r.lift:null; }
+function baseInfoFor(ex){ return resolveBase(ex, cw&&cw.maxes); }   // editor helper
+function cvxRefreshBase(cvx, ex){   // re-render the "1RM N · Lift" header after name/override change
+  const el=cvx&&cvx.querySelector('.cvx-orm'); if(!el) return;
+  const bi=resolveBase(ex, cw&&cw.maxes); const orm=bi&&bi.kg!=null?bi.kg:null; const type=ex.loadType||'percentage';
+  el.innerHTML = (orm&&type==='percentage')?`1RM <b>${orm}</b> · ${esc((bi&&bi.lift)||'maxes')}${bi&&bi.override?' <span style="color:var(--warn)">override</span>':''}`:(type==='percentage'&&cw.maxes?(bi&&bi.missing?'<span class="cv-nolog" style="color:var(--warn)">override “'+esc(bi.lift)+'” has no max</span>':'<span class="cv-nolog">no 1RM link</span>'):'');
+}
 const WAVE_LV={light:['LIGHT','#8b9aa8',8],moderate:['MODERATE','#3c9ee8',12],heavy:['HEAVY','#e8b13c',16],peak:['PEAK','#e8643c',20]};
 function blockWeekIdx(block, wk){
   const mon0=new Date(block.start_date+'T00:00:00');
@@ -4741,7 +4773,7 @@ async function renderCoachDay(){
   const { data: logs } = await sb.from('logged_sets').select('*').eq('session_id', sel.id);
   ed = { session: full, logs: logs||[], dirty:false,
     exercises: (full.prescribed_exercises||[]).slice().sort(sortByPos).map(ex=>({
-      id:ex.id, name:ex.name, note:ex.coach_note||'', category:ex.category||'primary',
+      id:ex.id, name:ex.name, note:ex.coach_note||'', category:ex.category||'primary', baseOverride: ex.base_override||'',
       loadType: ex.load_type||'percentage', cues: Array.isArray(ex.cues)?ex.cues.slice():[],
       sets:(ex.prescribed_sets||[]).slice().sort(sortByPos).map(ps=>({
         id:ps.id, reps:ps.target_reps!=null?ps.target_reps:'',
@@ -4939,7 +4971,7 @@ function paintEditor(){
   const logBySet={}; ed.logs.forEach(l=>{ if(l.prescribed_set_id) logBySet[l.prescribed_set_id]=l; });
   const exHtml = ed.exercises.map((ex,ei)=>{
     const type=ex.loadType||'percentage';
-    const orm=oneRMFor(ex.name);
+    const bi=baseInfoFor(ex); const orm=bi&&bi.kg!=null?bi.kg:null;
     const showTgt = type!=='weight' && type!=='open';
     // collapse consecutive identical sets into one display row with a Sets multiplier
     const groups=[];
@@ -4966,7 +4998,8 @@ function paintEditor(){
       <div class="cvx-hd">
         <span class="pill ${ex.category==='accessory'?'accessory':'primary'}">${esc(ex.category||'primary')}</span>
         <input class="cvx-name" data-f="name" value="${esc(ex.name)}" placeholder="Exercise name">
-        <span class="cvx-orm">${(orm&&type==='percentage')?`1RM <b>${orm}</b> · ${esc(ormSrc(ex.name)||'maxes')}`:(type==='percentage'&&cw.maxes?'<span class="cv-nolog">no 1RM link</span>':'')}</span>
+        <span class="cvx-orm">${(orm&&type==='percentage')?`1RM <b>${orm}</b> · ${esc((bi&&bi.lift)||'maxes')}${bi&&bi.override?' <span style="color:var(--warn)">override</span>':''}`:(type==='percentage'&&cw.maxes?(bi&&bi.missing?'<span class="cv-nolog" style="color:var(--warn)">override “'+esc(bi.lift)+'” has no max</span>':'<span class="cv-nolog">no 1RM link</span>'):'')}</span>
+        ${OVR_READY?`<input class="cvx-ovr" data-f="baseovr" value="${esc(ex.baseOverride||'')}" placeholder="⚖ base" title="Price % off a specific number (e.g. 180) or a named lift (e.g. Snatch DL) instead of the auto 1RM. Blank = auto.">`:''}
         ${LT_READY?ltSel:''}
         <span class="scheme-btn" data-scheme="1">⚡ Set/Rep Scheme</span>
         <span class="rm-ex" data-delex="1" title="Remove exercise">✕ remove</span>
@@ -5092,10 +5125,17 @@ function wireEditor(){
     const cvx=t.closest('.cvx'); if(!cvx) return;
     const ex=ed.exercises[+cvx.dataset.ei]; if(!ex) return;
     if(t.dataset.f==='name'){ ex.name=t.value; ed.dirty=true;
-      const orm=oneRMFor(ex.name);
-      cvx.querySelector('.cvx-orm').innerHTML = (orm&&(ex.loadType||'percentage')==='percentage')?`1RM <b>${orm}</b> · ${esc(ormSrc(ex.name)||'maxes')}`:((ex.loadType||'percentage')==='percentage'&&cw.maxes?'<span class="cv-nolog">no 1RM link</span>':'');
+      cvxRefreshBase(cvx, ex);
       cvx.querySelectorAll('[data-f="tgt"]').forEach(p=>{ p.disabled=false; });   // % always editable — it records + drives metrics even w/o a 1RM
       showExDrop(t, +cvx.dataset.ei);
+      return; }
+    if(t.dataset.f==='baseovr'){ ex.baseOverride=t.value; ed.dirty=true;
+      cvxRefreshBase(cvx, ex);
+      // re-price every set off the new base
+      const type=ex.loadType||'percentage'; const base=(resolveBase(ex, cw&&cw.maxes)||{}).kg;
+      if(type==='percentage'){ ex.sets.forEach(st=>{ const p=parseFloat(st.pct); st.kg=(base!=null && !isNaN(p))?rnd1(base*p/100):''; });
+        cvx.querySelectorAll('tr[data-si]').forEach(tr=>{ const st=ex.sets[+tr.dataset.si]; const k=tr.querySelector('[data-f="kg"]'); if(k&&st) k.value=st.kg; }); }
+      const tl=cvx.querySelector('.cv-tiles'); if(tl) tl.outerHTML=exTiles(ex);
       return; }
     if(t.dataset.f==='note'){ ex.note=t.value; ed.dirty=true; return; }
     if(t.dataset.f==='count') return; // handled on 'change' (structural)
@@ -5103,7 +5143,7 @@ function wireEditor(){
     const si=+tr.dataset.si, cnt=+(tr.dataset.count||1);
     const groupSets=ex.sets.slice(si, si+cnt); if(!groupSets.length) return;
     const type=ex.loadType||'percentage';
-    const orm=oneRMFor(ex.name);
+    const orm=(resolveBase(ex, cw&&cw.maxes)||{}).kg;
     if(t.dataset.f==='reps'){ groupSets.forEach(st=>st.reps=t.value); }
     if(t.dataset.f==='tgt'){
       if(type==='percentage'){ const kg=(orm && t.value!=='')?rnd1(orm*parseFloat(t.value)/100):null;
@@ -5636,11 +5676,13 @@ async function saveEditor(publishAfter){
       if(ex.id){
         const exPatch={ name:ex.name.trim(), coach_note:ex.note.trim()||null, position:ei };
         if(LT_READY){ exPatch.load_type=ex.loadType||'percentage'; exPatch.cues=(ex.cues&&ex.cues.length)?ex.cues:null; }
+        if(OVR_READY){ exPatch.base_override=(ex.baseOverride||'').trim()||null; }
         const r=await sb.from('prescribed_exercises').update(exPatch).eq('id', ex.id).select();
         if(r.error) throw r.error;
       } else {
         const exIns={ gym_id:me_.gym_id, session_id:s.id, position:ei, name:ex.name.trim(), category:ex.category||'primary', coach_note:ex.note.trim()||null };
         if(LT_READY){ exIns.load_type=ex.loadType||'percentage'; exIns.cues=(ex.cues&&ex.cues.length)?ex.cues:null; }
+        if(OVR_READY){ exIns.base_override=(ex.baseOverride||'').trim()||null; }
         const r=await sb.from('prescribed_exercises').insert(exIns).select().single();
         if(r.error) throw r.error; ex.id=r.data.id;
       }
