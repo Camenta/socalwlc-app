@@ -4937,7 +4937,7 @@ function paintEditor(){
     ex.sets.forEach((st,si)=>{ const prev=groups[groups.length-1];
       if(prev && (prev.si+prev.count===si) && sameSetVals(ex.sets[prev.si], st)){ prev.count++; prev.ids.push(st.id); }
       else groups.push({si, count:1, ids:[st.id]}); });
-    const tgtDis = type==='percentage' ? (orm?'':'disabled title="no 1RM linked — enter kg directly"') : '';
+    const tgtDis = (type==='percentage' && !orm) ? 'title="no 1RM on file — the % still records &amp; drives ARI/RI/INOL; load stays manual"' : '';
     const rows=groups.map(g=>{
       const st=ex.sets[g.si];
       const actuals = g.count===1 ? actualCells(st.id?logBySet[st.id]:null, type)
@@ -4946,7 +4946,7 @@ function paintEditor(){
         <td class="setn"><input class="cell setcount" data-f="count" value="${g.count}" inputmode="numeric" title="number of sets"></td>
         <td><input class="cell" data-f="reps" value="${esc(st.reps)}" inputmode="numeric"></td>
         <td>${showTgt?`<input class="cell" data-f="tgt" value="${esc(tgtValOf(st,type))}" inputmode="decimal" ${tgtDis}>`:'<span class="tgt">—</span>'}</td>
-        <td><input class="cell" data-f="kg" value="${esc(st.kg)}" inputmode="decimal" ${type==='open'?'disabled':''}></td>
+        <td>${type==='open'?'<span class="tgt">—</span>':`<input class="cell" data-f="kg" value="${esc(st.kg)}" inputmode="decimal">`}</td>
         ${actuals}
         <td><span class="lg-del" data-rmrow="1" title="Remove these set(s)">✕</span></td></tr>`;
     }).join('');
@@ -5085,7 +5085,7 @@ function wireEditor(){
     if(t.dataset.f==='name'){ ex.name=t.value; ed.dirty=true;
       const orm=oneRMFor(ex.name);
       cvx.querySelector('.cvx-orm').innerHTML = (orm&&(ex.loadType||'percentage')==='percentage')?`1RM <b>${orm}</b> · from maxes`:((ex.loadType||'percentage')==='percentage'&&cw.maxes?'<span class="cv-nolog">no 1RM link</span>':'');
-      if((ex.loadType||'percentage')==='percentage') cvx.querySelectorAll('[data-f="tgt"]').forEach(p=>{ p.disabled=!orm; });
+      cvx.querySelectorAll('[data-f="tgt"]').forEach(p=>{ p.disabled=false; });   // % always editable — it records + drives metrics even w/o a 1RM
       showExDrop(t, +cvx.dataset.ei);
       return; }
     if(t.dataset.f==='note'){ ex.note=t.value; ed.dirty=true; return; }
