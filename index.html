@@ -1820,6 +1820,14 @@ window.saveGuardrail=async(athId,key,val)=>{
   if(val&&val.trim()) bio.guardrails[key]=val.trim(); else delete bio.guardrails[key];
   await sb.from('profiles').update({bio}).eq('id',athId); renderAthDash();
 };
+// red-flag engine: parse a guardrail band string ("16,000–21,000" / "73–77%" / "0.71") -> [lo,hi]
+function parseBand(str){ if(str==null) return null; const nums=String(str).replace(/,/g,'').split(/[–—-]/).map(s=>parseFloat((s.match(/-?\d+(\.\d+)?/)||[''])[0])).filter(v=>!isNaN(v)); if(!nums.length) return null; return [nums[0], nums.length>1?nums[1]:nums[0]]; }
+function gFlag(val, band){ if(val==null||!band) return 'na'; if(val<band[0]) return 'under'; if(val>band[1]) return 'over'; return 'in'; }
+// which guardrail family a programmed exercise belongs to (for per-lift ARI checks)
+function guardFam(name){ const k=classifyLift(name); if(!k) return null;
+  if(k==='Snatch') return 'snari'; if(k==='Clean'||k==='Clean & Jerk'||k==='Jerk') return 'cjari';
+  if(k==='Back Squat'||k==='Front Squat') return 'sqari'; if(k==='Snatch DL'||k==='Clean DL') return 'pullari'; return null; }
+const GUARD_CHECK_KEYS=['yearly','weekly','lifts90','ari','meets','snari','cjari','sqari'];
 // background & goals (athlete-profile-spec §9) — free-text in profiles.bio.bg
 const BG_FIELDS=[['occupation','Occupation'],['hours_avail','Hours/wk available'],['primary_goal','Primary goal'],['secondary_goal','Secondary goal'],['injuries','Injury history'],['athletic_background','Athletic background'],['prev_sports','Previous sports'],['family','Family status'],['hobbies','Hobbies'],['potential','Athletic potential']];
 window.editBackground=async(athId)=>{
@@ -2227,7 +2235,7 @@ async function renderAthDash(){
       </div>
       <div class="progress"><i style="width:${cls.pct}%"></i></div>
       <div class="classrow"><span>${cls.nextRank?cls.pct+'% from '+esc(cls.rank||'start')+' → '+esc(cls.nextRank):'Maxed the table'}</span>${cls.nextRank?`<span><b>${cls.toGo}kg</b> to go</span>`:''}</div>
-      <div class="note" style="margin-top:8px">Standard: <b>Takano (American)</b> · ${sexLbl} ${cls.rowBw>900?'top':cls.rowBw+'kg'} class.${totM.hasBoth?'':' <span style="color:var(--warn)">Add a '+(totM.sn==null?'Snatch':'Clean &amp; Jerk')+' max for the full total.</span>'} ${coach?'Set sex &amp; maxes on the <b>Athlete Profile</b> tab.':'Every Sn / C&amp;J PR moves this bar.'}</div>
+      <div class="note" style="margin-top:8px">Standard: <b>${esc(cls.label||'')}</b> · ${sexLbl} ${cls.rowBw>900?'top':cls.rowBw+'kg'} class.${totM.hasBoth?'':' <span style="color:var(--warn)">Add a '+(totM.sn==null?'Snatch':'Clean &amp; Jerk')+' max for the full total.</span>'} ${coach?'Set sex &amp; maxes on the <b>Athlete Profile</b> tab.':'Every Sn / C&amp;J PR moves this bar.'}</div>
     </div>`;
   } else {
     const need=[]; if(!sex) need.push('sex (M/F)'); if(latestBw==null) need.push('a logged bodyweight'); if(!totM) need.push('Snatch &amp; C&amp;J maxes');
@@ -2253,6 +2261,39 @@ async function renderAthDash(){
       <div class="note sub" style="padding:8px 0">Log a competition result and the total plots here over time — against the classification thresholds for ${esc(viewName.split(/\s+/)[0]||'this athlete')}'s class. Each ★ is a meet.</div></div>`;
   }
 
+  // ---- red-flag engine: 52-week programmed numbers vs class guardrail bands ----
+  let checkCard='';
+  if(cls){
+    const g=CLASS_GUARDRAILS[cls.rank]; const yStart=new Date(today); yStart.setDate(yStart.getDate()-364);
+    const ysR=await sb.from('sessions').select('session_date,prescribed_exercises(name,prescribed_sets(target_reps,target_pct))').eq('athlete_id',viewId).neq('status','draft').gte('session_date',iso(yStart)).lte('session_date',todayStr);
+    const ysess=ysR.error?[]:(ysR.data||[]);
+    let reps=0,vw=0,pv=0,l90=0; const weeks=new Set(); const fam={snari:[0,0],cjari:[0,0],sqari:[0,0],pullari:[0,0]};
+    const mon=ds=>{ const d=new Date(ds+'T00:00:00'); d.setDate(d.getDate()-((d.getDay()+6)%7)); return iso(d); };
+    ysess.forEach(s=>{ weeks.add(mon(s.session_date));
+      (s.prescribed_exercises||[]).forEach(ex=>{ const fk=guardFam(ex.name);
+        (ex.prescribed_sets||[]).forEach(ps=>{ const r=ps.target_reps||0, p=ps.target_pct!=null?parseFloat(ps.target_pct):0; reps+=r;
+          if(p){ vw+=p*r; pv+=r; if(p>=90&&p<=100) l90+=r; if(fk){ fam[fk][0]+=p*r; fam[fk][1]+=r; } } }); }); });
+    const nWk=Math.max(1,weeks.size);
+    const meetsYr=(meets||[]).filter(m=>m.meet_date>=iso(yStart)).length;
+    const ariOverall = pv? vw/pv : null;
+    const famAri = k=> fam[k][1]? (fam[k][0]/fam[k][1])/100 : null;   // as ratio (0.xx) to match guardrail
+    const actual={ yearly:reps||null, weekly:reps?Math.round(reps/nWk):null, lifts90:l90||null, ari:ariOverall, meets:meetsYr,
+      snari:famAri('snari'), cjari:famAri('cjari'), sqari:famAri('sqari') };
+    const LBL={yearly:'Yearly loading (reps)',weekly:'Avg weekly volume',lifts90:'Lifts at 90–100% / yr',ari:'Avg intensity (ARI)',meets:'Meets / yr',snari:'Snatch ARI',cjari:'C&J ARI',sqari:'Squat ARI'};
+    const fmtVal=(k,v)=>{ if(v==null) return '—'; if(k==='ari') return v.toFixed(1)+'%'; if(k==='snari'||k==='cjari'||k==='sqari') return v.toFixed(2); return Math.round(v).toLocaleString(); };
+    const rows=GUARD_CHECK_KEYS.filter(k=>LBL[k]).map(k=>{ const band=parseBand((prof&&prof.bio&&prof.bio.guardrails&&prof.bio.guardrails[k])||g[k]); const v=actual[k]; const f=gFlag(v,band);
+      const col = f==='in'?'var(--good)':(f==='na'?'var(--muted)':'var(--warn)');
+      const fl = f==='in'?'✓ in band':(f==='under'?'↓ under':(f==='over'?'↑ over':'—'));
+      return `<div class="gr-row"><span class="gr-lbl">${LBL[k]}</span><span style="display:flex;gap:12px;align-items:baseline"><b style="color:${col};min-width:64px;text-align:right">${fmtVal(k,v)}</b><span class="sub" style="min-width:96px;text-align:right">${g[k]||'—'}</span><span style="color:${col};font-size:11px;font-weight:800;min-width:64px;text-align:right">${fl}</span></span></div>`; }).join('');
+    const flags=GUARD_CHECK_KEYS.map(k=>{ const band=parseBand((prof&&prof.bio&&prof.bio.guardrails&&prof.bio.guardrails[k])||g[k]); return gFlag(actual[k],band); }).filter(f=>f==='under'||f==='over').length;
+    checkCard=`<div class="card">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px"><h2 style="margin:0">🚩 Training check — ${esc(cls.rank)} guardrails</h2><span class="${flags?'eff-read ineff':'eff-read eff'}" style="font-size:11px">${flags?flags+' out of band':'all in band'}</span></div>
+      <div class="note sub" style="padding:2px 0 8px">This athlete's last-52-week <b>programmed</b> numbers vs their class's loading norms. Out-of-band rows are where the program drifts from what's typical for the level.</div>
+      <div style="display:flex;justify-content:flex-end;gap:12px;font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:700;padding-bottom:2px"><span style="min-width:64px;text-align:right">actual</span><span style="min-width:96px;text-align:right">class band</span><span style="min-width:64px;text-align:right">flag</span></div>
+      ${rows}
+    </div>`;
+  }
+
   app.innerHTML = chrome + picker + subtabs + `
     <div class="card">
       <div class="filterbar"><span class="fl">Date range</span>
@@ -2265,6 +2306,7 @@ async function renderAthDash(){
     ${vbtCard}
     ${trendCard}
     <div class="grid2">${heatCard}${bwCard}</div>
+    ${checkCard}
     ${classCard}
     ${climbCard}
     ${fpLock}`;
