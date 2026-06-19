@@ -1317,8 +1317,9 @@ async function playVideo(path){
   // if a coach has reviewed this clip, offer a read-only view of the annotation
   if(VNOTES_READY){ try{
     const { data:n } = await sb.from('video_notes').select('id,payload').eq('video_path',path).order('updated_at',{ascending:false}).limit(1);
-    if(n&&n[0]){ const note=(n[0].payload&&n[0].payload.note)||''; const slot=document.getElementById('vidNotes');
-      if(slot) slot.innerHTML=`<div class="vst-btn pri" style="text-align:center;cursor:pointer" onclick="closeVid();openAnnStudio('${esc(path)}',{readOnly:true,title:'Coach review'})">✎ View coach's notes</div>${note?`<div style="margin-top:7px;color:var(--muted);font-size:13px">“${esc(note)}”</div>`:''}`;
+    if(n&&n[0]){ const pl=n[0].payload||{}; const note=pl.note||''; const hasVoice=!!pl.voicePath; const slot=document.getElementById('vidNotes');
+      const label='✎ View coach’s review'+(hasVoice?' 🎙':'');
+      if(slot) slot.innerHTML=`<div class="vst-btn pri" style="text-align:center;cursor:pointer" onclick="closeVid();openAnnStudio('${esc(path)}',{readOnly:true,title:'Coach review'})">${label}</div>${note?`<div style="margin-top:7px;color:var(--muted);font-size:13px">“${esc(note)}”</div>`:''}`;
     }
   }catch(e){} }
 }
@@ -1341,6 +1342,7 @@ async function openAnnStudio(path, meta){
         <div class="vst-card">
           <h4>Coach's notes</h4>
           <div id="vstNoteRO" style="color:var(--text);font-size:14px;white-space:pre-wrap;line-height:1.4">No written note.</div>
+          <div id="vstVoiceROWrap" style="display:none;margin-top:10px"><div class="vst-row" style="color:var(--muted);margin-bottom:5px">🎙 Coach's voice note</div><audio id="vstVoiceRO" controls preload="none" style="width:100%"></audio></div>
           <div class="vst-row" style="margin-top:10px;color:var(--muted)">Use the controls below to slow it down or step frame-by-frame.</div>
         </div>
         <div class="vst-card" id="bpCard">
@@ -1371,6 +1373,9 @@ async function openAnnStudio(path, meta){
         <div class="vst-card">
           <h4>Coach note</h4>
           <textarea class="vst-note" id="vstNote" placeholder="What to fix, what was good…"></textarea>
+          <div class="vst-row" style="margin-top:8px"><span class="vst-btn" id="vstRec">🎙 Record voice</span><span class="vst-loop" id="vstRecTime"></span></div>
+          <audio id="vstVoiceAudio" controls preload="none" style="display:none;width:100%;margin-top:6px"></audio>
+          <div class="vst-row" id="vstVoiceDelWrap" style="display:none;margin-top:6px"><span class="vst-btn" id="vstVoiceDel">🗑 Remove voice note</span></div>
           <div class="vst-row" style="margin-top:8px"><label>Video fps <input type="number" class="vst-fps" id="vstFps" value="30" min="1" max="240"></label></div>
           <div class="vst-row" style="margin-top:10px"><span class="vst-btn pri" id="vstSave" style="flex:1;text-align:center">Save &amp; send to athlete</span></div>
           ${VNOTES_READY?'':'<div class="vst-row" style="margin-top:6px;color:#e0a85a">Run migration 29 to save to the cloud — saving locally for now.</div>'}
@@ -1418,7 +1423,8 @@ async function openAnnStudio(path, meta){
       <div class="vst-side">${sidePanel}</div>
     </div>`;
   annS={ path, meta, readOnly:ro, shapes:[], tool:'select', color:VST_COLORS[0], fps:30, draft:null, ang:null, noteId:null, athleteId:meta.athleteId||null,
-    exercise:meta.exercise||null, trackMode:null, calib:null, seed:null, seedT:null, track:null, metrics:null, scale:null, trackId:null, showTrace:true };
+    exercise:meta.exercise||null, trackMode:null, calib:null, seed:null, seedT:null, track:null, metrics:null, scale:null, trackId:null, showTrace:true,
+    voiceBlob:null, voiceUrl:null, voicePath:null };
   wireAnnStudio();
   await loadAnnNotes(path);
   await bpLoadTrack(path);
@@ -1497,6 +1503,32 @@ function vstOpenText(p){
 }
 function vstFmt(t){ if(!isFinite(t)) t=0; const m=Math.floor(t/60), s=(t%60); return m+':'+s.toFixed(2).padStart(5,'0'); }
 function vstSetTool(t){ annS.tool=t; annS.ang=null; document.querySelectorAll('#vstTools .vst-tool').forEach(el=>el.classList.toggle('on',el.dataset.tool===t)); const c=document.getElementById('vstCanvas'); if(c) c.style.cursor=(t==='select')?'default':'crosshair'; vstRedraw(); }
+function vstVoiceUI(){
+  const au=document.getElementById('vstVoiceAudio'), delw=document.getElementById('vstVoiceDelWrap');
+  if(au){ if(annS.voiceUrl){ au.src=annS.voiceUrl; au.style.display='block'; } else { au.removeAttribute('src'); au.style.display='none'; } }
+  if(delw) delw.style.display=annS.voiceUrl?'flex':'none';
+}
+async function vstToggleRec(){
+  if(!annS) return;
+  const btn=document.getElementById('vstRec'), tl=document.getElementById('vstRecTime');
+  if(annS._rec && annS._rec.state==='recording'){ annS._rec.stop(); return; }
+  if(!navigator.mediaDevices||!window.MediaRecorder){ vstMsg('Recording not supported on this device'); return; }
+  let stream; try{ stream=await navigator.mediaDevices.getUserMedia({audio:true}); }catch(e){ vstMsg('Microphone blocked'); return; }
+  const mime=['audio/webm','audio/mp4','audio/ogg'].find(t=>{ try{ return MediaRecorder.isTypeSupported(t); }catch(e){ return false; } })||'';
+  const rec=new MediaRecorder(stream, mime?{mimeType:mime}:undefined); annS._rec=rec; const chunks=[];
+  rec.ondataavailable=e=>{ if(e.data&&e.data.size) chunks.push(e.data); };
+  rec.onstop=()=>{
+    stream.getTracks().forEach(t=>t.stop()); if(annS._recTimer){ clearInterval(annS._recTimer); annS._recTimer=null; }
+    const blob=new Blob(chunks,{type:mime||'audio/webm'});
+    annS.voiceBlob=blob; annS.voicePath=null; if(annS.voiceUrl) URL.revokeObjectURL(annS.voiceUrl); annS.voiceUrl=URL.createObjectURL(blob);
+    if(btn){ btn.textContent='🎙 Re-record'; btn.classList.remove('pri'); } if(tl) tl.textContent='';
+    vstVoiceUI();
+  };
+  rec.start(); if(btn){ btn.textContent='■ Stop'; btn.classList.add('pri'); }
+  let s=0; if(tl) tl.textContent='● 0:00';
+  annS._recTimer=setInterval(()=>{ s++; if(tl) tl.textContent='● '+Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); if(s>=180 && annS._rec && annS._rec.state==='recording') annS._rec.stop(); },1000);
+}
+function vstDelVoice(){ if(!annS) return; annS.voiceBlob=null; annS.voicePath=null; if(annS.voiceUrl){ URL.revokeObjectURL(annS.voiceUrl); annS.voiceUrl=null; } const b=document.getElementById('vstRec'); if(b) b.textContent='🎙 Record voice'; vstVoiceUI(); }
 function wireAnnStudio(){
   const v=document.getElementById('vstVid'), c=document.getElementById('vstCanvas');
   const play=document.getElementById('vstPlay'), scrub=document.getElementById('vstScrub'), time=document.getElementById('vstTime');
@@ -1522,6 +1554,8 @@ function wireAnnStudio(){
   document.getElementById('vstUndo').onclick=()=>{ annS.shapes.pop(); vstRedraw(); };
   document.getElementById('vstClear').onclick=()=>{ annS.shapes=[]; annS.ang=null; vstRedraw(); };
   document.getElementById('vstSave').onclick=saveAnnNotes;
+  const recBtn=document.getElementById('vstRec'); if(recBtn) recBtn.onclick=vstToggleRec;
+  const delBtn=document.getElementById('vstVoiceDel'); if(delBtn) delBtn.onclick=vstDelVoice;
   // bar-path tracking
   const bp=id=>document.getElementById(id);
   if(bp('bpCalib')) bp('bpCalib').onclick=()=>bpSetMode(annS.trackMode==='calib'?null:'calib');
@@ -1750,16 +1784,30 @@ async function loadAnnNotes(path){
     if(payload.fps){ annS.fps=payload.fps; const f=document.getElementById('vstFps'); if(f) f.value=payload.fps; }
     const n=document.getElementById('vstNote'); if(n) n.value=payload.note||'';
     const ro=document.getElementById('vstNoteRO'); if(ro) ro.textContent=(payload.note&&payload.note.trim())?payload.note:'No written note — see the marks on the video.';
+    annS.voicePath=payload.voicePath||null;
+    if(annS.readOnly && annS.voicePath){
+      const wrap=document.getElementById('vstVoiceROWrap'), au=document.getElementById('vstVoiceRO');
+      const sv=await sb.storage.from('lift-videos').createSignedUrl(annS.voicePath, 3600);
+      if(sv.data&&au){ au.src=sv.data.signedUrl; if(wrap) wrap.style.display='block'; }
+    }
     vstRedraw();
   }
 }
 async function saveAnnNotes(){
   if(!annS) return;
   const note=(document.getElementById('vstNote')||{}).value||'';
-  const payload={ shapes:annS.shapes, note, fps:annS.fps };
-  try{ localStorage.setItem('vst:'+annS.path, JSON.stringify(payload)); }catch(e){}
-  if(!VNOTES_READY){ vstMsg('✓ Saved locally'); return; }
   const btn=document.getElementById('vstSave'); if(btn){ btn.style.pointerEvents='none'; btn.textContent='Saving…'; }
+  // upload a freshly-recorded voice note (if any) to lift-videos under the coach's own folder
+  if(annS.voiceBlob && !annS.voicePath){
+    const ty=annS.voiceBlob.type||'audio/webm', ext=ty.includes('mp4')?'mp4':ty.includes('ogg')?'ogg':ty.includes('mpeg')?'mp3':'webm';
+    const vp=me_.gym_id+'/'+me_.id+'/voice-'+Date.now()+'.'+ext;
+    const up=await sb.storage.from('lift-videos').upload(vp, annS.voiceBlob, { contentType:ty, upsert:false });
+    if(up.error){ if(btn){ btn.style.pointerEvents=''; btn.textContent='Save & send to athlete'; } vstMsg('Voice upload failed — run migration 31?'); return; }
+    annS.voicePath=vp;
+  }
+  const payload={ shapes:annS.shapes, note, fps:annS.fps, voicePath:annS.voicePath||null };
+  try{ localStorage.setItem('vst:'+annS.path, JSON.stringify(payload)); }catch(e){}
+  if(!VNOTES_READY){ if(btn){ btn.style.pointerEvents=''; btn.textContent='Save & send to athlete'; } vstMsg('✓ Saved locally'); return; }
   const row={ gym_id:me_.gym_id, video_path:annS.path, athlete_id:annS.athleteId||null, payload, timestamp_sec:null };
   // clean-open means noteId starts null — reuse the existing row for this clip so a Save replaces it instead of piling up duplicates
   if(!annS.noteId){ const ex=await sb.from('video_notes').select('id').eq('video_path',annS.path).order('updated_at',{ascending:false}).limit(1); if(ex.data&&ex.data[0]) annS.noteId=ex.data[0].id; }
