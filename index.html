@@ -1468,8 +1468,10 @@ function vstDrawTrack(ctx,W,H){
   if(annS.seed&&!(annS.track&&annS.track.length)){ const q=P(annS.seed); ctx.strokeStyle='#fbbf24'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(q.x,q.y,8,0,7); ctx.moveTo(q.x-12,q.y); ctx.lineTo(q.x+12,q.y); ctx.moveTo(q.x,q.y-12); ctx.lineTo(q.x,q.y+12); ctx.stroke(); }
   // bar-path trace (orange) + current-frame dot
   if(annS.showTrace&&annS.track&&annS.track.length>1){
-    ctx.strokeStyle='#f97316'; ctx.lineWidth=2.5; ctx.lineJoin='round'; ctx.lineCap='round';
-    ctx.beginPath(); annS.track.forEach((p,i)=>{ const q=P(p); i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y); }); ctx.stroke();
+    ctx.strokeStyle='#f97316'; ctx.lineWidth=3; ctx.lineJoin='round'; ctx.lineCap='round';
+    const t=annS.track; ctx.beginPath(); let p0=P(t[0]); ctx.moveTo(p0.x,p0.y);
+    for(let i=1;i<t.length-1;i++){ const a=P(t[i]), b=P(t[i+1]); ctx.quadraticCurveTo(a.x,a.y,(a.x+b.x)/2,(a.y+b.y)/2); }
+    const lp=P(t[t.length-1]); ctx.lineTo(lp.x,lp.y); ctx.stroke();
     const v=document.getElementById('vstVid');
     if(v){ let near=annS.track[0],bd=1e9; annS.track.forEach(p=>{ const d=Math.abs(p.t-v.currentTime); if(d<bd){bd=d;near=p;} }); const q=P(near); ctx.fillStyle='#fde047'; ctx.beginPath(); ctx.arc(q.x,q.y,5,0,7); ctx.fill(); ctx.strokeStyle='#0a0d11'; ctx.lineWidth=1.5; ctx.stroke(); }
   }
@@ -1556,7 +1558,7 @@ function wireAnnStudio(){
   c.addEventListener('pointerup',finish); c.addEventListener('pointercancel',finish);
 }
 /* ---------------- bar-path tracking (video analysis phase 2) ---------------- */
-const TRACK_MAXW=480, BP_TR=11, BP_SR=22, BP_CAP=260, PLATE_M=0.45;
+const TRACK_MAXW=480, BP_TR=12, BP_SR=20, BP_CAP=300, PLATE_M=0.45, BP_NCC_MIN=0.45;
 function bpHint(t,warn){ const h=document.getElementById('bpHint'); if(h){ h.textContent=t; h.style.color=warn?'#e0a85a':'var(--accent2)'; } }
 function bpSteps(){
   const calDone=annS.calib&&annS.calib.length===2, seedDone=!!annS.seed;
@@ -1596,18 +1598,36 @@ function vstGrabGray(v){
   for(let i=0,p=0;i<d.length;i+=4,p++) gray[p]=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
   return { gray, w, h };
 }
-function vstTemplate(fr,cx,cy){ const {gray,w,h}=fr, t=new Float32Array((2*BP_TR+1)*(2*BP_TR+1)); let k=0;
-  for(let dy=-BP_TR;dy<=BP_TR;dy++)for(let dx=-BP_TR;dx<=BP_TR;dx++){ const x=Math.max(0,Math.min(w-1,cx+dx)), y=Math.max(0,Math.min(h-1,cy+dy)); t[k++]=gray[y*w+x]; }
-  return t;
+// build a zero-mean template patch (for brightness-robust normalized cross-correlation)
+function vstTemplate(fr,cx,cy){ const {gray,w,h}=fr, n=(2*BP_TR+1)*(2*BP_TR+1), raw=new Float32Array(n); let k=0,sum=0;
+  cx=Math.round(cx); cy=Math.round(cy);
+  for(let dy=-BP_TR;dy<=BP_TR;dy++)for(let dx=-BP_TR;dx<=BP_TR;dx++){ const x=Math.max(0,Math.min(w-1,cx+dx)), y=Math.max(0,Math.min(h-1,cy+dy)); const g=gray[y*w+x]; raw[k++]=g; sum+=g; }
+  const mean=sum/n; let ss=0; const tz=new Float32Array(n);
+  for(let i=0;i<n;i++){ const d=raw[i]-mean; tz[i]=d; ss+=d*d; }
+  return { tz, tnorm:Math.sqrt(ss)||1, n };
 }
-function vstMatch(fr,tmpl,px,py){ const {gray,w,h}=fr; let best=1e18,bx=px,by=py;
-  for(let oy=-BP_SR;oy<=BP_SR;oy++)for(let ox=-BP_SR;ox<=BP_SR;ox++){
+// search a window for the best ZNCC match; returns {x,y,score in -1..1}
+function vstMatch(fr,tmpl,px,py,R){ const {gray,w,h}=fr; const {tz,tnorm,n}=tmpl; R=R||BP_SR;
+  px=Math.round(px); py=Math.round(py);
+  let best=-2,bx=px,by=py;
+  for(let oy=-R;oy<=R;oy++)for(let ox=-R;ox<=R;ox++){
     const cx=px+ox, cy=py+oy; if(cx<BP_TR||cy<BP_TR||cx>=w-BP_TR||cy>=h-BP_TR) continue;
-    let sad=0,k=0,bad=false;
-    for(let dy=-BP_TR;dy<=BP_TR&&!bad;dy++){ const row=(cy+dy)*w; for(let dx=-BP_TR;dx<=BP_TR;dx++) sad+=Math.abs(gray[row+cx+dx]-tmpl[k++]); if(sad>=best) bad=true; }
-    if(!bad&&sad<best){ best=sad; bx=cx; by=cy; }
+    let sum=0,sumsq=0,dot=0,k=0;
+    for(let dy=-BP_TR;dy<=BP_TR;dy++){ const row=(cy+dy)*w+cx; for(let dx=-BP_TR;dx<=BP_TR;dx++){ const g=gray[row+dx]; sum+=g; sumsq+=g*g; dot+=g*tz[k++]; } }
+    const varr=sumsq-sum*sum/n; if(varr<=1e-6) continue;
+    const ncc=dot/(Math.sqrt(varr)*tnorm);
+    if(ncc>best){ best=ncc; bx=cx; by=cy; }
   }
-  return { x:bx, y:by };
+  return { x:bx, y:by, score:best };
+}
+// median-3 then average-3 on x & y — kills single-frame mismatches, keeps the real curve
+function bpSmoothPath(pts){
+  if(!pts||pts.length<3) return pts;
+  const xs=pts.map(p=>p.x), ys=pts.map(p=>p.y);
+  const med3=a=>a.map((_,i)=>{ if(i===0||i===a.length-1) return a[i]; const s=[a[i-1],a[i],a[i+1]].sort((p,q)=>p-q); return s[1]; });
+  const avg3=a=>a.map((_,i)=>{ const p=a[Math.max(0,i-1)],q=a[i],r=a[Math.min(a.length-1,i+1)]; return (p+q+r)/3; });
+  const X=avg3(med3(xs)), Y=avg3(med3(ys));
+  return pts.map((p,i)=>({ t:p.t, x:X[i], y:Y[i] }));
 }
 async function bpRunTrack(){
   if(!annS||annS.readOnly||annS._tracking) return;
@@ -1631,16 +1651,24 @@ async function bpRunTrack(){
   const prog=document.getElementById('bpProg'), pw=document.getElementById('bpProgWrap');
   if(pw) pw.style.display='block';
   const total=Math.min(BP_CAP, Math.max(1, Math.round((end-start)/dt)));
+  let vx=0, vy=0, lost=0; const vmax=BP_SR*1.6;
   for(let i=1;i<=total;i++){
     const t=start+i*dt; if(t>end+1e-3) break;
     await vstSeekTo(v,t); const fr=vstGrabGray(v); if(!fr||fr.error) break;
-    const m=vstMatch(fr,tmpl,px,py); px=m.x; py=m.y;
+    // predict next position from last velocity, then search around the prediction
+    let predX=Math.max(BP_TR,Math.min(W-BP_TR-1, px+vx)), predY=Math.max(BP_TR,Math.min(H-BP_TR-1, py+vy));
+    const m=vstMatch(fr,tmpl,predX,predY);
+    let nx,ny;
+    if(m.score<BP_NCC_MIN){ nx=predX; ny=predY; lost++; }   // weak match -> coast on the motion model
+    else { nx=m.x; ny=m.y; lost=0; }
+    vx=nx-px; vy=ny-py; const sp=Math.hypot(vx,vy); if(sp>vmax){ vx*=vmax/sp; vy*=vmax/sp; }
+    px=nx; py=ny;
     pts.push({ t, x:px/W, y:py/H });
     if(prog) prog.style.width=Math.round(i/total*100)+'%';
-    if(i%4===0){ annS.track=pts.slice(); vstRedraw(); await new Promise(r=>setTimeout(r,0)); }
+    if(i%4===0){ annS.track=bpSmoothPath(pts); vstRedraw(); await new Promise(r=>setTimeout(r,0)); }
   }
   if(pw) pw.style.display='none';
-  annS.track=pts; annS._trackW=W; annS._trackH=H; annS._tracking=false;
+  annS.track=bpSmoothPath(pts); annS._trackW=W; annS._trackH=H; annS._tracking=false; annS._lost=lost;
   bpComputeMetrics(); bpRender(); bpSteps(); vstRedraw();
   bpHint(annS.scale?'Tracked. Scrub to replay; re-seed any frame + re-track to fix drift.':'Tracked — calibrate a plate to get ROM & m/s.');
 }
