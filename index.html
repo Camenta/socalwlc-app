@@ -114,6 +114,41 @@
   .vid-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:200;align-items:center;justify-content:center;padding:24px}
   .vid-box{position:relative;max-width:540px;width:100%;background:#0c1116;border:1px solid var(--line);border-radius:12px;padding:14px}
   .vid-x{position:absolute;top:-12px;right:-10px;width:30px;height:30px;border-radius:50%;background:var(--panel2);border:1px solid var(--line);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:700}
+  /* ---- Video Annotation Studio ---- */
+  .vstudio{display:none;position:fixed;inset:0;background:rgba(4,7,10,.94);z-index:300;flex-direction:column;padding:14px 16px 16px}
+  .vstudio.on{display:flex}
+  .vst-top{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+  .vst-top h3{margin:0;font-size:15px;font-weight:700;color:var(--text)}
+  .vst-top .vst-sub{color:var(--muted);font-size:12px}
+  .vst-close{margin-left:auto;width:32px;height:32px;border-radius:50%;background:var(--panel2);border:1px solid var(--line);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:700}
+  .vst-body{flex:1;display:flex;gap:14px;min-height:0}
+  .vst-stage{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
+  .vst-canvaswrap{position:relative;flex:1;display:flex;align-items:center;justify-content:center;background:#000;border:1px solid var(--line);border-radius:10px;overflow:hidden;min-height:0}
+  .vst-canvaswrap video{max-width:100%;max-height:100%;display:block;background:#000}
+  .vst-canvaswrap canvas{position:absolute;cursor:crosshair;touch-action:none}
+  .vst-side{width:260px;flex:none;display:flex;flex-direction:column;gap:10px;overflow-y:auto}
+  @media (max-width:820px){ .vst-body{flex-direction:column} .vst-side{width:auto} }
+  .vst-transport{display:flex;align-items:center;gap:8px;margin-top:9px;flex-wrap:wrap}
+  .vst-btn{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;font-weight:600;user-select:none}
+  .vst-btn:hover{border-color:var(--accent2)}
+  .vst-btn.pri{background:var(--accent);border-color:var(--accent);color:#0a0d11}
+  .vst-scrub{flex:1;min-width:120px;accent-color:var(--accent)}
+  .vst-time{font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px;min-width:88px;text-align:right}
+  .vst-tools{display:flex;flex-wrap:wrap;gap:6px}
+  .vst-tool{width:38px;height:34px;border-radius:8px;background:var(--panel2);border:1px solid var(--line);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px}
+  .vst-tool.on{background:var(--accent);border-color:var(--accent);color:#0a0d11}
+  .vst-card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px}
+  .vst-card h4{margin:0 0 7px;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+  .vst-colors{display:flex;gap:6px;flex-wrap:wrap}
+  .vst-color{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent}
+  .vst-color.on{border-color:#fff}
+  .vst-note{width:100%;box-sizing:border-box;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px;font-size:13px;resize:vertical;min-height:70px;font-family:inherit}
+  .vst-row{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--muted)}
+  .vst-fps{width:54px;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:4px 6px;font-size:12px}
+  .vst-textin{position:absolute;z-index:5;background:#0c1116;border:1px solid var(--accent);color:var(--text);border-radius:6px;padding:3px 6px;font-size:14px;min-width:90px}
+  .vst-msg{font-size:12px;color:var(--accent2)}
+  .vst-loop{font-size:11px;color:var(--muted)}
+  .vst-loop b{color:var(--accent)}
   .lg-add{display:inline-block;margin:9px 14px;color:var(--accent2);font-weight:700;font-size:12px;cursor:pointer;user-select:none}
   .lg-add:hover{color:#7bc0f5}
   .lg-del{color:var(--muted);cursor:pointer;font-weight:700;opacity:.45;padding:0 4px}
@@ -1086,6 +1121,7 @@ async function boot(){
   if(joinTok){ try{ history.replaceState({}, '', location.pathname); }catch(e){} }
   await probeLoadTypes();
   await probeProgramId();
+  await probeVideoNotes();
   if(profile.role === 'coach') renderCoach(); else athGo(athState.screen||'athlete');
 }
 async function renderJoin(token){
@@ -1180,7 +1216,7 @@ function renderLogin(msg){
   document.getElementById('pw').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
 }
 
-async function logout(){ leavingOnPurpose=true; if(coachChan){ sb.removeChannel(coachChan); coachChan=null; } await sb.auth.signOut(); me_=null; leavingOnPurpose=false; renderLogin(); }
+async function logout(){ leavingOnPurpose=true; try{ if(_draftTimer){ clearTimeout(_draftTimer); _draftTimer=null; } if(ed && ed.session && ed.session.status==='draft' && ed.dirty) await doDraftSave(); }catch(e){} if(coachChan){ sb.removeChannel(coachChan); coachChan=null; } await sb.auth.signOut(); me_=null; leavingOnPurpose=false; renderLogin(); }
 
 function topbar(roleLabel){
   document.body.classList.toggle('view-coach', roleLabel==='Coach');
@@ -1262,10 +1298,225 @@ async function playVideo(path){
   if(error || !data){ alert('Could not load that clip.'); return; }
   let m=document.getElementById('vidModal');
   if(!m){ m=document.createElement('div'); m.id='vidModal'; m.className='vid-modal'; document.body.appendChild(m); }
-  m.innerHTML=`<div class="vid-box"><span class="vid-x" onclick="closeVid()">✕</span><video src="${data.signedUrl}" controls autoplay playsinline style="width:100%;border-radius:8px;max-height:70vh;background:#000"></video></div>`;
+  m.innerHTML=`<div class="vid-box"><span class="vid-x" onclick="closeVid()">✕</span><video src="${data.signedUrl}" controls autoplay playsinline style="width:100%;border-radius:8px;max-height:70vh;background:#000"></video><div id="vidNotes" style="margin-top:8px"></div></div>`;
   m.style.display='flex'; m.onclick=(ev)=>{ if(ev.target===m) closeVid(); };
+  // if a coach has reviewed this clip, offer a read-only view of the annotation
+  if(VNOTES_READY){ try{
+    const { data:n } = await sb.from('video_notes').select('id,payload').eq('video_path',path).order('updated_at',{ascending:false}).limit(1);
+    if(n&&n[0]){ const note=(n[0].payload&&n[0].payload.note)||''; const slot=document.getElementById('vidNotes');
+      if(slot) slot.innerHTML=`<div class="vst-btn pri" style="text-align:center;cursor:pointer" onclick="closeVid();openAnnStudio('${esc(path)}',{readOnly:true,title:'Coach review'})">✎ View coach's notes</div>${note?`<div style="margin-top:7px;color:var(--muted);font-size:13px">“${esc(note)}”</div>`:''}`;
+    }
+  }catch(e){} }
 }
 function closeVid(){ const m=document.getElementById('vidModal'); if(m){ m.style.display='none'; m.innerHTML=''; } }
+
+/* ===================== Video Annotation Studio (phase 1) ===================== */
+let annS=null;
+const VST_COLORS=['#ff5a5a','#ffd23f','#34d399','#5aa9ff','#c77dff','#ffffff'];
+function vstHost(){ let h=document.getElementById('annStudio'); if(!h){ h=document.createElement('div'); h.id='annStudio'; h.className='vstudio'; document.body.appendChild(h); } return h; }
+async function openAnnStudio(path, meta){
+  meta=meta||{};
+  const host=vstHost();
+  host.innerHTML=`<div class="vst-top"><h3>✎ Lift review</h3><span class="vst-close" onclick="closeAnnStudio()">✕</span></div><div class="spin" style="padding:30px;color:var(--muted)">Loading clip…</div>`;
+  host.classList.add('on');
+  const { data, error } = await sb.storage.from('lift-videos').createSignedUrl(path, 3600);
+  if(error || !data){ host.querySelector('.spin').textContent='Could not load that clip.'; return; }
+  const ro=!!meta.readOnly;
+  const title=meta.title||(ro?'Coach review':'Lift review'), sub=meta.sub||'';
+  const sidePanel = ro ? `
+        <div class="vst-card">
+          <h4>Coach's notes</h4>
+          <div id="vstNoteRO" style="color:var(--text);font-size:14px;white-space:pre-wrap;line-height:1.4">No written note.</div>
+          <div class="vst-row" style="margin-top:10px;color:var(--muted)">Use the controls below to slow it down or step frame-by-frame.</div>
+        </div>` : `
+        <div class="vst-card">
+          <h4>Tools</h4>
+          <div class="vst-tools" id="vstTools">
+            <span class="vst-tool on" data-tool="select" title="Hand (draw off)">✋</span>
+            <span class="vst-tool" data-tool="pen" title="Freehand">✏️</span>
+            <span class="vst-tool" data-tool="line" title="Straight line">／</span>
+            <span class="vst-tool" data-tool="angle" title="Angle — 3 clicks (point, vertex, point)">∠</span>
+            <span class="vst-tool" data-tool="hguide" title="Horizontal guide">▭</span>
+            <span class="vst-tool" data-tool="vguide" title="Vertical guide">▯</span>
+            <span class="vst-tool" data-tool="rect" title="Box">◻</span>
+            <span class="vst-tool" data-tool="circle" title="Circle">◯</span>
+            <span class="vst-tool" data-tool="text" title="Text label">T</span>
+          </div>
+          <div class="vst-colors" id="vstColors" style="margin-top:9px">${VST_COLORS.map((c,i)=>`<span class="vst-color${i===0?' on':''}" data-color="${c}" style="background:${c}"></span>`).join('')}</div>
+          <div class="vst-row" style="margin-top:9px">
+            <span class="vst-btn" id="vstUndo">↶ Undo</span>
+            <span class="vst-btn" id="vstClear">Clear all</span>
+          </div>
+        </div>
+        <div class="vst-card">
+          <h4>Coach note</h4>
+          <textarea class="vst-note" id="vstNote" placeholder="What to fix, what was good…"></textarea>
+          <div class="vst-row" style="margin-top:8px"><label>Video fps <input type="number" class="vst-fps" id="vstFps" value="30" min="1" max="240"></label></div>
+          <div class="vst-row" style="margin-top:10px"><span class="vst-btn pri" id="vstSave" style="flex:1;text-align:center">Save &amp; send to athlete</span></div>
+          ${VNOTES_READY?'':'<div class="vst-row" style="margin-top:6px;color:#e0a85a">Run migration 29 to save to the cloud — saving locally for now.</div>'}
+        </div>`;
+  host.innerHTML=`
+    <div class="vst-top">
+      <h3>✎ ${esc(title)}</h3>${sub?`<span class="vst-sub">${esc(sub)}</span>`:''}
+      <span class="vst-msg" id="vstMsg"></span>
+      <span class="vst-close" onclick="closeAnnStudio()">✕</span>
+    </div>
+    <div class="vst-body">
+      <div class="vst-stage">
+        <div class="vst-canvaswrap" id="vstWrap">
+          <video id="vstVid" src="${data.signedUrl}" playsinline></video>
+          <canvas id="vstCanvas"${ro?' style="pointer-events:none"':''}></canvas>
+        </div>
+        <div class="vst-transport">
+          <span class="vst-btn" id="vstPlay">▶</span>
+          <span class="vst-btn" id="vstBack" title="Back one frame">⟨ frame</span>
+          <span class="vst-btn" id="vstFwd" title="Forward one frame">frame ⟩</span>
+          <input type="range" class="vst-scrub" id="vstScrub" min="0" max="1000" value="0">
+          <span class="vst-time" id="vstTime">0.00 / 0.00</span>
+          <select class="vst-fps" id="vstRate" title="Playback speed" style="width:auto">
+            <option value="1">1×</option><option value="0.5">½×</option><option value="0.25">¼×</option><option value="0.1">0.1×</option>
+          </select>
+          <span class="vst-btn" id="vstLoopA" title="Set loop start">A</span>
+          <span class="vst-btn" id="vstLoopB" title="Set loop end">B</span>
+          <span class="vst-btn" id="vstLoopClr" title="Clear A/B loop">⟲</span>
+          <span class="vst-loop" id="vstLoopLbl"></span>
+        </div>
+      </div>
+      <div class="vst-side">${sidePanel}</div>
+    </div>`;
+  annS={ path, meta, readOnly:ro, shapes:[], tool:'select', color:VST_COLORS[0], fps:30, loopA:null, loopB:null, draft:null, ang:null, noteId:null, athleteId:meta.athleteId||null };
+  wireAnnStudio();
+  await loadAnnNotes(path);
+}
+function closeAnnStudio(){ const h=document.getElementById('annStudio'); if(h){ const v=h.querySelector('#vstVid'); if(v) v.pause(); h.classList.remove('on'); h.innerHTML=''; } annS=null; }
+function vstMsg(t){ const m=document.getElementById('vstMsg'); if(m){ m.textContent=t||''; if(t) setTimeout(()=>{ if(m.textContent===t) m.textContent=''; }, 2600); } }
+
+function vstFit(){
+  if(!annS) return;
+  const v=document.getElementById('vstVid'), c=document.getElementById('vstCanvas'), wrap=document.getElementById('vstWrap');
+  if(!v||!c||!wrap||!v.videoWidth) return;
+  const wr=wrap.getBoundingClientRect();
+  const ar=v.videoWidth/v.videoHeight;
+  let w=wr.width, h=w/ar;
+  if(h>wr.height){ h=wr.height; w=h*ar; }
+  c.style.width=w+'px'; c.style.height=h+'px';
+  c.style.left=((wr.width-w)/2)+'px'; c.style.top=((wr.height-h)/2)+'px';
+  const dpr=window.devicePixelRatio||1;
+  c.width=Math.round(w*dpr); c.height=Math.round(h*dpr);
+  c.getContext('2d').setTransform(dpr,0,0,dpr,0,0);
+  annS._cw=w; annS._ch=h;
+  vstRedraw();
+}
+function vstPt(e){ const c=document.getElementById('vstCanvas'); const r=c.getBoundingClientRect(); return { x:Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)), y:Math.max(0,Math.min(1,(e.clientY-r.top)/r.height)) }; }
+function vstRedraw(){
+  const c=document.getElementById('vstCanvas'); if(!c||!annS||!annS._cw) return;
+  const ctx=c.getContext('2d'), W=annS._cw, H=annS._ch;
+  ctx.clearRect(0,0,W,H);
+  annS.shapes.forEach(s=>vstDrawShape(ctx,s,W,H));
+  if(annS.draft) vstDrawShape(ctx,annS.draft,W,H);
+  if(annS.ang&&annS.ang.length){ const pts=annS.ang.concat(annS._angHover?[annS._angHover]:[]); vstDrawShape(ctx,{tool:'angle',color:annS.color,pts},W,H); pts.forEach(p=>{ ctx.fillStyle=annS.color; ctx.beginPath(); ctx.arc(p.x*W,p.y*H,3,0,7); ctx.fill(); }); }
+}
+function vstDrawShape(ctx,s,W,H){
+  ctx.strokeStyle=s.color; ctx.fillStyle=s.color; ctx.lineWidth=2.5; ctx.lineJoin='round'; ctx.lineCap='round';
+  const P=p=>({x:p.x*W,y:p.y*H});
+  if(s.tool==='pen'){ if(s.pts.length<2) return; ctx.beginPath(); s.pts.forEach((p,i)=>{ const q=P(p); i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y); }); ctx.stroke(); return; }
+  if(s.tool==='line'){ const a=P(s.pts[0]),b=P(s.pts[1]); ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); return; }
+  if(s.tool==='hguide'){ const y=s.y*H; ctx.setLineDash([7,5]); ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); ctx.setLineDash([]); return; }
+  if(s.tool==='vguide'){ const x=s.x*W; ctx.setLineDash([7,5]); ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); ctx.setLineDash([]); return; }
+  if(s.tool==='rect'){ const a=P(s.pts[0]),b=P(s.pts[1]); ctx.strokeRect(Math.min(a.x,b.x),Math.min(a.y,b.y),Math.abs(b.x-a.x),Math.abs(b.y-a.y)); return; }
+  if(s.tool==='circle'){ const a=P(s.pts[0]),b=P(s.pts[1]); const rx=Math.abs(b.x-a.x)/2,ry=Math.abs(b.y-a.y)/2; ctx.beginPath(); ctx.ellipse((a.x+b.x)/2,(a.y+b.y)/2,rx,ry,0,0,7); ctx.stroke(); return; }
+  if(s.tool==='text'){ const p=P(s); ctx.font='600 16px system-ui,sans-serif'; ctx.textBaseline='top'; const w=ctx.measureText(s.text).width; ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillRect(p.x-3,p.y-3,w+6,22); ctx.fillStyle=s.color; ctx.fillText(s.text,p.x,p.y); return; }
+  if(s.tool==='angle'){ if(s.pts.length<2) return; const a=P(s.pts[0]),b=P(s.pts[1]); ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); if(s.pts[2]){ const c2=P(s.pts[2]); ctx.lineTo(c2.x,c2.y); } ctx.stroke();
+    if(s.pts[2]){ const A=P(s.pts[0]),B=P(s.pts[1]),C=P(s.pts[2]); let deg=Math.abs(Math.atan2(A.y-B.y,A.x-B.x)-Math.atan2(C.y-B.y,C.x-B.x))*180/Math.PI; if(deg>180) deg=360-deg; ctx.font='600 15px system-ui,sans-serif'; ctx.textBaseline='middle'; const lbl=Math.round(deg)+'°'; const w=ctx.measureText(lbl).width; ctx.fillStyle='rgba(0,0,0,.6)'; ctx.fillRect(B.x+8,B.y-11,w+8,22); ctx.fillStyle=s.color; ctx.fillText(lbl,B.x+12,B.y); }
+    return; }
+}
+function vstOpenText(p){
+  const wrap=document.getElementById('vstWrap'), c=document.getElementById('vstCanvas'); if(!wrap||!c) return;
+  const cl=parseFloat(c.style.left)||0, ct=parseFloat(c.style.top)||0;
+  const inp=document.createElement('input'); inp.className='vst-textin'; inp.style.left=(cl+p.x*annS._cw)+'px'; inp.style.top=(ct+p.y*annS._ch)+'px';
+  wrap.appendChild(inp); inp.focus();
+  const commit=(save)=>{ if(!inp.isConnected) return; const t=inp.value.trim(); inp.remove(); if(save&&t){ annS.shapes.push({tool:'text',color:annS.color,x:p.x,y:p.y,text:t}); vstRedraw(); } };
+  inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); commit(true); } else if(e.key==='Escape'){ commit(false); } });
+  inp.addEventListener('blur',()=>commit(true));
+}
+function vstFmt(t){ if(!isFinite(t)) t=0; const m=Math.floor(t/60), s=(t%60); return m+':'+s.toFixed(2).padStart(5,'0'); }
+function vstSetTool(t){ annS.tool=t; annS.ang=null; document.querySelectorAll('#vstTools .vst-tool').forEach(el=>el.classList.toggle('on',el.dataset.tool===t)); const c=document.getElementById('vstCanvas'); if(c) c.style.cursor=(t==='select')?'default':'crosshair'; vstRedraw(); }
+function wireAnnStudio(){
+  const v=document.getElementById('vstVid'), c=document.getElementById('vstCanvas');
+  const play=document.getElementById('vstPlay'), scrub=document.getElementById('vstScrub'), time=document.getElementById('vstTime');
+  v.addEventListener('loadedmetadata', vstFit);
+  if(v.videoWidth) vstFit();
+  if(annS._ro) annS._ro.disconnect();
+  annS._ro=new ResizeObserver(vstFit); annS._ro.observe(document.getElementById('vstWrap'));
+  // transport
+  play.onclick=()=>{ if(v.paused) v.play(); else v.pause(); };
+  v.addEventListener('play',()=>play.textContent='⏸'); v.addEventListener('pause',()=>play.textContent='▶');
+  v.addEventListener('timeupdate',()=>{ if(v.duration){ scrub.value=Math.round(v.currentTime/v.duration*1000); time.textContent=vstFmt(v.currentTime)+' / '+vstFmt(v.duration); }
+    if(annS.loopA!=null&&annS.loopB!=null&&v.currentTime>=annS.loopB){ v.currentTime=annS.loopA; } });
+  scrub.oninput=()=>{ if(v.duration){ v.currentTime=scrub.value/1000*v.duration; } };
+  document.getElementById('vstRate').onchange=e=>{ v.playbackRate=parseFloat(e.target.value); };
+  const step=d=>{ v.pause(); const dt=1/(annS.fps||30); v.currentTime=Math.max(0,Math.min(v.duration||0, v.currentTime+d*dt)); };
+  document.getElementById('vstBack').onclick=()=>step(-1); document.getElementById('vstFwd').onclick=()=>step(1);
+  const loopLbl=()=>{ const l=document.getElementById('vstLoopLbl'); l.innerHTML=(annS.loopA!=null?`A <b>${vstFmt(annS.loopA)}</b> `:'')+(annS.loopB!=null?`B <b>${vstFmt(annS.loopB)}</b>`:''); };
+  document.getElementById('vstLoopA').onclick=()=>{ annS.loopA=v.currentTime; loopLbl(); };
+  document.getElementById('vstLoopB').onclick=()=>{ annS.loopB=v.currentTime; loopLbl(); };
+  document.getElementById('vstLoopClr').onclick=()=>{ annS.loopA=annS.loopB=null; loopLbl(); };
+  const fpsEl=document.getElementById('vstFps'); if(fpsEl) fpsEl.oninput=e=>{ annS.fps=Math.max(1,parseInt(e.target.value,10)||30); };
+  if(annS.readOnly) return;   // viewers get transport only — no tools, no drawing, no save
+  // tools + colors
+  document.getElementById('vstTools').addEventListener('click',e=>{ const t=e.target.closest('.vst-tool'); if(t) vstSetTool(t.dataset.tool); });
+  document.getElementById('vstColors').addEventListener('click',e=>{ const cc=e.target.closest('.vst-color'); if(!cc) return; annS.color=cc.dataset.color; document.querySelectorAll('#vstColors .vst-color').forEach(el=>el.classList.toggle('on',el===cc)); });
+  document.getElementById('vstUndo').onclick=()=>{ annS.shapes.pop(); vstRedraw(); };
+  document.getElementById('vstClear').onclick=()=>{ annS.shapes=[]; annS.ang=null; vstRedraw(); };
+  document.getElementById('vstSave').onclick=saveAnnNotes;
+  // drawing
+  c.addEventListener('pointerdown',e=>{
+    if(annS.tool==='select') return;
+    c.setPointerCapture(e.pointerId); const p=vstPt(e), t=annS.tool;
+    if(t==='text'){ vstOpenText(p); return; }
+    if(t==='hguide'){ annS.shapes.push({tool:'hguide',color:annS.color,y:p.y}); vstRedraw(); return; }
+    if(t==='vguide'){ annS.shapes.push({tool:'vguide',color:annS.color,x:p.x}); vstRedraw(); return; }
+    if(t==='angle'){ annS.ang=annS.ang||[]; annS.ang.push(p); if(annS.ang.length===3){ annS.shapes.push({tool:'angle',color:annS.color,pts:annS.ang}); annS.ang=null; } vstRedraw(); return; }
+    annS.draft=(t==='pen')?{tool:'pen',color:annS.color,pts:[p]}:{tool:t,color:annS.color,pts:[p,p]};
+  });
+  c.addEventListener('pointermove',e=>{
+    if(annS.ang&&annS.ang.length){ annS._angHover=vstPt(e); vstRedraw(); }
+    if(!annS.draft) return; const p=vstPt(e);
+    if(annS.draft.tool==='pen') annS.draft.pts.push(p); else annS.draft.pts[1]=p; vstRedraw();
+  });
+  const finish=()=>{ if(annS&&annS.draft){ annS.shapes.push(annS.draft); annS.draft=null; vstRedraw(); } };
+  c.addEventListener('pointerup',finish); c.addEventListener('pointercancel',finish);
+}
+async function loadAnnNotes(path){
+  let payload=null, id=null;
+  if(VNOTES_READY){
+    const { data } = await sb.from('video_notes').select('id,payload').eq('video_path',path).order('updated_at',{ascending:false}).limit(1);
+    if(data&&data[0]){ id=data[0].id; payload=data[0].payload; }
+  }
+  if(!payload){ try{ const ls=localStorage.getItem('vst:'+path); if(ls) payload=JSON.parse(ls); }catch(e){} }
+  if(payload&&annS){ annS.shapes=Array.isArray(payload.shapes)?payload.shapes:[]; annS.noteId=id;
+    if(payload.fps){ annS.fps=payload.fps; const f=document.getElementById('vstFps'); if(f) f.value=payload.fps; }
+    const n=document.getElementById('vstNote'); if(n) n.value=payload.note||'';
+    const ro=document.getElementById('vstNoteRO'); if(ro) ro.textContent=(payload.note&&payload.note.trim())?payload.note:'No written note — see the marks on the video.';
+    vstRedraw();
+  }
+}
+async function saveAnnNotes(){
+  if(!annS) return;
+  const note=(document.getElementById('vstNote')||{}).value||'';
+  const payload={ shapes:annS.shapes, note, fps:annS.fps };
+  try{ localStorage.setItem('vst:'+annS.path, JSON.stringify(payload)); }catch(e){}
+  if(!VNOTES_READY){ vstMsg('✓ Saved locally'); return; }
+  const btn=document.getElementById('vstSave'); if(btn){ btn.style.pointerEvents='none'; btn.textContent='Saving…'; }
+  const row={ gym_id:me_.gym_id, video_path:annS.path, athlete_id:annS.athleteId||null, payload, timestamp_sec:null };
+  let res;
+  if(annS.noteId) res=await sb.from('video_notes').update({payload, updated_at:new Date().toISOString()}).eq('id',annS.noteId).select();
+  else res=await sb.from('video_notes').insert(row).select();
+  if(btn){ btn.style.pointerEvents=''; btn.textContent='Save & send to athlete'; }
+  if(res.error){ vstMsg('Save failed — kept locally'); return; }
+  if(res.data&&res.data[0]) annS.noteId=res.data[0].id;
+  vstMsg('✓ Saved & sent');
+}
 function rowHtml(key,i){
   const st=logState[key];
   return `<tr data-set="${key}">
@@ -1365,6 +1616,8 @@ async function probeProgramId(){
   const p=await sb.from('programs').select('archived,updated_at,team_id').limit(1); if(!p.error) PROG_META_READY=true;
   const tm=await sb.from('teams').select('focus,next_comp,next_comp_date').limit(1); if(!tm.error) TEAM_META_READY=true;
 }
+let VNOTES_READY=false;
+async function probeVideoNotes(){ const { error } = await sb.from('video_notes').select('id').limit(1); VNOTES_READY = !error; }
 const DOW=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], MONS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function iso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function weekDates(offset){ // Mon..Sun of the current week, shifted by `offset` weeks
@@ -4905,6 +5158,8 @@ function copyDateOptions(){
     out.push(`<option value="${iso(d)}">${DOW[(d.getDay()+6)%7]} · ${MONS[d.getMonth()]} ${d.getDate()}</option>`); }
   return out.join('');
 }
+// coach clip links: ▶ play + ✎ annotate (opens the studio, scoped to the viewed athlete)
+function vidLinks(path,label){ const aid=(typeof cw!=='undefined'&&cw&&cw.ath)?cw.ath.id:''; return `<span class="vidlink" onclick="playVideo('${esc(path)}')">${label||'▶'}</span> <span class="vidlink" title="Annotate this clip" onclick="openAnnStudio('${esc(path)}',{athleteId:'${aid}'})">✎</span>`; }
 function logResultHtml(lg){
   if(!lg || (lg.actual_reps==null && lg.actual_kg==null && !lg.done)) return '<span class="cv-nolog">not logged</span>';
   const parts=[`<b>${lg.actual_reps??'–'} × ${lg.actual_kg??'–'}kg</b>`];
@@ -4912,7 +5167,7 @@ function logResultHtml(lg){
   if(lg.lights!=null) parts.push(`<span class="lights sm">${lightsHtml(lg.lights)}</span>`);
   if(lg.effort) parts.push(`<span class="efftag">${esc(lg.effort)}</span>`);
   if(lg.done) parts.push('<span style="color:var(--good)">✓</span>');
-  if(lg.video_path) parts.push(`<span class="vidlink" onclick="playVideo('${esc(lg.video_path)}')">▶</span>`);
+  if(lg.video_path) parts.push(vidLinks(lg.video_path));
   return `<span class="cv-act">${parts.join(' ')}</span>`;
 }
 // split athlete actuals into mockup-style columns: Reps · Weight · Miss · Lights·Effort
@@ -4925,7 +5180,7 @@ function actualCells(lg, type){
   if(lg.lights!=null) le.push(`<span class="lights le-lts">${lightsHtml(lg.lights)}</span>`);
   if(lg.effort) le.push(`<span class="efftag eff-${esc(lg.effort)}">${esc(lg.effort)}</span>`);
   if(lg.done) le.push('<span class="le-done" title="done">✓</span>');
-  if(lg.video_path) le.push(`<span class="vidlink" onclick="playVideo('${esc(lg.video_path)}')">▶ clip</span>`);
+  if(lg.video_path) le.push(vidLinks(lg.video_path,'▶ clip'));
   let cells = `<td class="cva ca-n">${lg.actual_reps??'–'}</td>`
     +`<td class="cva ca-n">${lg.actual_kg!=null?lg.actual_kg:'–'}</td>`;
   if(vbt) cells += `<td class="cva ca-n${lg.velocity!=null?' vbt-pk':''}">${lg.velocity!=null?lg.velocity+' <span class="cv-u">m/s</span>':'–'}</td>`;
@@ -4943,7 +5198,7 @@ function actualsSummary(logs, type){
   const kg=list(real.map(l=>l.actual_kg));
   const miss=real.reduce((a,l)=>a+(l.miss||0),0);
   const done=real.filter(l=>l.done).length;
-  const clips=real.filter(l=>l.video_path).map(l=>`<span class="vidlink" onclick="playVideo('${esc(l.video_path)}')">▶</span>`).join('');
+  const clips=real.filter(l=>l.video_path).map(l=>vidLinks(l.video_path)).join(' ');
   let cells=`<td class="cva summ"><b>${reps}</b></td><td class="cva summ"><b>${kg}</b></td>`;
   if(vbt){ cells+=`<td class="cva summ vbt-pk"><b>${list(real.map(l=>l.velocity))}</b></td>`; }
   cells+=`<td class="cva summ">${miss?`<span style="color:var(--bad)">${miss}</span>`:'0'}</td>`
@@ -5085,11 +5340,13 @@ function paintEditor(){
       <button class="btn" id="edSave">Save changes</button>
       ${draft?`<button class="btn blue" id="edPublish2">📤 Publish to ${esc(cw.ath.full_name.split(' ')[0])}</button>`:''}
       <span class="saved" id="edMsg"></span>
+      ${draft?`<span class="saved" id="edAuto" style="color:var(--muted);font-size:12px"></span>`:''}
     </div>
   </div>
   <div id="cvRollup"></div>`;
   wireEditor();
   renderRollup();
+  scheduleDraftSave();   // structural mutations (add/remove ex/set, scheme, load type) repaint → persist the draft
 }
 async function renderRollup(){
   const host=document.getElementById('cvRollup'); if(!host||!ed||!cw) return;
@@ -5163,14 +5420,14 @@ function wireEditor(){
   });
   card.addEventListener('input', e=>{
     const t=e.target;
-    if(t.id==='edTitle'){ ed.session.title=t.value; ed.dirty=true; return; }
+    if(t.id==='edTitle'){ ed.session.title=t.value; ed.dirty=true; scheduleDraftSave(); return; }
     const cvx=t.closest('.cvx'); if(!cvx) return;
     const ex=ed.exercises[+cvx.dataset.ei]; if(!ex) return;
     if(t.dataset.f==='name'){ ex.name=t.value; ed.dirty=true;
       cvxRefreshBase(cvx, ex);
       cvx.querySelectorAll('[data-f="tgt"]').forEach(p=>{ p.disabled=false; });   // % always editable — it records + drives metrics even w/o a 1RM
       showExDrop(t, +cvx.dataset.ei);
-      return; }
+      scheduleDraftSave(); return; }
     if(t.dataset.f==='baseovr'){ ex.baseOverride=t.value; ed.dirty=true;
       cvxRefreshBase(cvx, ex);
       // re-price every set off the new base
@@ -5178,8 +5435,8 @@ function wireEditor(){
       if(type==='percentage'){ ex.sets.forEach(st=>{ const p=parseFloat(st.pct); st.kg=(base!=null && !isNaN(p))?rnd1(base*p/100):''; });
         cvx.querySelectorAll('tr[data-si]').forEach(tr=>{ const st=ex.sets[+tr.dataset.si]; const k=tr.querySelector('[data-f="kg"]'); if(k&&st) k.value=st.kg; }); }
       const tl=cvx.querySelector('.cv-tiles'); if(tl) tl.outerHTML=exTiles(ex);
-      return; }
-    if(t.dataset.f==='note'){ ex.note=t.value; ed.dirty=true; return; }
+      scheduleDraftSave(); return; }
+    if(t.dataset.f==='note'){ ex.note=t.value; ed.dirty=true; scheduleDraftSave(); return; }
     if(t.dataset.f==='count') return; // handled on 'change' (structural)
     const tr=t.closest('tr[data-si]'); if(!tr) return;
     const si=+tr.dataset.si, cnt=+(tr.dataset.count||1);
@@ -5200,6 +5457,7 @@ function wireEditor(){
     const tiles=cvx.querySelector('.cv-tiles'); if(tiles) tiles.outerHTML=exTiles(ex);
     const st2=document.getElementById('edTiles'); if(st2) st2.innerHTML=sessionTiles();
     paintRollup();
+    scheduleDraftSave();
   });
   card.addEventListener('change', e=>{
     const t=e.target;
@@ -5695,9 +5953,10 @@ function targetText(st, type){
   if(k!=null) return `${k}kg`;
   return '—';
 }
-async function saveEditor(publishAfter){
-  const btn=document.getElementById('edSave'); if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
-  edMsgSet('');
+async function saveEditor(publishAfter, opts){
+  opts=opts||{}; const auto=!!opts.auto;
+  const btn=auto?null:document.getElementById('edSave'); if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
+  if(!auto) edMsgSet('');
   try{
     const { data:{ user } } = await sb.auth.getUser();
     if(!user || user.id!==me_.id) throw new Error('login mismatch — sign out and back in');
@@ -5760,16 +6019,38 @@ async function saveEditor(publishAfter){
       const m=document.getElementById('edMsg'); if(m){ m.style.color='var(--good)'; m.textContent=okMsg; setTimeout(()=>{ if(m.isConnected && m.textContent===okMsg) m.textContent=''; },3500); }
       return;
     }
+    if(auto){ refreshStripDot(); edAutoSet('✓ Auto-saved'); return; }
     refreshStripDot();
     paintEditor();
     edMsgSet('✓ Saved','var(--good)');
     setTimeout(()=>edMsgSet(''),3500);
   }catch(e2){
+    if(auto){ edAutoSet('⚠ auto-save failed'); ed.dirty=true; return; }
     if(btn){ btn.disabled=false; btn.textContent='Save changes'; }
     edMsgSet('⚠ Save failed — '+(e2.message||e2),'var(--bad)');
   }
   if(btn){ btn.disabled=false; btn.textContent='Save changes'; }
 }
+/* ---- draft auto-save: never lose a draft on refresh/logout ---- */
+let _draftTimer=null, _draftSaving=false;
+function edAutoSet(txt){ const el=document.getElementById('edAuto'); if(el){ el.textContent=txt||''; if(txt) setTimeout(()=>{ if(el.isConnected && el.textContent===txt) el.textContent=''; }, 2500); } }
+function scheduleDraftSave(){
+  if(!ed || !ed.session || ed.session.status!=='draft' || !ed.dirty) return;   // only auto-persist dirty drafts
+  if(_draftTimer) clearTimeout(_draftTimer);
+  edAutoSet('saving…');
+  _draftTimer=setTimeout(doDraftSave, 1100);
+}
+async function doDraftSave(){
+  _draftTimer=null;
+  if(_draftSaving){ scheduleDraftSave(); return; }
+  if(!ed || !ed.session || ed.session.status!=='draft' || !ed.dirty) return;
+  _draftSaving=true;
+  try{ await saveEditor(undefined, {auto:true}); } catch(e){}
+  _draftSaving=false;
+}
+// best-effort flush before a refresh/tab-close/logout, so the last edit isn't lost inside the debounce window
+window.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden' && ed && ed.session && ed.session.status==='draft' && ed.dirty){ if(_draftTimer){ clearTimeout(_draftTimer); _draftTimer=null; } doDraftSave(); } });
+window.addEventListener('pagehide', ()=>{ if(ed && ed.session && ed.session.status==='draft' && ed.dirty){ if(_draftTimer){ clearTimeout(_draftTimer); _draftTimer=null; } doDraftSave(); } });
 async function refreshEditorActuals(){
   if(!ed) return;
   const { data: logs } = await sb.from('logged_sets').select('*').eq('session_id', ed.session.id);
