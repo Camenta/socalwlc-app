@@ -149,6 +149,20 @@
   .vst-msg{font-size:12px;color:var(--accent2)}
   .vst-loop{font-size:11px;color:var(--muted)}
   .vst-loop b{color:var(--accent)}
+  .bp-steps{display:flex;flex-direction:column;gap:6px}
+  .bp-step{display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--muted)}
+  .bp-step .bp-num{flex:none;width:18px;height:18px;border-radius:50%;background:var(--panel2);border:1px solid var(--line);color:var(--text);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+  .bp-step.done .bp-num{background:var(--good);border-color:var(--good);color:#0a0d11}
+  .bp-step.active .bp-num{background:var(--accent);border-color:var(--accent);color:#0a0d11}
+  .bp-btn{width:100%;box-sizing:border-box;text-align:center;margin-top:4px}
+  .bp-tiles{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+  .bp-tile{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+  .bp-tile .bp-v{font-size:15px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums}
+  .bp-tile .bp-l{font-size:10px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);margin-top:1px}
+  .bp-prog{height:6px;border-radius:4px;background:var(--panel2);overflow:hidden;margin-top:8px}
+  .bp-prog>i{display:block;height:100%;background:var(--accent);width:0}
+  .bp-hint{font-size:11px;color:var(--accent2);margin-top:6px;line-height:1.35}
+  .bp-toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-top:8px;cursor:pointer}
   .lg-add{display:inline-block;margin:9px 14px;color:var(--accent2);font-weight:700;font-size:12px;cursor:pointer;user-select:none}
   .lg-add:hover{color:#7bc0f5}
   .lg-del{color:var(--muted);cursor:pointer;font-weight:700;opacity:.45;padding:0 4px}
@@ -1328,6 +1342,12 @@ async function openAnnStudio(path, meta){
           <h4>Coach's notes</h4>
           <div id="vstNoteRO" style="color:var(--text);font-size:14px;white-space:pre-wrap;line-height:1.4">No written note.</div>
           <div class="vst-row" style="margin-top:10px;color:var(--muted)">Use the controls below to slow it down or step frame-by-frame.</div>
+        </div>
+        <div class="vst-card" id="bpCard">
+          <h4>Bar path &amp; velocity</h4>
+          <div class="bp-hint" id="bpHint">No bar-path analysis on this clip.</div>
+          <div class="bp-tiles" id="bpTiles" style="display:none"></div>
+          <label class="bp-toggle" id="bpToggleWrap" style="display:none"><input type="checkbox" id="bpShow" checked> Show trace overlay</label>
         </div>` : `
         <div class="vst-card">
           <h4>Tools</h4>
@@ -1354,6 +1374,23 @@ async function openAnnStudio(path, meta){
           <div class="vst-row" style="margin-top:8px"><label>Video fps <input type="number" class="vst-fps" id="vstFps" value="30" min="1" max="240"></label></div>
           <div class="vst-row" style="margin-top:10px"><span class="vst-btn pri" id="vstSave" style="flex:1;text-align:center">Save &amp; send to athlete</span></div>
           ${VNOTES_READY?'':'<div class="vst-row" style="margin-top:6px;color:#e0a85a">Run migration 29 to save to the cloud — saving locally for now.</div>'}
+        </div>
+        <div class="vst-card" id="bpCard">
+          <h4>Bar path &amp; velocity</h4>
+          <div class="bp-steps">
+            <div class="bp-step" id="bpS1"><span class="bp-num">1</span><div>Calibrate — tap two points across a plate edge (45&nbsp;cm). <span id="bpCalLbl" style="color:var(--good)"></span></div></div>
+            <div class="bp-step" id="bpS2"><span class="bp-num">2</span><div>Seed — click the bar end on the start frame. <span id="bpSeedLbl" style="color:var(--good)"></span></div></div>
+            <div class="bp-step" id="bpS3"><span class="bp-num">3</span><div>Track across the A↔B loop (or from here to the end).</div></div>
+          </div>
+          <span class="vst-btn bp-btn" id="bpCalib">📏 Calibrate plate</span>
+          <span class="vst-btn bp-btn" id="bpSeed">🎯 Set start point</span>
+          <span class="vst-btn pri bp-btn" id="bpTrack">▶ Track bar</span>
+          <div class="bp-prog" id="bpProgWrap" style="display:none"><i id="bpProg"></i></div>
+          <div class="bp-hint" id="bpHint">Trend-grade — a software complement to the OVR sensor, not lab-grade.</div>
+          <div class="bp-tiles" id="bpTiles" style="display:none"></div>
+          <label class="bp-toggle" id="bpToggleWrap" style="display:none"><input type="checkbox" id="bpShow" checked> Show trace overlay</label>
+          <div class="vst-row" style="margin-top:8px"><span class="vst-btn" id="bpClear">Clear path</span><span class="vst-btn pri" id="bpSave" style="flex:1;text-align:center">Save bar path</span></div>
+          ${VTRACKS_READY?'':'<div class="bp-hint" style="color:#e0a85a">Run migration 30 to save bar paths to the cloud — kept locally for now.</div>'}
         </div>`;
   host.innerHTML=`
     <div class="vst-top">
@@ -1364,7 +1401,7 @@ async function openAnnStudio(path, meta){
     <div class="vst-body">
       <div class="vst-stage">
         <div class="vst-canvaswrap" id="vstWrap">
-          <video id="vstVid" src="${data.signedUrl}" playsinline></video>
+          <video id="vstVid" src="${data.signedUrl}" crossorigin="anonymous" playsinline></video>
           <canvas id="vstCanvas"${ro?' style="pointer-events:none"':''}></canvas>
         </div>
         <div class="vst-transport">
@@ -1384,9 +1421,11 @@ async function openAnnStudio(path, meta){
       </div>
       <div class="vst-side">${sidePanel}</div>
     </div>`;
-  annS={ path, meta, readOnly:ro, shapes:[], tool:'select', color:VST_COLORS[0], fps:30, loopA:null, loopB:null, draft:null, ang:null, noteId:null, athleteId:meta.athleteId||null };
+  annS={ path, meta, readOnly:ro, shapes:[], tool:'select', color:VST_COLORS[0], fps:30, loopA:null, loopB:null, draft:null, ang:null, noteId:null, athleteId:meta.athleteId||null,
+    exercise:meta.exercise||null, trackMode:null, calib:null, seed:null, track:null, metrics:null, scale:null, trackId:null, showTrace:true };
   wireAnnStudio();
   await loadAnnNotes(path);
+  await bpLoadTrack(path);
 }
 function closeAnnStudio(){ const h=document.getElementById('annStudio'); if(h){ const v=h.querySelector('#vstVid'); if(v) v.pause(); h.classList.remove('on'); h.innerHTML=''; } annS=null; }
 function vstMsg(t){ const m=document.getElementById('vstMsg'); if(m){ m.textContent=t||''; if(t) setTimeout(()=>{ if(m.textContent===t) m.textContent=''; }, 2600); } }
@@ -1415,6 +1454,25 @@ function vstRedraw(){
   annS.shapes.forEach(s=>vstDrawShape(ctx,s,W,H));
   if(annS.draft) vstDrawShape(ctx,annS.draft,W,H);
   if(annS.ang&&annS.ang.length){ const pts=annS.ang.concat(annS._angHover?[annS._angHover]:[]); vstDrawShape(ctx,{tool:'angle',color:annS.color,pts},W,H); pts.forEach(p=>{ ctx.fillStyle=annS.color; ctx.beginPath(); ctx.arc(p.x*W,p.y*H,3,0,7); ctx.fill(); }); }
+  vstDrawTrack(ctx,W,H);
+}
+function vstDrawTrack(ctx,W,H){
+  if(!annS) return;
+  const P=p=>({x:p.x*W,y:p.y*H});
+  // calibration markers (green)
+  if(annS.calib&&annS.calib.length){
+    annS.calib.forEach(p=>{ const q=P(p); ctx.fillStyle='#34d399'; ctx.beginPath(); ctx.arc(q.x,q.y,4,0,7); ctx.fill(); });
+    if(annS.calib.length===2){ const a=P(annS.calib[0]),b=P(annS.calib[1]); ctx.strokeStyle='#34d399'; ctx.lineWidth=2; ctx.setLineDash([4,4]); ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); ctx.setLineDash([]); }
+  }
+  // seed crosshair (amber) — until a track exists
+  if(annS.seed&&!(annS.track&&annS.track.length)){ const q=P(annS.seed); ctx.strokeStyle='#fbbf24'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(q.x,q.y,8,0,7); ctx.moveTo(q.x-12,q.y); ctx.lineTo(q.x+12,q.y); ctx.moveTo(q.x,q.y-12); ctx.lineTo(q.x,q.y+12); ctx.stroke(); }
+  // bar-path trace (orange) + current-frame dot
+  if(annS.showTrace&&annS.track&&annS.track.length>1){
+    ctx.strokeStyle='#f97316'; ctx.lineWidth=2.5; ctx.lineJoin='round'; ctx.lineCap='round';
+    ctx.beginPath(); annS.track.forEach((p,i)=>{ const q=P(p); i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y); }); ctx.stroke();
+    const v=document.getElementById('vstVid');
+    if(v){ let near=annS.track[0],bd=1e9; annS.track.forEach(p=>{ const d=Math.abs(p.t-v.currentTime); if(d<bd){bd=d;near=p;} }); const q=P(near); ctx.fillStyle='#fde047'; ctx.beginPath(); ctx.arc(q.x,q.y,5,0,7); ctx.fill(); ctx.strokeStyle='#0a0d11'; ctx.lineWidth=1.5; ctx.stroke(); }
+  }
 }
 function vstDrawShape(ctx,s,W,H){
   ctx.strokeStyle=s.color; ctx.fillStyle=s.color; ctx.lineWidth=2.5; ctx.lineJoin='round'; ctx.lineCap='round';
@@ -1452,7 +1510,8 @@ function wireAnnStudio(){
   play.onclick=()=>{ if(v.paused) v.play(); else v.pause(); };
   v.addEventListener('play',()=>play.textContent='⏸'); v.addEventListener('pause',()=>play.textContent='▶');
   v.addEventListener('timeupdate',()=>{ if(v.duration){ scrub.value=Math.round(v.currentTime/v.duration*1000); time.textContent=vstFmt(v.currentTime)+' / '+vstFmt(v.duration); }
-    if(annS.loopA!=null&&annS.loopB!=null&&v.currentTime>=annS.loopB){ v.currentTime=annS.loopA; } });
+    if(annS.loopA!=null&&annS.loopB!=null&&v.currentTime>=annS.loopB){ v.currentTime=annS.loopA; }
+    if(annS.track&&annS.showTrace) vstRedraw(); });
   scrub.oninput=()=>{ if(v.duration){ v.currentTime=scrub.value/1000*v.duration; } };
   document.getElementById('vstRate').onchange=e=>{ v.playbackRate=parseFloat(e.target.value); };
   const step=d=>{ v.pause(); const dt=1/(annS.fps||30); v.currentTime=Math.max(0,Math.min(v.duration||0, v.currentTime+d*dt)); };
@@ -1462,6 +1521,7 @@ function wireAnnStudio(){
   document.getElementById('vstLoopB').onclick=()=>{ annS.loopB=v.currentTime; loopLbl(); };
   document.getElementById('vstLoopClr').onclick=()=>{ annS.loopA=annS.loopB=null; loopLbl(); };
   const fpsEl=document.getElementById('vstFps'); if(fpsEl) fpsEl.oninput=e=>{ annS.fps=Math.max(1,parseInt(e.target.value,10)||30); };
+  const showEl=document.getElementById('bpShow'); if(showEl) showEl.onchange=e=>{ annS.showTrace=e.target.checked; vstRedraw(); };
   if(annS.readOnly) return;   // viewers get transport only — no tools, no drawing, no save
   // tools + colors
   document.getElementById('vstTools').addEventListener('click',e=>{ const t=e.target.closest('.vst-tool'); if(t) vstSetTool(t.dataset.tool); });
@@ -1469,8 +1529,16 @@ function wireAnnStudio(){
   document.getElementById('vstUndo').onclick=()=>{ annS.shapes.pop(); vstRedraw(); };
   document.getElementById('vstClear').onclick=()=>{ annS.shapes=[]; annS.ang=null; vstRedraw(); };
   document.getElementById('vstSave').onclick=saveAnnNotes;
+  // bar-path tracking
+  const bp=id=>document.getElementById(id);
+  if(bp('bpCalib')) bp('bpCalib').onclick=()=>bpSetMode(annS.trackMode==='calib'?null:'calib');
+  if(bp('bpSeed'))  bp('bpSeed').onclick =()=>{ v.pause(); bpSetMode(annS.trackMode==='seed'?null:'seed'); };
+  if(bp('bpTrack')) bp('bpTrack').onclick=bpRunTrack;
+  if(bp('bpClear')) bp('bpClear').onclick=()=>{ annS.track=null; annS.metrics=null; annS.seed=null; annS.calib=null; annS.scale=null; bpSetMode(null); bpRender(); bpSteps(); vstRedraw(); };
+  if(bp('bpSave'))  bp('bpSave').onclick =bpSaveTrack;
   // drawing
   c.addEventListener('pointerdown',e=>{
+    if(annS.trackMode){ bpCanvasClick(vstPt(e)); return; }
     if(annS.tool==='select') return;
     c.setPointerCapture(e.pointerId); const p=vstPt(e), t=annS.tool;
     if(t==='text'){ vstOpenText(p); return; }
@@ -1486,6 +1554,164 @@ function wireAnnStudio(){
   });
   const finish=()=>{ if(annS&&annS.draft){ annS.shapes.push(annS.draft); annS.draft=null; vstRedraw(); } };
   c.addEventListener('pointerup',finish); c.addEventListener('pointercancel',finish);
+}
+/* ---------------- bar-path tracking (video analysis phase 2) ---------------- */
+const TRACK_MAXW=480, BP_TR=11, BP_SR=22, BP_CAP=260, PLATE_M=0.45;
+function bpHint(t,warn){ const h=document.getElementById('bpHint'); if(h){ h.textContent=t; h.style.color=warn?'#e0a85a':'var(--accent2)'; } }
+function bpSteps(){
+  const calDone=annS.calib&&annS.calib.length===2, seedDone=!!annS.seed;
+  const s1=document.getElementById('bpS1'), s2=document.getElementById('bpS2'), s3=document.getElementById('bpS3');
+  if(s1){ s1.classList.toggle('done',calDone); s1.classList.toggle('active',annS.trackMode==='calib'); }
+  if(s2){ s2.classList.toggle('done',seedDone); s2.classList.toggle('active',annS.trackMode==='seed'); }
+  if(s3){ s3.classList.toggle('active',(calDone||seedDone)&&!annS.trackMode); }
+  const cl=document.getElementById('bpCalLbl'); if(cl) cl.textContent=calDone?'✓ set':'';
+  const sl=document.getElementById('bpSeedLbl'); if(sl) sl.textContent=seedDone?'✓ set':'';
+}
+function bpSetMode(mode){
+  annS.trackMode=mode;
+  const cal=document.getElementById('bpCalib'), seed=document.getElementById('bpSeed');
+  if(cal) cal.classList.toggle('pri',mode==='calib');
+  if(seed) seed.classList.toggle('pri',mode==='seed');
+  if(mode==='calib') annS.calib=[];
+  const c=document.getElementById('vstCanvas'); if(c) c.style.cursor=mode?'crosshair':((annS.tool==='select')?'default':'crosshair');
+  bpSteps();
+}
+function bpCanvasClick(p){
+  if(annS.trackMode==='calib'){
+    annS.calib=annS.calib||[]; if(annS.calib.length>=2) annS.calib=[]; annS.calib.push(p);
+    if(annS.calib.length===2){ bpSetMode(null); if(annS.track){ bpComputeMetrics(); bpRender(); } bpHint('Plate calibrated — set the start point next.'); }
+    bpSteps(); vstRedraw(); return;
+  }
+  if(annS.trackMode==='seed'){ annS.seed=p; bpSetMode(null); bpHint('Start point set — press “Track bar”.'); bpSteps(); vstRedraw(); return; }
+}
+function vstSeekTo(v,t){ return new Promise(res=>{ const f=()=>{ v.removeEventListener('seeked',f); res(); }; v.addEventListener('seeked',f); try{ v.currentTime=t; }catch(e){ v.removeEventListener('seeked',f); res(); } }); }
+function vstGrabGray(v){
+  const vw=v.videoWidth, vh=v.videoHeight; if(!vw) return null;
+  const sc=Math.min(1,TRACK_MAXW/vw), w=Math.round(vw*sc), h=Math.round(vh*sc);
+  if(!annS._off) annS._off=document.createElement('canvas');
+  const off=annS._off; off.width=w; off.height=h;
+  const octx=off.getContext('2d',{willReadFrequently:true}); octx.drawImage(v,0,0,w,h);
+  let img; try{ img=octx.getImageData(0,0,w,h); }catch(e){ return {error:'cors'}; }
+  const d=img.data, gray=new Float32Array(w*h);
+  for(let i=0,p=0;i<d.length;i+=4,p++) gray[p]=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+  return { gray, w, h };
+}
+function vstTemplate(fr,cx,cy){ const {gray,w,h}=fr, t=new Float32Array((2*BP_TR+1)*(2*BP_TR+1)); let k=0;
+  for(let dy=-BP_TR;dy<=BP_TR;dy++)for(let dx=-BP_TR;dx<=BP_TR;dx++){ const x=Math.max(0,Math.min(w-1,cx+dx)), y=Math.max(0,Math.min(h-1,cy+dy)); t[k++]=gray[y*w+x]; }
+  return t;
+}
+function vstMatch(fr,tmpl,px,py){ const {gray,w,h}=fr; let best=1e18,bx=px,by=py;
+  for(let oy=-BP_SR;oy<=BP_SR;oy++)for(let ox=-BP_SR;ox<=BP_SR;ox++){
+    const cx=px+ox, cy=py+oy; if(cx<BP_TR||cy<BP_TR||cx>=w-BP_TR||cy>=h-BP_TR) continue;
+    let sad=0,k=0,bad=false;
+    for(let dy=-BP_TR;dy<=BP_TR&&!bad;dy++){ const row=(cy+dy)*w; for(let dx=-BP_TR;dx<=BP_TR;dx++) sad+=Math.abs(gray[row+cx+dx]-tmpl[k++]); if(sad>=best) bad=true; }
+    if(!bad&&sad<best){ best=sad; bx=cx; by=cy; }
+  }
+  return { x:bx, y:by };
+}
+async function bpRunTrack(){
+  if(!annS||annS.readOnly||annS._tracking) return;
+  const v=document.getElementById('vstVid');
+  if(!annS.seed){ bpHint('Set the start point first (🎯).', true); return; }
+  if(!v||!v.videoWidth){ bpHint('Video not ready yet.', true); return; }
+  v.pause();
+  const probe=vstGrabGray(v);
+  if(probe&&probe.error==='cors'){ bpHint('Can’t read this clip’s pixels (its host blocks cross-origin), so tracking is unavailable here. Annotation still works.', true); return; }
+  annS._tracking=true;
+  const start=(annS.loopA!=null)?annS.loopA:v.currentTime;
+  const end=(annS.loopB!=null)?annS.loopB:(v.duration||start);
+  const dt=1/(annS.fps||30);
+  await vstSeekTo(v,start);
+  const frS=vstGrabGray(v);
+  if(!frS||frS.error){ annS._tracking=false; bpHint('Pixel read failed.', true); return; }
+  const W=frS.w, H=frS.h;
+  let px=Math.round(annS.seed.x*W), py=Math.round(annS.seed.y*H);
+  const tmpl=vstTemplate(frS,px,py);
+  const pts=[{ t:start, x:px/W, y:py/H }];
+  const prog=document.getElementById('bpProg'), pw=document.getElementById('bpProgWrap');
+  if(pw) pw.style.display='block';
+  const total=Math.min(BP_CAP, Math.max(1, Math.round((end-start)/dt)));
+  for(let i=1;i<=total;i++){
+    const t=start+i*dt; if(t>end+1e-3) break;
+    await vstSeekTo(v,t); const fr=vstGrabGray(v); if(!fr||fr.error) break;
+    const m=vstMatch(fr,tmpl,px,py); px=m.x; py=m.y;
+    pts.push({ t, x:px/W, y:py/H });
+    if(prog) prog.style.width=Math.round(i/total*100)+'%';
+    if(i%4===0){ annS.track=pts.slice(); vstRedraw(); await new Promise(r=>setTimeout(r,0)); }
+  }
+  if(pw) pw.style.display='none';
+  annS.track=pts; annS._trackW=W; annS._trackH=H; annS._tracking=false;
+  bpComputeMetrics(); bpRender(); bpSteps(); vstRedraw();
+  bpHint(annS.scale?'Tracked. Scrub to replay; re-seed any frame + re-track to fix drift.':'Tracked — calibrate a plate to get ROM & m/s.');
+}
+function bpComputeMetrics(){
+  const pts=annS.track; if(!pts||pts.length<2){ annS.metrics=null; return; }
+  const W=annS._trackW||1, H=annS._trackH||1;
+  let mpp=null;
+  if(annS.calib&&annS.calib.length===2){ const a=annS.calib[0],b=annS.calib[1]; const dpx=Math.hypot((b.x-a.x)*W,(b.y-a.y)*H); if(dpx>2) mpp=PLATE_M/dpx; }
+  annS.scale=mpp;
+  const ts=pts.map(p=>p.t), ys=pts.map(p=>p.y*H);
+  const Y=ys.map((_,i)=>{ const a=ys[Math.max(0,i-1)],b=ys[i],c=ys[Math.min(ys.length-1,i+1)]; return (a+b+c)/3; });
+  const minY=Math.min.apply(null,Y), maxY=Math.max.apply(null,Y);   // minY = highest on screen, maxY = lowest
+  const romPx=maxY-minY, iLow=Y.indexOf(maxY), iHigh=Y.indexOf(minY);
+  let peakPx=0;
+  for(let i=1;i<Y.length;i++){ const d=ts[i]-ts[i-1]; if(d<=0) continue; const vy=(Y[i-1]-Y[i])/d; if(vy>peakPx) peakPx=vy; }
+  let meanPx=null, dur=null;
+  if(iHigh>iLow&&ts[iHigh]>ts[iLow]){ dur=ts[iHigh]-ts[iLow]; meanPx=romPx/dur; }
+  const m={ rom_px:romPx, peak_px:peakPx, mean_px:meanPx, duration_s:dur };
+  if(mpp){ m.rom_m=romPx*mpp; m.peak_vel=peakPx*mpp; m.mean_vel=meanPx!=null?meanPx*mpp:null; }
+  annS.metrics=m;
+}
+function bpRender(){
+  const tiles=document.getElementById('bpTiles'), tw=document.getElementById('bpToggleWrap'), hint=document.getElementById('bpHint');
+  const hasTrack=annS.track&&annS.track.length>1;
+  if(tw) tw.style.display=hasTrack?'flex':'none';
+  if(tiles){
+    if(!hasTrack){ tiles.style.display='none'; }
+    else if(annS.metrics&&annS.metrics.rom_m!=null){
+      const m=annS.metrics, f=(v,d)=>v==null?'—':(+v).toFixed(d);
+      tiles.style.display='grid';
+      tiles.innerHTML=
+        `<div class="bp-tile"><div class="bp-v">${Math.round(m.rom_m*100)} cm</div><div class="bp-l">ROM</div></div>`+
+        `<div class="bp-tile"><div class="bp-v">${f(m.peak_vel,2)}</div><div class="bp-l">Peak m/s</div></div>`+
+        `<div class="bp-tile"><div class="bp-v">${m.mean_vel!=null?f(m.mean_vel,2):'—'}</div><div class="bp-l">Mean m/s</div></div>`+
+        `<div class="bp-tile"><div class="bp-v">${m.duration_s!=null?f(m.duration_s,2)+'s':'—'}</div><div class="bp-l">Pull time</div></div>`;
+    } else {
+      tiles.style.display='block';
+      tiles.innerHTML=`<div class="bp-tile"><div class="bp-v">Trace captured</div><div class="bp-l">Calibrate a plate for ROM &amp; m/s</div></div>`;
+    }
+  }
+  if(hint){ if(annS.readOnly){ hint.textContent=hasTrack?'Coach’s bar-path trace. Trend-grade, not lab-grade.':'No bar-path analysis on this clip.'; }
+    else { hint.textContent=hasTrack?'Re-seed any frame + re-track to fix drift.':'Trend-grade — a software complement to the OVR sensor, not lab-grade.'; } }
+}
+async function bpSaveTrack(){
+  if(!annS||annS.readOnly) return;
+  if(!annS.track||annS.track.length<2){ bpHint('Track the bar first.', true); return; }
+  const payload={ points:annS.track, fps:annS.fps, scale_m_per_px:annS.scale||null, metrics:annS.metrics||{} };
+  try{ localStorage.setItem('vtrk:'+annS.path, JSON.stringify(payload)); }catch(e){}
+  if(!VTRACKS_READY){ bpHint('Saved locally (run migration 30 for cloud).'); return; }
+  const btn=document.getElementById('bpSave'); if(btn){ btn.style.pointerEvents='none'; btn.textContent='Saving…'; }
+  const row={ gym_id:me_.gym_id, video_path:annS.path, athlete_id:annS.athleteId||null, exercise:annS.exercise||null, points:annS.track, fps:annS.fps, scale_m_per_px:annS.scale||null, metrics:annS.metrics||{} };
+  let res;
+  if(annS.trackId) res=await sb.from('video_tracks').update({ points:row.points, fps:row.fps, scale_m_per_px:row.scale_m_per_px, metrics:row.metrics, updated_at:new Date().toISOString() }).eq('id',annS.trackId).select();
+  else res=await sb.from('video_tracks').insert(row).select();
+  if(btn){ btn.style.pointerEvents=''; btn.textContent='Save bar path'; }
+  if(res.error){ bpHint('Save failed — kept locally.', true); return; }
+  if(res.data&&res.data[0]) annS.trackId=res.data[0].id;
+  bpHint('✓ Bar path saved & sent to athlete.');
+}
+async function bpLoadTrack(path){
+  let payload=null, id=null;
+  if(VTRACKS_READY){
+    const { data }=await sb.from('video_tracks').select('id,points,fps,scale_m_per_px,metrics').eq('video_path',path).order('updated_at',{ascending:false}).limit(1);
+    if(data&&data[0]){ id=data[0].id; payload=data[0]; }
+  }
+  if(!payload){ try{ const ls=localStorage.getItem('vtrk:'+path); if(ls) payload=JSON.parse(ls); }catch(e){} }
+  if(payload&&annS&&Array.isArray(payload.points)&&payload.points.length){
+    annS.track=payload.points; annS.trackId=id||null; annS.scale=payload.scale_m_per_px||null; annS.metrics=payload.metrics||null;
+    if(payload.fps){ annS.fps=payload.fps; const f=document.getElementById('vstFps'); if(f) f.value=payload.fps; }
+    bpRender(); bpSteps(); vstRedraw();
+  } else { bpRender(); }
 }
 async function loadAnnNotes(path){
   let payload=null, id=null;
@@ -1616,8 +1842,11 @@ async function probeProgramId(){
   const p=await sb.from('programs').select('archived,updated_at,team_id').limit(1); if(!p.error) PROG_META_READY=true;
   const tm=await sb.from('teams').select('focus,next_comp,next_comp_date').limit(1); if(!tm.error) TEAM_META_READY=true;
 }
-let VNOTES_READY=false;
-async function probeVideoNotes(){ const { error } = await sb.from('video_notes').select('id').limit(1); VNOTES_READY = !error; }
+let VNOTES_READY=false, VTRACKS_READY=false;
+async function probeVideoNotes(){
+  const { error } = await sb.from('video_notes').select('id').limit(1); VNOTES_READY = !error;
+  const t = await sb.from('video_tracks').select('id').limit(1); VTRACKS_READY = !t.error;
+}
 const DOW=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], MONS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function iso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function weekDates(offset){ // Mon..Sun of the current week, shifted by `offset` weeks
