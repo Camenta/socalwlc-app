@@ -1380,7 +1380,7 @@ async function openAnnStudio(path, meta){
           <div class="bp-steps">
             <div class="bp-step" id="bpS1"><span class="bp-num">1</span><div>Calibrate — tap two points across a plate edge (45&nbsp;cm). <span id="bpCalLbl" style="color:var(--good)"></span></div></div>
             <div class="bp-step" id="bpS2"><span class="bp-num">2</span><div>Seed — click the bar end on the start frame. <span id="bpSeedLbl" style="color:var(--good)"></span></div></div>
-            <div class="bp-step" id="bpS3"><span class="bp-num">3</span><div>Track across the A↔B loop (or from here to the end).</div></div>
+            <div class="bp-step" id="bpS3"><span class="bp-num">3</span><div>Track — runs from the start frame to the end of the clip.</div></div>
           </div>
           <span class="vst-btn bp-btn" id="bpCalib">📏 Calibrate plate</span>
           <span class="vst-btn bp-btn" id="bpSeed">🎯 Set start point</span>
@@ -1413,16 +1413,12 @@ async function openAnnStudio(path, meta){
           <select class="vst-fps" id="vstRate" title="Playback speed" style="width:auto">
             <option value="1">1×</option><option value="0.5">½×</option><option value="0.25">¼×</option><option value="0.1">0.1×</option>
           </select>
-          <span class="vst-btn" id="vstLoopA" title="Set loop start">A</span>
-          <span class="vst-btn" id="vstLoopB" title="Set loop end">B</span>
-          <span class="vst-btn" id="vstLoopClr" title="Clear A/B loop">⟲</span>
-          <span class="vst-loop" id="vstLoopLbl"></span>
         </div>
       </div>
       <div class="vst-side">${sidePanel}</div>
     </div>`;
-  annS={ path, meta, readOnly:ro, shapes:[], tool:'select', color:VST_COLORS[0], fps:30, loopA:null, loopB:null, draft:null, ang:null, noteId:null, athleteId:meta.athleteId||null,
-    exercise:meta.exercise||null, trackMode:null, calib:null, seed:null, track:null, metrics:null, scale:null, trackId:null, showTrace:true };
+  annS={ path, meta, readOnly:ro, shapes:[], tool:'select', color:VST_COLORS[0], fps:30, draft:null, ang:null, noteId:null, athleteId:meta.athleteId||null,
+    exercise:meta.exercise||null, trackMode:null, calib:null, seed:null, seedT:null, track:null, metrics:null, scale:null, trackId:null, showTrace:true };
   wireAnnStudio();
   await loadAnnNotes(path);
   await bpLoadTrack(path);
@@ -1459,8 +1455,8 @@ function vstRedraw(){
 function vstDrawTrack(ctx,W,H){
   if(!annS) return;
   const P=p=>({x:p.x*W,y:p.y*H});
-  // calibration markers (green)
-  if(annS.calib&&annS.calib.length){
+  // calibration markers (green) — only while actively calibrating; the line is a one-time scale ref, hidden once set
+  if(annS.trackMode==='calib'&&annS.calib&&annS.calib.length){
     annS.calib.forEach(p=>{ const q=P(p); ctx.fillStyle='#34d399'; ctx.beginPath(); ctx.arc(q.x,q.y,4,0,7); ctx.fill(); });
     if(annS.calib.length===2){ const a=P(annS.calib[0]),b=P(annS.calib[1]); ctx.strokeStyle='#34d399'; ctx.lineWidth=2; ctx.setLineDash([4,4]); ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); ctx.setLineDash([]); }
   }
@@ -1512,16 +1508,11 @@ function wireAnnStudio(){
   play.onclick=()=>{ if(v.paused) v.play(); else v.pause(); };
   v.addEventListener('play',()=>play.textContent='⏸'); v.addEventListener('pause',()=>play.textContent='▶');
   v.addEventListener('timeupdate',()=>{ if(v.duration){ scrub.value=Math.round(v.currentTime/v.duration*1000); time.textContent=vstFmt(v.currentTime)+' / '+vstFmt(v.duration); }
-    if(annS.loopA!=null&&annS.loopB!=null&&v.currentTime>=annS.loopB){ v.currentTime=annS.loopA; }
     if(annS.track&&annS.showTrace) vstRedraw(); });
   scrub.oninput=()=>{ if(v.duration){ v.currentTime=scrub.value/1000*v.duration; } };
   document.getElementById('vstRate').onchange=e=>{ v.playbackRate=parseFloat(e.target.value); };
   const step=d=>{ v.pause(); const dt=1/(annS.fps||30); v.currentTime=Math.max(0,Math.min(v.duration||0, v.currentTime+d*dt)); };
   document.getElementById('vstBack').onclick=()=>step(-1); document.getElementById('vstFwd').onclick=()=>step(1);
-  const loopLbl=()=>{ const l=document.getElementById('vstLoopLbl'); l.innerHTML=(annS.loopA!=null?`A <b>${vstFmt(annS.loopA)}</b> `:'')+(annS.loopB!=null?`B <b>${vstFmt(annS.loopB)}</b>`:''); };
-  document.getElementById('vstLoopA').onclick=()=>{ annS.loopA=v.currentTime; loopLbl(); };
-  document.getElementById('vstLoopB').onclick=()=>{ annS.loopB=v.currentTime; loopLbl(); };
-  document.getElementById('vstLoopClr').onclick=()=>{ annS.loopA=annS.loopB=null; loopLbl(); };
   const fpsEl=document.getElementById('vstFps'); if(fpsEl) fpsEl.oninput=e=>{ annS.fps=Math.max(1,parseInt(e.target.value,10)||30); };
   const showEl=document.getElementById('bpShow'); if(showEl) showEl.onchange=e=>{ annS.showTrace=e.target.checked; vstRedraw(); };
   if(annS.readOnly) return;   // viewers get transport only — no tools, no drawing, no save
@@ -1536,7 +1527,7 @@ function wireAnnStudio(){
   if(bp('bpCalib')) bp('bpCalib').onclick=()=>bpSetMode(annS.trackMode==='calib'?null:'calib');
   if(bp('bpSeed'))  bp('bpSeed').onclick =()=>{ v.pause(); bpSetMode(annS.trackMode==='seed'?null:'seed'); };
   if(bp('bpTrack')) bp('bpTrack').onclick=bpRunTrack;
-  if(bp('bpClear')) bp('bpClear').onclick=()=>{ annS.track=null; annS.metrics=null; annS.seed=null; annS.calib=null; annS.scale=null; bpSetMode(null); bpRender(); bpSteps(); vstRedraw(); };
+  if(bp('bpClear')) bp('bpClear').onclick=()=>{ annS.track=null; annS.metrics=null; annS.seed=null; annS.seedT=null; annS.calib=null; annS.scale=null; bpSetMode(null); bpRender(); bpSteps(); vstRedraw(); };
   if(bp('bpSave'))  bp('bpSave').onclick =bpSaveTrack;
   // drawing
   c.addEventListener('pointerdown',e=>{
@@ -1584,7 +1575,7 @@ function bpCanvasClick(p){
     if(annS.calib.length===2){ bpSetMode(null); if(annS.track){ bpComputeMetrics(); bpRender(); } bpHint('Plate calibrated — set the start point next.'); }
     bpSteps(); vstRedraw(); return;
   }
-  if(annS.trackMode==='seed'){ annS.seed=p; bpSetMode(null); bpHint('Start point set — press “Track bar”.'); bpSteps(); vstRedraw(); return; }
+  if(annS.trackMode==='seed'){ annS.seed=p; const v=document.getElementById('vstVid'); annS.seedT=v?v.currentTime:null; bpSetMode(null); bpHint('Start point set — press “Track bar”.'); bpSteps(); vstRedraw(); return; }
 }
 function vstSeekTo(v,t){ return new Promise(res=>{ const f=()=>{ v.removeEventListener('seeked',f); res(); }; v.addEventListener('seeked',f); try{ v.currentTime=t; }catch(e){ v.removeEventListener('seeked',f); res(); } }); }
 function vstGrabGray(v){
@@ -1638,8 +1629,8 @@ async function bpRunTrack(){
   const probe=vstGrabGray(v);
   if(probe&&probe.error==='cors'){ bpHint('Can’t read this clip’s pixels (its host blocks cross-origin), so tracking is unavailable here. Annotation still works.', true); return; }
   annS._tracking=true;
-  const start=(annS.loopA!=null)?annS.loopA:v.currentTime;
-  const end=(annS.loopB!=null)?annS.loopB:(v.duration||start);
+  const start=(annS.seedT!=null)?annS.seedT:v.currentTime;   // the frame where the bar was seeded
+  const end=v.duration||start;
   const dt=1/(annS.fps||30);
   await vstSeekTo(v,start);
   const frS=vstGrabGray(v);
@@ -1651,7 +1642,7 @@ async function bpRunTrack(){
   const prog=document.getElementById('bpProg'), pw=document.getElementById('bpProgWrap');
   if(pw) pw.style.display='block';
   const total=Math.min(BP_CAP, Math.max(1, Math.round((end-start)/dt)));
-  let vx=0, vy=0, lost=0; const vmax=BP_SR*1.6;
+  let vx=0, vy=0, lostStreak=0; const vmax=BP_SR*1.6, LOST_STOP=12;
   for(let i=1;i<=total;i++){
     const t=start+i*dt; if(t>end+1e-3) break;
     await vstSeekTo(v,t); const fr=vstGrabGray(v); if(!fr||fr.error) break;
@@ -1659,16 +1650,18 @@ async function bpRunTrack(){
     let predX=Math.max(BP_TR,Math.min(W-BP_TR-1, px+vx)), predY=Math.max(BP_TR,Math.min(H-BP_TR-1, py+vy));
     const m=vstMatch(fr,tmpl,predX,predY);
     let nx,ny;
-    if(m.score<BP_NCC_MIN){ nx=predX; ny=predY; lost++; }   // weak match -> coast on the motion model
-    else { nx=m.x; ny=m.y; lost=0; }
+    if(m.score<BP_NCC_MIN){ nx=predX; ny=predY; lostStreak++; }   // weak match -> coast on the motion model
+    else { nx=m.x; ny=m.y; lostStreak=0; }
     vx=nx-px; vy=ny-py; const sp=Math.hypot(vx,vy); if(sp>vmax){ vx*=vmax/sp; vy*=vmax/sp; }
     px=nx; py=ny;
     pts.push({ t, x:px/W, y:py/H });
     if(prog) prog.style.width=Math.round(i/total*100)+'%';
+    // bar left the frame / got occluded for too long -> stop and drop the coasted tail
+    if(lostStreak>=LOST_STOP){ pts.splice(pts.length-lostStreak); break; }
     if(i%4===0){ annS.track=bpSmoothPath(pts); vstRedraw(); await new Promise(r=>setTimeout(r,0)); }
   }
   if(pw) pw.style.display='none';
-  annS.track=bpSmoothPath(pts); annS._trackW=W; annS._trackH=H; annS._tracking=false; annS._lost=lost;
+  annS.track=bpSmoothPath(pts); annS._trackW=W; annS._trackH=H; annS._tracking=false; annS._lost=lostStreak;
   bpComputeMetrics(); bpRender(); bpSteps(); vstRedraw();
   bpHint(annS.scale?'Tracked. Scrub to replay; re-seed any frame + re-track to fix drift.':'Tracked — calibrate a plate to get ROM & m/s.');
 }
@@ -1720,8 +1713,9 @@ async function bpSaveTrack(){
   if(!VTRACKS_READY){ bpHint('Saved locally (run migration 30 for cloud).'); return; }
   const btn=document.getElementById('bpSave'); if(btn){ btn.style.pointerEvents='none'; btn.textContent='Saving…'; }
   const row={ gym_id:me_.gym_id, video_path:annS.path, athlete_id:annS.athleteId||null, exercise:annS.exercise||null, points:annS.track, fps:annS.fps, scale_m_per_px:annS.scale||null, metrics:annS.metrics||{} };
+  if(!annS.trackId){ const ex=await sb.from('video_tracks').select('id').eq('video_path',annS.path).order('updated_at',{ascending:false}).limit(1); if(ex.data&&ex.data[0]) annS.trackId=ex.data[0].id; }
   let res;
-  if(annS.trackId) res=await sb.from('video_tracks').update({ points:row.points, fps:row.fps, scale_m_per_px:row.scale_m_per_px, metrics:row.metrics, updated_at:new Date().toISOString() }).eq('id',annS.trackId).select();
+  if(annS.trackId) res=await sb.from('video_tracks').update({ points:row.points, fps:row.fps, scale_m_per_px:row.scale_m_per_px, metrics:row.metrics, athlete_id:row.athlete_id, updated_at:new Date().toISOString() }).eq('id',annS.trackId).select();
   else res=await sb.from('video_tracks').insert(row).select();
   if(btn){ btn.style.pointerEvents=''; btn.textContent='Save bar path'; }
   if(res.error){ bpHint('Save failed — kept locally.', true); return; }
@@ -1729,6 +1723,8 @@ async function bpSaveTrack(){
   bpHint('✓ Bar path saved & sent to athlete.');
 }
 async function bpLoadTrack(path){
+  // coach editor opens clean (matches loadAnnNotes); the athlete read-only view still loads the saved trace
+  if(annS && !annS.readOnly){ bpRender(); return; }
   let payload=null, id=null;
   if(VTRACKS_READY){
     const { data }=await sb.from('video_tracks').select('id,points,fps,scale_m_per_px,metrics').eq('video_path',path).order('updated_at',{ascending:false}).limit(1);
@@ -1742,6 +1738,8 @@ async function bpLoadTrack(path){
   } else { bpRender(); }
 }
 async function loadAnnNotes(path){
+  // coach editor always opens with a clean canvas — saved annotations still reach the athlete (read-only) and a Save replaces the prior one for this clip.
+  if(annS && !annS.readOnly) return;
   let payload=null, id=null;
   if(VNOTES_READY){
     const { data } = await sb.from('video_notes').select('id,payload').eq('video_path',path).order('updated_at',{ascending:false}).limit(1);
@@ -1763,8 +1761,10 @@ async function saveAnnNotes(){
   if(!VNOTES_READY){ vstMsg('✓ Saved locally'); return; }
   const btn=document.getElementById('vstSave'); if(btn){ btn.style.pointerEvents='none'; btn.textContent='Saving…'; }
   const row={ gym_id:me_.gym_id, video_path:annS.path, athlete_id:annS.athleteId||null, payload, timestamp_sec:null };
+  // clean-open means noteId starts null — reuse the existing row for this clip so a Save replaces it instead of piling up duplicates
+  if(!annS.noteId){ const ex=await sb.from('video_notes').select('id').eq('video_path',annS.path).order('updated_at',{ascending:false}).limit(1); if(ex.data&&ex.data[0]) annS.noteId=ex.data[0].id; }
   let res;
-  if(annS.noteId) res=await sb.from('video_notes').update({payload, updated_at:new Date().toISOString()}).eq('id',annS.noteId).select();
+  if(annS.noteId) res=await sb.from('video_notes').update({payload, athlete_id:row.athlete_id, updated_at:new Date().toISOString()}).eq('id',annS.noteId).select();
   else res=await sb.from('video_notes').insert(row).select();
   if(btn){ btn.style.pointerEvents=''; btn.textContent='Save & send to athlete'; }
   if(res.error){ vstMsg('Save failed — kept locally'); return; }
