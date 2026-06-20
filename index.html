@@ -184,6 +184,7 @@
   .bpg-load{font-size:13px;color:var(--muted);display:inline-flex;align-items:center;gap:6px}
   .bpg-load input{width:72px;background:var(--panel);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:4px 6px;font-size:13px}
   .bpg-loadnote{font-size:11px;color:var(--muted)}
+  .bpg-tmc{font-size:13px;font-weight:800;color:var(--accent2)}
   .bpg-msg{font-size:12px;color:#e0a85a}
   .vst-loop{font-size:11px;color:var(--muted)}
   .vst-loop b{color:var(--accent)}
@@ -1511,6 +1512,7 @@ async function openAnnStudio(path, meta){
         <div class="bpg-table" id="bpgTable"></div>
         <div class="bpg-foot">
           <label class="bpg-load">Bar load <input type="number" id="bpgLoad" min="0" step="0.5" placeholder="kg"> kg <span class="bpg-loadnote" id="bpgLoadNote"></span></label>
+          <span class="bpg-tmc" id="bpgTmc" title="Technical Mastery Coefficient = peak height ÷ catch height (Aita). Closer to 1 = the bar settles near its peak."></span>
           <span class="bpg-msg" id="bpgMsg"></span>
         </div>
       </div>
@@ -1930,22 +1932,27 @@ function bpRender(){
   const tiles=document.getElementById('bpTiles'), tw=document.getElementById('bpToggleWrap'), hint=document.getElementById('bpHint');
   const pinrow=document.getElementById('bpPinRow'), fb=document.getElementById('bpFacing');
   const hasTrack=annS.track&&annS.track.length>1;
+  bpgBuild();   // build the graph FIRST so the Peak m/s tile uses the exact same velocity series as the chart
   if(tw) tw.style.display=hasTrack?'flex':'none';
   if(pinrow) pinrow.style.display=(hasTrack&&!annS.readOnly)?'flex':'none';
   if(fb) fb.textContent=(annS.facing==='right'?'Forward → (off hip)':'← Forward (off hip)');
   if(tiles){
     if(!hasTrack){ tiles.style.display='none'; }
     else if(annS.metrics&&annS.metrics.peak_vel!=null){
-      const m=annS.metrics, tile=(v,l)=>`<div class="bp-tile"><div class="bp-v">${v}</div><div class="bp-l">${l}</div></div>`;
+      const m=annS.metrics, tile=(v,l,t)=>`<div class="bp-tile"${t?` title="${t}"`:''}><div class="bp-v">${v}</div><div class="bp-l">${l}</div></div>`;
       const cm=v=>v==null?'—':Math.round(v*100)+' cm', scm=v=>v==null?'—':(v>=0?'+':'')+Math.round(v*100)+' cm';
+      const pk=(annS.graph&&annS.graph.velV&&annS.graph.velV.length)?Math.max.apply(null,annS.graph.velV.filter(isFinite)):m.peak_vel;  // match the velocity chart's max exactly
+      m.peak_vel=pk;
+      const tmc=(m.peak_h_m&&m.catch_h_m)?(m.peak_h_m/m.catch_h_m):null; m.tmc=tmc;   // Technical Mastery Coefficient = peak height ÷ catch height (Aita); →1 is better
       tiles.style.display='grid';
       tiles.innerHTML=
-        tile((+m.peak_vel).toFixed(2),'Peak m/s')+
+        tile((+pk).toFixed(2),'Peak m/s')+
         tile(cm(m.peak_h_m),'Peak height')+
         tile(scm(m.back_m),'Back (toward)')+
         tile(scm(m.fwd_m),'Forward (away)')+
         tile(cm(m.crash_m),'Crash peak→catch')+
-        tile(cm(m.catch_h_m),'Catch height');
+        tile(cm(m.catch_h_m),'Catch height')+
+        tile(tmc!=null?tmc.toFixed(2):'—','TMC (→1 best)','Technical Mastery Coefficient = peak height ÷ catch height (Aita, Weightlifting Technique Triad). Closer to 1 = the bar settles near its peak.');
     } else {
       tiles.style.display='block';
       tiles.innerHTML=`<div class="bp-tile"><div class="bp-v">Trace captured</div><div class="bp-l">Calibrate a plate for cm &amp; m/s</div></div>`;
@@ -1953,7 +1960,7 @@ function bpRender(){
   }
   if(hint){ if(annS.readOnly){ hint.textContent=hasTrack?'Coach’s bar-path trace. Trend-grade, not lab-grade.':'No bar-path analysis on this clip.'; }
     else { hint.textContent=hasTrack?'Set the “Forward” arrow to match how the bar kicks off the hip in this clip. Scrub to the catch then 📍 Catch to pin the fixation point.':'Films best side-on, but slight angles track fine. Trend-grade, not lab-grade.'; } }
-  bpgBuild(); bpgDraw();
+  bpgDraw();
 }
 // ---- Lift graph (time-series of velocity / displacement / accel / force / power, synced to the scrub) ----
 const BPG_METRICS=[['velocity','Velocity'],['displacement','Displacement'],['acceleration','Acceleration'],['force','Force'],['power','Power']];
@@ -2001,7 +2008,8 @@ function bpgDraw(){
 function bpgLoadRow(){ const inp=document.getElementById('bpgLoad'), note=document.getElementById('bpgLoadNote');
   if(inp&&document.activeElement!==inp) inp.value=(annS._load!=null?annS._load:'');
   if(inp) inp.disabled=!!annS.readOnly;
-  if(note) note.textContent=annS.readOnly?'(used by coach)':(annS.meta&&annS.meta.load!=null?'auto from set — edit to override':'enter to get Force & Power'); }
+  if(note) note.textContent=annS.readOnly?'(used by coach)':(annS.meta&&annS.meta.load!=null?'auto from set — edit to override':'enter to get Force & Power');
+  const tmcEl=document.getElementById('bpgTmc'); if(tmcEl){ const t=annS.metrics&&annS.metrics.tmc; tmcEl.textContent=(t!=null&&isFinite(t))?('TMC '+t.toFixed(2)):''; } }
 function bpgColor(k){ return k==='A'?'#3b82f6':'#ef4444'; }
 function bpgChart(){
   const cv=document.getElementById('bpgCanvas'), g=annS.graph; if(!cv||!g) return;
