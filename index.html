@@ -163,6 +163,15 @@
   .bp-prog>i{display:block;height:100%;background:var(--accent);width:0}
   .bp-hint{font-size:11px;color:var(--accent2);margin-top:6px;line-height:1.35}
   .bp-toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-top:8px;cursor:pointer}
+  .revbadge{display:inline-block;margin-left:6px;padding:2px 7px;border-radius:999px;background:rgba(52,211,153,.16);border:1px solid rgba(52,211,153,.5);color:#34d399;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
+  .revbadge:hover{background:rgba(52,211,153,.28)}
+  .revcard h2 .rev-count{display:inline-block;margin-left:6px;min-width:20px;padding:1px 7px;border-radius:999px;background:var(--accent);color:#0a0d11;font-size:12px;font-weight:800;text-align:center}
+  .rev-list{display:flex;flex-direction:column;gap:8px}
+  .rev-row{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 11px}
+  .rev-meta{flex:1;min-width:0;font-size:13px;color:var(--text)}
+  .rev-meta .rev-date{display:block;color:var(--muted);font-size:12px;margin-top:1px}
+  .rev-meta .rev-note{color:var(--muted);font-size:12px;margin-top:3px;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rev-row .cbtn{flex:none}
   .lg-add{display:inline-block;margin:9px 14px;color:var(--accent2);font-weight:700;font-size:12px;cursor:pointer;user-select:none}
   .lg-add:hover{color:#7bc0f5}
   .lg-del{color:var(--muted);cursor:pointer;font-weight:700;opacity:.45;padding:0 4px}
@@ -1261,7 +1270,7 @@ function fmtDate(d){ const D=new Date(d+'T00:00:00'); const days=['Sunday','Mond
 function effCells(id,eff){ return `<span class="lg-eff">${EFFORTS.map(e=>`<span class="lg-light ${e[0]}${eff===e[0]?' on':''}" data-eff="${e[0]}" data-set="${id}">${e[1]}</span>`).join('')}</span>`; }
 function vidCell(id, st){
   if(st.uploading) return `<span class="upvid up" data-set="${id}">… uploading</span>`;
-  if(st.video_path) return `<span class="upvid on" data-set="${id}">▶ clip · Set ${st.idx}</span><span class="vidrm" data-set="${id}" title="Remove this video">✕</span>`;
+  if(st.video_path) return `<span class="upvid on" data-set="${id}">▶ clip · Set ${st.idx}</span>${st.reviewed?`<span class="revbadge" data-set="${id}" data-path="${esc(st.video_path)}" title="Your coach reviewed this — tap to view">✎ Reviewed${st.reviewVoice?' 🎙':''}</span>`:''}<span class="vidrm" data-set="${id}" title="Remove this video">✕</span>`;
   return `<span class="upvid" data-set="${id}">⤴ video</span>`;
 }
 async function removeVideo(id){
@@ -1893,6 +1902,7 @@ function wireLogging(){
     const tr=e.target.closest('tr[data-set]'); if(!tr) return; const id=tr.dataset.set; const st=logState[id];
     if(e.target.closest('.lg-lts')){ st.lights = st.lights===0?3:st.lights-1; refreshRow(id); recompute(); return; }
     const eff=e.target.closest('.lg-light'); if(eff){ st.effort=(st.effort===eff.dataset.eff?null:eff.dataset.eff); refreshRow(id); recompute(); return; }
+    const rb=e.target.closest('.revbadge'); if(rb){ openAnnStudio(rb.dataset.path,{readOnly:true,title:'Coach review',athleteId:me_.id}); return; }
     const v=e.target.closest('.upvid'); if(v){ if(st.video_path) playVideo(st.video_path); else { uploadTargetSet=id; document.getElementById('vidInput').click(); } return; }
     const vr=e.target.closest('.vidrm'); if(vr){
       if(!vr.classList.contains('arm')){ vr.classList.add('arm'); vr.textContent='remove?'; setTimeout(()=>{ if(vr.isConnected){ vr.classList.remove('arm'); vr.textContent='✕'; } }, 4500); }
@@ -2194,6 +2204,8 @@ async function renderAthHome(){
       <div class="hero-r"><div class="hero-streak"><div class="big">${heroBig}</div><div class="lbl">${heroLbl}</div></div></div>
     </div>
 
+    <div id="athReviews"></div>
+
     <div class="grid2">
       <div class="card"><h2>📢 Team announcements</h2><div class="ann-list">${annHtml}</div></div>
       <div class="card chatcard"><h2>💬 Team chat</h2>
@@ -2224,6 +2236,20 @@ async function renderAthHome(){
     ${nextUpHtml}`;
   await athChatFeed();
   const ci=document.getElementById('athChatInput'); if(ci) ci.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); athChatSend(); } });
+  loadAthReviews();
+}
+// Home notification: the athlete's most recent coach video reviews
+async function loadAthReviews(){
+  if(!VNOTES_READY) return;
+  const host=document.getElementById('athReviews'); if(!host) return;
+  const { data, error } = await sb.from('video_notes').select('video_path,payload,updated_at').eq('athlete_id', me_.id).order('updated_at',{ascending:false}).limit(6);
+  if(error||!data||!data.length) return;
+  const rows=data.map(r=>{ const pl=r.payload||{}; const d=new Date(r.updated_at); const ds=MONS[d.getMonth()]+' '+d.getDate();
+    return `<div class="rev-row">
+      <div class="rev-meta"><b>Coach reviewed your lift</b><span class="rev-date">${ds}${pl.voicePath?' · 🎙 voice note':''}</span>${pl.note?`<div class="rev-note">“${esc(pl.note)}”</div>`:''}</div>
+      <span class="cbtn" onclick="openAnnStudio('${esc(r.video_path)}',{readOnly:true,title:'Coach review',athleteId:'${me_.id}'})">▶ View</span>
+    </div>`; }).join('');
+  host.innerHTML=`<div class="card revcard"><h2>🎬 Coach feedback <span class="rev-count">${data.length}</span></h2><div class="rev-list">${rows}</div></div>`;
 }
 async function renderAthPlan(){
   athState.screen='plan';
@@ -3192,6 +3218,18 @@ async function renderAthlete(selDate){
   wireLogging();
   wireCheckin();
   recompute();
+  markAthReviews();
+}
+// flag any sets in this session whose clip the coach has reviewed (badge + tap-to-open)
+async function markAthReviews(){
+  if(!VNOTES_READY) return;
+  const paths=[]; for(const id in logState){ const st=logState[id]; if(st.video_path) paths.push(st.video_path); }
+  if(!paths.length) return;
+  const { data, error } = await sb.from('video_notes').select('video_path,payload').in('video_path', paths);
+  if(error||!data) return;
+  const byPath={}; data.forEach(r=>{ byPath[r.video_path]=r.payload||{}; });
+  for(const id in logState){ const st=logState[id]; const pl=st.video_path&&byPath[st.video_path];
+    if(pl){ st.reviewed=true; st.reviewVoice=!!pl.voicePath; const tr=document.querySelector('tr[data-set="'+id+'"]'); const vc=tr&&tr.querySelector('.vidcell'); if(vc) vc.innerHTML=vidCell(id, st); } }
 }
 
 async function saveSession(){
