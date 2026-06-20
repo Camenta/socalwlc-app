@@ -172,6 +172,15 @@
   .rev-meta .rev-date{display:block;color:var(--muted);font-size:12px;margin-top:1px}
   .rev-meta .rev-note{color:var(--muted);font-size:12px;margin-top:3px;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .rev-row .cbtn{flex:none}
+  #rvNav .rv-pos{font-size:11px;color:var(--accent2);text-transform:uppercase;letter-spacing:.04em}
+  #rvNav .rv-ex{font-size:15px;font-weight:700;color:var(--text);margin-top:3px}
+  #rvNav .rv-set{font-size:12px;color:var(--muted);margin-top:2px}
+  #rvNav .rv-set b{color:var(--text)}
+  #rvNav .rv-pips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+  .rv-pip{min-width:22px;height:22px;padding:0 5px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:var(--panel2);border:1px solid var(--line);color:var(--muted)}
+  .rv-pip.has{background:rgba(90,169,255,.16);border-color:rgba(90,169,255,.5);color:#9cc6ff;cursor:pointer}
+  .rv-pip.cur{outline:2px solid var(--accent);outline-offset:1px;color:var(--text)}
+  .vst-btn.disabled{opacity:.4;pointer-events:none}
   .lg-add{display:inline-block;margin:9px 14px;color:var(--accent2);font-weight:700;font-size:12px;cursor:pointer;user-select:none}
   .lg-add:hover{color:#7bc0f5}
   .lg-del{color:var(--muted);cursor:pointer;font-weight:700;opacity:.45;padding:0 4px}
@@ -1360,6 +1369,7 @@ async function openAnnStudio(path, meta){
           <div class="bp-tiles" id="bpTiles" style="display:none"></div>
           <label class="bp-toggle" id="bpToggleWrap" style="display:none"><input type="checkbox" id="bpShow" checked> Show trace overlay</label>
         </div>` : `
+        ${rvNavHtml(meta)}
         <div class="vst-card">
           <h4>Tools</h4>
           <div class="vst-tools" id="vstTools">
@@ -1400,7 +1410,7 @@ async function openAnnStudio(path, meta){
           <span class="vst-btn bp-btn" id="bpSeed">🎯 Set start point</span>
           <span class="vst-btn pri bp-btn" id="bpTrack">▶ Track bar</span>
           <div class="bp-prog" id="bpProgWrap" style="display:none"><i id="bpProg"></i></div>
-          <div class="bp-hint" id="bpHint">Trend-grade — a software complement to the OVR sensor, not lab-grade.</div>
+          <div class="bp-hint" id="bpHint">Films best side-on, but slight angles track fine. Trend-grade, not lab-grade.</div>
           <div class="bp-tiles" id="bpTiles" style="display:none"></div>
           <label class="bp-toggle" id="bpToggleWrap" style="display:none"><input type="checkbox" id="bpShow" checked> Show trace overlay</label>
           <div class="vst-row" style="margin-top:8px"><span class="vst-btn" id="bpClear">Clear path</span><span class="vst-btn pri" id="bpSave" style="flex:1;text-align:center">Save bar path</span></div>
@@ -1565,6 +1575,10 @@ function wireAnnStudio(){
   document.getElementById('vstSave').onclick=saveAnnNotes;
   const recBtn=document.getElementById('vstRec'); if(recBtn) recBtn.onclick=vstToggleRec;
   const delBtn=document.getElementById('vstVoiceDel'); if(delBtn) delBtn.onclick=vstDelVoice;
+  // review-queue nav
+  const rvp=document.getElementById('rvPrev'); if(rvp) rvp.onclick=()=>{ if(!rvp.classList.contains('disabled')) annNav(-1); };
+  const rvn=document.getElementById('rvNext'); if(rvn) rvn.onclick=()=>{ if(!rvn.classList.contains('disabled')) annNav(1); };
+  const rvpip=document.getElementById('rvPips'); if(rvpip) rvpip.addEventListener('click',e=>{ const p=e.target.closest('.rv-pip[data-qi]'); if(p) annGoto(parseInt(p.dataset.qi,10)); });
   // bar-path tracking
   const bp=id=>document.getElementById(id);
   if(bp('bpCalib')) bp('bpCalib').onclick=()=>bpSetMode(annS.trackMode==='calib'?null:'calib');
@@ -1680,7 +1694,7 @@ async function bpRunTrack(){
   if(!frS||frS.error){ annS._tracking=false; bpHint('Pixel read failed.', true); return; }
   const W=frS.w, H=frS.h;
   let px=Math.round(annS.seed.x*W), py=Math.round(annS.seed.y*H);
-  const tmpl=vstTemplate(frS,px,py);
+  let tmpl=vstTemplate(frS,px,py);
   const pts=[{ t:start, x:px/W, y:py/H }];
   const prog=document.getElementById('bpProg'), pw=document.getElementById('bpProgWrap');
   if(pw) pw.style.display='block';
@@ -1694,7 +1708,10 @@ async function bpRunTrack(){
     const m=vstMatch(fr,tmpl,predX,predY);
     let nx,ny;
     if(m.score<BP_NCC_MIN){ nx=predX; ny=predY; lostStreak++; }   // weak match -> coast on the motion model
-    else { nx=m.x; ny=m.y; lostStreak=0; }
+    else { nx=m.x; ny=m.y; lostStreak=0;
+      // strong match: lightly adapt the template so it tracks the plate's changing look (rotation / off-axis angle)
+      if(m.score>0.82){ const fresh=vstTemplate(fr,nx,ny); let ss=0; for(let k=0;k<tmpl.tz.length;k++){ tmpl.tz[k]=tmpl.tz[k]*0.85+fresh.tz[k]*0.15; ss+=tmpl.tz[k]*tmpl.tz[k]; } tmpl.tnorm=Math.sqrt(ss)||1; }
+    }
     vx=nx-px; vy=ny-py; const sp=Math.hypot(vx,vy); if(sp>vmax){ vx*=vmax/sp; vy*=vmax/sp; }
     px=nx; py=ny;
     pts.push({ t, x:px/W, y:py/H });
@@ -1746,7 +1763,7 @@ function bpRender(){
     }
   }
   if(hint){ if(annS.readOnly){ hint.textContent=hasTrack?'Coach’s bar-path trace. Trend-grade, not lab-grade.':'No bar-path analysis on this clip.'; }
-    else { hint.textContent=hasTrack?'Re-seed any frame + re-track to fix drift.':'Trend-grade — a software complement to the OVR sensor, not lab-grade.'; } }
+    else { hint.textContent=hasTrack?'Re-seed any frame + re-track to fix drift.':'Films best side-on, but slight angles track fine. Trend-grade, not lab-grade.'; } }
 }
 async function bpSaveTrack(){
   if(!annS||annS.readOnly) return;
@@ -5502,7 +5519,55 @@ function copyDateOptions(){
   return out.join('');
 }
 // coach clip links: ▶ play + ✎ annotate (opens the studio, scoped to the viewed athlete)
-function vidLinks(path,label){ const aid=(typeof cw!=='undefined'&&cw&&cw.ath)?cw.ath.id:''; return `<span class="vidlink" onclick="playVideo('${esc(path)}')">${label||'▶'}</span> <span class="vidlink" title="Annotate this clip" onclick="openAnnStudio('${esc(path)}',{athleteId:'${aid}'})">✎</span>`; }
+function vidLinks(path,label){ return `<span class="vidlink" onclick="playVideo('${esc(path)}')">${label||'▶'}</span> <span class="vidlink" title="Review this clip (with Next ▸ through the session)" onclick="openReview('${esc(path)}')">✎</span>`; }
+// build an ordered review queue of every clip in the open coach session, with set/rep-scheme context
+function buildReviewQueue(){
+  if(!ed) return [];
+  const logBySet={}; ed.logs.forEach(l=>{ if(l.prescribed_set_id) logBySet[l.prescribed_set_id]=l; });
+  const athName=(cw&&cw.ath&&cw.ath.full_name)||'', athId=(cw&&cw.ath&&cw.ath.id)||(cw&&cw.athId)||'';
+  const tgtStr=(st,type)=>{ const reps=(st.reps!=null&&st.reps!=='')?st.reps:'–';
+    if(type==='open') return reps+' reps · open';
+    if(type==='weight') return reps+' × '+(st.kg||'–')+'kg';
+    if(type==='percentage'){ const p=tgtValOf(st,type); return reps+' × '+(p?p+'%':'%'); }
+    if(type==='vbt'){ const p=tgtValOf(st,type); return reps+' × '+(p?'≥'+p+' m/s':'VBT'); }
+    const p=tgtValOf(st,type); return reps+' × '+(p?p+' '+type.toUpperCase():type); };
+  const q=[];
+  ed.exercises.forEach((ex,ei)=>{ const type=ex.loadType||'percentage'; const sets=ex.sets||[];
+    sets.forEach((st,si)=>{ const lg=st.id?logBySet[st.id]:null;
+      if(lg&&lg.video_path) q.push({ path:lg.video_path, athleteId:athId, athName, exName:ex.name||'Lift', exIdx:ei, setNo:si+1, setTotal:sets.length, target:tgtStr(st,type) }); });
+    // athlete-added sets with a clip
+    ed.logs.filter(l=>!l.prescribed_set_id && l.exercise_id===ex.id && l.video_path)
+      .forEach((l,j)=>q.push({ path:l.video_path, athleteId:athId, athName, exName:ex.name||'Lift', exIdx:ei, setNo:'+'+(j+1), setTotal:sets.length, target:'added by athlete', added:true }));
+  });
+  // map clipped sets within each exercise -> queue index (for the pip row)
+  const byEx={}; q.forEach((e,i)=>{ (byEx[e.exIdx]=byEx[e.exIdx]||[]).push(i); });
+  q.forEach(e=>{ e.clipMap={}; (byEx[e.exIdx]||[]).forEach(i=>{ e.clipMap[q[i].setNo]=i; }); });
+  return q;
+}
+window.openReview=(path)=>{ const q=buildReviewQueue(); const i=q.findIndex(e=>e.path===path);
+  if(i<0){ openAnnStudio(path,{athleteId:(cw&&cw.ath&&cw.ath.id)||''}); return; }
+  openAnnStudio(q[i].path,{athleteId:q[i].athleteId, exercise:q[i].exName, queue:q, qIndex:i}); };
+window.annNav=(dir)=>{ if(!annS||!annS.meta||!annS.meta.queue) return; annGoto((annS.meta.qIndex||0)+dir); };
+window.annGoto=(i)=>{ if(!annS||!annS.meta||!annS.meta.queue) return; const q=annS.meta.queue; if(i<0||i>=q.length) return;
+  const e=q[i]; openAnnStudio(e.path,{athleteId:e.athleteId, exercise:e.exName, queue:q, qIndex:i}); };
+// the "Reviewing…" context card (coach review queue): position, exercise, set X of Y, scheme, pips, Prev/Next
+function rvNavHtml(meta){
+  if(!meta||!meta.queue||!meta.queue.length) return '';
+  const q=meta.queue, i=meta.qIndex||0, e=q[i];
+  let pips=''; for(let n=1;n<=(e.setTotal||1);n++){ const qi=e.clipMap?e.clipMap[n]:null, has=qi!=null, cur=(n===e.setNo);
+    pips+=`<span class="rv-pip${cur?' cur':''}${has?' has':''}"${has?` data-qi="${qi}"`:''}>${n}</span>`; }
+  return `<div class="vst-card" id="rvNav">
+    <h4>Reviewing${e.athName?' — '+esc(e.athName.split(' ')[0]):''}</h4>
+    <div class="rv-pos">Clip ${i+1} of ${q.length}</div>
+    <div class="rv-ex">${esc(e.exName||'Lift')}</div>
+    <div class="rv-set">Set ${e.setNo} of ${e.setTotal} · <b>${esc(e.target||'')}</b></div>
+    <div class="rv-pips" id="rvPips" title="Sets in this exercise — bright = has a clip">${pips}</div>
+    <div class="vst-row" style="margin-top:9px">
+      <span class="vst-btn${i<=0?' disabled':''}" id="rvPrev">‹ Prev</span>
+      <span class="vst-btn pri${i>=q.length-1?' disabled':''}" id="rvNext" style="flex:1;text-align:center">Next clip ›</span>
+    </div>
+  </div>`;
+}
 function logResultHtml(lg){
   if(!lg || (lg.actual_reps==null && lg.actual_kg==null && !lg.done)) return '<span class="cv-nolog">not logged</span>';
   const parts=[`<b>${lg.actual_reps??'–'} × ${lg.actual_kg??'–'}kg</b>`];
