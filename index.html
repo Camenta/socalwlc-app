@@ -127,9 +127,18 @@
   .vst-canvaswrap video{max-width:100%;max-height:100%;display:block;background:#000}
   .vst-canvaswrap canvas{position:absolute;cursor:crosshair;touch-action:none}
   .vst-side{width:260px;flex:none;display:flex;flex-direction:column;gap:10px;overflow-y:auto}
-  @media (max-width:1100px){ .vst-body{flex-direction:column} .vst-side{width:auto} .bpg{min-width:0} #bpgCanvas{flex:none;height:240px} }
+  @media (max-width:1100px){
+    /* phone / narrow: stop sharing one fixed height (which collapses the video & chart) — stack in normal flow and let the whole studio scroll */
+    .vstudio{overflow-y:auto;-webkit-overflow-scrolling:touch}
+    .vst-body{display:block;flex:0 0 auto;min-height:0}
+    .vst-stage{display:block}
+    .vst-canvaswrap{height:48vh;min-height:240px;flex:none}
+    .bpg{display:flex;min-width:0;flex:none;margin-top:12px}
+    #bpgCanvas{flex:none;height:240px}
+    .vst-side{width:auto;overflow:visible;margin-top:12px}
+  }
   .vst-transport{display:flex;align-items:center;gap:8px;margin-top:9px;flex-wrap:wrap}
-  .vst-btn{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;font-weight:600;user-select:none}
+  .vst-btn{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;font-weight:600;user-select:none;white-space:nowrap}
   .vst-btn:hover{border-color:var(--accent2)}
   .vst-btn.pri{background:var(--accent);border-color:var(--accent);color:#0a0d11}
   .vst-scrub{flex:1;min-width:120px;accent-color:var(--accent)}
