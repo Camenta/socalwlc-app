@@ -147,6 +147,32 @@
   .vst-fps{width:54px;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:4px 6px;font-size:12px}
   .vst-textin{position:absolute;z-index:5;background:#0c1116;border:1px solid var(--accent);color:var(--text);border-radius:6px;padding:3px 6px;font-size:14px;min-width:90px}
   .vst-msg{font-size:12px;color:var(--accent2)}
+  .vst-size{font-size:13px;color:var(--muted);display:inline-flex;align-items:center;gap:5px}
+  .vst-size input{width:80px;vertical-align:middle}
+  .bpg{margin-top:10px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+  .bpg-heads{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .bpg-head{display:flex;align-items:center;gap:6px}
+  .bpg-head.a .bpg-axis,.bpg-head.a .bpg-sel{color:#3b82f6}
+  .bpg-head.b .bpg-axis,.bpg-head.b .bpg-sel{color:#ef4444}
+  .bpg-sel{background:transparent;border:none;font-size:15px;font-weight:700;cursor:pointer;-webkit-appearance:none;appearance:none;padding:2px 2px}
+  .bpg-sel option{background:var(--panel);color:var(--text)}
+  .bpg-axis{font-size:17px;cursor:pointer;font-weight:800;user-select:none}
+  .bpg-axis.off{opacity:.28;cursor:not-allowed}
+  #bpgCanvas{width:100%;height:200px;display:block;margin-top:4px}
+  .bpg-table{margin-top:4px}
+  .bpg-trow{display:grid;grid-template-columns:24px 1fr 1fr 1fr 1fr;align-items:center;font-variant-numeric:tabular-nums;font-size:13px;padding:1px 0}
+  .bpg-trow.head{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+  .bpg-trow.head b{text-align:right;font-weight:600}
+  .bpg-trow i{text-align:right;font-style:normal}
+  .bpg-trow .now{font-weight:800}
+  .bpg-cap{font-size:11px;color:var(--muted);margin-top:5px}
+  .bpg-dot{width:11px;height:11px;border-radius:50%}
+  .bpg-dot.a{background:#3b82f6}.bpg-dot.b{background:#ef4444}
+  .bpg-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap}
+  .bpg-load{font-size:13px;color:var(--muted);display:inline-flex;align-items:center;gap:6px}
+  .bpg-load input{width:72px;background:var(--panel);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:4px 6px;font-size:13px}
+  .bpg-loadnote{font-size:11px;color:var(--muted)}
+  .bpg-msg{font-size:12px;color:#e0a85a}
   .vst-loop{font-size:11px;color:var(--muted)}
   .vst-loop b{color:var(--accent)}
   .bp-steps{display:flex;flex-direction:column;gap:6px}
@@ -1418,7 +1444,7 @@ async function openAnnStudio(path, meta){
           <div class="bp-tiles" id="bpTiles" style="display:none"></div>
           <label class="bp-toggle" id="bpToggleWrap" style="display:none"><input type="checkbox" id="bpShow" checked> Show trace overlay</label>
           <div class="bp-pins" id="bpPinRow" style="display:none">
-            <span class="vst-btn" id="bpFacing" title="Which side the lifter is on — flips the back/forward sign">↔ Lifter: left</span>
+            <span class="vst-btn" id="bpFacing" title="Tap so the arrow points the way the bar travels FORWARD (off the hip) in this video. Flips the back/forward sign.">← Forward (off hip)</span>
             <span class="vst-btn" id="bpPinPeak" title="Pin peak height to the current frame">📍 Peak</span>
             <span class="vst-btn" id="bpPinCatch" title="Pin the catch / fixation point to the current frame">📍 Catch</span>
             <span class="vst-btn" id="bpPinAuto" title="Auto-detect peak &amp; catch">auto</span>
@@ -1442,11 +1468,31 @@ async function openAnnStudio(path, meta){
           <span class="vst-btn" id="vstPlay">▶</span>
           <span class="vst-btn" id="vstBack" title="Back one frame">⟨ frame</span>
           <span class="vst-btn" id="vstFwd" title="Forward one frame">frame ⟩</span>
+          <span class="vst-btn" id="vstLoop" title="Loop the clip — plays over and over so you can talk through it">🔁 Loop</span>
           <input type="range" class="vst-scrub" id="vstScrub" min="0" max="1000" value="0">
           <span class="vst-time" id="vstTime">0.00 / 0.00</span>
           <select class="vst-fps" id="vstRate" title="Playback speed" style="width:auto">
             <option value="1">1×</option><option value="0.5">½×</option><option value="0.25">¼×</option><option value="0.1">0.1×</option>
           </select>
+          <label class="vst-size" title="Resize the video">⤢ <input type="range" id="vstZoom" min="40" max="130" value="100"></label>
+        </div>
+        <div class="bpg" id="bpGraph" style="display:none">
+          <div class="bpg-heads">
+            <div class="bpg-head a">
+              <select class="bpg-sel" id="bpgMetA"></select>
+              <span class="bpg-axis" id="bpgAxisA" title="Vertical / horizontal component">↕</span>
+            </div>
+            <div class="bpg-head b">
+              <span class="bpg-axis" id="bpgAxisB" title="Vertical / horizontal component">↔</span>
+              <select class="bpg-sel" id="bpgMetB"></select>
+            </div>
+          </div>
+          <canvas id="bpgCanvas"></canvas>
+          <div class="bpg-table" id="bpgTable"></div>
+          <div class="bpg-foot">
+            <label class="bpg-load">Bar load <input type="number" id="bpgLoad" min="0" step="0.5" placeholder="kg"> kg <span class="bpg-loadnote" id="bpgLoadNote"></span></label>
+            <span class="bpg-msg" id="bpgMsg"></span>
+          </div>
         </div>
       </div>
       <div class="vst-side">${sidePanel}</div>
@@ -1454,6 +1500,7 @@ async function openAnnStudio(path, meta){
   annS={ path, meta, readOnly:ro, shapes:[], tool:'select', color:VST_COLORS[0], fps:30, draft:null, ang:null, noteId:null, athleteId:meta.athleteId||null,
     exercise:meta.exercise||null, trackMode:null, calib:null, seed:null, seedT:null, track:null, metrics:null, scale:null, trackId:null, showTrace:true,
     facing:'left', pinPeakT:null, pinCatchT:null,
+    gA:{metric:'velocity',axis:'v'}, gB:{metric:'displacement',axis:'h'}, graph:null, _load:(meta.load!=null?meta.load:null), _cursorT:0,
     voiceBlob:null, voiceUrl:null, voicePath:null, reviewBlob:null, reviewUrl:null, reviewPath:null };
   wireAnnStudio();
   await loadAnnNotes(path);
@@ -1470,6 +1517,8 @@ function vstFit(){
   const ar=v.videoWidth/v.videoHeight;
   let w=wr.width, h=w/ar;
   if(h>wr.height){ h=wr.height; w=h*ar; }
+  const z=annS._zoom||1; w*=z; h*=z;
+  v.style.width=w+'px'; v.style.height=h+'px';
   c.style.width=w+'px'; c.style.height=h+'px';
   c.style.left=((wr.width-w)/2)+'px'; c.style.top=((wr.height-h)/2)+'px';
   const dpr=window.devicePixelRatio||1;
@@ -1477,6 +1526,7 @@ function vstFit(){
   c.getContext('2d').setTransform(dpr,0,0,dpr,0,0);
   annS._cw=w; annS._ch=h;
   vstRedraw();
+  if(annS.graph) bpgChart();
 }
 function vstPt(e){ const c=document.getElementById('vstCanvas'); const r=c.getBoundingClientRect(); return { x:Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)), y:Math.max(0,Math.min(1,(e.clientY-r.top)/r.height)) }; }
 function vstRedraw(){
@@ -1600,13 +1650,20 @@ function wireAnnStudio(){
   play.onclick=()=>{ if(v.paused) v.play(); else v.pause(); };
   v.addEventListener('play',()=>play.textContent='⏸'); v.addEventListener('pause',()=>play.textContent='▶');
   v.addEventListener('timeupdate',()=>{ if(v.duration){ scrub.value=Math.round(v.currentTime/v.duration*1000); time.textContent=vstFmt(v.currentTime)+' / '+vstFmt(v.duration); }
-    if(annS.track&&annS.showTrace) vstRedraw(); });
+    if(annS.track&&annS.showTrace) vstRedraw(); if(annS.graph) bpgCursor(v.currentTime); });
   scrub.oninput=()=>{ if(v.duration){ v.currentTime=scrub.value/1000*v.duration; } };
   document.getElementById('vstRate').onchange=e=>{ v.playbackRate=parseFloat(e.target.value); };
+  const loopBtn=document.getElementById('vstLoop'); if(loopBtn) loopBtn.onclick=()=>{ v.loop=!v.loop; loopBtn.classList.toggle('pri',v.loop); if(v.loop&&v.paused) v.play(); };
+  const zoomEl=document.getElementById('vstZoom'); if(zoomEl) zoomEl.oninput=e=>{ annS._zoom=parseInt(e.target.value,10)/100; vstFit(); };
   const step=d=>{ v.pause(); const dt=1/(annS.fps||30); v.currentTime=Math.max(0,Math.min(v.duration||0, v.currentTime+d*dt)); };
   document.getElementById('vstBack').onclick=()=>step(-1); document.getElementById('vstFwd').onclick=()=>step(1);
   const fpsEl=document.getElementById('vstFps'); if(fpsEl) fpsEl.oninput=e=>{ annS.fps=Math.max(1,parseInt(e.target.value,10)||30); };
   const showEl=document.getElementById('bpShow'); if(showEl) showEl.onchange=e=>{ annS.showTrace=e.target.checked; vstRedraw(); };
+  // lift-graph metric pickers (available to viewers too — they just re-graph the saved track)
+  ['A','B'].forEach(k=>{ const sel=document.getElementById('bpgMet'+k), ax=document.getElementById('bpgAxis'+k);
+    if(sel) sel.onchange=e=>{ annS['g'+k].metric=e.target.value; if(BPG_VONLY[e.target.value]) annS['g'+k].axis='v'; bpgDraw(); };
+    if(ax) ax.onclick=()=>{ if(BPG_VONLY[annS['g'+k].metric]) return; annS['g'+k].axis=annS['g'+k].axis==='h'?'v':'h'; bpgDraw(); }; });
+  const loadEl=document.getElementById('bpgLoad'); if(loadEl) loadEl.oninput=e=>{ const x=parseFloat(e.target.value); annS._load=(isFinite(x)&&x>0)?x:null; bpgBuild(); bpgDraw(); };
   if(annS.readOnly) return;   // viewers get transport only — no tools, no drawing, no save
   // tools + colors
   document.getElementById('vstTools').addEventListener('click',e=>{ const t=e.target.closest('.vst-tool'); if(t) vstSetTool(t.dataset.tool); });
@@ -1782,8 +1839,9 @@ function bpComputeMetrics(){
   const iPeakAuto=Y.indexOf(minY);
   // peak vertical velocity (up = decreasing y)
   let peakPx=0; for(let i=1;i<Y.length;i++){ const d=ts[i]-ts[i-1]; if(d<=0) continue; const vy=(Y[i-1]-Y[i])/d; if(vy>peakPx) peakPx=vy; }
-  // signed horizontal displacement vs start x; back (toward lifter) negative, forward (away) positive. filming side flips the sign.
-  const fs=(annS.facing==='right')?-1:1, x0=X[0];
+  // signed horizontal displacement vs start x; back (toward lifter) negative, forward (away off hip) positive.
+  // annS.facing = which screen direction is FORWARD: 'right' → moving right is +; 'left' → moving left is +.
+  const fs=(annS.facing==='right')?1:-1, x0=X[0];
   let backPx=0,fwdPx=0,iBack=0,iFwd=0;
   for(let i=0;i<X.length;i++){ const h=fs*(X[i]-x0); if(h<backPx){backPx=h;iBack=i;} if(h>fwdPx){fwdPx=h;iFwd=i;} }
   // peak height + fixation (catch): auto, or pinned by the coach to a specific frame
@@ -1809,7 +1867,7 @@ function bpRender(){
   const hasTrack=annS.track&&annS.track.length>1;
   if(tw) tw.style.display=hasTrack?'flex':'none';
   if(pinrow) pinrow.style.display=(hasTrack&&!annS.readOnly)?'flex':'none';
-  if(fb) fb.textContent='↔ Lifter: '+(annS.facing||'left');
+  if(fb) fb.textContent=(annS.facing==='right'?'Forward → (off hip)':'← Forward (off hip)');
   if(tiles){
     if(!hasTrack){ tiles.style.display='none'; }
     else if(annS.metrics&&annS.metrics.peak_vel!=null){
@@ -1829,11 +1887,99 @@ function bpRender(){
     }
   }
   if(hint){ if(annS.readOnly){ hint.textContent=hasTrack?'Coach’s bar-path trace. Trend-grade, not lab-grade.':'No bar-path analysis on this clip.'; }
-    else { hint.textContent=hasTrack?'Scrub to the catch then 📍 Catch to pin the fixation point. Back/forward sign follows the Lifter side.':'Films best side-on, but slight angles track fine. Trend-grade, not lab-grade.'; } }
+    else { hint.textContent=hasTrack?'Set the “Forward” arrow to match how the bar kicks off the hip in this clip. Scrub to the catch then 📍 Catch to pin the fixation point.':'Films best side-on, but slight angles track fine. Trend-grade, not lab-grade.'; } }
+  bpgBuild(); bpgDraw();
 }
+// ---- Lift graph (time-series of velocity / displacement / accel / force / power, synced to the scrub) ----
+const BPG_METRICS=[['velocity','Velocity'],['displacement','Displacement'],['acceleration','Acceleration'],['force','Force'],['power','Power']];
+const BPG_VONLY={force:1,power:1};   // force & power are vertical-only
+function bpgUnit(m){ return {velocity:'m/s',displacement:'m',acceleration:'m/s²',force:'N',power:'W'}[m]||''; }
+function bpgFmt(m,v){ if(v==null||!isFinite(v)) return '—'; return (m==='force'||m==='power')?Math.round(v).toString():v.toFixed(2); }
+function bpgBuild(){
+  annS.graph=null;
+  const pts=annS.track; if(!pts||pts.length<3) return;
+  const mpp=annS.scale; if(!mpp) return;            // need calibration for real units
+  const W=annS._trackW||1, H=annS._trackH||1;
+  const sm=(a,w)=>a.map((_,i)=>{ let s=0,n=0; for(let k=-w;k<=w;k++){ const j=i+k; if(j>=0&&j<a.length){ s+=a[j]; n++; } } return s/n; });
+  const t=pts.map(p=>p.t);
+  const fs=(annS.facing==='right')?1:-1, x0=pts[0].x*W, y0=pts[0].y*H;
+  let posV=sm(pts.map(p=>(y0-p.y*H)*mpp),1);        // vertical displacement, up positive (m)
+  let posH=sm(pts.map(p=>fs*(p.x*W-x0)*mpp),1);     // horizontal displacement, forward positive (m)
+  const deriv=a=>a.map((_,i)=>{ const lo=Math.max(0,i-1),hi=Math.min(a.length-1,i+1); const dt=t[hi]-t[lo]; return dt>0?(a[hi]-a[lo])/dt:0; });
+  const velV=sm(deriv(posV),2), velH=sm(deriv(posH),2);
+  const accV=sm(deriv(velV),2), accH=sm(deriv(velH),2);
+  const load=(annS._load!=null&&annS._load>0)?annS._load:null;
+  const g=9.81;
+  const forceV=load?accV.map(a=>load*(a+g)):null;
+  const powerV=load?velV.map((v,i)=>load*(accV[i]+g)*v):null;
+  annS.graph={ t, dispV:posV, dispH:posH, velV, velH, accV, accH, forceV, powerV, load };
+}
+function bpgArr(s){ const g=annS.graph; if(!g) return null; const h=s.axis==='h';
+  switch(s.metric){ case 'velocity': return h?g.velH:g.velV; case 'displacement': return h?g.dispH:g.dispV;
+    case 'acceleration': return h?g.accH:g.accV; case 'force': return g.forceV; case 'power': return g.powerV; } return null; }
+function bpgStats(arr){ if(!arr||!arr.length) return null; let mn=Infinity,mx=-Infinity,s=0,n=0;
+  for(const v of arr){ if(v==null||!isFinite(v)) continue; if(v<mn)mn=v; if(v>mx)mx=v; s+=v; n++; } if(!n) return null; return {min:mn,max:mx,avg:s/n}; }
+function bpgCurIdx(){ const g=annS.graph; if(!g) return 0; const tc=annS._cursorT||0; let bi=0,bd=1e9; for(let i=0;i<g.t.length;i++){ const d=Math.abs(g.t[i]-tc); if(d<bd){bd=d;bi=i;} } return bi; }
+function bpgDraw(){
+  const wrap=document.getElementById('bpGraph'); if(!wrap) return;
+  const has=annS.track&&annS.track.length>2;
+  wrap.style.display=has?'block':'none';
+  if(!has) return;
+  const msg=document.getElementById('bpgMsg'), cv=document.getElementById('bpgCanvas');
+  // populate metric selects once
+  ['A','B'].forEach(k=>{ const sel=document.getElementById('bpgMet'+k); if(sel&&!sel.options.length){ sel.innerHTML=BPG_METRICS.map(m=>`<option value="${m[0]}">${m[1]}</option>`).join(''); } const sObj=annS['g'+k]; if(sel) sel.value=sObj.metric;
+    const ax=document.getElementById('bpgAxis'+k); if(ax){ const vonly=BPG_VONLY[annS['g'+k].metric]; if(vonly) annS['g'+k].axis='v'; ax.textContent=annS['g'+k].axis==='h'?'↔':'↕'; ax.classList.toggle('off',!!vonly); } });
+  if(!annS.graph){ if(cv){ cv.getContext('2d').clearRect(0,0,cv.width,cv.height); } if(msg) msg.textContent='Calibrate a plate (📏) to graph real units.'; bpgTable(true); bpgLoadRow(); return; }
+  if(msg) msg.textContent='';
+  bpgChart(); bpgTable(false); bpgLoadRow();
+}
+function bpgLoadRow(){ const inp=document.getElementById('bpgLoad'), note=document.getElementById('bpgLoadNote');
+  if(inp&&document.activeElement!==inp) inp.value=(annS._load!=null?annS._load:'');
+  if(inp) inp.disabled=!!annS.readOnly;
+  if(note) note.textContent=annS.readOnly?'(used by coach)':(annS.meta&&annS.meta.load!=null?'auto from set — edit to override':'enter to get Force & Power'); }
+function bpgColor(k){ return k==='A'?'#3b82f6':'#ef4444'; }
+function bpgChart(){
+  const cv=document.getElementById('bpgCanvas'), g=annS.graph; if(!cv||!g) return;
+  const dpr=window.devicePixelRatio||1, cssW=cv.clientWidth||cv.offsetWidth||640, cssH=200;
+  cv.width=Math.round(cssW*dpr); cv.height=Math.round(cssH*dpr);
+  const ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,cssW,cssH);
+  const mL=44,mR=46,mT=10,mB=20, pw=cssW-mL-mR, ph=cssH-mT-mB;
+  const t0=g.t[0], t1=g.t[g.t.length-1]||t0+1, tr=(t1-t0)||1;
+  const xOf=t=>mL+(t-t0)/tr*pw;
+  const series=[{k:'A',s:annS.gA,arr:bpgArr(annS.gA)},{k:'B',s:annS.gB,arr:bpgArr(annS.gB)}];
+  const ranges=series.map(se=>{ const st=bpgStats(se.arr); if(!st) return null; let lo=st.min,hi=st.max; if(lo===hi){lo-=1;hi+=1;} const pad=(hi-lo)*0.12; return {lo:lo-pad,hi:hi+pad}; });
+  // grid + time axis
+  ctx.strokeStyle='rgba(255,255,255,0.07)'; ctx.lineWidth=1; ctx.fillStyle='#7c8893'; ctx.font='10px system-ui';
+  for(let s=Math.ceil(t0*5)/5;s<=t1+1e-6;s+=0.4){ const x=xOf(s); ctx.beginPath(); ctx.moveTo(x,mT); ctx.lineTo(x,mT+ph); ctx.stroke(); ctx.textAlign='center'; ctx.fillText(s.toFixed(1),x,cssH-6); }
+  // y-axis labels for each side
+  const drawYAxis=(r,side,col)=>{ if(!r) return; const yOf=v=>mT+ph-(v-r.lo)/((r.hi-r.lo)||1)*ph; ctx.fillStyle=col; ctx.textAlign=side==='L'?'right':'left'; const xt=side==='L'?mL-5:mL+pw+5;
+    for(let n=0;n<=4;n++){ const v=r.lo+(r.hi-r.lo)*n/4; const y=yOf(v); ctx.fillText(v.toFixed(2),xt,y+3); if(side==='L'){ ctx.strokeStyle='rgba(255,255,255,0.05)'; ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+pw,y); ctx.stroke(); } } };
+  drawYAxis(ranges[0],'L',bpgColor('A')); drawYAxis(ranges[1],'R',bpgColor('B'));
+  // zero line (left axis ref)
+  if(ranges[0]&&ranges[0].lo<0&&ranges[0].hi>0){ const y=mT+ph-(0-ranges[0].lo)/((ranges[0].hi-ranges[0].lo))*ph; ctx.strokeStyle='rgba(255,255,255,0.18)'; ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+pw,y); ctx.stroke(); }
+  // series lines
+  series.forEach((se,si)=>{ const r=ranges[si], arr=se.arr; if(!r||!arr) return; const yOf=v=>mT+ph-(v-r.lo)/((r.hi-r.lo)||1)*ph;
+    ctx.strokeStyle=bpgColor(se.k); ctx.lineWidth=2.4; ctx.lineJoin='round'; ctx.lineCap='round'; ctx.beginPath();
+    let started=false; for(let i=0;i<arr.length;i++){ const v=arr[i]; if(v==null||!isFinite(v)) continue; const x=xOf(g.t[i]),y=yOf(v); if(!started){ctx.moveTo(x,y);started=true;} else ctx.lineTo(x,y); } ctx.stroke(); });
+  // cursor
+  const tc=Math.max(t0,Math.min(t1,annS._cursorT||t0)); const cx=xOf(tc); ctx.strokeStyle='rgba(255,255,255,0.55)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(cx,mT); ctx.lineTo(cx,mT+ph); ctx.stroke();
+}
+function bpgTable(noUnits){
+  const el=document.getElementById('bpgTable'); if(!el) return;
+  const idx=bpgCurIdx();
+  const row=(k)=>{ const s=annS['g'+k], arr=bpgArr(s), st=bpgStats(arr), m=s.metric;
+    const now=(arr&&arr[idx]!=null)?arr[idx]:null;
+    const axName=BPG_VONLY[m]?'vertical':(s.axis==='h'?'horizontal':'vertical');
+    const cap=`<div class="bpg-cap" id="bpgCap${k}">${m} (${axName}, ${bpgUnit(m)})</div>`;
+    if(noUnits||!st) return cap+`<div class="bpg-trow"><span class="bpg-dot ${k.toLowerCase()}"></span><i>—</i><i>—</i><i>—</i><i>—</i></div>`;
+    return cap+`<div class="bpg-trow"><span class="bpg-dot ${k.toLowerCase()}"></span><i>${bpgFmt(m,st.avg)}</i><i class="now">${bpgFmt(m,now)}</i><i>${bpgFmt(m,st.min)}</i><i>${bpgFmt(m,st.max)}</i></div>`; };
+  el.innerHTML=`<div class="bpg-trow head"><span></span><b>avg</b><b>now</b><b>min</b><b>max</b></div>`+row('A')+row('B');
+}
+function bpgCursor(t){ if(!annS||!annS.graph) return; annS._cursorT=t; bpgChart(); bpgTable(false); }
 async function bpSaveTrack(){
   if(!annS||annS.readOnly) return;
   if(!annS.track||annS.track.length<2){ bpHint('Track the bar first.', true); return; }
+  if(annS.metrics){ annS.metrics._load=(annS._load!=null?annS._load:null); annS.metrics.facing=annS.facing||'left'; }   // remember load + forward-direction so the athlete sees the same
   const payload={ points:annS.track, fps:annS.fps, scale_m_per_px:annS.scale||null, metrics:annS.metrics||{} };
   try{ localStorage.setItem('vtrk:'+annS.path, JSON.stringify(payload)); }catch(e){}
   if(!VTRACKS_READY){ bpHint('Saved locally (run migration 30 for cloud).'); return; }
@@ -1859,6 +2005,8 @@ async function bpLoadTrack(path){
   if(!payload){ try{ const ls=localStorage.getItem('vtrk:'+path); if(ls) payload=JSON.parse(ls); }catch(e){} }
   if(payload&&annS&&Array.isArray(payload.points)&&payload.points.length){
     annS.track=payload.points; annS.trackId=id||null; annS.scale=payload.scale_m_per_px||null; annS.metrics=payload.metrics||null;
+    if(annS.metrics&&annS.metrics._load!=null) annS._load=annS.metrics._load;   // load the coach used for force/power
+    if(annS.metrics&&annS.metrics.facing) annS.facing=annS.metrics.facing;
     if(payload.fps){ annS.fps=payload.fps; const f=document.getElementById('vstFps'); if(f) f.value=payload.fps; }
     if(annS._bakedReview){ annS.showTrace=false; const sh=document.getElementById('bpShow'); if(sh) sh.checked=false; }  // trace is already baked into the review video
     bpRender(); bpSteps(); vstRedraw();
@@ -5608,10 +5756,10 @@ function buildReviewQueue(){
   const q=[];
   ed.exercises.forEach((ex,ei)=>{ const type=ex.loadType||'percentage'; const sets=ex.sets||[];
     sets.forEach((st,si)=>{ const lg=st.id?logBySet[st.id]:null;
-      if(lg&&lg.video_path) q.push({ path:lg.video_path, athleteId:athId, athName, exName:ex.name||'Lift', exIdx:ei, setNo:si+1, setTotal:sets.length, target:tgtStr(st,type) }); });
+      if(lg&&lg.video_path) q.push({ path:lg.video_path, athleteId:athId, athName, exName:ex.name||'Lift', exIdx:ei, setNo:si+1, setTotal:sets.length, target:tgtStr(st,type), load:(lg.load_kg!=null?lg.load_kg:(type==='weight'?st.kg:null)) }); });
     // athlete-added sets with a clip
     ed.logs.filter(l=>!l.prescribed_set_id && l.exercise_id===ex.id && l.video_path)
-      .forEach((l,j)=>q.push({ path:l.video_path, athleteId:athId, athName, exName:ex.name||'Lift', exIdx:ei, setNo:'+'+(j+1), setTotal:sets.length, target:'added by athlete', added:true }));
+      .forEach((l,j)=>q.push({ path:l.video_path, athleteId:athId, athName, exName:ex.name||'Lift', exIdx:ei, setNo:'+'+(j+1), setTotal:sets.length, target:'added by athlete', added:true, load:(l.load_kg!=null?l.load_kg:null) }));
   });
   // map clipped sets within each exercise -> queue index (for the pip row)
   const byEx={}; q.forEach((e,i)=>{ (byEx[e.exIdx]=byEx[e.exIdx]||[]).push(i); });
@@ -5620,10 +5768,10 @@ function buildReviewQueue(){
 }
 window.openReview=(path)=>{ const q=buildReviewQueue(); const i=q.findIndex(e=>e.path===path);
   if(i<0){ openAnnStudio(path,{athleteId:(cw&&cw.ath&&cw.ath.id)||''}); return; }
-  openAnnStudio(q[i].path,{athleteId:q[i].athleteId, exercise:q[i].exName, queue:q, qIndex:i}); };
+  openAnnStudio(q[i].path,{athleteId:q[i].athleteId, exercise:q[i].exName, queue:q, qIndex:i, load:q[i].load}); };
 window.annNav=(dir)=>{ if(!annS||!annS.meta||!annS.meta.queue) return; annGoto((annS.meta.qIndex||0)+dir); };
 window.annGoto=(i)=>{ if(!annS||!annS.meta||!annS.meta.queue) return; const q=annS.meta.queue; if(i<0||i>=q.length) return;
-  const e=q[i]; openAnnStudio(e.path,{athleteId:e.athleteId, exercise:e.exName, queue:q, qIndex:i}); };
+  const e=q[i]; openAnnStudio(e.path,{athleteId:e.athleteId, exercise:e.exName, queue:q, qIndex:i, load:e.load}); };
 // the "Reviewing…" context card (coach review queue): position, exercise, set X of Y, scheme, pips, Prev/Next
 function rvNavHtml(meta){
   if(!meta||!meta.queue||!meta.queue.length) return '';
