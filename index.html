@@ -1652,7 +1652,10 @@ async function vstToggleRec(){
   annS._revMic=mic;
   const cw=Math.max(2,Math.round(annS._cw||v.clientWidth||640)), ch=Math.max(2,Math.round(annS._ch||v.clientHeight||480));
   const comp=document.createElement('canvas'); comp.width=cw; comp.height=ch; const cctx=comp.getContext('2d');
-  const draw=()=>{ if(!annS||!annS._revRec){ return; } try{ cctx.fillStyle='#000'; cctx.fillRect(0,0,cw,ch); cctx.drawImage(v,0,0,cw,ch); const ov=document.getElementById('vstCanvas'); if(ov&&ov.width) cctx.drawImage(ov,0,0,cw,ch); }catch(e){} annS._revRAF=requestAnimationFrame(draw); };
+  const draw=()=>{ if(!annS||!annS._revRec){ return; } try{ cctx.fillStyle='#000'; cctx.fillRect(0,0,cw,ch); cctx.drawImage(v,0,0,cw,ch); const ov=document.getElementById('vstCanvas'); if(ov&&ov.width) cctx.drawImage(ov,0,0,cw,ch); }catch(e){}
+    // sample (review-time → lift-time) ~12×/s so the athlete's chart cursor can follow the coach's exact navigation
+    if(annS._revStart!=null&&annS._revTimeline){ const rt=(performance.now()-annS._revStart)/1000, tl=annS._revTimeline; if(!tl.length||rt-tl[tl.length-1].rt>=0.08) tl.push({rt:Math.round(rt*1000)/1000, lt:Math.round(v.currentTime*1000)/1000}); }
+    annS._revRAF=requestAnimationFrame(draw); };
   let cs; try{ cs=comp.captureStream(30); }catch(e){ vstMsg('Recording not supported here'); vstRecCleanup(); return; }
   const mixed=new MediaStream([...cs.getVideoTracks(), ...mic.getAudioTracks()]);
   const mime=['video/webm;codecs=vp8,opus','video/webm;codecs=vp9,opus','video/webm'].find(t=>{ try{ return MediaRecorder.isTypeSupported(t); }catch(e){ return false; } })||'video/webm';
@@ -1663,6 +1666,7 @@ async function vstToggleRec(){
     if(annS._revRAF){ cancelAnimationFrame(annS._revRAF); annS._revRAF=null; }
     if(annS._revMic){ annS._revMic.getTracks().forEach(t=>t.stop()); annS._revMic=null; }
     if(annS._recTimer){ clearInterval(annS._recTimer); annS._recTimer=null; }
+    annS._revStart=null;          // stop sampling; keep _revTimeline for save
     const blob=new Blob(chunks,{type:'video/webm'}); annS.reviewBlob=blob; annS.reviewPath=null;
     if(annS.reviewUrl) URL.revokeObjectURL(annS.reviewUrl); annS.reviewUrl=URL.createObjectURL(blob);
     if(btn){ btn.textContent='🔴 Re-record review'; btn.classList.remove('pri'); } if(tl) tl.textContent='';
@@ -1670,13 +1674,14 @@ async function vstToggleRec(){
   };
   draw();                       // begin compositing video+overlay
   try{ rec.start(); }catch(e){ vstMsg('Recording failed to start'); vstRecCleanup(); return; }
+  annS._revStart=performance.now(); annS._revTimeline=[{rt:0, lt:Math.round(v.currentTime*1000)/1000}];   // start the review-time→lift-time map
   if(btn){ btn.textContent='■ Stop recording'; btn.classList.add('pri'); }
   vstMsg('● Recording — play the clip & talk');
   let s=0; if(tl) tl.textContent='● 0:00';
   annS._recTimer=setInterval(()=>{ s++; if(tl) tl.textContent='● '+Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); if(s>=300) vstStopRec(); },1000); // 5-min cap
 }
 function vstStopRec(){ if(annS&&annS._revRec&&annS._revRec.state==='recording'){ try{ annS._revRec.stop(); }catch(e){ vstRecCleanup(); } } }
-function vstDelReview(){ if(!annS) return; vstRecCleanup(); annS.reviewBlob=null; annS.reviewPath=null; if(annS.reviewUrl){ URL.revokeObjectURL(annS.reviewUrl); annS.reviewUrl=null; } const b=document.getElementById('vstRec'); if(b){ b.textContent='🔴 Record review'; b.classList.remove('pri'); } vstReviewUI(); }
+function vstDelReview(){ if(!annS) return; vstRecCleanup(); annS.reviewBlob=null; annS.reviewPath=null; annS._revTimeline=null; annS._revStart=null; if(annS.reviewUrl){ URL.revokeObjectURL(annS.reviewUrl); annS.reviewUrl=null; } const b=document.getElementById('vstRec'); if(b){ b.textContent='🔴 Record review'; b.classList.remove('pri'); } vstReviewUI(); }
 function wireAnnStudio(){
   const v=document.getElementById('vstVid'), c=document.getElementById('vstCanvas');
   const play=document.getElementById('vstPlay'), scrub=document.getElementById('vstScrub'), time=document.getElementById('vstTime');
@@ -1694,7 +1699,8 @@ function wireAnnStudio(){
     if(annS._looping){ const end=w?w.b:(v.duration||0), start=w?w.a:0; if(end&&v.currentTime>=end-0.03){ v.currentTime=start; if(v.paused) v.play(); } }
     else if(w&&!v.paused&&v.currentTime>=w.b-0.01){ v.pause(); v.currentTime=w.b; }   // trim: stop the video at the out-point
     if(v.duration) vstSyncScrub();
-    if(annS.track&&annS.showTrace) vstRedraw(); if(annS.graph&&!annS._bakedReview) bpgCursor(v.currentTime); });
+    if(annS.track&&annS.showTrace) vstRedraw();
+    if(annS.graph){ if(annS._bakedReview){ if(annS._revTimeline&&annS._revTimeline.length){ const lt=bpgReviewLift(v.currentTime); if(lt!=null) bpgCursor(lt); } } else bpgCursor(v.currentTime); } });
   scrub.oninput=()=>{ const r=vstRange(); v.currentTime=r[0]+scrub.value/1000*((r[1]-r[0])||0); };
   document.getElementById('vstRate').onchange=e=>{ v.playbackRate=parseFloat(e.target.value); };
   const loopBtn=document.getElementById('vstLoop'); if(loopBtn) loopBtn.onclick=()=>{ annS._looping=!annS._looping; loopBtn.classList.toggle('pri',annS._looping); if(annS._looping){ const w=annS.win; if(w&&(v.currentTime<w.a||v.currentTime>=w.b)) v.currentTime=w.a; if(v.paused) v.play(); } };
@@ -2040,8 +2046,8 @@ function bpgChart(){
   series.forEach((se,si)=>{ const r=ranges[si], arr=se.arr; if(!r||!arr) return; const yOf=v=>mT+ph-(v-r.lo)/((r.hi-r.lo)||1)*ph;
     ctx.strokeStyle=bpgColor(se.k); ctx.lineWidth=2.4; ctx.lineJoin='round'; ctx.lineCap='round'; ctx.beginPath();
     let started=false; for(let i=0;i<arr.length;i++){ const v=arr[i]; if(v==null||!isFinite(v)) continue; const x=xOf(g.t[i]),y=yOf(v); if(!started){ctx.moveTo(x,y);started=true;} else ctx.lineTo(x,y); } ctx.stroke(); });
-  // cursor (skip for a baked review — its video runs on a different timeline than the lift, so a synced playhead is meaningless)
-  if(!annS._bakedReview){ const tc=Math.max(t0,Math.min(t1,annS._cursorT||t0)); const cx=xOf(tc); ctx.strokeStyle='rgba(255,255,255,0.55)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(cx,mT); ctx.lineTo(cx,mT+ph); ctx.stroke(); }
+  // cursor — follows scrubbing live, or (on a baked review with a recorded timeline) the coach's navigation through the lift
+  if(bpgHasCursor()){ const tc=Math.max(t0,Math.min(t1,annS._cursorT||t0)); const cx=xOf(tc); ctx.strokeStyle='rgba(255,255,255,0.55)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(cx,mT); ctx.lineTo(cx,mT+ph); ctx.stroke(); }
   // live drag-to-zoom selection
   if(annS._brush){ const x1=Math.min(annS._brush[0],annS._brush[1]), x2=Math.max(annS._brush[0],annS._brush[1]); ctx.fillStyle='rgba(96,165,250,0.18)'; ctx.fillRect(x1,mT,x2-x1,ph); ctx.strokeStyle='rgba(96,165,250,0.7)'; ctx.lineWidth=1; ctx.strokeRect(x1,mT,x2-x1,ph); }
 }
@@ -2059,7 +2065,7 @@ function bpgTable(noUnits){
   const el=document.getElementById('bpgTable'); if(!el) return;
   const idx=bpgCurIdx();
   const row=(k)=>{ const s=annS['g'+k], arr=bpgArr(s), st=bpgStats(arr), m=s.metric;
-    const now=annS._bakedReview?null:((arr&&arr[idx]!=null)?arr[idx]:null);
+    const now=bpgHasCursor()?((arr&&arr[idx]!=null)?arr[idx]:null):null;
     const axName=BPG_VONLY[m]?'vertical':(s.axis==='h'?'horizontal':'vertical');
     const cap=`<div class="bpg-cap" id="bpgCap${k}">${m} (${axName}, ${bpgUnit(m)})</div>`;
     if(noUnits||!st) return cap+`<div class="bpg-trow"><span class="bpg-dot ${k.toLowerCase()}"></span><i>—</i><i>—</i><i>—</i><i>—</i></div>`;
@@ -2067,6 +2073,12 @@ function bpgTable(noUnits){
   el.innerHTML=`<div class="bpg-trow head"><span></span><b>avg</b><b>now</b><b>min</b><b>max</b></div>`+row('A')+row('B');
 }
 function bpgCursor(t){ if(!annS||!annS.graph) return; annS._cursorT=t; bpgChart(); bpgTable(false); }
+// map a baked-review playback time → the lift time the coach was viewing then (recorded during the review)
+function bpgReviewLift(rt){ const tl=annS&&annS._revTimeline; if(!tl||!tl.length) return null;
+  if(rt<=tl[0].rt) return tl[0].lt; if(rt>=tl[tl.length-1].rt) return tl[tl.length-1].lt;
+  let lo=0,hi=tl.length-1; while(hi-lo>1){ const mid=(lo+hi)>>1; if(tl[mid].rt<=rt) lo=mid; else hi=mid; }
+  const a=tl[lo],b=tl[hi], f=(rt-a.rt)/((b.rt-a.rt)||1); return a.lt+(b.lt-a.lt)*f; }
+function bpgHasCursor(){ return !annS._bakedReview || (annS._revTimeline&&annS._revTimeline.length); }
 async function bpSaveTrack(){
   if(!annS||annS.readOnly) return;
   if(!annS.track||annS.track.length<2){ bpHint('Track the bar first.', true); return; }
@@ -2122,6 +2134,7 @@ async function loadAnnNotes(path){
     if(annS.readOnly && payload.reviewVideoPath){
       // baked synced review: swap the main player to the coach's recorded review (video + drawings + voice are baked in)
       annS._bakedReview=true; annS.shapes=[];
+      annS._revTimeline=Array.isArray(payload.reviewTimeline)?payload.reviewTimeline:null;   // lets the chart cursor follow the coach's navigation
       const sv=await sb.storage.from('lift-videos').createSignedUrl(payload.reviewVideoPath, 3600);
       const vv=document.getElementById('vstVid');
       if(sv.data&&vv){ vv.src=sv.data.signedUrl; vv.load(); }
@@ -2146,7 +2159,7 @@ async function saveAnnNotes(){
     if(up.error){ if(btn){ btn.style.pointerEvents=''; btn.textContent='Save & send to athlete'; } vstMsg('Review upload failed — try again'); return; }
     annS.reviewPath=vp;
   }
-  const payload={ shapes:annS.shapes, note, fps:annS.fps, reviewVideoPath:annS.reviewPath||null, voicePath:annS.voicePath||null };
+  const payload={ shapes:annS.shapes, note, fps:annS.fps, reviewVideoPath:annS.reviewPath||null, voicePath:annS.voicePath||null, reviewTimeline:(annS.reviewPath&&annS._revTimeline&&annS._revTimeline.length)?annS._revTimeline:null };
   try{ localStorage.setItem('vst:'+annS.path, JSON.stringify(payload)); }catch(e){}
   if(!VNOTES_READY){ if(btn){ btn.style.pointerEvents=''; btn.textContent='Save & send to athlete'; } vstMsg('✓ Saved locally'); return; }
   const row={ gym_id:me_.gym_id, video_path:annS.path, athlete_id:annS.athleteId||null, payload, timestamp_sec:null };
