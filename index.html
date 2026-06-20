@@ -163,6 +163,8 @@
   .bp-prog>i{display:block;height:100%;background:var(--accent);width:0}
   .bp-hint{font-size:11px;color:var(--accent2);margin-top:6px;line-height:1.35}
   .bp-toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-top:8px;cursor:pointer}
+  .bp-pins{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .bp-pins .vst-btn{font-size:12px;padding:5px 8px}
   .revbadge{display:inline-block;margin-left:6px;padding:2px 7px;border-radius:999px;background:rgba(52,211,153,.16);border:1px solid rgba(52,211,153,.5);color:#34d399;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
   .revbadge:hover{background:rgba(52,211,153,.28)}
   .revcard h2 .rev-count{display:inline-block;margin-left:6px;min-width:20px;padding:1px 7px;border-radius:999px;background:var(--accent);color:#0a0d11;font-size:12px;font-weight:800;text-align:center}
@@ -1335,8 +1337,8 @@ async function playVideo(path){
   // if a coach has reviewed this clip, offer a read-only view of the annotation
   if(VNOTES_READY){ try{
     const { data:n } = await sb.from('video_notes').select('id,payload').eq('video_path',path).order('updated_at',{ascending:false}).limit(1);
-    if(n&&n[0]){ const pl=n[0].payload||{}; const note=pl.note||''; const hasVoice=!!pl.voicePath; const slot=document.getElementById('vidNotes');
-      const label='✎ View coach’s review'+(hasVoice?' 🎙':'');
+    if(n&&n[0]){ const pl=n[0].payload||{}; const note=pl.note||''; const slot=document.getElementById('vidNotes');
+      const label='✎ View coach’s review'+(pl.reviewVideoPath?' 🎬':(pl.voicePath?' 🎙':''));
       if(slot) slot.innerHTML=`<div class="vst-btn pri" style="text-align:center;cursor:pointer" onclick="closeVid();openAnnStudio('${esc(path)}',{readOnly:true,title:'Coach review'})">${label}</div>${note?`<div style="margin-top:7px;color:var(--muted);font-size:13px">“${esc(note)}”</div>`:''}`;
     }
   }catch(e){} }
@@ -1349,6 +1351,7 @@ const VST_COLORS=['#ff5a5a','#ffd23f','#34d399','#5aa9ff','#c77dff','#ffffff'];
 function vstHost(){ let h=document.getElementById('annStudio'); if(!h){ h=document.createElement('div'); h.id='annStudio'; h.className='vstudio'; document.body.appendChild(h); } return h; }
 async function openAnnStudio(path, meta){
   meta=meta||{};
+  vstRecCleanup();              // release any recorder/mic from a prior clip before re-opening
   const host=vstHost();
   host.innerHTML=`<div class="vst-top"><h3>✎ Lift review</h3><span class="vst-close" onclick="closeAnnStudio()">✕</span></div><div class="spin" style="padding:30px;color:var(--muted)">Loading clip…</div>`;
   host.classList.add('on');
@@ -1392,9 +1395,10 @@ async function openAnnStudio(path, meta){
         <div class="vst-card">
           <h4>Coach note</h4>
           <textarea class="vst-note" id="vstNote" placeholder="What to fix, what was good…"></textarea>
-          <div class="vst-row" style="margin-top:8px"><span class="vst-btn" id="vstRec">🎙 Record voice</span><span class="vst-loop" id="vstRecTime"></span></div>
-          <audio id="vstVoiceAudio" controls preload="none" style="display:none;width:100%;margin-top:6px"></audio>
-          <div class="vst-row" id="vstVoiceDelWrap" style="display:none;margin-top:6px"><span class="vst-btn" id="vstVoiceDel">🗑 Remove voice note</span></div>
+          <div class="vst-row" style="margin-top:8px"><span class="vst-btn" id="vstRec">🔴 Record review</span><span class="vst-loop" id="vstRecTime"></span></div>
+          <div class="bp-hint" id="vstRecHint" style="margin-top:5px">Press record, then play / slow-mo / draw and talk — the athlete sees &amp; hears your exact review.</div>
+          <video id="vstReviewPrev" controls preload="none" style="display:none;width:100%;margin-top:6px;border-radius:8px;background:#000"></video>
+          <div class="vst-row" id="vstReviewDelWrap" style="display:none;margin-top:6px"><span class="vst-btn" id="vstReviewDel">🗑 Discard recording</span></div>
           <div class="vst-row" style="margin-top:8px"><label>Video fps <input type="number" class="vst-fps" id="vstFps" value="30" min="1" max="240"></label></div>
           <div class="vst-row" style="margin-top:10px"><span class="vst-btn pri" id="vstSave" style="flex:1;text-align:center">Save &amp; send to athlete</span></div>
           ${VNOTES_READY?'':'<div class="vst-row" style="margin-top:6px;color:#e0a85a">Run migration 29 to save to the cloud — saving locally for now.</div>'}
@@ -1413,6 +1417,12 @@ async function openAnnStudio(path, meta){
           <div class="bp-hint" id="bpHint">Films best side-on, but slight angles track fine. Trend-grade, not lab-grade.</div>
           <div class="bp-tiles" id="bpTiles" style="display:none"></div>
           <label class="bp-toggle" id="bpToggleWrap" style="display:none"><input type="checkbox" id="bpShow" checked> Show trace overlay</label>
+          <div class="bp-pins" id="bpPinRow" style="display:none">
+            <span class="vst-btn" id="bpFacing" title="Which side the lifter is on — flips the back/forward sign">↔ Lifter: left</span>
+            <span class="vst-btn" id="bpPinPeak" title="Pin peak height to the current frame">📍 Peak</span>
+            <span class="vst-btn" id="bpPinCatch" title="Pin the catch / fixation point to the current frame">📍 Catch</span>
+            <span class="vst-btn" id="bpPinAuto" title="Auto-detect peak &amp; catch">auto</span>
+          </div>
           <div class="vst-row" style="margin-top:8px"><span class="vst-btn" id="bpClear">Clear path</span><span class="vst-btn pri" id="bpSave" style="flex:1;text-align:center">Save bar path</span></div>
           ${VTRACKS_READY?'':'<div class="bp-hint" style="color:#e0a85a">Run migration 30 to save bar paths to the cloud — kept locally for now.</div>'}
         </div>`;
@@ -1443,12 +1453,13 @@ async function openAnnStudio(path, meta){
     </div>`;
   annS={ path, meta, readOnly:ro, shapes:[], tool:'select', color:VST_COLORS[0], fps:30, draft:null, ang:null, noteId:null, athleteId:meta.athleteId||null,
     exercise:meta.exercise||null, trackMode:null, calib:null, seed:null, seedT:null, track:null, metrics:null, scale:null, trackId:null, showTrace:true,
-    voiceBlob:null, voiceUrl:null, voicePath:null };
+    facing:'left', pinPeakT:null, pinCatchT:null,
+    voiceBlob:null, voiceUrl:null, voicePath:null, reviewBlob:null, reviewUrl:null, reviewPath:null };
   wireAnnStudio();
   await loadAnnNotes(path);
   await bpLoadTrack(path);
 }
-function closeAnnStudio(){ const h=document.getElementById('annStudio'); if(h){ const v=h.querySelector('#vstVid'); if(v) v.pause(); h.classList.remove('on'); h.innerHTML=''; } annS=null; }
+function closeAnnStudio(){ vstRecCleanup(); const h=document.getElementById('annStudio'); if(h){ const v=h.querySelector('#vstVid'); if(v) v.pause(); h.classList.remove('on'); h.innerHTML=''; } annS=null; }
 function vstMsg(t){ const m=document.getElementById('vstMsg'); if(m){ m.textContent=t||''; if(t) setTimeout(()=>{ if(m.textContent===t) m.textContent=''; }, 2600); } }
 
 function vstFit(){
@@ -1493,6 +1504,11 @@ function vstDrawTrack(ctx,W,H){
     const t=annS.track; ctx.beginPath(); let p0=P(t[0]); ctx.moveTo(p0.x,p0.y);
     for(let i=1;i<t.length-1;i++){ const a=P(t[i]), b=P(t[i+1]); ctx.quadraticCurveTo(a.x,a.y,(a.x+b.x)/2,(a.y+b.y)/2); }
     const lp=P(t[t.length-1]); ctx.lineTo(lp.x,lp.y); ctx.stroke();
+    // peak (green) + catch/fixation (red) markers
+    const m=annS.metrics;
+    if(m){ const mark=(pt,col,lbl)=>{ if(!pt) return; const q=P(pt); ctx.fillStyle=col; ctx.beginPath(); ctx.arc(q.x,q.y,5,0,7); ctx.fill(); ctx.strokeStyle='#0a0d11'; ctx.lineWidth=1.5; ctx.stroke();
+        ctx.font='700 11px system-ui,sans-serif'; ctx.textBaseline='middle'; ctx.fillStyle='rgba(0,0,0,.6)'; const w=ctx.measureText(lbl).width; ctx.fillRect(q.x+8,q.y-8,w+6,16); ctx.fillStyle=col; ctx.fillText(lbl,q.x+11,q.y); };
+      mark(m.peakPt,'#34d399','peak'); mark(m.catchPt,'#ff5a5a','catch'); }
     const v=document.getElementById('vstVid');
     if(v){ let near=annS.track[0],bd=1e9; annS.track.forEach(p=>{ const d=Math.abs(p.t-v.currentTime); if(d<bd){bd=d;near=p;} }); const q=P(near); ctx.fillStyle='#fde047'; ctx.beginPath(); ctx.arc(q.x,q.y,5,0,7); ctx.fill(); ctx.strokeStyle='#0a0d11'; ctx.lineWidth=1.5; ctx.stroke(); }
   }
@@ -1522,32 +1538,57 @@ function vstOpenText(p){
 }
 function vstFmt(t){ if(!isFinite(t)) t=0; const m=Math.floor(t/60), s=(t%60); return m+':'+s.toFixed(2).padStart(5,'0'); }
 function vstSetTool(t){ annS.tool=t; annS.ang=null; document.querySelectorAll('#vstTools .vst-tool').forEach(el=>el.classList.toggle('on',el.dataset.tool===t)); const c=document.getElementById('vstCanvas'); if(c) c.style.cursor=(t==='select')?'default':'crosshair'; vstRedraw(); }
-function vstVoiceUI(){
-  const au=document.getElementById('vstVoiceAudio'), delw=document.getElementById('vstVoiceDelWrap');
-  if(au){ if(annS.voiceUrl){ au.src=annS.voiceUrl; au.style.display='block'; } else { au.removeAttribute('src'); au.style.display='none'; } }
-  if(delw) delw.style.display=annS.voiceUrl?'flex':'none';
+function vstReviewUI(){
+  const pv=document.getElementById('vstReviewPrev'), dw=document.getElementById('vstReviewDelWrap'), hint=document.getElementById('vstRecHint');
+  if(pv){ if(annS.reviewUrl){ pv.src=annS.reviewUrl; pv.style.display='block'; } else { pv.removeAttribute('src'); pv.style.display='none'; } }
+  if(dw) dw.style.display=annS.reviewUrl?'flex':'none';
+  if(hint) hint.textContent = annS.reviewUrl ? 'Recording captured — preview above. Save & send delivers it to the athlete.' : 'Press record, then play / slow-mo / draw and talk — the athlete sees & hears your exact review.';
 }
+// fully release any active recorder + mic + compositing loop (prevents the "2nd recording won't start" bug)
+function vstRecCleanup(){
+  if(!annS) return;
+  try{ if(annS._revRec && annS._revRec.state==='recording') annS._revRec.stop(); }catch(e){}
+  if(annS._revRAF){ cancelAnimationFrame(annS._revRAF); annS._revRAF=null; }
+  if(annS._revMic){ try{ annS._revMic.getTracks().forEach(t=>t.stop()); }catch(e){} annS._revMic=null; }
+  if(annS._recTimer){ clearInterval(annS._recTimer); annS._recTimer=null; }
+  annS._revRec=null;
+}
+// record the review itself: composite the playing clip + the drawing overlay + the coach's voice into one synced video
 async function vstToggleRec(){
   if(!annS) return;
   const btn=document.getElementById('vstRec'), tl=document.getElementById('vstRecTime');
-  if(annS._rec && annS._rec.state==='recording'){ annS._rec.stop(); return; }
+  if(annS._revRec && annS._revRec.state==='recording'){ vstStopRec(); return; }
   if(!navigator.mediaDevices||!window.MediaRecorder){ vstMsg('Recording not supported on this device'); return; }
-  let stream; try{ stream=await navigator.mediaDevices.getUserMedia({audio:true}); }catch(e){ vstMsg('Microphone blocked'); return; }
-  const mime=['audio/webm','audio/mp4','audio/ogg'].find(t=>{ try{ return MediaRecorder.isTypeSupported(t); }catch(e){ return false; } })||'';
-  const rec=new MediaRecorder(stream, mime?{mimeType:mime}:undefined); annS._rec=rec; const chunks=[];
+  const v=document.getElementById('vstVid'); if(!v){ vstMsg('Video not ready'); return; }
+  let mic; try{ mic=await navigator.mediaDevices.getUserMedia({audio:true}); }catch(e){ vstMsg('Microphone blocked'); return; }
+  annS._revMic=mic;
+  const cw=Math.max(2,Math.round(annS._cw||v.clientWidth||640)), ch=Math.max(2,Math.round(annS._ch||v.clientHeight||480));
+  const comp=document.createElement('canvas'); comp.width=cw; comp.height=ch; const cctx=comp.getContext('2d');
+  const draw=()=>{ if(!annS||!annS._revRec){ return; } try{ cctx.fillStyle='#000'; cctx.fillRect(0,0,cw,ch); cctx.drawImage(v,0,0,cw,ch); const ov=document.getElementById('vstCanvas'); if(ov&&ov.width) cctx.drawImage(ov,0,0,cw,ch); }catch(e){} annS._revRAF=requestAnimationFrame(draw); };
+  let cs; try{ cs=comp.captureStream(30); }catch(e){ vstMsg('Recording not supported here'); vstRecCleanup(); return; }
+  const mixed=new MediaStream([...cs.getVideoTracks(), ...mic.getAudioTracks()]);
+  const mime=['video/webm;codecs=vp8,opus','video/webm;codecs=vp9,opus','video/webm'].find(t=>{ try{ return MediaRecorder.isTypeSupported(t); }catch(e){ return false; } })||'video/webm';
+  let rec; try{ rec=new MediaRecorder(mixed,{mimeType:mime}); }catch(e){ vstMsg('Recording failed to start'); vstRecCleanup(); return; }
+  annS._revRec=rec; const chunks=[];
   rec.ondataavailable=e=>{ if(e.data&&e.data.size) chunks.push(e.data); };
   rec.onstop=()=>{
-    stream.getTracks().forEach(t=>t.stop()); if(annS._recTimer){ clearInterval(annS._recTimer); annS._recTimer=null; }
-    const blob=new Blob(chunks,{type:mime||'audio/webm'});
-    annS.voiceBlob=blob; annS.voicePath=null; if(annS.voiceUrl) URL.revokeObjectURL(annS.voiceUrl); annS.voiceUrl=URL.createObjectURL(blob);
-    if(btn){ btn.textContent='🎙 Re-record'; btn.classList.remove('pri'); } if(tl) tl.textContent='';
-    vstVoiceUI();
+    if(annS._revRAF){ cancelAnimationFrame(annS._revRAF); annS._revRAF=null; }
+    if(annS._revMic){ annS._revMic.getTracks().forEach(t=>t.stop()); annS._revMic=null; }
+    if(annS._recTimer){ clearInterval(annS._recTimer); annS._recTimer=null; }
+    const blob=new Blob(chunks,{type:'video/webm'}); annS.reviewBlob=blob; annS.reviewPath=null;
+    if(annS.reviewUrl) URL.revokeObjectURL(annS.reviewUrl); annS.reviewUrl=URL.createObjectURL(blob);
+    if(btn){ btn.textContent='🔴 Re-record review'; btn.classList.remove('pri'); } if(tl) tl.textContent='';
+    annS._revRec=null; vstReviewUI();
   };
-  rec.start(); if(btn){ btn.textContent='■ Stop'; btn.classList.add('pri'); }
+  draw();                       // begin compositing video+overlay
+  try{ rec.start(); }catch(e){ vstMsg('Recording failed to start'); vstRecCleanup(); return; }
+  if(btn){ btn.textContent='■ Stop recording'; btn.classList.add('pri'); }
+  vstMsg('● Recording — play the clip & talk');
   let s=0; if(tl) tl.textContent='● 0:00';
-  annS._recTimer=setInterval(()=>{ s++; if(tl) tl.textContent='● '+Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); if(s>=180 && annS._rec && annS._rec.state==='recording') annS._rec.stop(); },1000);
+  annS._recTimer=setInterval(()=>{ s++; if(tl) tl.textContent='● '+Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); if(s>=300) vstStopRec(); },1000); // 5-min cap
 }
-function vstDelVoice(){ if(!annS) return; annS.voiceBlob=null; annS.voicePath=null; if(annS.voiceUrl){ URL.revokeObjectURL(annS.voiceUrl); annS.voiceUrl=null; } const b=document.getElementById('vstRec'); if(b) b.textContent='🎙 Record voice'; vstVoiceUI(); }
+function vstStopRec(){ if(annS&&annS._revRec&&annS._revRec.state==='recording'){ try{ annS._revRec.stop(); }catch(e){ vstRecCleanup(); } } }
+function vstDelReview(){ if(!annS) return; vstRecCleanup(); annS.reviewBlob=null; annS.reviewPath=null; if(annS.reviewUrl){ URL.revokeObjectURL(annS.reviewUrl); annS.reviewUrl=null; } const b=document.getElementById('vstRec'); if(b){ b.textContent='🔴 Record review'; b.classList.remove('pri'); } vstReviewUI(); }
 function wireAnnStudio(){
   const v=document.getElementById('vstVid'), c=document.getElementById('vstCanvas');
   const play=document.getElementById('vstPlay'), scrub=document.getElementById('vstScrub'), time=document.getElementById('vstTime');
@@ -1574,7 +1615,7 @@ function wireAnnStudio(){
   document.getElementById('vstClear').onclick=()=>{ annS.shapes=[]; annS.ang=null; vstRedraw(); };
   document.getElementById('vstSave').onclick=saveAnnNotes;
   const recBtn=document.getElementById('vstRec'); if(recBtn) recBtn.onclick=vstToggleRec;
-  const delBtn=document.getElementById('vstVoiceDel'); if(delBtn) delBtn.onclick=vstDelVoice;
+  const delBtn=document.getElementById('vstReviewDel'); if(delBtn) delBtn.onclick=vstDelReview;
   // review-queue nav
   const rvp=document.getElementById('rvPrev'); if(rvp) rvp.onclick=()=>{ if(!rvp.classList.contains('disabled')) annNav(-1); };
   const rvn=document.getElementById('rvNext'); if(rvn) rvn.onclick=()=>{ if(!rvn.classList.contains('disabled')) annNav(1); };
@@ -1584,7 +1625,11 @@ function wireAnnStudio(){
   if(bp('bpCalib')) bp('bpCalib').onclick=()=>bpSetMode(annS.trackMode==='calib'?null:'calib');
   if(bp('bpSeed'))  bp('bpSeed').onclick =()=>{ v.pause(); bpSetMode(annS.trackMode==='seed'?null:'seed'); };
   if(bp('bpTrack')) bp('bpTrack').onclick=bpRunTrack;
-  if(bp('bpClear')) bp('bpClear').onclick=()=>{ annS.track=null; annS.metrics=null; annS.seed=null; annS.seedT=null; annS.calib=null; annS.scale=null; bpSetMode(null); bpRender(); bpSteps(); vstRedraw(); };
+  if(bp('bpClear')) bp('bpClear').onclick=()=>{ annS.track=null; annS.metrics=null; annS.seed=null; annS.seedT=null; annS.calib=null; annS.scale=null; annS.pinPeakT=null; annS.pinCatchT=null; bpSetMode(null); bpRender(); bpSteps(); vstRedraw(); };
+  if(bp('bpFacing')) bp('bpFacing').onclick=()=>{ annS.facing=annS.facing==='right'?'left':'right'; bpComputeMetrics(); bpRender(); vstRedraw(); };
+  if(bp('bpPinPeak')) bp('bpPinPeak').onclick=()=>{ annS.pinPeakT=v.currentTime; bpComputeMetrics(); bpRender(); vstRedraw(); bpHint('Peak pinned to this frame.'); };
+  if(bp('bpPinCatch')) bp('bpPinCatch').onclick=()=>{ annS.pinCatchT=v.currentTime; bpComputeMetrics(); bpRender(); vstRedraw(); bpHint('Catch / fixation pinned to this frame.'); };
+  if(bp('bpPinAuto')) bp('bpPinAuto').onclick=()=>{ annS.pinPeakT=null; annS.pinCatchT=null; bpComputeMetrics(); bpRender(); vstRedraw(); bpHint('Peak & catch auto-detected.'); };
   if(bp('bpSave'))  bp('bpSave').onclick =bpSaveTrack;
   // drawing
   c.addEventListener('pointerdown',e=>{
@@ -1710,7 +1755,7 @@ async function bpRunTrack(){
     if(m.score<BP_NCC_MIN){ nx=predX; ny=predY; lostStreak++; }   // weak match -> coast on the motion model
     else { nx=m.x; ny=m.y; lostStreak=0;
       // strong match: lightly adapt the template so it tracks the plate's changing look (rotation / off-axis angle)
-      if(m.score>0.82){ const fresh=vstTemplate(fr,nx,ny); let ss=0; for(let k=0;k<tmpl.tz.length;k++){ tmpl.tz[k]=tmpl.tz[k]*0.85+fresh.tz[k]*0.15; ss+=tmpl.tz[k]*tmpl.tz[k]; } tmpl.tnorm=Math.sqrt(ss)||1; }
+      if(m.score>0.86){ const fresh=vstTemplate(fr,nx,ny); let ss=0; for(let k=0;k<tmpl.tz.length;k++){ tmpl.tz[k]=tmpl.tz[k]*0.92+fresh.tz[k]*0.08; ss+=tmpl.tz[k]*tmpl.tz[k]; } tmpl.tnorm=Math.sqrt(ss)||1; }
     }
     vx=nx-px; vy=ny-py; const sp=Math.hypot(vx,vy); if(sp>vmax){ vx*=vmax/sp; vy*=vmax/sp; }
     px=nx; py=ny;
@@ -1731,39 +1776,60 @@ function bpComputeMetrics(){
   let mpp=null;
   if(annS.calib&&annS.calib.length===2){ const a=annS.calib[0],b=annS.calib[1]; const dpx=Math.hypot((b.x-a.x)*W,(b.y-a.y)*H); if(dpx>2) mpp=PLATE_M/dpx; }
   annS.scale=mpp;
-  const ts=pts.map(p=>p.t), ys=pts.map(p=>p.y*H);
-  const Y=ys.map((_,i)=>{ const a=ys[Math.max(0,i-1)],b=ys[i],c=ys[Math.min(ys.length-1,i+1)]; return (a+b+c)/3; });
-  const minY=Math.min.apply(null,Y), maxY=Math.max.apply(null,Y);   // minY = highest on screen, maxY = lowest
-  const romPx=maxY-minY, iLow=Y.indexOf(maxY), iHigh=Y.indexOf(minY);
-  let peakPx=0;
-  for(let i=1;i<Y.length;i++){ const d=ts[i]-ts[i-1]; if(d<=0) continue; const vy=(Y[i-1]-Y[i])/d; if(vy>peakPx) peakPx=vy; }
-  let meanPx=null, dur=null;
-  if(iHigh>iLow&&ts[iHigh]>ts[iLow]){ dur=ts[iHigh]-ts[iLow]; meanPx=romPx/dur; }
-  const m={ rom_px:romPx, peak_px:peakPx, mean_px:meanPx, duration_s:dur };
-  if(mpp){ m.rom_m=romPx*mpp; m.peak_vel=peakPx*mpp; m.mean_vel=meanPx!=null?meanPx*mpp:null; }
+  const sm=a=>a.map((_,i)=>{ const p=a[Math.max(0,i-1)],q=a[i],r=a[Math.min(a.length-1,i+1)]; return (p+q+r)/3; });
+  const ts=pts.map(p=>p.t), Y=sm(pts.map(p=>p.y*H)), X=sm(pts.map(p=>p.x*W));
+  const yFloor=Math.max.apply(null,Y), minY=Math.min.apply(null,Y);  // yFloor = lowest bar position (start/floor); minY = highest on screen
+  const iPeakAuto=Y.indexOf(minY);
+  // peak vertical velocity (up = decreasing y)
+  let peakPx=0; for(let i=1;i<Y.length;i++){ const d=ts[i]-ts[i-1]; if(d<=0) continue; const vy=(Y[i-1]-Y[i])/d; if(vy>peakPx) peakPx=vy; }
+  // signed horizontal displacement vs start x; back (toward lifter) negative, forward (away) positive. filming side flips the sign.
+  const fs=(annS.facing==='right')?-1:1, x0=X[0];
+  let backPx=0,fwdPx=0,iBack=0,iFwd=0;
+  for(let i=0;i<X.length;i++){ const h=fs*(X[i]-x0); if(h<backPx){backPx=h;iBack=i;} if(h>fwdPx){fwdPx=h;iFwd=i;} }
+  // peak height + fixation (catch): auto, or pinned by the coach to a specific frame
+  const nearIdx=t=>{ let bi=0,bd=1e9; for(let i=0;i<ts.length;i++){ const d=Math.abs(ts[i]-t); if(d<bd){bd=d;bi=i;} } return bi; };
+  const iPeak=annS.pinPeakT!=null?nearIdx(annS.pinPeakT):iPeakAuto;
+  let iCatchAuto=iPeak,mY=-1; for(let i=iPeak;i<Y.length;i++){ if(Y[i]>mY){ mY=Y[i]; iCatchAuto=i; } }  // lowest point after the peak = where the bar settles
+  const iCatch=annS.pinCatchT!=null?nearIdx(annS.pinCatchT):iCatchAuto;
+  const m={ peak_px:peakPx, iPeak, iCatch,
+    peakPt:{x:pts[iPeak].x,y:pts[iPeak].y}, catchPt:{x:pts[iCatch].x,y:pts[iCatch].y},
+    backPt:{x:pts[iBack].x,y:pts[iBack].y}, fwdPt:{x:pts[iFwd].x,y:pts[iFwd].y} };
+  if(mpp){
+    m.peak_vel=peakPx*mpp;
+    m.peak_h_m=(yFloor-Y[iPeak])*mpp;
+    m.catch_h_m=(yFloor-Y[iCatch])*mpp;
+    m.crash_m=Math.max(0,(Y[iCatch]-Y[iPeak]))*mpp;
+    m.back_m=backPx*mpp; m.fwd_m=fwdPx*mpp;
+  }
   annS.metrics=m;
 }
 function bpRender(){
   const tiles=document.getElementById('bpTiles'), tw=document.getElementById('bpToggleWrap'), hint=document.getElementById('bpHint');
+  const pinrow=document.getElementById('bpPinRow'), fb=document.getElementById('bpFacing');
   const hasTrack=annS.track&&annS.track.length>1;
   if(tw) tw.style.display=hasTrack?'flex':'none';
+  if(pinrow) pinrow.style.display=(hasTrack&&!annS.readOnly)?'flex':'none';
+  if(fb) fb.textContent='↔ Lifter: '+(annS.facing||'left');
   if(tiles){
     if(!hasTrack){ tiles.style.display='none'; }
-    else if(annS.metrics&&annS.metrics.rom_m!=null){
-      const m=annS.metrics, f=(v,d)=>v==null?'—':(+v).toFixed(d);
+    else if(annS.metrics&&annS.metrics.peak_vel!=null){
+      const m=annS.metrics, tile=(v,l)=>`<div class="bp-tile"><div class="bp-v">${v}</div><div class="bp-l">${l}</div></div>`;
+      const cm=v=>v==null?'—':Math.round(v*100)+' cm', scm=v=>v==null?'—':(v>=0?'+':'')+Math.round(v*100)+' cm';
       tiles.style.display='grid';
       tiles.innerHTML=
-        `<div class="bp-tile"><div class="bp-v">${Math.round(m.rom_m*100)} cm</div><div class="bp-l">ROM</div></div>`+
-        `<div class="bp-tile"><div class="bp-v">${f(m.peak_vel,2)}</div><div class="bp-l">Peak m/s</div></div>`+
-        `<div class="bp-tile"><div class="bp-v">${m.mean_vel!=null?f(m.mean_vel,2):'—'}</div><div class="bp-l">Mean m/s</div></div>`+
-        `<div class="bp-tile"><div class="bp-v">${m.duration_s!=null?f(m.duration_s,2)+'s':'—'}</div><div class="bp-l">Pull time</div></div>`;
+        tile((+m.peak_vel).toFixed(2),'Peak m/s')+
+        tile(cm(m.peak_h_m),'Peak height')+
+        tile(scm(m.back_m),'Back (toward)')+
+        tile(scm(m.fwd_m),'Forward (away)')+
+        tile(cm(m.crash_m),'Crash peak→catch')+
+        tile(cm(m.catch_h_m),'Catch height');
     } else {
       tiles.style.display='block';
-      tiles.innerHTML=`<div class="bp-tile"><div class="bp-v">Trace captured</div><div class="bp-l">Calibrate a plate for ROM &amp; m/s</div></div>`;
+      tiles.innerHTML=`<div class="bp-tile"><div class="bp-v">Trace captured</div><div class="bp-l">Calibrate a plate for cm &amp; m/s</div></div>`;
     }
   }
   if(hint){ if(annS.readOnly){ hint.textContent=hasTrack?'Coach’s bar-path trace. Trend-grade, not lab-grade.':'No bar-path analysis on this clip.'; }
-    else { hint.textContent=hasTrack?'Re-seed any frame + re-track to fix drift.':'Films best side-on, but slight angles track fine. Trend-grade, not lab-grade.'; } }
+    else { hint.textContent=hasTrack?'Scrub to the catch then 📍 Catch to pin the fixation point. Back/forward sign follows the Lifter side.':'Films best side-on, but slight angles track fine. Trend-grade, not lab-grade.'; } }
 }
 async function bpSaveTrack(){
   if(!annS||annS.readOnly) return;
@@ -1794,6 +1860,7 @@ async function bpLoadTrack(path){
   if(payload&&annS&&Array.isArray(payload.points)&&payload.points.length){
     annS.track=payload.points; annS.trackId=id||null; annS.scale=payload.scale_m_per_px||null; annS.metrics=payload.metrics||null;
     if(payload.fps){ annS.fps=payload.fps; const f=document.getElementById('vstFps'); if(f) f.value=payload.fps; }
+    if(annS._bakedReview){ annS.showTrace=false; const sh=document.getElementById('bpShow'); if(sh) sh.checked=false; }  // trace is already baked into the review video
     bpRender(); bpSteps(); vstRedraw();
   } else { bpRender(); }
 }
@@ -1811,7 +1878,14 @@ async function loadAnnNotes(path){
     const n=document.getElementById('vstNote'); if(n) n.value=payload.note||'';
     const ro=document.getElementById('vstNoteRO'); if(ro) ro.textContent=(payload.note&&payload.note.trim())?payload.note:'No written note — see the marks on the video.';
     annS.voicePath=payload.voicePath||null;
-    if(annS.readOnly && annS.voicePath){
+    if(annS.readOnly && payload.reviewVideoPath){
+      // baked synced review: swap the main player to the coach's recorded review (video + drawings + voice are baked in)
+      annS._bakedReview=true; annS.shapes=[];
+      const sv=await sb.storage.from('lift-videos').createSignedUrl(payload.reviewVideoPath, 3600);
+      const vv=document.getElementById('vstVid');
+      if(sv.data&&vv){ vv.src=sv.data.signedUrl; vv.load(); }
+      const ro=document.getElementById('vstNoteRO'); if(ro&&!(payload.note&&payload.note.trim())) ro.textContent='Press ▶ play — your coach’s full review, with voice & markups.';
+    } else if(annS.readOnly && annS.voicePath){
       const wrap=document.getElementById('vstVoiceROWrap'), au=document.getElementById('vstVoiceRO');
       const sv=await sb.storage.from('lift-videos').createSignedUrl(annS.voicePath, 3600);
       if(sv.data&&au){ au.src=sv.data.signedUrl; if(wrap) wrap.style.display='block'; }
@@ -1823,15 +1897,15 @@ async function saveAnnNotes(){
   if(!annS) return;
   const note=(document.getElementById('vstNote')||{}).value||'';
   const btn=document.getElementById('vstSave'); if(btn){ btn.style.pointerEvents='none'; btn.textContent='Saving…'; }
-  // upload a freshly-recorded voice note (if any) to lift-videos under the coach's own folder
-  if(annS.voiceBlob && !annS.voicePath){
-    const ty=annS.voiceBlob.type||'audio/webm', ext=ty.includes('mp4')?'mp4':ty.includes('ogg')?'ogg':ty.includes('mpeg')?'mp3':'webm';
-    const vp=me_.gym_id+'/'+me_.id+'/voice-'+Date.now()+'.'+ext;
-    const up=await sb.storage.from('lift-videos').upload(vp, annS.voiceBlob, { contentType:ty, upsert:false });
-    if(up.error){ if(btn){ btn.style.pointerEvents=''; btn.textContent='Save & send to athlete'; } vstMsg('Voice upload failed — run migration 31?'); return; }
-    annS.voicePath=vp;
+  // upload the freshly-recorded review video (if any) to lift-videos under the coach's own folder
+  if(annS.reviewBlob && !annS.reviewPath){
+    if(annS._revRec && annS._revRec.state==='recording'){ if(btn){ btn.style.pointerEvents=''; btn.textContent='Save & send to athlete'; } vstMsg('Stop the recording first'); return; }
+    const vp=me_.gym_id+'/'+me_.id+'/review-'+Date.now()+'.webm';
+    const up=await sb.storage.from('lift-videos').upload(vp, annS.reviewBlob, { contentType:'video/webm', upsert:false });
+    if(up.error){ if(btn){ btn.style.pointerEvents=''; btn.textContent='Save & send to athlete'; } vstMsg('Review upload failed — try again'); return; }
+    annS.reviewPath=vp;
   }
-  const payload={ shapes:annS.shapes, note, fps:annS.fps, voicePath:annS.voicePath||null };
+  const payload={ shapes:annS.shapes, note, fps:annS.fps, reviewVideoPath:annS.reviewPath||null, voicePath:annS.voicePath||null };
   try{ localStorage.setItem('vst:'+annS.path, JSON.stringify(payload)); }catch(e){}
   if(!VNOTES_READY){ if(btn){ btn.style.pointerEvents=''; btn.textContent='Save & send to athlete'; } vstMsg('✓ Saved locally'); return; }
   const row={ gym_id:me_.gym_id, video_path:annS.path, athlete_id:annS.athleteId||null, payload, timestamp_sec:null };
