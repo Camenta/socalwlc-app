@@ -122,12 +122,12 @@
   .vst-top .vst-sub{color:var(--muted);font-size:12px}
   .vst-close{margin-left:auto;width:32px;height:32px;border-radius:50%;background:var(--panel2);border:1px solid var(--line);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:700}
   .vst-body{flex:1;display:flex;gap:14px;min-height:0}
-  .vst-stage{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
+  .vst-stage{flex:1.2 1 0;display:flex;flex-direction:column;min-width:0;min-height:0}
   .vst-canvaswrap{position:relative;flex:1;display:flex;align-items:center;justify-content:center;background:#000;border:1px solid var(--line);border-radius:10px;overflow:hidden;min-height:0}
   .vst-canvaswrap video{max-width:100%;max-height:100%;display:block;background:#000}
   .vst-canvaswrap canvas{position:absolute;cursor:crosshair;touch-action:none}
   .vst-side{width:260px;flex:none;display:flex;flex-direction:column;gap:10px;overflow-y:auto}
-  @media (max-width:820px){ .vst-body{flex-direction:column} .vst-side{width:auto} }
+  @media (max-width:1100px){ .vst-body{flex-direction:column} .vst-side{width:auto} .bpg{min-width:0} #bpgCanvas{flex:none;height:240px} }
   .vst-transport{display:flex;align-items:center;gap:8px;margin-top:9px;flex-wrap:wrap}
   .vst-btn{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;font-weight:600;user-select:none}
   .vst-btn:hover{border-color:var(--accent2)}
@@ -147,9 +147,8 @@
   .vst-fps{width:54px;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:4px 6px;font-size:12px}
   .vst-textin{position:absolute;z-index:5;background:#0c1116;border:1px solid var(--accent);color:var(--text);border-radius:6px;padding:3px 6px;font-size:14px;min-width:90px}
   .vst-msg{font-size:12px;color:var(--accent2)}
-  .vst-size{font-size:13px;color:var(--muted);display:inline-flex;align-items:center;gap:5px}
-  .vst-size input{width:80px;vertical-align:middle}
-  .bpg{margin-top:10px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+  .vst-trimlbl{font-size:12px;color:var(--accent);font-variant-numeric:tabular-nums;font-weight:600}
+  .bpg{flex:1 1 0;min-width:320px;align-self:stretch;display:flex;flex-direction:column;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-height:0}
   .bpg-heads{display:flex;justify-content:space-between;align-items:center;gap:8px}
   .bpg-head{display:flex;align-items:center;gap:6px}
   .bpg-head.a .bpg-axis,.bpg-head.a .bpg-sel{color:#3b82f6}
@@ -158,7 +157,8 @@
   .bpg-sel option{background:var(--panel);color:var(--text)}
   .bpg-axis{font-size:17px;cursor:pointer;font-weight:800;user-select:none}
   .bpg-axis.off{opacity:.28;cursor:not-allowed}
-  #bpgCanvas{width:100%;height:200px;display:block;margin-top:4px}
+  .bpg-hint{font-size:10px;color:var(--muted);text-align:center;flex:1}
+  #bpgCanvas{width:100%;flex:1 1 auto;min-height:220px;display:block;margin-top:4px;cursor:crosshair;touch-action:none}
   .bpg-table{margin-top:4px}
   .bpg-trow{display:grid;grid-template-columns:24px 1fr 1fr 1fr 1fr;align-items:center;font-variant-numeric:tabular-nums;font-size:13px;padding:1px 0}
   .bpg-trow.head{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
@@ -1468,31 +1468,35 @@ async function openAnnStudio(path, meta){
           <span class="vst-btn" id="vstPlay">▶</span>
           <span class="vst-btn" id="vstBack" title="Back one frame">⟨ frame</span>
           <span class="vst-btn" id="vstFwd" title="Forward one frame">frame ⟩</span>
-          <span class="vst-btn" id="vstLoop" title="Loop the clip — plays over and over so you can talk through it">🔁 Loop</span>
+          <span class="vst-btn" id="vstLoop" title="Loop — plays over and over (within the trim if one is set) so you can talk through it">🔁 Loop</span>
           <input type="range" class="vst-scrub" id="vstScrub" min="0" max="1000" value="0">
           <span class="vst-time" id="vstTime">0.00 / 0.00</span>
           <select class="vst-fps" id="vstRate" title="Playback speed" style="width:auto">
             <option value="1">1×</option><option value="0.5">½×</option><option value="0.25">¼×</option><option value="0.1">0.1×</option>
           </select>
-          <label class="vst-size" title="Resize the video">⤢ <input type="range" id="vstZoom" min="40" max="130" value="100"></label>
+          <span class="vst-btn" id="vstTrimIn" title="Trim START at the playhead — isolates the lift from here (resets displacement to 0)">⟦ in</span>
+          <span class="vst-btn" id="vstTrimOut" title="Trim END at the playhead">out ⟧</span>
+          <span class="vst-trimlbl" id="vstTrimLbl"></span>
+          <span class="vst-btn" id="vstTrimClr" title="Clear trim" style="display:none">✕</span>
         </div>
-        <div class="bpg" id="bpGraph" style="display:none">
-          <div class="bpg-heads">
-            <div class="bpg-head a">
-              <select class="bpg-sel" id="bpgMetA"></select>
-              <span class="bpg-axis" id="bpgAxisA" title="Vertical / horizontal component">↕</span>
-            </div>
-            <div class="bpg-head b">
-              <span class="bpg-axis" id="bpgAxisB" title="Vertical / horizontal component">↔</span>
-              <select class="bpg-sel" id="bpgMetB"></select>
-            </div>
+      </div>
+      <div class="bpg" id="bpGraph" style="display:none">
+        <div class="bpg-heads">
+          <div class="bpg-head a">
+            <select class="bpg-sel" id="bpgMetA"></select>
+            <span class="bpg-axis" id="bpgAxisA" title="Vertical / horizontal component">↕</span>
           </div>
-          <canvas id="bpgCanvas"></canvas>
-          <div class="bpg-table" id="bpgTable"></div>
-          <div class="bpg-foot">
-            <label class="bpg-load">Bar load <input type="number" id="bpgLoad" min="0" step="0.5" placeholder="kg"> kg <span class="bpg-loadnote" id="bpgLoadNote"></span></label>
-            <span class="bpg-msg" id="bpgMsg"></span>
+          <span class="bpg-hint" id="bpgZoomHint">drag to zoom · tap to reset</span>
+          <div class="bpg-head b">
+            <span class="bpg-axis" id="bpgAxisB" title="Vertical / horizontal component">↔</span>
+            <select class="bpg-sel" id="bpgMetB"></select>
           </div>
+        </div>
+        <canvas id="bpgCanvas"></canvas>
+        <div class="bpg-table" id="bpgTable"></div>
+        <div class="bpg-foot">
+          <label class="bpg-load">Bar load <input type="number" id="bpgLoad" min="0" step="0.5" placeholder="kg"> kg <span class="bpg-loadnote" id="bpgLoadNote"></span></label>
+          <span class="bpg-msg" id="bpgMsg"></span>
         </div>
       </div>
       <div class="vst-side">${sidePanel}</div>
@@ -1500,7 +1504,7 @@ async function openAnnStudio(path, meta){
   annS={ path, meta, readOnly:ro, shapes:[], tool:'select', color:VST_COLORS[0], fps:30, draft:null, ang:null, noteId:null, athleteId:meta.athleteId||null,
     exercise:meta.exercise||null, trackMode:null, calib:null, seed:null, seedT:null, track:null, metrics:null, scale:null, trackId:null, showTrace:true,
     facing:'left', pinPeakT:null, pinCatchT:null,
-    gA:{metric:'velocity',axis:'v'}, gB:{metric:'displacement',axis:'h'}, graph:null, _load:(meta.load!=null?meta.load:null), _cursorT:0,
+    gA:{metric:'velocity',axis:'v'}, gB:{metric:'displacement',axis:'h'}, graph:null, _load:(meta.load!=null?meta.load:null), _cursorT:0, win:null, _looping:false,
     voiceBlob:null, voiceUrl:null, voicePath:null, reviewBlob:null, reviewUrl:null, reviewPath:null };
   wireAnnStudio();
   await loadAnnNotes(path);
@@ -1517,8 +1521,6 @@ function vstFit(){
   const ar=v.videoWidth/v.videoHeight;
   let w=wr.width, h=w/ar;
   if(h>wr.height){ h=wr.height; w=h*ar; }
-  const z=annS._zoom||1; w*=z; h*=z;
-  v.style.width=w+'px'; v.style.height=h+'px';
   c.style.width=w+'px'; c.style.height=h+'px';
   c.style.left=((wr.width-w)/2)+'px'; c.style.top=((wr.height-h)/2)+'px';
   const dpr=window.devicePixelRatio||1;
@@ -1649,12 +1651,20 @@ function wireAnnStudio(){
   // transport
   play.onclick=()=>{ if(v.paused) v.play(); else v.pause(); };
   v.addEventListener('play',()=>play.textContent='⏸'); v.addEventListener('pause',()=>play.textContent='▶');
-  v.addEventListener('timeupdate',()=>{ if(v.duration){ scrub.value=Math.round(v.currentTime/v.duration*1000); time.textContent=vstFmt(v.currentTime)+' / '+vstFmt(v.duration); }
+  v.addEventListener('timeupdate',()=>{
+    if(annS._looping){ const w=annS.win, end=w?w.b:(v.duration||0), start=w?w.a:0; if(end&&v.currentTime>=end-0.03){ v.currentTime=start; if(v.paused) v.play(); } }
+    if(v.duration){ scrub.value=Math.round(v.currentTime/v.duration*1000); time.textContent=vstFmt(v.currentTime)+' / '+vstFmt(v.duration); }
     if(annS.track&&annS.showTrace) vstRedraw(); if(annS.graph) bpgCursor(v.currentTime); });
   scrub.oninput=()=>{ if(v.duration){ v.currentTime=scrub.value/1000*v.duration; } };
   document.getElementById('vstRate').onchange=e=>{ v.playbackRate=parseFloat(e.target.value); };
-  const loopBtn=document.getElementById('vstLoop'); if(loopBtn) loopBtn.onclick=()=>{ v.loop=!v.loop; loopBtn.classList.toggle('pri',v.loop); if(v.loop&&v.paused) v.play(); };
-  const zoomEl=document.getElementById('vstZoom'); if(zoomEl) zoomEl.oninput=e=>{ annS._zoom=parseInt(e.target.value,10)/100; vstFit(); };
+  const loopBtn=document.getElementById('vstLoop'); if(loopBtn) loopBtn.onclick=()=>{ annS._looping=!annS._looping; loopBtn.classList.toggle('pri',annS._looping); if(annS._looping){ const w=annS.win; if(w&&(v.currentTime<w.a||v.currentTime>=w.b)) v.currentTime=w.a; if(v.paused) v.play(); } };
+  // trim / in-out points — isolate the working part of the lift (and re-zero displacement to the in-point)
+  const tIn=document.getElementById('vstTrimIn'), tOut=document.getElementById('vstTrimOut'), tClr=document.getElementById('vstTrimClr');
+  if(tIn) tIn.onclick=()=>vstSetTrim('a',v.currentTime);
+  if(tOut) tOut.onclick=()=>vstSetTrim('b',v.currentTime);
+  if(tClr) tClr.onclick=()=>{ annS.win=null; vstTrimUI(); bpComputeMetrics(); bpRender(); vstRedraw(); };
+  vstTrimUI();
+  bpgWireBrush();
   const step=d=>{ v.pause(); const dt=1/(annS.fps||30); v.currentTime=Math.max(0,Math.min(v.duration||0, v.currentTime+d*dt)); };
   document.getElementById('vstBack').onclick=()=>step(-1); document.getElementById('vstFwd').onclick=()=>step(1);
   const fpsEl=document.getElementById('vstFps'); if(fpsEl) fpsEl.oninput=e=>{ annS.fps=Math.max(1,parseInt(e.target.value,10)||30); };
@@ -1827,8 +1837,19 @@ async function bpRunTrack(){
   bpComputeMetrics(); bpRender(); bpSteps(); vstRedraw();
   bpHint(annS.scale?'Tracked. Scrub to replay; re-seed any frame + re-track to fix drift.':'Tracked — calibrate a plate to get ROM & m/s.');
 }
+// analysis window (trim): everything downstream uses only the points inside it, re-zeroed to its first point
+function bpWinPts(){ const t=annS&&annS.track; if(!t) return t; const w=annS.win; if(!w) return t;
+  const o=t.filter(p=>p.t>=w.a-1e-6&&p.t<=w.b+1e-6); return o.length>=3?o:t; }
+function vstSetTrim(which,tt){ if(!annS) return; const v=document.getElementById('vstVid'); const dur=(v&&v.duration)||tt;
+  let w=annS.win?{a:annS.win.a,b:annS.win.b}:{a:0,b:dur}; w[which]=tt;
+  if(w.b-w.a<0.1){ if(which==='a') w.b=Math.min(dur,w.a+0.1); else w.a=Math.max(0,w.b-0.1); }
+  annS.win=w; vstTrimUI(); bpComputeMetrics(); bpRender(); vstRedraw();
+  if(v&&annS._looping&&(v.currentTime<w.a||v.currentTime>=w.b)) v.currentTime=w.a; }
+function vstTrimUI(){ const lbl=document.getElementById('vstTrimLbl'), clr=document.getElementById('vstTrimClr'); const w=annS&&annS.win;
+  if(lbl) lbl.textContent=w?('trim '+w.a.toFixed(2)+'–'+w.b.toFixed(2)+'s'):'';
+  if(clr) clr.style.display=w?'inline-block':'none'; }
 function bpComputeMetrics(){
-  const pts=annS.track; if(!pts||pts.length<2){ annS.metrics=null; return; }
+  const pts=bpWinPts(); if(!pts||pts.length<2){ annS.metrics=null; return; }
   const W=annS._trackW||1, H=annS._trackH||1;
   let mpp=null;
   if(annS.calib&&annS.calib.length===2){ const a=annS.calib[0],b=annS.calib[1]; const dpx=Math.hypot((b.x-a.x)*W,(b.y-a.y)*H); if(dpx>2) mpp=PLATE_M/dpx; }
@@ -1897,7 +1918,7 @@ function bpgUnit(m){ return {velocity:'m/s',displacement:'m',acceleration:'m/s²
 function bpgFmt(m,v){ if(v==null||!isFinite(v)) return '—'; return (m==='force'||m==='power')?Math.round(v).toString():v.toFixed(2); }
 function bpgBuild(){
   annS.graph=null;
-  const pts=annS.track; if(!pts||pts.length<3) return;
+  const pts=bpWinPts(); if(!pts||pts.length<3) return;
   const mpp=annS.scale; if(!mpp) return;            // need calibration for real units
   const W=annS._trackW||1, H=annS._trackH||1;
   const sm=(a,w)=>a.map((_,i)=>{ let s=0,n=0; for(let k=-w;k<=w;k++){ const j=i+k; if(j>=0&&j<a.length){ s+=a[j]; n++; } } return s/n; });
@@ -1923,7 +1944,7 @@ function bpgCurIdx(){ const g=annS.graph; if(!g) return 0; const tc=annS._cursor
 function bpgDraw(){
   const wrap=document.getElementById('bpGraph'); if(!wrap) return;
   const has=annS.track&&annS.track.length>2;
-  wrap.style.display=has?'block':'none';
+  wrap.style.display=has?'flex':'none';
   if(!has) return;
   const msg=document.getElementById('bpgMsg'), cv=document.getElementById('bpgCanvas');
   // populate metric selects once
@@ -1940,12 +1961,13 @@ function bpgLoadRow(){ const inp=document.getElementById('bpgLoad'), note=docume
 function bpgColor(k){ return k==='A'?'#3b82f6':'#ef4444'; }
 function bpgChart(){
   const cv=document.getElementById('bpgCanvas'), g=annS.graph; if(!cv||!g) return;
-  const dpr=window.devicePixelRatio||1, cssW=cv.clientWidth||cv.offsetWidth||640, cssH=200;
+  const dpr=window.devicePixelRatio||1, cssW=cv.clientWidth||cv.offsetWidth||640, cssH=cv.clientHeight||220;
   cv.width=Math.round(cssW*dpr); cv.height=Math.round(cssH*dpr);
   const ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,cssW,cssH);
   const mL=44,mR=46,mT=10,mB=20, pw=cssW-mL-mR, ph=cssH-mT-mB;
   const t0=g.t[0], t1=g.t[g.t.length-1]||t0+1, tr=(t1-t0)||1;
   const xOf=t=>mL+(t-t0)/tr*pw;
+  annS._gx={mL,pw,t0,t1};   // chart domain, for the drag-to-zoom brush
   const series=[{k:'A',s:annS.gA,arr:bpgArr(annS.gA)},{k:'B',s:annS.gB,arr:bpgArr(annS.gB)}];
   const ranges=series.map(se=>{ const st=bpgStats(se.arr); if(!st) return null; let lo=st.min,hi=st.max; if(lo===hi){lo-=1;hi+=1;} const pad=(hi-lo)*0.12; return {lo:lo-pad,hi:hi+pad}; });
   // grid + time axis
@@ -1963,7 +1985,19 @@ function bpgChart(){
     let started=false; for(let i=0;i<arr.length;i++){ const v=arr[i]; if(v==null||!isFinite(v)) continue; const x=xOf(g.t[i]),y=yOf(v); if(!started){ctx.moveTo(x,y);started=true;} else ctx.lineTo(x,y); } ctx.stroke(); });
   // cursor
   const tc=Math.max(t0,Math.min(t1,annS._cursorT||t0)); const cx=xOf(tc); ctx.strokeStyle='rgba(255,255,255,0.55)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(cx,mT); ctx.lineTo(cx,mT+ph); ctx.stroke();
+  // live drag-to-zoom selection
+  if(annS._brush){ const x1=Math.min(annS._brush[0],annS._brush[1]), x2=Math.max(annS._brush[0],annS._brush[1]); ctx.fillStyle='rgba(96,165,250,0.18)'; ctx.fillRect(x1,mT,x2-x1,ph); ctx.strokeStyle='rgba(96,165,250,0.7)'; ctx.lineWidth=1; ctx.strokeRect(x1,mT,x2-x1,ph); }
 }
+function bpgWireBrush(){ const cv=document.getElementById('bpgCanvas'); if(!cv) return; let down=null;
+  const xToT=x=>{ const g=annS._gx; if(!g) return null; return g.t0+Math.max(0,Math.min(1,(x-g.mL)/g.pw))*(g.t1-g.t0); };
+  const recompute=()=>{ vstTrimUI(); bpComputeMetrics(); bpRender(); vstRedraw(); };
+  cv.onpointerdown=e=>{ if(!annS||!annS.graph) return; const r=cv.getBoundingClientRect(); down={x:e.clientX-r.left,moved:false}; try{ cv.setPointerCapture(e.pointerId); }catch(_){} };
+  cv.onpointermove=e=>{ if(!down) return; const r=cv.getBoundingClientRect(); const x=e.clientX-r.left; if(Math.abs(x-down.x)>4){ down.moved=true; annS._brush=[down.x,x]; bpgChart(); } };
+  cv.onpointerup=e=>{ if(!down) return; const r=cv.getBoundingClientRect(); const x=e.clientX-r.left;
+    if(down.moved){ const a=xToT(Math.min(down.x,x)), b=xToT(Math.max(down.x,x)); if(a!=null&&b!=null&&b-a>0.05){ annS.win={a,b}; recompute(); } }
+    else if(annS.win){ annS.win=null; recompute(); }   // tap = reset zoom/trim
+    annS._brush=null; down=null; bpgChart(); };
+  cv.onpointercancel=()=>{ down=null; annS._brush=null; bpgChart(); }; }
 function bpgTable(noUnits){
   const el=document.getElementById('bpgTable'); if(!el) return;
   const idx=bpgCurIdx();
@@ -1979,7 +2013,7 @@ function bpgCursor(t){ if(!annS||!annS.graph) return; annS._cursorT=t; bpgChart(
 async function bpSaveTrack(){
   if(!annS||annS.readOnly) return;
   if(!annS.track||annS.track.length<2){ bpHint('Track the bar first.', true); return; }
-  if(annS.metrics){ annS.metrics._load=(annS._load!=null?annS._load:null); annS.metrics.facing=annS.facing||'left'; }   // remember load + forward-direction so the athlete sees the same
+  if(annS.metrics){ annS.metrics._load=(annS._load!=null?annS._load:null); annS.metrics.facing=annS.facing||'left'; annS.metrics.win=annS.win||null; }   // remember load + forward-direction + trim so the athlete sees the same
   const payload={ points:annS.track, fps:annS.fps, scale_m_per_px:annS.scale||null, metrics:annS.metrics||{} };
   try{ localStorage.setItem('vtrk:'+annS.path, JSON.stringify(payload)); }catch(e){}
   if(!VTRACKS_READY){ bpHint('Saved locally (run migration 30 for cloud).'); return; }
@@ -2007,6 +2041,8 @@ async function bpLoadTrack(path){
     annS.track=payload.points; annS.trackId=id||null; annS.scale=payload.scale_m_per_px||null; annS.metrics=payload.metrics||null;
     if(annS.metrics&&annS.metrics._load!=null) annS._load=annS.metrics._load;   // load the coach used for force/power
     if(annS.metrics&&annS.metrics.facing) annS.facing=annS.metrics.facing;
+    if(annS.metrics&&annS.metrics.win) annS.win=annS.metrics.win;   // coach's trim window
+    vstTrimUI();
     if(payload.fps){ annS.fps=payload.fps; const f=document.getElementById('vstFps'); if(f) f.value=payload.fps; }
     if(annS._bakedReview){ annS.showTrace=false; const sh=document.getElementById('bpShow'); if(sh) sh.checked=false; }  // trace is already baked into the review video
     bpRender(); bpSteps(); vstRedraw();
