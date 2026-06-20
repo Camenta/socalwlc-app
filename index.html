@@ -124,6 +124,7 @@
   .vst-body{flex:1;display:flex;gap:14px;min-height:0}
   .vst-stage{flex:1.2 1 0;display:flex;flex-direction:column;min-width:0;min-height:0}
   .vst-canvaswrap{position:relative;flex:1;display:flex;align-items:center;justify-content:center;background:#000;border:1px solid var(--line);border-radius:10px;overflow:hidden;min-height:0}
+  .vst-zoom{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;transform-origin:center center}
   .vst-canvaswrap video{max-width:100%;max-height:100%;display:block;background:#000}
   .vst-canvaswrap canvas{position:absolute;cursor:crosshair;touch-action:none}
   .vst-side{width:260px;flex:none;display:flex;flex-direction:column;gap:10px;overflow-y:auto}
@@ -157,6 +158,8 @@
   .vst-textin{position:absolute;z-index:5;background:#0c1116;border:1px solid var(--accent);color:var(--text);border-radius:6px;padding:3px 6px;font-size:14px;min-width:90px}
   .vst-msg{font-size:12px;color:var(--accent2)}
   .vst-trimlbl{font-size:12px;color:var(--accent);font-variant-numeric:tabular-nums;font-weight:600}
+  .vst-size{font-size:13px;color:var(--muted);display:inline-flex;align-items:center;gap:5px}
+  .vst-size input{width:78px;vertical-align:middle}
   .bpg{flex:1 1 0;min-width:320px;align-self:stretch;display:flex;flex-direction:column;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-height:0}
   .bpg-heads{display:flex;justify-content:space-between;align-items:center;gap:8px}
   .bpg-head{display:flex;align-items:center;gap:6px}
@@ -1470,8 +1473,10 @@ async function openAnnStudio(path, meta){
     <div class="vst-body">
       <div class="vst-stage">
         <div class="vst-canvaswrap" id="vstWrap">
-          <video id="vstVid" src="${data.signedUrl}" crossorigin="anonymous" playsinline></video>
-          <canvas id="vstCanvas"${ro?' style="pointer-events:none"':''}></canvas>
+          <div class="vst-zoom" id="vstZoomWrap">
+            <video id="vstVid" src="${data.signedUrl}" crossorigin="anonymous" playsinline></video>
+            <canvas id="vstCanvas"${ro?' style="pointer-events:none"':''}></canvas>
+          </div>
         </div>
         <div class="vst-transport">
           <span class="vst-btn" id="vstPlay">▶</span>
@@ -1487,6 +1492,7 @@ async function openAnnStudio(path, meta){
           <span class="vst-btn" id="vstTrimOut" title="Trim END at the playhead">out ⟧</span>
           <span class="vst-trimlbl" id="vstTrimLbl"></span>
           <span class="vst-btn" id="vstTrimClr" title="Clear trim" style="display:none">✕</span>
+          <label class="vst-size" title="Zoom into the video — drag the video to pan when zoomed">🔍 <input type="range" id="vstZoom" min="100" max="300" value="100"></label>
         </div>
       </div>
       <div class="bpg" id="bpGraph" style="display:none">
@@ -1513,7 +1519,7 @@ async function openAnnStudio(path, meta){
   annS={ path, meta, readOnly:ro, shapes:[], tool:'select', color:VST_COLORS[0], fps:30, draft:null, ang:null, noteId:null, athleteId:meta.athleteId||null,
     exercise:meta.exercise||null, trackMode:null, calib:null, seed:null, seedT:null, track:null, metrics:null, scale:null, trackId:null, showTrace:true,
     facing:'left', pinPeakT:null, pinCatchT:null,
-    gA:{metric:'velocity',axis:'v'}, gB:{metric:'displacement',axis:'h'}, graph:null, _load:(meta.load!=null?meta.load:null), _cursorT:0, win:null, _looping:false,
+    gA:{metric:'velocity',axis:'v'}, gB:{metric:'displacement',axis:'h'}, graph:null, _load:(meta.load!=null?meta.load:null), _cursorT:0, win:null, _looping:false, _zoom:1, _panx:0, _pany:0,
     voiceBlob:null, voiceUrl:null, voicePath:null, reviewBlob:null, reviewUrl:null, reviewPath:null };
   wireAnnStudio();
   await loadAnnNotes(path);
@@ -1538,7 +1544,21 @@ function vstFit(){
   annS._cw=w; annS._ch=h;
   vstRedraw();
   if(annS.graph) bpgChart();
+  vstApplyZoom();
 }
+// magnify into the video (1×–3×) + drag-to-pan; transforms the wrapper that holds BOTH the video and the drawing canvas so they stay aligned
+function vstApplyZoom(){
+  const zw=document.getElementById('vstZoomWrap'), c=document.getElementById('vstCanvas'); if(!zw||!annS) return;
+  const z=annS._zoom||1, mx=(z-1)*(annS._cw||0)/2, my=(z-1)*(annS._ch||0)/2;
+  annS._panx=Math.max(-mx,Math.min(mx,annS._panx||0)); annS._pany=Math.max(-my,Math.min(my,annS._pany||0));
+  zw.style.transform='translate('+annS._panx+'px,'+annS._pany+'px) scale('+z+')';
+  if(c) c.style.cursor=z>1?'grab':'crosshair';
+  if(c&&annS.readOnly) c.style.pointerEvents=(z>1)?'auto':'none';   // athletes can pan when zoomed, otherwise the canvas stays click-through
+}
+// the active playable range — the trim window if set (the lift is effectively cut to it); a baked review plays its own full timeline
+function vstRange(){ const v=document.getElementById('vstVid'); const w=(annS&&!annS._bakedReview)?annS.win:null; return w?[w.a,w.b]:[0,(v&&v.duration)||0]; }
+function vstSyncScrub(){ const v=document.getElementById('vstVid'), scrub=document.getElementById('vstScrub'), time=document.getElementById('vstTime'); if(!v||!scrub) return;
+  const r=vstRange(), span=(r[1]-r[0])||1; scrub.value=Math.round((v.currentTime-r[0])/span*1000); if(time) time.textContent=vstFmt(Math.max(0,v.currentTime-r[0]))+' / '+vstFmt(span); }
 function vstPt(e){ const c=document.getElementById('vstCanvas'); const r=c.getBoundingClientRect(); return { x:Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)), y:Math.max(0,Math.min(1,(e.clientY-r.top)/r.height)) }; }
 function vstRedraw(){
   const c=document.getElementById('vstCanvas'); if(!c||!annS||!annS._cw) return;
@@ -1657,7 +1677,7 @@ function vstDelReview(){ if(!annS) return; vstRecCleanup(); annS.reviewBlob=null
 function wireAnnStudio(){
   const v=document.getElementById('vstVid'), c=document.getElementById('vstCanvas');
   const play=document.getElementById('vstPlay'), scrub=document.getElementById('vstScrub'), time=document.getElementById('vstTime');
-  v.addEventListener('loadedmetadata', vstFit);
+  v.addEventListener('loadedmetadata', ()=>{ vstFit(); const r=vstRange(); if(annS&&annS.win&&!annS._bakedReview&&v.currentTime<r[0]) v.currentTime=r[0]; vstSyncScrub(); });
   if(v.videoWidth) vstFit();
   if(annS._ro) annS._ro.disconnect();
   annS._ro=new ResizeObserver(vstFit); annS._ro.observe(document.getElementById('vstWrap'));
@@ -1670,19 +1690,25 @@ function wireAnnStudio(){
     const w=(annS._bakedReview?null:annS.win);   // baked review plays on its own timeline, not the lift's
     if(annS._looping){ const end=w?w.b:(v.duration||0), start=w?w.a:0; if(end&&v.currentTime>=end-0.03){ v.currentTime=start; if(v.paused) v.play(); } }
     else if(w&&!v.paused&&v.currentTime>=w.b-0.01){ v.pause(); v.currentTime=w.b; }   // trim: stop the video at the out-point
-    if(v.duration){ scrub.value=Math.round(v.currentTime/v.duration*1000); time.textContent=vstFmt(v.currentTime)+' / '+vstFmt(v.duration); }
+    if(v.duration) vstSyncScrub();
     if(annS.track&&annS.showTrace) vstRedraw(); if(annS.graph&&!annS._bakedReview) bpgCursor(v.currentTime); });
-  scrub.oninput=()=>{ if(v.duration){ v.currentTime=scrub.value/1000*v.duration; } };
+  scrub.oninput=()=>{ const r=vstRange(); v.currentTime=r[0]+scrub.value/1000*((r[1]-r[0])||0); };
   document.getElementById('vstRate').onchange=e=>{ v.playbackRate=parseFloat(e.target.value); };
   const loopBtn=document.getElementById('vstLoop'); if(loopBtn) loopBtn.onclick=()=>{ annS._looping=!annS._looping; loopBtn.classList.toggle('pri',annS._looping); if(annS._looping){ const w=annS.win; if(w&&(v.currentTime<w.a||v.currentTime>=w.b)) v.currentTime=w.a; if(v.paused) v.play(); } };
   // trim / in-out points — isolate the working part of the lift (and re-zero displacement to the in-point)
   const tIn=document.getElementById('vstTrimIn'), tOut=document.getElementById('vstTrimOut'), tClr=document.getElementById('vstTrimClr');
   if(tIn) tIn.onclick=()=>vstSetTrim('a',v.currentTime);
   if(tOut) tOut.onclick=()=>vstSetTrim('b',v.currentTime);
-  if(tClr) tClr.onclick=()=>{ annS.win=null; vstTrimUI(); bpComputeMetrics(); bpRender(); vstRedraw(); };
+  if(tClr) tClr.onclick=()=>{ annS.win=null; vstTrimUI(); bpComputeMetrics(); bpRender(); vstRedraw(); vstSyncScrub(); };
   vstTrimUI();
   bpgWireBrush();
-  const step=d=>{ v.pause(); const dt=1/(annS.fps||30); v.currentTime=Math.max(0,Math.min(v.duration||0, v.currentTime+d*dt)); };
+  // zoom into the video + drag-to-pan
+  const zoomEl=document.getElementById('vstZoom'); if(zoomEl) zoomEl.oninput=e=>{ annS._zoom=parseInt(e.target.value,10)/100; if(annS._zoom<=1){ annS._panx=0; annS._pany=0; } vstApplyZoom(); };
+  c.addEventListener('pointerdown',e=>{ if((annS._zoom||1)>1 && !annS.trackMode && (annS.readOnly||annS.tool==='select')){ annS._pan={x:e.clientX,y:e.clientY,ox:annS._panx,oy:annS._pany}; try{c.setPointerCapture(e.pointerId);}catch(_){} c.style.cursor='grabbing'; } });
+  c.addEventListener('pointermove',e=>{ if(annS._pan){ annS._panx=annS._pan.ox+(e.clientX-annS._pan.x); annS._pany=annS._pan.oy+(e.clientY-annS._pan.y); vstApplyZoom(); } });
+  const endPan=()=>{ if(annS&&annS._pan){ annS._pan=null; if(c) c.style.cursor=((annS._zoom||1)>1?'grab':'crosshair'); } };
+  c.addEventListener('pointerup',endPan); c.addEventListener('pointercancel',endPan);
+  const step=d=>{ v.pause(); const dt=1/(annS.fps||30); const r=vstRange(); v.currentTime=Math.max(r[0],Math.min(r[1], v.currentTime+d*dt)); vstSyncScrub(); };
   document.getElementById('vstBack').onclick=()=>step(-1); document.getElementById('vstFwd').onclick=()=>step(1);
   const fpsEl=document.getElementById('vstFps'); if(fpsEl) fpsEl.oninput=e=>{ annS.fps=Math.max(1,parseInt(e.target.value,10)||30); };
   const showEl=document.getElementById('bpShow'); if(showEl) showEl.onchange=e=>{ annS.showTrace=e.target.checked; vstRedraw(); };
@@ -1861,7 +1887,8 @@ function vstSetTrim(which,tt){ if(!annS) return; const v=document.getElementById
   let w=annS.win?{a:annS.win.a,b:annS.win.b}:{a:0,b:dur}; w[which]=tt;
   if(w.b-w.a<0.1){ if(which==='a') w.b=Math.min(dur,w.a+0.1); else w.a=Math.max(0,w.b-0.1); }
   annS.win=w; vstTrimUI(); bpComputeMetrics(); bpRender(); vstRedraw();
-  if(v&&annS._looping&&(v.currentTime<w.a||v.currentTime>=w.b)) v.currentTime=w.a; }
+  if(v) v.currentTime=Math.max(w.a,Math.min(w.b,v.currentTime));   // clamp the playhead into the trimmed clip
+  vstSyncScrub(); }
 function vstTrimUI(){ const lbl=document.getElementById('vstTrimLbl'), clr=document.getElementById('vstTrimClr'); const w=annS&&annS.win;
   if(lbl) lbl.textContent=w?('trim '+w.a.toFixed(2)+'–'+w.b.toFixed(2)+'s'):'';
   if(clr) clr.style.display=w?'inline-block':'none'; }
@@ -2007,7 +2034,7 @@ function bpgChart(){
 }
 function bpgWireBrush(){ const cv=document.getElementById('bpgCanvas'); if(!cv) return; let down=null;
   const xToT=x=>{ const g=annS._gx; if(!g) return null; return g.t0+Math.max(0,Math.min(1,(x-g.mL)/g.pw))*(g.t1-g.t0); };
-  const recompute=()=>{ vstTrimUI(); bpComputeMetrics(); bpRender(); vstRedraw(); };
+  const recompute=()=>{ vstTrimUI(); bpComputeMetrics(); bpRender(); vstRedraw(); const v=document.getElementById('vstVid'); if(v&&annS.win) v.currentTime=Math.max(annS.win.a,Math.min(annS.win.b,v.currentTime)); vstSyncScrub(); };
   cv.onpointerdown=e=>{ if(!annS||!annS.graph) return; const r=cv.getBoundingClientRect(); down={x:e.clientX-r.left,moved:false}; try{ cv.setPointerCapture(e.pointerId); }catch(_){} };
   cv.onpointermove=e=>{ if(!down) return; const r=cv.getBoundingClientRect(); const x=e.clientX-r.left; if(Math.abs(x-down.x)>4){ down.moved=true; annS._brush=[down.x,x]; bpgChart(); } };
   cv.onpointerup=e=>{ if(!down) return; const r=cv.getBoundingClientRect(); const x=e.clientX-r.left;
@@ -2062,7 +2089,7 @@ async function bpLoadTrack(path){
     vstTrimUI();
     if(payload.fps){ annS.fps=payload.fps; const f=document.getElementById('vstFps'); if(f) f.value=payload.fps; }
     if(annS._bakedReview){ annS.showTrace=false; const sh=document.getElementById('bpShow'); if(sh) sh.checked=false; }  // trace is already baked into the review video
-    bpRender(); bpSteps(); vstRedraw();
+    bpRender(); bpSteps(); vstRedraw(); vstSyncScrub();
   } else { bpRender(); }
 }
 async function loadAnnNotes(path){
