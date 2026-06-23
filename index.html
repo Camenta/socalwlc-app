@@ -313,6 +313,36 @@
   .cwd-add:hover{border-color:var(--accent2)}
   .pv-legend{display:flex;gap:14px;font-size:11px;color:var(--muted);flex-wrap:wrap;align-items:center}
   .pv-legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle}
+  /* TrainHeroic-style scrolling/month calendar (coach view) */
+  .cw-calhd{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .cw-caltog{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  .cw-caltog button{background:#0e151c;border:none;color:var(--muted);font-weight:800;font-size:12px;padding:7px 14px;cursor:pointer}
+  .cw-caltog button.on{background:var(--accent);color:#08121d}
+  .cw-calnav{display:inline-flex;align-items:center;gap:6px}
+  .cw-calnav button{background:#0e151c;border:1px solid var(--line);border-radius:8px;color:var(--text);font-weight:800;font-size:13px;padding:6px 11px;cursor:pointer}
+  .cw-calnav button:hover{border-color:var(--accent2)}
+  .cw-callbl{font-weight:800;font-size:14px;color:var(--text);min-width:120px;text-align:center}
+  .cw-wkrow{border:1px solid var(--line);border-radius:12px;padding:11px;margin-bottom:12px;background:rgba(255,255,255,.012)}
+  .cw-wkrow.has-today{border-color:rgba(245,158,60,.5);box-shadow:0 0 0 1px rgba(245,158,60,.12)}
+  .cw-wkhd{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:9px}
+  .cw-wktitle{font-weight:800;font-size:13px;color:var(--text)}
+  .cw-wkphase{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--accent2);background:rgba(56,160,255,.12);border-radius:6px;padding:2px 8px}
+  .cw-wkstats{display:inline-flex;gap:10px;margin-left:auto;align-items:center;flex-wrap:wrap}
+  .cw-wkstat{font-size:10.5px;color:var(--muted)} .cw-wkstat b{color:var(--text);font-weight:800}
+  .cwd-badges{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin-top:6px}
+  .cwd-badge{text-align:center;background:#0b1219;border:1px solid var(--line);border-radius:6px;padding:3px 0}
+  .cwd-badge b{display:block;font-size:11px;font-weight:800;color:var(--text);line-height:1.1}
+  .cwd-badge span{display:block;font-size:7.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--muted);margin-top:1px}
+  .cwd-exlist{margin-top:7px;display:flex;flex-direction:column;gap:5px}
+  .cwd-ex{display:flex;gap:6px}
+  .cwd-exl{flex:none;width:15px;height:15px;border-radius:50%;border:1px solid var(--line);font-size:8px;font-weight:800;color:var(--muted);display:flex;align-items:center;justify-content:center;margin-top:1px}
+  .cwd-exb{min-width:0;flex:1}
+  .cwd-exn{font-size:10.5px;font-weight:700;color:var(--text);line-height:1.25}
+  .cwd-exs{font-size:9.5px;color:var(--muted);line-height:1.3;margin-top:1px}
+  .cw-loadmore{text-align:center;padding:9px;border:1px dashed var(--line);border-radius:9px;color:var(--accent2);font-weight:800;font-size:12px;cursor:pointer;margin:2px 0 12px}
+  .cw-loadmore:hover{border-color:var(--accent2)}
+  .vid-box.cw-daymodal{max-width:1100px;width:96vw;max-height:92vh;overflow-y:auto}
+  .te-banner{background:rgba(56,160,255,.1);border:1px solid rgba(56,160,255,.4);border-radius:9px;padding:9px 12px;margin-bottom:10px;font-size:12.5px;color:var(--text);line-height:1.4}
   /* scheme library picker */
   .vid-box.sch-wide{max-width:1560px;width:97vw}
   .sl-scope{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);font-weight:700}
@@ -1126,6 +1156,12 @@
   .ss-ex td:first-child{font-weight:700}
   .ss-ex td:not(:first-child){color:var(--muted);text-align:right}
   @media(max-width:760px){.ss-tiles{grid-template-columns:repeat(3,1fr)}}
+  .ss-rpe{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:4px 0 2px;padding:11px 13px;background:var(--panel2);border:1px solid var(--line);border-radius:10px}
+  .ss-rpe-q{font-weight:800;font-size:13px;color:var(--text)}
+  .ss-rpe label{font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:6px}
+  .ss-rpe input{width:66px;background:#0b1219;border:1px solid var(--line);border-radius:7px;color:var(--text);padding:6px 8px;font-weight:700;text-align:center}
+  .ss-rpe-load{font-size:12px;color:var(--muted);margin-left:auto;display:inline-flex;align-items:baseline;gap:6px}
+  .ss-rpe-load b{color:var(--accent);font-size:17px;font-weight:800}
   .tgt{color:var(--muted)}
   .efftag{font-size:10px;font-weight:800;color:var(--accent2);text-transform:uppercase;letter-spacing:.5px;padding:3px 9px;border-radius:7px;background:rgba(60,158,232,.14)}
   .eff-easy{color:var(--good);background:rgba(62,201,122,.16)}
@@ -1195,6 +1231,7 @@ async function boot(){
   await probeLoadTypes();
   await probeProgramId();
   await probeVideoNotes();
+  await probeSrpe();
   if(profile.role === 'coach') renderCoach(); else athGo(athState.screen||'athlete');
 }
 async function renderJoin(token){
@@ -2239,6 +2276,20 @@ function recompute(){
   const lines=`<table class="ss-ex"><tbody>${per.map(e=>`<tr><td>${esc(e.name)}</td><td>${e.done}/${e.sets} sets</td><td><b style="color:var(--text)">${e.aNL}</b> NL / ${e.pNL}</td><td>${(e.aTon/1000).toFixed(1)}t</td><td>${e.miss?`<span style="color:var(--bad)">${e.miss} miss</span>`:'<span style="color:var(--good)">clean</span>'}</td></tr>`).join('')}</tbody></table>`;
   const box=document.getElementById('ssBody'); if(box) box.innerHTML=tiles+lines;
 }
+// session-RPE load = duration (min) × session effort (1–10), e.g. 120 × 7 = 840
+function athSrpeLoad(s){ const m=parseFloat(s&&s.session_minutes), r=parseFloat(s&&s.session_rpe); return (m>0&&r>0)?Math.round(m*r):'—'; }
+window.athSrpeInput=()=>{ const m=parseFloat((document.getElementById('ssMin')||{}).value), r=parseFloat((document.getElementById('ssRpe')||{}).value); const el=document.getElementById('ssLoad'); if(el) el.textContent=(m>0&&r>0)?Math.round(m*r):'—'; };
+window.athSrpeSave=async()=>{
+  if(!curSession) return;
+  const mEl=document.getElementById('ssMin'), rEl=document.getElementById('ssRpe');
+  const m=(mEl&&mEl.value!=='')?parseInt(mEl.value):null;
+  let r=(rEl&&rEl.value!=='')?parseFloat(rEl.value):null; if(r!=null) r=Math.max(1,Math.min(10,r));
+  const msg=document.getElementById('ssRpeMsg'); if(msg){ msg.style.color=''; msg.textContent='saving…'; }
+  const res=await sb.from('sessions').update({ session_minutes:m, session_rpe:r }).eq('id',curSession.id);
+  if(res.error){ if(msg){ msg.style.color='var(--bad)'; msg.textContent='save failed — '+res.error.message; } return; }
+  curSession.session_minutes=m; curSession.session_rpe=r;
+  if(msg){ msg.style.color='var(--good)'; msg.textContent='✓ saved'; setTimeout(()=>{ if(msg.isConnected && msg.textContent==='✓ saved') msg.textContent=''; },2500); }
+};
 function wireLogging(){
   const root=document.getElementById('logRoot'); if(!root) return;
   root.addEventListener('input', e=>{ const inp=e.target.closest('.cell'); if(!inp) return; logState[inp.closest('tr').dataset.set][inp.dataset.f]=inp.value; recompute(); });
@@ -2278,6 +2329,9 @@ async function probeVideoNotes(){
   const { error } = await sb.from('video_notes').select('id').limit(1); VNOTES_READY = !error;
   const t = await sb.from('video_tracks').select('id').limit(1); VTRACKS_READY = !t.error;
 }
+let SRPE_READY=false;   // sessions.session_minutes + session_rpe (migration 33) → session-RPE load
+async function probeSrpe(){ const { error } = await sb.from('sessions').select('session_rpe').limit(1); SRPE_READY = !error;
+  if(SRPE_READY && SESSION_SELECT.indexOf('session_rpe')<0) SESSION_SELECT += ',session_minutes,session_rpe'; }
 const DOW=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], MONS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function iso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function weekDates(offset){ // Mon..Sun of the current week, shifted by `offset` weeks
@@ -3563,6 +3617,13 @@ async function renderAthlete(selDate){
     <div class="card">
       <div class="ss-head">✓ This is exactly what your coach sees — live, no copy-paste</div>
       <div id="ssBody"></div>
+      ${SRPE_READY?`<div class="ss-rpe">
+        <span class="ss-rpe-q">How was it?</span>
+        <label>Time <input id="ssMin" type="number" min="0" max="600" inputmode="numeric" placeholder="min" value="${curSession.session_minutes!=null?curSession.session_minutes:''}" oninput="athSrpeInput()" onchange="athSrpeSave()"> min</label>
+        <label>Effort <input id="ssRpe" type="number" min="1" max="10" step="0.5" inputmode="decimal" placeholder="1–10" value="${curSession.session_rpe!=null?curSession.session_rpe:''}" oninput="athSrpeInput()" onchange="athSrpeSave()"> / 10</label>
+        <span class="ss-rpe-load">Session load <b id="ssLoad">${athSrpeLoad(curSession)}</b></span>
+        <span class="saved" id="ssRpeMsg"></span>
+      </div>`:''}
       <div class="savebar"><button class="btn" id="save" onclick="saveSession()">Submit session</button><span class="saved" id="savedmsg"></span></div>
     </div>`;
   wireLogging();
@@ -3644,26 +3705,38 @@ function coachNav(active){
 }
 window.coachGo=(s)=>{ coachState.screen=s; ed=null; if(s==='coach') paintCoach(); else if(s==='plan') renderPlan(); else if(s==='dash') renderCoachAthDash(); else if(s==='uploads') renderCoachUploads(); else renderConsole(); };
 
-function paintCoach(){
+async function paintCoach(){
   coachState.screen='coach';
-  const list = coachState.athletes.map(a=>`
-    <div class="athrow ${a.id===coachState.selected?'on':''}" onclick="selectAthlete('${a.id}')">
+  const subj = coachState.subject||'athlete';
+  // teams may not be loaded yet if the coach jumped straight here
+  if(conState._teams==null){ const { data } = await sb.from('teams').select('*').order('name'); conState._teams = data||[]; }
+  const teams = conState._teams||[];
+  const athList = coachState.athletes.map(a=>`
+    <div class="athrow ${a.id===coachState.selected&&subj==='athlete'?'on':''}" onclick="selectAthlete('${a.id}')">
       <span class="av">${esc(initials(a.full_name))}</span>
       <div><b>${esc(a.full_name)}</b></div>
     </div>`).join('') || `<div class="empty">No athletes yet.</div>`;
+  const teamList = teams.map(t=>{ const n=(coachState.athletes||[]).filter(a=>a.team_id===t.id).length;
+    return `<div class="athrow ${t.id===coachState.teamId&&subj==='team'?'on':''}" onclick="selectTeam('${t.id}')">
+      <span class="av" style="background:${t.color||'var(--accent2)'}">${esc(initials(t.name))}</span>
+      <div><b>${esc(t.name)}</b> <span style="color:var(--muted);font-weight:600">· ${n} athlete${n===1?'':'s'}</span></div>
+    </div>`; }).join('') || `<div class="empty">No teams yet — create one in the Console → Teams tab.</div>`;
+  const toggle = `<span class="cw-caltog"><button class="${subj==='athlete'?'on':''}" onclick="coachSetSubject('athlete')">Athletes</button><button class="${subj==='team'?'on':''}" onclick="coachSetSubject('team')">Teams</button></span>`;
   app.innerHTML = topbar('Coach') + coachNav('coach') + `
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
-        <h2 style="margin:0">Your athletes</h2>
-        <div style="display:flex;align-items:center;gap:12px"><span class="live"><i></i>LIVE</span></div>
+        <h2 style="margin:0">Your ${subj==='team'?'teams':'athletes'}</h2>
+        <div style="display:flex;align-items:center;gap:12px">${toggle}<span class="live"><i></i>LIVE</span></div>
       </div>
-      <div class="sub" style="margin-bottom:10px">Pick an athlete · click a day in their week to program it · watch actuals land live.</div>
-      ${list}
+      <div class="sub" style="margin-bottom:10px">${subj==='team'?'Pick a team · see the whole group’s training week · click a day to open it for an athlete.':'Pick an athlete · click a day in their week to program it · watch actuals land live.'}</div>
+      ${subj==='team'?teamList:athList}
     </div>
     <div id="coachPanel"></div>`;
   renderCoachPanel();
 }
-window.selectAthlete = (id)=>{ ed=null; cw=null; coachState.selected=id; paintCoach(); };
+window.coachSetSubject = (s)=>{ coachState.subject=s; ed=null; cw=null; paintCoach(); };
+window.selectAthlete = (id)=>{ ed=null; cw=null; coachState.subject='athlete'; coachState.selected=id; paintCoach(); };
+window.selectTeam = (id)=>{ ed=null; cw=null; coachState.subject='team'; coachState.teamId=id; paintCoach(); };
 /* ============ COACHING CONSOLE ============ */
 let conState={tab:'athletes', libTab:'programs', rosterQ:'', exQ:'', exGroup:'All', exForm:false, schemeMgrQ:'', progView:'grid', progFilter:'all', progQ:'', rosterProg:null, rosterSort:{col:'name',dir:1}, teamView:'grid'};
 async function renderConsole(){
@@ -4955,8 +5028,8 @@ async function renderPlanCal(){
     ${calLegend()}
   </div>`;
 }
-window.planOpenInCoach=(athId,dStr)=>{ if(!athId) return; coachState.selected=athId; cw=null; ed=null; coachState.screen='coach'; paintCoach();
-  setTimeout(()=>{ if(window.cw){ cw.selDate=dStr; renderCoachDay&&renderCoachDay(); } },400); };
+window.planOpenInCoach=(athId,dStr)=>{ if(!athId) return; coachState.subject='athlete'; coachState.selected=athId; cw=null; ed=null; coachState.screen='coach'; paintCoach();
+  setTimeout(()=>{ if(window.cw){ cw.selDate=dStr; cw.selSess=null; cw.modalOpen=true; cwOpenDayModal(); } },450); };
 window.planAddEvent=(presetDate)=>{
   const ath=planIsAth();
   const teams=conState._teams||[], c=planState.cur;
@@ -5429,6 +5502,7 @@ async function loadCoachVbt(athId){
 }
 async function renderCoachPanel(){
   const panel = document.getElementById('coachPanel'); if(!panel) return;
+  if((coachState.subject||'athlete')==='team'){ return renderCoachTeamPanel(panel); }
   const athId = coachState.selected; if(!athId){ panel.innerHTML=''; return; }
   const ath = coachState.athletes.find(a=>a.id===athId);
   // readiness (graceful if table missing)
@@ -5436,132 +5510,321 @@ async function renderCoachPanel(){
   const { data: rkRows, error: rkE } = await sb.from('readiness').select('*')
     .eq('athlete_id', athId).order('check_date',{ascending:false}).limit(1);
   if(!rkE) rkCardHtml = coachReadinessCard(rkRows && rkRows[0]);
-  // the week in view — ALL sessions per day (AM/PM), nested sets for stats
-  const off = (cw && cw.athId===athId) ? (cw.weekOffset||0) : 0;
-  const wk=weekDates(off), wkIso=wk.map(iso), todayStr=iso(new Date());
-  const { data: weekSess } = await sb.from('sessions')
-    .select('id,title,session_date,status,created_at,prescribed_exercises(name,position,prescribed_sets(target_reps,target_pct))')
-    .eq('athlete_id', athId).gte('session_date', wkIso[0]).lte('session_date', wkIso[6])
+  // ---- TrainHeroic-style scrolling/month calendar (multi-week) ----
+  const cal = (cw && cw.athId===athId && cw.cal) ? cw.cal
+    : { mode:'scroll', density:'detailed', loOff:-2, hiOff:5, monthY:new Date().getFullYear(), monthM:new Date().getMonth(), _scrollTo:true };
+  const rng = cwRange(cal);
+  const todayStr=iso(new Date());
+  const fromIso=iso(weekDates(rng.loOff)[0]), toIso=iso(weekDates(rng.hiOff)[6]);
+  const sessSel='id,title,session_date,status,created_at'+(SRPE_READY?',session_minutes,session_rpe':'')+',prescribed_exercises(name,position,category,load_type,prescribed_sets(target_reps,target_pct,target_kg,target_vel,target_eff,target_text,position))';
+  const { data: rangeSess } = await sb.from('sessions')
+    .select(sessSel)
+    .eq('athlete_id', athId).gte('session_date', fromIso).lte('session_date', toIso)
     .order('session_date',{ascending:true}).order('created_at',{ascending:true});
-  const sessByDate={}; (weekSess||[]).forEach(s=>{ (sessByDate[s.session_date]=sessByDate[s.session_date]||[]).push(s); });
-  const allWeek = weekSess||[];
-  const draftCount = allWeek.filter(s=>s.status==='draft').length;
-  // logged misses + done across the week
-  const ids=allWeek.map(s=>s.id);
-  let weekLogs=[];
-  if(ids.length){
-    const { data: wlogs } = await sb.from('logged_sets').select('miss,done,session_id,prescribed_set_id').in('session_id', ids);
-    weekLogs = wlogs||[];
-  }
-  const wStats = statsFor(allWeek, weekLogs);
-  // maxes (gated) + current block (gated)
+  const sessByDate={}; (rangeSess||[]).forEach(s=>{ (sessByDate[s.session_date]=sessByDate[s.session_date]||[]).push(s); });
+  // athlete morning-readiness score (avg of check-in metrics, 0–5) keyed by date, for the visible range
+  const rdyByDate={};
+  const { data: rdyRows } = await sb.from('readiness').select('*').eq('athlete_id', athId).gte('check_date', fromIso).lte('check_date', toIso);
+  (rdyRows||[]).forEach(r=>{ const vs=RK_METRICS.map(m=>r[m[0]]).filter(v=>v!=null); if(vs.length) rdyByDate[r.check_date]=vs.reduce((a,b)=>a+b,0)/vs.length; });
+  const allSess = rangeSess||[];
+  const ids=allSess.map(s=>s.id);
+  let allLogs=[];
+  if(ids.length){ const { data: lg } = await sb.from('logged_sets').select('miss,done,session_id,prescribed_set_id').in('session_id', ids); allLogs=lg||[]; }
+  const logsBySess={}; allLogs.forEach(l=>{ (logsBySess[l.session_id]=logsBySess[l.session_id]||[]).push(l); });
+  // maxes + this-week block + vbt (per athlete, loaded once)
   let maxes=null;
   const { data: mx, error: mxE } = await sb.from('maxes').select('lift,kg').eq('athlete_id', athId);
   if(!mxE && mx){ maxes={}; mx.forEach(m=>maxes[m.lift]=parseFloat(m.kg)); }
   let block=null;
+  const tWk=weekDates(0).map(iso);
   const { data: blks, error: bE } = await sb.from('blocks').select('*')
-    .lte('start_date', wkIso[6]).gte('end_date', wkIso[0]).order('start_date',{ascending:false}).limit(1);
+    .lte('start_date', tWk[6]).gte('end_date', tWk[0]).order('start_date',{ascending:false}).limit(1);
   if(!bE && blks && blks.length) block=blks[0];
-  const keepSel = (cw && cw.athId===athId && cw.selDate && sessByDate[cw.selDate]) ? cw.selDate : null;
-  const keepSess = (cw && cw.athId===athId) ? cw.selSess : null;
-  cw = { athId, ath, sessByDate, maxes, block, weekOffset: off, weekSessFull: allWeek, weekLogs,
-    selDate: keepSel || (sessByDate[todayStr]?todayStr:(Object.keys(sessByDate).sort()[0]||wkIso[0])),
-    selSess: keepSess };
+  const prev = (cw && cw.athId===athId) ? cw : {};
+  cw = { athId, ath, sessByDate, logsBySess, rdyByDate, maxes, block, cal,
+    selDate: prev.selDate || todayStr, selSess: prev.selSess || null, modalOpen: prev.modalOpen||false,
+    weekOffset:0, weekSessFull: allSess, weekLogs: allLogs };
   cw.vbt = await loadCoachVbt(athId);   // per-exercise velocity summaries from VBT uploads
-  const strip = wk.map((d,i)=>{
-    const dIso=wkIso[i], list=sessByDate[dIso]||[], isToday=dIso===todayStr;
-    const cards = list.map(s=>{
-      const draft=s.status==='draft';
-      const sel = cw.selDate===dIso && cw.selSess===s.id;
-      const st=statsFor([s], []);
-      const exNames=(s.prescribed_exercises||[]).slice().sort(sortByPos).map(e=>e.name).filter(Boolean);
-      const summary=exNames.slice(0,3).join(' · ')+(exNames.length>3?' …':'');
-      return `<div class="cwd-sess ${draft?'draft':'pub'}${sel?' on':''}" onclick="cwOpenSess('${dIso}','${s.id}')">
-        <div class="cwd-st">${esc(s.title||'Training')}${draft?'<span class="cwd-dchip">draft</span>':''}</div>
-        ${summary?`<div class="cwd-sx">${esc(summary)}</div>`:''}
-        ${st.vol?`<div class="cwd-sm">${st.vol} vol${st.ari?` · ${st.ari.toFixed(1)}%`:''}</div>`:''}
-      </div>`;
-    }).join('') || `<div class="cwd-rest">Rest day</div>`;
-    return `<div class="cwd-col${isToday?' today':''}">
-      <div class="cwd-hd"><span class="cwd-dow">${DOW[i]}</span><span class="cwd-dnum">${d.getDate()}</span></div>
-      ${cards}
-      <div class="cwd-add" onclick="cwAddSessOn('${dIso}')">＋ session</div>
-    </div>`;
-  }).join('');
-  const r0=wk[0], r6=wk[6];
-  const weekLabel = MONS[r0.getMonth()]+' '+r0.getDate()+' – '+(r6.getMonth()===r0.getMonth()?'':MONS[r6.getMonth()]+' ')+r6.getDate();
-  const offLabel = off===0?'this week':(off===1?'next week':(off===-1?'last week':(off>0?off+' wks ahead':(-off)+' wks back')));
-  // copy-week target options: next 4 Mondays after the viewed week
-  const copyOpts = [1,2,3,4].map(n=>{
-    const m=new Date(wk[0]); m.setDate(m.getDate()+7*n);
-    const e=new Date(m); e.setDate(m.getDate()+6);
-    return `<option value="${iso(m)}">wk of ${MONS[m.getMonth()]} ${m.getDate()} – ${MONS[e.getMonth()]} ${e.getDate()}</option>`;
-  }).join('');
+  // build the calendar (one row per week)
+  let rows='';
+  for(let off=rng.loOff; off<=rng.hiOff; off++) rows += cwWeekRowHtml(off, todayStr);
+  const earlier = `<div class="cw-loadmore" onclick="cwExtend(-1)">↑ Show earlier weeks</div>`;
+  const more = (cal.mode==='scroll') ? `<div class="cw-loadmore" onclick="cwExtend(1)">↓ Show more weeks</div>` : '';
   panel.innerHTML = rkCardHtml + `
     <div class="card av-weekcard">
-      <div class="av-weekhd">
-        <span class="cw-nav">
-          <button class="cw-arr" onclick="cwWeekNav(-1)" title="Previous week">‹</button>
-          <span class="av-weeklbl">${esc(ath.full_name.split(' ')[0])}'s week · <b>${weekLabel}</b> <span class="cw-off${off!==0?' away':''}" ${off!==0?'onclick="cwWeekNav(0)" title="Back to this week"':''}>${offLabel}</span></span>
-          <button class="cw-arr" onclick="cwWeekNav(1)" title="Next week">›</button>
-        </span>
-        <span style="display:inline-flex;align-items:center;gap:12px;margin-left:auto">
-          <span class="saved" id="cwPubMsg"></span>
-          <span class="pv-legend" style="margin:0"><span><i style="background:var(--warn)"></i>draft</span><span><i style="background:var(--accent2)"></i>published</span><span><i style="background:var(--accent)"></i>today</span></span>
-          ${draftCount>0
-            ? `<button class="btn blue" style="padding:8px 15px" onclick="cwPublishWeek()" title="Publish every draft this week at once">📤 Publish all (${draftCount})</button>`
-            : (ids.length?`<span class="pill st-pub">● all published</span>`:'')}
-        </span>
-      </div>
-      ${blockBannerHtml(block, wk)}
+      ${cwCalHeaderHtml(cal, ath)}
+      ${blockBannerHtml(block, weekDates(0))}
       <div id="blockForm" style="display:none"></div>
-      <div class="sub" style="margin:2px 0 8px;font-size:11px">Click a session to open it below · every session in the week is shown.</div>
-      <div class="cwd-grid">${strip}</div>
-      <div class="cw-stats">
-        <span class="cv-tile"><b>${wStats.vol||'—'}</b>volume (planned)</span>
-        <span class="cv-tile"><b>${ids.length}</b>sessions</span>
-        <span class="cv-tile"><b>${wStats.ari?wStats.ari.toFixed(1)+'%':'—'}</b>ARI</span>
-        <span class="cv-tile"><b>${wStats.miss}</b>misses (logged)</span>
-        <span style="margin-left:auto;display:inline-flex;align-items:center;gap:8px">
-          <span class="lg-add" id="cwCopyWeek" style="margin:0" onclick="cwToggleCopyWeek()">⧉ Copy week to…</span>
-          <span id="cwCopyUI" style="display:none">
-            <select id="cwCopyTarget" class="cw-sel">${copyOpts}</select>
-            <button class="btn ghost" style="padding:7px 12px" onclick="cvCopyWeek()">Copy ${ids.length} session${ids.length===1?'':'s'}</button>
-          </span>
-          <span class="saved" id="cwMsg"></span>
-        </span>
-      </div>
+      <div class="sub" style="margin:2px 0 10px;font-size:11px">Click any session to open it · scroll through weeks or switch to Month view.</div>
+      <div id="cwCalScroll">${cal.mode==='scroll'?earlier:''}${rows}${more}</div>
+    </div>`;
+  if(cw.modalOpen && cw.selDate) cwOpenDayModal();
+  if(cal._scrollTo){ cal._scrollTo=false; const el=panel.querySelector('.cw-wkrow.has-today'); if(el) el.scrollIntoView({block:'center',behavior:'auto'}); }
+  cwWireScroll();
+}
+/* ----- team/program calendar (same layout, scoped to a team) ----- */
+async function renderCoachTeamPanel(panel){
+  const teamId = coachState.teamId; if(!teamId){ panel.innerHTML='<div class="card"><div class="empty">Pick a team.</div></div>'; return; }
+  const team = teamById(teamId) || { name:'Team' };
+  const athletes = (coachState.athletes||[]).filter(a=>a.team_id===teamId);
+  const athIds = athletes.map(a=>a.id);
+  if(!athIds.length){ panel.innerHTML=`<div class="card"><div class="empty">No athletes on <b>${esc(team.name)}</b> yet. Add athletes to this team in the Console → Teams.</div></div>`; return; }
+  const cal = (cw && cw.teamMode && cw.teamId===teamId && cw.cal) ? cw.cal
+    : { mode:'scroll', density:'detailed', loOff:-2, hiOff:5, monthY:new Date().getFullYear(), monthM:new Date().getMonth(), _scrollTo:true };
+  const rng = cwRange(cal);
+  const todayStr=iso(new Date());
+  const fromIso=iso(weekDates(rng.loOff)[0]), toIso=iso(weekDates(rng.hiOff)[6]);
+  const sessSel='id,athlete_id,title,session_date,status,created_at'+(SRPE_READY?',session_minutes,session_rpe':'')+',prescribed_exercises(name,position,category,load_type,prescribed_sets(target_reps,target_pct,target_kg,target_vel,target_eff,target_text,position))';
+  const { data: rangeSess } = await sb.from('sessions').select(sessSel)
+    .in('athlete_id', athIds).gte('session_date', fromIso).lte('session_date', toIso)
+    .order('session_date',{ascending:true}).order('created_at',{ascending:true});
+  const all = rangeSess||[];
+  // team-average readiness per date
+  const rdyAgg={};
+  const { data: rdyRows } = await sb.from('readiness').select('*').in('athlete_id', athIds).gte('check_date', fromIso).lte('check_date', toIso);
+  (rdyRows||[]).forEach(r=>{ const vs=RK_METRICS.map(m=>r[m[0]]).filter(v=>v!=null); if(!vs.length) return; const sc=vs.reduce((a,b)=>a+b,0)/vs.length; (rdyAgg[r.check_date]=rdyAgg[r.check_date]||{s:0,n:0}); rdyAgg[r.check_date].s+=sc; rdyAgg[r.check_date].n++; });
+  const rdyByDate={}; Object.keys(rdyAgg).forEach(d=>{ rdyByDate[d]=rdyAgg[d].s/rdyAgg[d].n; });
+  // collapse: per date, group by title; representative carries team count + avg load + draft count
+  const sessByDate={};
+  const byDate={}; all.forEach(s=>{ (byDate[s.session_date]=byDate[s.session_date]||[]).push(s); });
+  Object.keys(byDate).forEach(d=>{
+    const groups={}; byDate[d].forEach(s=>{ const k=(s.title||'Training').toLowerCase(); (groups[k]=groups[k]||[]).push(s); });
+    sessByDate[d]=Object.values(groups).map(g=>{
+      const rep=Object.assign({}, g[0]);
+      rep._teamCount=new Set(g.map(x=>x.athlete_id)).size;
+      rep._teamDrafts=g.filter(x=>x.status==='draft').length && (g.every(x=>x.status==='draft')?rep._teamCount:0);
+      const loads=g.map(x=>(x.session_minutes>0&&x.session_rpe>0)?x.session_minutes*x.session_rpe:null).filter(v=>v!=null);
+      rep._teamSrpe = loads.length? Math.round(loads.reduce((a,b)=>a+b,0)/loads.length) : null;
+      return rep;
+    });
+  });
+  cw = { teamMode:true, teamId, team, athletes, athIds, ath:{full_name:team.name}, sessByDate, logsBySess:{}, rdyByDate, cal,
+         selDate:null, selSess:null, modalOpen:false, weekOffset:0, weekSessFull:all, weekLogs:[] };
+  let rows=''; for(let off=rng.loOff; off<=rng.hiOff; off++) rows += cwWeekRowHtml(off, todayStr);
+  const earlier=`<div class="cw-loadmore" onclick="cwExtend(-1)">↑ Show earlier weeks</div>`;
+  const more=(cal.mode==='scroll')?`<div class="cw-loadmore" onclick="cwExtend(1)">↓ Show more weeks</div>`:'';
+  panel.innerHTML = `<div class="card av-weekcard">
+    ${cwCalHeaderHtml(cal, { full_name: team.name+' · '+athIds.length+' athlete'+(athIds.length===1?'':'s') })}
+    <div class="sub" style="margin:2px 0 10px;font-size:11px">Team view · shared sessions collapse to one card (×N athletes) · readiness &amp; load are team averages · click a day to open it for an athlete.</div>
+    <div id="cwCalScroll">${cal.mode==='scroll'?earlier:''}${rows}${more}</div>
+  </div>`;
+  if(cal._scrollTo){ cal._scrollTo=false; const el=panel.querySelector('.cw-wkrow.has-today'); if(el) el.scrollIntoView({block:'center',behavior:'auto'}); }
+  cwWireScroll();
+}
+// team mode: click a day → open it as a BULK edit (saving applies to the whole team, unlogged only).
+// We open the representative athlete's real session in the editor, flagged so saveEditor propagates.
+let _teamEditReturn=null;   // teamId to restore when the team-edit modal closes
+window.cwTeamEdit=async(dIso, repId)=>{
+  if(!cw || !cw.teamMode) return;
+  const rep=(cw.sessByDate[dIso]||[]).find(s=>s.id===repId); if(!rep) return;
+  const ctx={ teamId:cw.teamId, teamName:cw.team.name, athIds:cw.athIds.slice(), repAthId:rep.athlete_id, repSessId:repId, date:dIso, title:rep.title||'Training', n:cw.athIds.length };
+  _teamEditReturn=cw.teamId;
+  coachState.subject='athlete'; coachState.selected=rep.athlete_id; cw=null; ed=null;
+  await paintCoach();
+  for(let i=0;i<40 && (!cw || cw.teamMode);i++){ await new Promise(r=>setTimeout(r,100)); }
+  if(cw && !cw.teamMode){ cw._teamEditCtx=ctx; cw.selDate=dIso; cw.selSess=repId; cw.modalOpen=true; cwOpenDayModal(); }
+};
+/* ----- calendar helpers ----- */
+function cwRange(cal){
+  if(cal.mode==='month'){
+    const ms=new Date(cal.monthY,cal.monthM,1), me=new Date(cal.monthY,cal.monthM+1,0);
+    return { loOff:offForDate(ms), hiOff:offForDate(me) };
+  }
+  return { loOff:cal.loOff, hiOff:cal.hiOff };
+}
+function offForDate(d){
+  const m=weekDates(0)[0]; const a=new Date(m.getFullYear(),m.getMonth(),m.getDate());
+  const t=(typeof d==='string')?new Date(d+'T00:00:00'):new Date(d);
+  const tm=new Date(t); tm.setDate(t.getDate()-((t.getDay()+6)%7));
+  const b=new Date(tm.getFullYear(),tm.getMonth(),tm.getDate());
+  return Math.round((b-a)/6048e5);
+}
+function cwCalHeaderHtml(cal, ath){
+  const name=esc(ath.full_name.split(' ')[0]);
+  const tog=`<span class="cw-caltog"><button class="${cal.mode==='scroll'?'on':''}" onclick="cwSetMode('scroll')">Scroll</button><button class="${cal.mode==='month'?'on':''}" onclick="cwSetMode('month')">Month</button></span>`;
+  const nav = cal.mode==='month'
+    ? `<span class="cw-calnav"><button onclick="cwMonthNav(-1)" title="Previous month">‹</button><span class="cw-callbl">${MONS[cal.monthM]} ${cal.monthY}</span><button onclick="cwMonthNav(1)" title="Next month">›</button><button onclick="cwToday()">Today</button></span>`
+    : `<span class="cw-calnav"><button onclick="cwToday()" title="Jump to this week">⌖ Today</button></span>`;
+  const dens=`<span class="cw-caltog" title="How much detail to show in each session"><button class="${cal.density!=='compact'?'on':''}" onclick="cwSetDensity('detailed')">Detailed</button><button class="${cal.density==='compact'?'on':''}" onclick="cwSetDensity('compact')">Compact</button></span>`;
+  return `<div class="cw-calhd"><span class="cw-wktitle" style="font-size:15px">${name}'s training</span>${tog}${nav}${dens}
+    <span class="pv-legend" style="margin-left:auto"><span><i style="background:var(--warn)"></i>draft</span><span><i style="background:var(--accent2)"></i>published</span><span><i style="background:var(--accent)"></i>today</span></span></div>`;
+}
+function cwBadge(v,lbl){ return `<div class="cwd-badge"><b>${v}</b><span>${lbl}</span></div>`; }
+// format an exercise's prescribed sets the TrainHeroic way: "4 × 3 @ 70, 70, 72.5, 72.5%" / "3 × 5" / "5, 3, 2 @ 8, 9, 9RPE"
+function cwNum(n){ const f=parseFloat(n); if(isNaN(f)) return ''; return String(Math.round(f*100)/100); }
+function cwLoadUnit(lt){ return lt==='rpe'?' RPE':lt==='rir'?' RIR':lt==='velocity'?' m/s':lt==='weight'?'kg':lt==='open'?'':'%'; }
+function cwSetIntensity(st, lt){
+  if(lt==='weight') return st.target_kg;
+  if(lt==='velocity') return st.target_vel;
+  if(lt==='rpe'||lt==='rir') return st.target_eff;
+  if(lt==='open') return null;
+  return st.target_pct;
+}
+function cwFmtScheme(ex){
+  const lt=ex.load_type||'percentage';
+  const sets=(ex.prescribed_sets||[]).slice().sort(sortByPos);
+  if(!sets.length) return '';
+  const reps=sets.map(s=>(s.target_reps==null||s.target_reps==='')?null:s.target_reps);
+  const haveReps=reps.some(r=>r!=null);
+  const intens=sets.map(s=>{ const v=cwSetIntensity(s,lt); return (v==null||v==='')?null:parseFloat(v); });
+  const haveInt=intens.some(v=>v!=null);
+  // reps part
+  let repPart;
+  if(!haveReps){ repPart = sets.length+' set'+(sets.length>1?'s':''); }
+  else { const allEq=reps.every(r=>r===reps[0]); repPart = allEq ? (sets.length+' × '+reps[0]) : reps.map(r=>r==null?'–':r).join(', '); }
+  if(!haveInt) return repPart;
+  const unit=cwLoadUnit(lt);
+  const allInt=intens.every(v=>v===intens[0]);
+  const intPart = allInt ? (cwNum(intens[0])+unit) : (intens.map(v=>v==null?'–':cwNum(v)).join(', ')+unit);
+  return repPart+' @ '+intPart;
+}
+window.cwSetDensity=(d)=>{ if(!cw) return; cw.cal.density=d; renderCoachPanel(); };
+function cwWeekRowHtml(off, todayStr){
+  const tm = !!cw.teamMode;
+  const wk=weekDates(off), wkIso=wk.map(iso);
+  const days=wk.map((d,i)=>{
+    const dIso=wkIso[i], list=cw.sessByDate[dIso]||[], isToday=dIso===todayStr;
+    const detailed = (cw.cal.density!=='compact');
+    const cards=list.map(s=>{
+      const draft = tm ? (s._teamCount && s._teamDrafts===s._teamCount) : (s.status==='draft');
+      const st=statsFor([s], cw.logsBySess[s.id]||[]);
+      const exList=(s.prescribed_exercises||[]).slice().sort(sortByPos);
+      const rdy=(cw.rdyByDate||{})[dIso];                                   // morning readiness /5 (per day; team avg in team mode)
+      const srpe = tm ? (s._teamSrpe!=null?s._teamSrpe:null)                // team-average session-RPE load
+                      : ((s.session_minutes>0 && s.session_rpe>0)?Math.round(s.session_minutes*s.session_rpe):null);
+      const badges=`<div class="cwd-badges">${cwBadge(st.vol||'—','vol')}${cwBadge(st.ari?Math.round(st.ari):'—','ari')}${cwBadge(rdy!=null?rdy.toFixed(1):'—','rdy')}${cwBadge(srpe!=null?srpe:'—','sRPE')}</div>`;
+      let body;
+      if(detailed){
+        const L='ABCDEFGHIJKLMN';
+        body = `<div class="cwd-exlist">${exList.map((ex,i)=>{ const sc=cwFmtScheme(ex);
+          return `<div class="cwd-ex"><span class="cwd-exl">${L[i]||'•'}</span><div class="cwd-exb"><div class="cwd-exn">${esc(ex.name||'')}</div>${sc?`<div class="cwd-exs">${esc(sc)}</div>`:''}</div></div>`;
+        }).join('')}</div>`;
+      } else {
+        const names=exList.map(e=>e.name).filter(Boolean);
+        const summary=names.slice(0,2).join(' · ')+(names.length>2?' …':'');
+        body = summary?`<div class="cwd-sx">${esc(summary)}</div>`:'';
+      }
+      const chip = tm ? `<span class="cwd-dchip" style="color:var(--accent2);background:rgba(56,160,255,.14)">×${s._teamCount||1}</span>`
+                      : (draft?'<span class="cwd-dchip">draft</span>':'');
+      const click = tm ? `cwTeamEdit('${dIso}','${s.id}')` : `cwOpenSess('${dIso}','${s.id}')`;
+      return `<div class="cwd-sess ${draft?'draft':'pub'}" onclick="${click}">
+        <div class="cwd-st">${esc(s.title||'Training')}${chip}</div>
+        ${badges}${body}</div>`;
+    }).join('') || `<div class="cwd-rest">Rest day</div>`;
+    const add = tm ? '' : `<div class="cwd-add" onclick="cwAddSessOn('${dIso}')">＋ session</div>`;
+    return `<div class="cwd-col${isToday?' today':''}"><div class="cwd-hd"><span class="cwd-dow">${DOW[i]}</span><span class="cwd-dnum">${d.getDate()}</span></div>${cards}${add}</div>`;
+  }).join('');
+  const weekSess=wkIso.flatMap(d=>cw.sessByDate[d]||[]);
+  const weekLogs=weekSess.flatMap(s=>cw.logsBySess[s.id]||[]);
+  const wStats=statsFor(weekSess, weekLogs);
+  const draftCount=weekSess.filter(s=> tm ? (s._teamDrafts===s._teamCount) : s.status==='draft').length;
+  const r0=wk[0],r6=wk[6];
+  const lbl=MONS[r0.getMonth()]+' '+r0.getDate()+' – '+(r6.getMonth()===r0.getMonth()?'':MONS[r6.getMonth()]+' ')+r6.getDate();
+  const offLbl = off===0?'this week':(off===1?'next week':(off===-1?'last week':(off>0?'in '+off+' wks':(-off)+' wks ago')));
+  const hasToday=wkIso.includes(todayStr);
+  let actions;
+  if(tm){
+    actions = `<span class="cw-wkstat"><b>${cw.athIds.length}</b> athletes</span>`;
+  } else {
+    const pub = draftCount>0
+      ? `<button class="btn blue" style="padding:6px 12px" onclick="cwPublishWeek(${off})" title="Publish every draft this week at once">📤 Publish all (${draftCount})</button>`
+      : (weekSess.length?`<span class="pill st-pub">● all published</span>`:'');
+    const copyOpts=[1,2,3,4].map(n=>{ const m=weekDates(off+n)[0]; return `<option value="${off+n}">→ wk of ${MONS[m.getMonth()]} ${m.getDate()}</option>`; }).join('');
+    actions = `<span class="cw-wkstat"><b>${wStats.miss}</b> miss</span>
+        ${pub}
+        <span class="lg-add" style="margin:0" onclick="cwToggleCopy(${off})" title="Copy this week's sessions to a later week">⧉ Copy</span>
+        <span id="cwCopyUI${off}" style="display:none;align-items:center;gap:6px"><select id="cwCopyTgt${off}" class="cw-sel">${copyOpts}</select><button class="btn ghost" style="padding:6px 10px" onclick="cwDoCopy(${off})">Copy</button></span>
+        <span class="saved" id="cwMsg${off}"></span>`;
+  }
+  return `<div class="cw-wkrow${hasToday?' has-today':''}">
+    <div class="cw-wkhd">
+      <span class="cw-wktitle">${lbl}</span><span class="cw-wkphase">${offLbl}</span>
+      <span class="cw-wkstats">
+        <span class="cw-wkstat"><b>${wStats.vol||'—'}</b> vol</span>
+        <span class="cw-wkstat"><b>${weekSess.length}</b> ${tm?'sessions/athlete':'sess'}</span>
+        <span class="cw-wkstat"><b>${wStats.ari?wStats.ari.toFixed(1)+'%':'—'}</b> ARI</span>
+        ${actions}
+      </span>
     </div>
-    <div id="cvDay"></div>`;
+    <div class="cwd-grid">${days}</div>
+  </div>`;
+}
+window.cwOpenSess = (dIso, sid)=>{ if(!cw) return; ed=null; cw.selDate=dIso; cw.selSess=sid; cw.modalOpen=true; cwOpenDayModal(); };
+window.cwAddSessOn = (dIso)=>{ if(!cw) return; ed=null; cw.selDate=dIso; cw.selSess=null; cw.modalOpen=true; cvCreateSession(); };
+// scope cw.week* to the selected day's week so the in-editor Day/Week tiles + block banner stay correct
+function cwSetWeekScope(dIso){
+  const off=offForDate(dIso), wkIso=weekDates(off).map(iso);
+  cw.weekOffset=off;
+  cw.weekSessFull=wkIso.flatMap(d=>cw.sessByDate[d]||[]);
+  cw.weekLogs=cw.weekSessFull.flatMap(s=>(cw.logsBySess[s.id]||[]));
+}
+function cwOpenDayModal(){
+  if(!cw || !cw.selDate) return;
+  cwSetWeekScope(cw.selDate);
+  const m=ovModal('cwDayModal', `<div class="ov-hd"><h2 style="margin:0">${esc(cw.ath.full_name.split(' ')[0])} · ${esc(fmtDate(cw.selDate))}</h2><span class="vid-x" onclick="cwCloseDay()">✕</span></div><div id="cvDay"></div>`);
+  const box=m.querySelector('.vid-box'); if(box) box.classList.add('cw-daymodal');
+  m.onclick=(ev)=>{ if(ev.target===m) cwCloseDay(); };
   renderCoachDay();
 }
-window.cwOpenSess = (dIso, sid)=>{ if(!cw) return; ed=null; cw.selDate=dIso; cw.selSess=sid; renderCoachPanel(); };
-window.cwAddSessOn = (dIso)=>{ if(!cw) return; cw.selDate=dIso; cw.selSess=null; cvCreateSession(); };
-window.cwToggleCopyWeek = ()=>{ const ui=document.getElementById('cwCopyUI'); if(ui) ui.style.display = ui.style.display==='none'?'inline-flex':'none'; };
-window.cwWeekNav = (d)=>{ if(!cw) return; ed=null; cw.weekOffset = d===0 ? 0 : (cw.weekOffset||0)+d; cw.selDate=null; cw.selSess=null; renderCoachPanel(); };
-window.cwPublishWeek = async ()=>{
-  if(!cw) return;
-  const setMsg=(t,c)=>{ ['cwPubMsg','cwMsg'].forEach(id=>{ const m=document.getElementById(id); if(m){ m.style.color=c||''; m.textContent=t; if(c!=='var(--bad)') setTimeout(()=>{ if(m.isConnected && m.textContent===t) m.textContent=''; },4000); } }); };
+window.cwCloseDay = ()=>{ ed=null; if(cw) cw.modalOpen=false; const m=document.getElementById('cwDayModal'); if(m) m.style.display='none';
+  if(_teamEditReturn){ const tid=_teamEditReturn; _teamEditReturn=null; coachState.subject='team'; coachState.teamId=tid; cw=null; paintCoach(); return; }
+  renderCoachPanel(); };
+window.cwSetMode=(mode)=>{ if(!cw) return; cw.cal.mode=mode; if(mode==='month'){ cw.cal.monthY=new Date().getFullYear(); cw.cal.monthM=new Date().getMonth(); } else { cw.cal.loOff=-2; cw.cal.hiOff=5; } cw.cal._scrollTo=true; renderCoachPanel(); };
+window.cwMonthNav=(d)=>{ if(!cw) return; let m=cw.cal.monthM+d, y=cw.cal.monthY; if(m<0){m=11;y--;} if(m>11){m=0;y++;} cw.cal.monthM=m; cw.cal.monthY=y; renderCoachPanel(); };
+window.cwToday=()=>{ if(!cw) return; if(cw.cal.mode==='month'){ cw.cal.monthY=new Date().getFullYear(); cw.cal.monthM=new Date().getMonth(); } else { cw.cal.loOff=-2; cw.cal.hiOff=5; } cw.cal._scrollTo=true; renderCoachPanel(); };
+window.cwExtend=(dir)=>{ if(!cw) return; if(dir<0) cw.cal.loOff-=4; else cw.cal.hiOff+=4; renderCoachPanel(); };
+let _cwScrollWired=false;
+function cwWireScroll(){
+  if(_cwScrollWired) return; _cwScrollWired=true;
+  window.addEventListener('scroll', ()=>{
+    if(coachState.screen!=='coach' || !cw || !cw.cal || cw.cal.mode!=='scroll' || cw.modalOpen) return;
+    const sc=document.scrollingElement||document.documentElement;
+    if(sc.scrollHeight-(sc.scrollTop+sc.clientHeight) < 350){
+      if(cw.cal._loadingMore) return; cw.cal._loadingMore=true;
+      cw.cal.hiOff+=2; renderCoachPanel().then(()=>{ if(cw&&cw.cal) cw.cal._loadingMore=false; });
+    }
+  }, {passive:true});
+}
+window.cwToggleCopy=(off)=>{ const u=document.getElementById('cwCopyUI'+off); if(u) u.style.display=u.style.display==='none'?'inline-flex':'none'; };
+window.cwDoCopy=async(off)=>{
+  const tgt=parseInt((document.getElementById('cwCopyTgt'+off)||{}).value);
+  const msg=document.getElementById('cwMsg'+off);
+  const srcIso=weekDates(off).map(iso);
+  const sessions=srcIso.flatMap(d=>cw.sessByDate[d]||[]);
+  if(!sessions.length){ if(msg){msg.style.color='var(--warn)';msg.textContent='nothing to copy';} return; }
+  if(msg){ msg.style.color=''; msg.textContent='copying…'; }
+  try{
+    const mon=new Date(weekDates(off)[0]); mon.setHours(0,0,0,0);
+    const tgtMon=new Date(weekDates(tgt)[0]); tgtMon.setHours(0,0,0,0);
+    for(const s of sessions){
+      const { data: full, error: fe } = await sb.from('sessions').select(SESSION_SELECT).eq('id', s.id).single(); if(fe) throw fe;
+      const dayOffset=Math.round((new Date(s.session_date+'T00:00:00')-mon)/864e5);
+      const t=new Date(tgtMon); t.setDate(t.getDate()+dayOffset);
+      await cloneSessionTo(full, iso(t));
+    }
+    if(msg){ msg.style.color='var(--good)'; msg.textContent='✓ copied '+sessions.length; setTimeout(()=>{ if(msg.isConnected) msg.textContent=''; },4000); }
+    await renderCoachPanel();
+  }catch(e){ console.error('copy week failed:',e); if(msg){ msg.style.color='var(--bad)'; msg.textContent='copy failed — '+(e.message||e); } }
+};
+window.cwPublishWeek = async (off)=>{
+  if(!cw) return; off=off||0;
+  const msg=document.getElementById('cwMsg'+off);
+  const setMsg=(t,c)=>{ if(msg){ msg.style.color=c||''; msg.textContent=t; if(c!=='var(--bad)') setTimeout(()=>{ if(msg.isConnected && msg.textContent===t) msg.textContent=''; },4000); } };
   const name=cw.ath.full_name.split(' ')[0];
-  // re-fetch the EXACT week currently on screen so we never publish a stale snapshot
-  const wkD=weekDates(cw.weekOffset||0), wkIso=wkD.map(iso);
+  const wkD=weekDates(off), wkIso=wkD.map(iso);
   const q=await sb.from('sessions').select('id,status,session_date')
     .eq('athlete_id', cw.athId).gte('session_date', wkIso[0]).lte('session_date', wkIso[6]);
-  console.log('[publish-week] off=',cw.weekOffset,'range=',wkIso[0],'→',wkIso[6],'rows=',q.data,'err=',q.error);
   if(q.error){ setMsg('Couldn\'t load the week — '+q.error.message,'var(--bad)'); return; }
   const drafts=(q.data||[]).filter(s=>s.status==='draft');
-  if(!drafts.length){ setMsg('Nothing to publish — this week is already all published.','var(--muted)'); return; }
-  const wkLabel=MONS[wkD[0].getMonth()]+' '+wkD[0].getDate();
-  // No native confirm() — browsers silently auto-cancel it after a few dialogs. Publishing
-  // is reversible (Unpublish), so just do it and report clearly.
+  if(!drafts.length){ setMsg('Already all published.','var(--muted)'); return; }
+  // No native confirm() — publishing is reversible; just do it and report.
   const res=await sb.from('sessions').update({status:'published'}).in('id', drafts.map(s=>s.id)).select('id,status');
-  console.log('[publish-week] updated=',res.data,'err=',res.error);
   if(res.error){ setMsg('Publish failed — '+res.error.message,'var(--bad)'); return; }
   const n=(res.data||[]).length;
-  if(!n){ setMsg('Update affected 0 rows — likely a permissions/gym mismatch on those sessions. Tell Chris.','var(--bad)'); return; }
+  if(!n){ setMsg('0 rows updated — likely a permissions/gym mismatch. Tell Chris.','var(--bad)'); return; }
   conState._progSess=undefined; if(cw) cw.rollupCache=null;
   await renderCoachPanel();
-  setMsg('✓ Published '+n+' session'+(n===1?'':'s')+' to '+name+' (week of '+wkLabel+')','var(--good)');
+  setMsg('✓ Published '+n+' to '+name,'var(--good)');
 };
 /* ---------------- methodology engine (methodology-spec §3) ---------------- */
 // Rep-Max table: % of 1RM achievable for N reps (powers RI). Off-curve reps interpolate.
@@ -5771,6 +6034,7 @@ async function renderCoachDay(){
         eff:ps.target_eff!=null?parseFloat(ps.target_eff):'' })),
       delSets:[]
     })), delExs:[] };
+  if(cw && cw._teamEditCtx && cw._teamEditCtx.repSessId===ed.session.id) ed._teamEdit=cw._teamEditCtx;
   paintEditor();
 }
 window.cwSelectSess = (id)=>{ ed=null; cw.selSess=id; renderCoachDay(); };
@@ -5783,25 +6047,6 @@ window.cvCreateSession = async ()=>{
   cw.selSess = data.id;
   renderCoachPanel();
 };
-async function cvCopyWeek(){
-  const target=document.getElementById('cwCopyTarget').value;
-  const msg=document.getElementById('cwMsg');
-  const sessions=cw.weekSessFull||[];
-  if(!sessions.length){ if(msg){msg.style.color='var(--warn)';msg.textContent='nothing to copy';} return; }
-  if(msg){ msg.style.color=''; msg.textContent='copying…'; }
-  try{
-    const mon=new Date(weekDates(cw.weekOffset)[0]); mon.setHours(0,0,0,0); // viewed week's Monday, midnight (avoids time-of-day off-by-one)
-    for(const s of sessions){
-      const { data: full, error: fe } = await sb.from('sessions').select(SESSION_SELECT).eq('id', s.id).single();
-      if(fe) throw fe;
-      const dayOffset = Math.round((new Date(s.session_date+'T00:00:00') - mon)/864e5);
-      const t=new Date(target+'T00:00:00'); t.setDate(t.getDate()+dayOffset);
-      await cloneSessionTo(full, iso(t));
-    }
-    if(msg){ msg.style.color='var(--good)'; msg.textContent='✓ Copied '+sessions.length+' as drafts'; setTimeout(()=>{msg.textContent='';},4000); }
-    const ui=document.getElementById('cwCopyUI'); if(ui) ui.style.display='none';
-  }catch(e){ if(msg){ msg.style.color='var(--bad)'; msg.textContent='⚠ Copy failed — '+(e.message||e); } }
-}
 async function cloneSessionTo(full, targetDate){
   const { data: ns, error: se } = await sb.from('sessions').insert({
     gym_id: me_.gym_id, athlete_id: coachState.selected, session_date: targetDate,
@@ -5823,6 +6068,66 @@ async function cloneSessionTo(full, targetDate){
     if(rows.length){ const { error: re } = await sb.from('prescribed_sets').insert(rows); if(re) throw re; }
   }
   return ns;
+}
+// copy a source session's exercises+sets into a brand-new session for a SPECIFIC athlete (used by team bulk-edit)
+async function cloneSessionFor(full, targetDate, athId, status){
+  const { data: ns, error: se } = await sb.from('sessions').insert({
+    gym_id: me_.gym_id, athlete_id: athId, session_date: targetDate,
+    title: full.title||'Training', status: status||'draft' }).select().single();
+  if(se) throw se;
+  await writeExercisesInto(ns.id, full);
+  return ns;
+}
+// shared writer: insert source's exercises+sets under a target session id
+async function writeExercisesInto(targetSessionId, sourceFull){
+  const exs=(sourceFull.prescribed_exercises||[]).slice().sort(sortByPos);
+  for(let ei=0; ei<exs.length; ei++){
+    const ex=exs[ei];
+    const cIns={ gym_id: me_.gym_id, session_id: targetSessionId, position: ei, name: ex.name,
+      category: ex.category||'primary', coach_note: ex.coach_note||null };
+    if(LT_READY){ cIns.load_type=ex.load_type||'percentage'; cIns.cues=ex.cues||null; }
+    if(OVR_READY){ cIns.base_override=ex.base_override||null; }
+    const { data: ne, error: ee } = await sb.from('prescribed_exercises').insert(cIns).select().single();
+    if(ee) throw ee;
+    const rows=(ex.prescribed_sets||[]).slice().sort(sortByPos).map((ps,si)=>{ const row={
+      gym_id: me_.gym_id, exercise_id: ne.id, position: si,
+      target_reps: ps.target_reps, target_pct: ps.target_pct, target_kg: ps.target_kg, target_text: ps.target_text };
+      if(LT_READY){ row.target_vel=ps.target_vel!=null?ps.target_vel:null; row.target_eff=ps.target_eff!=null?ps.target_eff:null; }
+      return row; });
+    if(rows.length){ const { error: re } = await sb.from('prescribed_sets').insert(rows); if(re) throw re; }
+  }
+}
+// wipe a target session's structure and replace it with a source session's (team bulk-edit; unlogged targets only)
+async function replaceSessionStructure(targetId, sourceFull){
+  const { data: oldEx } = await sb.from('prescribed_exercises').select('id').eq('session_id', targetId);
+  const exIds=(oldEx||[]).map(e=>e.id);
+  if(exIds.length){ const ds=await sb.from('prescribed_sets').delete().in('exercise_id', exIds); if(ds.error) throw ds.error;
+    const de=await sb.from('prescribed_exercises').delete().eq('session_id', targetId); if(de.error) throw de.error; }
+  await writeExercisesInto(targetId, sourceFull);
+}
+// push a just-edited team session to every other team athlete (overwrite everyone; future/unlogged only)
+async function propagateTeamEdit(ctx){
+  const src=(await sb.from('sessions').select(SESSION_SELECT).eq('id', ctx.repSessId).single()).data;
+  if(!src) return { applied:0, created:0, skippedLogged:0 };
+  const newTitle=(src.title||'Training').trim()||'Training';   // honor a title change
+  const others=(ctx.athIds||[]).filter(id=>id!==ctx.repAthId);
+  let applied=0, created=0, skippedLogged=0;
+  for(const aid of others){
+    // this athlete's session(s) that day — prefer the one matching the ORIGINAL title
+    const { data: matches } = await sb.from('sessions').select('id,title').eq('athlete_id', aid).eq('session_date', ctx.date);
+    let target=(matches||[]).find(m=>(m.title||'').toLowerCase()===(ctx.title||'').toLowerCase()) || (matches||[])[0];
+    if(target){
+      const { data: lg } = await sb.from('logged_sets').select('id').eq('session_id', target.id).limit(1);
+      if(lg && lg.length){ skippedLogged++; continue; }   // already logged → leave it
+      await sb.from('sessions').update({ title:newTitle }).eq('id', target.id);
+      await replaceSessionStructure(target.id, src);
+      applied++;
+    } else {
+      await cloneSessionFor(src, ctx.date, aid, src.status==='published'?'published':'draft');
+      created++;
+    }
+  }
+  return { applied, created, skippedLogged };
 }
 function exTiles(ex){
   const m=liftMetrics(ex.sets);
@@ -6056,6 +6361,7 @@ function paintEditor(){
     </div>`;
   }).join('');
   host.innerHTML = `<div class="card" id="edCard">
+    ${ed._teamEdit?`<div class="te-banner">👥 <b>Team edit</b> — saving applies to all <b>${ed._teamEdit.n}</b> athletes on <b>${esc(ed._teamEdit.teamName)}</b> (future/unlogged sessions; anyone who already logged it is left alone). To change just one athlete, use the <b>Athletes</b> view.</div>`:''}
     <div class="cv-hd">
       <input id="edTitle" data-f="title" value="${esc(s.title||'')}" placeholder="Session title">
       <span class="sub" style="white-space:nowrap">${esc(fmtDate(s.session_date))}</span>
@@ -6745,6 +7051,14 @@ async function saveEditor(publishAfter, opts){
     }
     ed.delExs=[]; ed.dirty=false;
     if(cw) cw.rollupCache=null;
+    // TEAM bulk-edit: push this session to every other team athlete (overwrite everyone; unlogged only)
+    let teamMsg='';
+    if(!auto && ed._teamEdit){
+      try{ const tr=await propagateTeamEdit(ed._teamEdit);
+        const bits=[]; if(tr.applied) bits.push(tr.applied+' updated'); if(tr.created) bits.push(tr.created+' added'); if(tr.skippedLogged) bits.push(tr.skippedLogged+' skipped (already logged)');
+        teamMsg = ' · team ('+ed._teamEdit.n+'): '+(bits.length?bits.join(', '):'no others to update');
+      }catch(pe){ teamMsg=' · ⚠ team apply failed: '+(pe.message||pe); console.error('team propagate failed:',pe); }
+    }
     const statusChanged = (publishAfter===true || publishAfter==='draft');
     if(publishAfter===true) ed.session.status='published';
     else if(publishAfter==='draft') ed.session.status='draft';
@@ -6755,7 +7069,7 @@ async function saveEditor(publishAfter, opts){
       // render hiccup can never make a successful publish look like it failed
       conState._progSess=undefined;            // program publish-bar recomputes
       const ath=cw.ath.full_name.split(' ')[0];
-      const okMsg = publishAfter===true?('✓ Published — it\'s on '+ath+'\'s phone'):'✓ Unpublished — back to a draft';
+      const okMsg = (publishAfter===true?('✓ Published — it\'s on '+ath+'\'s phone'):'✓ Unpublished — back to a draft')+teamMsg;
       try{ await renderCoachPanel(); }catch(_){ paintEditor(); }
       const m=document.getElementById('edMsg'); if(m){ m.style.color='var(--good)'; m.textContent=okMsg; setTimeout(()=>{ if(m.isConnected && m.textContent===okMsg) m.textContent=''; },3500); }
       return;
@@ -6763,8 +7077,8 @@ async function saveEditor(publishAfter, opts){
     if(auto){ refreshStripDot(); edAutoSet('✓ Auto-saved'); return; }
     refreshStripDot();
     paintEditor();
-    edMsgSet('✓ Saved','var(--good)');
-    setTimeout(()=>edMsgSet(''),3500);
+    edMsgSet('✓ Saved'+teamMsg,'var(--good)');
+    setTimeout(()=>edMsgSet(''),5000);
   }catch(e2){
     if(auto){ edAutoSet('⚠ auto-save failed'); ed.dirty=true; return; }
     if(btn){ btn.disabled=false; btn.textContent='Save changes'; }
