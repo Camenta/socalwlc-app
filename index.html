@@ -343,6 +343,8 @@
   .cw-loadmore:hover{border-color:var(--accent2)}
   .vid-box.cw-daymodal{max-width:1100px;width:96vw;max-height:92vh;overflow-y:auto}
   .te-banner{background:rgba(56,160,255,.1);border:1px solid rgba(56,160,255,.4);border-radius:9px;padding:9px 12px;margin-bottom:10px;font-size:12.5px;color:var(--text);line-height:1.4}
+  .stamp-warn{background:rgba(232,158,60,.1);border:1px solid rgba(232,158,60,.45);border-radius:9px;padding:10px 12px;font-size:12.5px;color:var(--text);line-height:1.45;text-align:left}
+  .stamp-warn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}
   /* scheme library picker */
   .vid-box.sch-wide{max-width:1560px;width:97vw}
   .sl-scope{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);font-weight:700}
@@ -965,6 +967,11 @@
   .grpmem{display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto;margin:10px 0}
   .grpmem label{display:flex;align-items:center;gap:9px;padding:7px 10px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;cursor:pointer;font-size:13px}
   .grpmem input{width:17px;height:17px;accent-color:var(--accent2)}
+  .grp-x{margin-left:auto;font-size:11px;font-weight:700;color:var(--bad);cursor:pointer}
+  .grp-add{margin-left:auto;font-size:11px;font-weight:700;color:var(--accent2);cursor:pointer}
+  .chat-active{display:flex;align-items:center;gap:10px;justify-content:space-between;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 11px;margin-bottom:9px;font-size:12.5px;color:var(--text)}
+  .chat-manage{font-size:11.5px;font-weight:800;color:var(--accent2);cursor:pointer;white-space:nowrap}
+  .chat-manage:hover{text-decoration:underline}
   .msg{display:flex;gap:8px;max-width:85%}
   .msg.me{align-self:flex-end;flex-direction:row-reverse}
   .msg-av{width:26px;height:26px;border-radius:50%;flex:0 0 26px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:10px;color:#0c1116}
@@ -3750,7 +3757,7 @@ async function renderConsole(){
   let lastByAth={}, rdyByAth={}, loggedToday=new Set(), upcomingByAth={}, maxFutureByAth={};
   if(athIds.length){
     const { data: logs } = await sb.from('logged_sets').select('athlete_id,logged_at').in('athlete_id', athIds).order('logged_at',{ascending:false});
-    (logs||[]).forEach(l=>{ if(!lastByAth[l.athlete_id]) lastByAth[l.athlete_id]=l.logged_at; if((l.logged_at||'').slice(0,10)===todayStr) loggedToday.add(l.athlete_id); });
+    (logs||[]).forEach(l=>{ if(!lastByAth[l.athlete_id]) lastByAth[l.athlete_id]=l.logged_at; if(l.logged_at && iso(new Date(l.logged_at))===todayStr) loggedToday.add(l.athlete_id); });   // compare in LOCAL time (logged_at is UTC) so an evening log counts as today
     const { data: rk } = await sb.from('readiness').select('athlete_id,check_date,sleep,energy,motivation,soreness,mood,stress,appetite').in('athlete_id', athIds).order('check_date',{ascending:false});
     (rk||[]).forEach(r=>{ if(!(r.athlete_id in rdyByAth)){ const vs=[r.sleep,r.energy,r.motivation,r.soreness,r.mood,r.stress,r.appetite].filter(v=>v!=null); rdyByAth[r.athlete_id]= vs.length? Math.round(vs.reduce((a,b)=>a+b,0)/vs.length*10)/10 : null; } });
     const { data: sess } = await sb.from('sessions').select('athlete_id,session_date,status').in('athlete_id', athIds).gte('session_date', todayStr);
@@ -4045,6 +4052,7 @@ async function renderHub(host){
     </div>
     <div class="card chatcard"><h2 style="margin:0 0 12px">💬 Messages</h2>
       <div class="chat-threads" id="cChatThreads"></div>
+      <div id="cChatActive"></div>
       <div class="chat-feed" id="cChatFeed"><div class="spin" style="padding:10px">Loading…</div></div>
       <div class="chat-compose"><input id="cChatInput" placeholder="Type a message…" onkeydown="if(event.key==='Enter')hubSendMsg()"><span class="chat-send" onclick="hubSendMsg()">Send</span></div>
     </div>
@@ -4074,7 +4082,65 @@ function renderThreads(){
   const sorted=hubState.convs.slice().sort((a,b)=>(order[a.kind]-order[b.kind]));
   host.innerHTML=sorted.map(c=>`<span class="chat-th${c.id===hubState.convId?' on':''}" onclick="hubSelectConv('${c.id}')">${c.kind!=='team'?`<span class="kd">${c.kind==='dm'?'dm':'group'}</span>`:''}${esc(convName(c))}</span>`).join('')
     +`<span class="chat-th newchat" onclick="hubNewDM()">+ message someone</span><span class="chat-th newgroup" onclick="hubNewGroup()">+ new group</span>`;
+  renderChatActive();
 }
+// active-conversation bar: for a group/DM, show its name + a Manage gear (rename / members / delete)
+function renderChatActive(){
+  const host=document.getElementById('cChatActive'); if(!host) return;
+  const c=hubState.convs.find(x=>x.id===hubState.convId);
+  if(!c || c.kind==='team'){ host.innerHTML=''; return; }
+  const memCount=(hubState.membersByConv[c.id]||[]).length;
+  host.innerHTML=`<div class="chat-active"><span>${c.kind==='group'?'👥 <b>'+esc(convName(c))+'</b> · '+memCount+' member'+(memCount===1?'':'s'):'✉ <b>'+esc(convName(c))+'</b>'}</span><span class="chat-manage" onclick="hubManageConv('${c.id}')">⚙ Manage</span></div>`;
+}
+window.hubManageConv=(id)=>{
+  const c=hubState.convs.find(x=>x.id===id); if(!c||c.kind==='team') return;
+  const members=(hubState.membersByConv[id]||[]);
+  const athletes=coachState.athletes||[];
+  const inGroup=members.filter(pid=>pid!==(me_&&me_.id));
+  const notIn=athletes.filter(a=>!members.includes(a.id));
+  const memberRows = inGroup.length ? inGroup.map(pid=>`<label><span class="rava" style="width:26px;height:26px;background:${avColor(hubName(pid))}">${esc(initials(hubName(pid)))}</span> ${esc(hubName(pid))}<span class="grp-x" onclick="hubRemoveMember('${id}','${pid}')">remove</span></label>`).join('') : '<div class="sub" style="padding:6px 2px">Just you so far.</div>';
+  const addRows = notIn.length ? notIn.map(a=>`<label onclick="hubAddMember('${id}','${a.id}')"><span class="rava" style="width:26px;height:26px;background:${avColor(a.full_name)}">${esc(initials(a.full_name))}</span> ${esc(a.full_name)}<span class="grp-add">+ add</span></label>`).join('') : '<div class="sub" style="padding:6px 2px">Everyone’s already in this group.</div>';
+  const renameRow = c.kind==='group' ? `<div class="bf-row" style="margin:4px 0 14px"><input id="grpRename" value="${esc(c.name||'')}" placeholder="Group name" style="flex:1;min-width:200px;font-weight:700"><button class="btn" onclick="hubRenameGroup('${id}')">Rename</button></div>` : '';
+  ovModal('convMgr', `
+    <div class="ov-hd"><h2 style="margin:0">${c.kind==='group'?'Manage group':'Manage chat'}</h2><span class="vid-x" onclick="document.getElementById('convMgr').style.display='none'">✕</span></div>
+    ${renameRow}
+    ${c.kind==='group'
+      ? `<div class="sub" style="margin:6px 0 4px">Members</div><div class="grpmem">${memberRows}</div>
+         <div class="sub" style="margin:14px 0 4px">Add athletes</div><div class="grpmem">${addRows}</div>`
+      : `<div class="sub" style="margin:6px 0 10px">Direct message with <b>${esc(convName(c))}</b>.</div>`}
+    <div class="bf-row" style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px"><span id="convDelWrap"><button class="btn ghost" style="color:var(--bad)" onclick="hubAskDelConv('${id}')">🗑 Delete ${c.kind==='group'?'group':'conversation'}</button></span><span class="saved" id="convMgrMsg"></span></div>`);
+};
+window.hubRenameGroup=async(id)=>{
+  const v=(document.getElementById('grpRename').value||'').trim(); if(!v) return;
+  const msg=document.getElementById('convMgrMsg'); if(msg){msg.style.color='';msg.textContent='Saving…';}
+  const r=await sb.from('conversations').update({name:v}).eq('id',id).select();
+  if(r.error){ if(msg){msg.style.color='var(--bad)';msg.textContent='Rename failed — '+r.error.message;} return; }
+  if(!r.data || !r.data.length){ if(msg){msg.style.color='var(--bad)';msg.textContent='Rename needs DB migration 34 — tell Chris to run it.';} return; }
+  await loadConvs(); renderThreads(); hubManageConv(id);
+};
+window.hubAddMember=async(id,athId)=>{
+  const r=await sb.from('conversation_members').insert({conversation_id:id,profile_id:athId});
+  if(r.error){ const m=document.getElementById('convMgrMsg'); if(m){m.style.color='var(--bad)';m.textContent='Add failed — '+r.error.message;} return; }
+  await loadConvs(); renderThreads(); hubManageConv(id);
+};
+window.hubRemoveMember=async(id,athId)=>{
+  const r=await sb.from('conversation_members').delete().eq('conversation_id',id).eq('profile_id',athId);
+  if(r.error){ const m=document.getElementById('convMgrMsg'); if(m){m.style.color='var(--bad)';m.textContent='Remove failed — '+r.error.message;} return; }
+  await loadConvs(); renderThreads(); hubManageConv(id);
+};
+window.hubAskDelConv=(id)=>{ const w=document.getElementById('convDelWrap'); if(!w) return;
+  w.innerHTML=`<span style="color:var(--bad);font-weight:700;margin-right:8px">Delete for everyone?</span><button class="btn" style="background:var(--bad);border-color:var(--bad)" onclick="hubDeleteConv('${id}')">Yes, delete</button> <button class="btn ghost" onclick="hubManageConv('${id}')">Cancel</button>`;
+};
+window.hubDeleteConv=async(id)=>{
+  const msg=document.getElementById('convMgrMsg'); if(msg){msg.style.color='';msg.textContent='Deleting…';}
+  await sb.from('messages').delete().eq('conversation_id',id);
+  await sb.from('conversation_members').delete().eq('conversation_id',id);
+  const r=await sb.from('conversations').delete().eq('id',id);
+  if(r.error){ if(msg){msg.style.color='var(--bad)';msg.textContent='Delete failed — '+r.error.message;} return; }
+  const mm=document.getElementById('convMgr'); if(mm) mm.style.display='none';
+  if(hubState.convId===id) hubState.convId=null;
+  await loadConvs(); renderThreads(); hubReloadFeed();
+};
 window.hubSelectConv=(id)=>{ hubState.convId=id; renderThreads(); hubReloadFeed(); const i=document.getElementById('cChatInput'); if(i) i.focus(); };
 async function hubReloadAnn(){
   const annList=document.getElementById('cAnnList'); if(!annList) return;
@@ -4423,8 +4489,23 @@ window.doStamp=async function(id){
   } else {
     targets=[document.getElementById('stampAth').value];
   }
-  const msg=document.getElementById('stampMsg'); if(msg){ msg.style.color=''; msg.textContent='Stamping…'; }
+  const msg=document.getElementById('stampMsg');
+  // re-stamp guard: warn before silently creating a SECOND set of draft sessions
+  const { data: existingAssigns } = await sb.from('program_assignments').select('athlete_id').eq('program_id', p.id).in('athlete_id', targets);
+  const dupAths=[...new Set((existingAssigns||[]).map(a=>a.athlete_id))];
+  if(dupAths.length && !window._stampConfirmed){
+    const names=dupAths.map(aid=>((coachState.athletes||[]).find(a=>a.id===aid)||{}).full_name||'athlete');
+    const who = window._stampMode==='team' ? (dupAths.length+' of '+targets.length+' athlete'+(targets.length===1?'':'s')) : (names[0]||'this athlete');
+    if(msg){ msg.style.color=''; msg.innerHTML=`<div class="stamp-warn">⚠ <b>${esc(who)}</b> already ${dupAths.length===1?'has':'have'} <b>${esc(p.name)}</b> stamped — re-stamping creates a <b>second</b> set of draft sessions (duplicates).
+      <div class="stamp-warn-row">${PROG_ID_READY?`<button class="btn" onclick="window._stampConfirmed='replace';doStamp('${id}')">Replace old drafts &amp; re-stamp</button>`:''}<button class="btn ghost" onclick="window._stampConfirmed='add';doStamp('${id}')">${PROG_ID_READY?'Keep both':'Stamp anyway'}</button><button class="btn ghost" onclick="document.getElementById('stampMsg').innerHTML=''">Cancel</button></div></div>`; }
+    return;
+  }
+  if(msg){ msg.style.color=''; msg.textContent='Stamping…'; }
   const btn=document.querySelector('#stampModal .btn'); if(btn) btn.disabled=true;
+  // "Replace" → clear each duplicated athlete's existing DRAFT sessions for this program first (never touches published/logged)
+  if(window._stampConfirmed==='replace' && PROG_ID_READY){
+    for(const aid of dupAths){ try{ await deleteProgramDrafts(aid, p.id); }catch(_){} }
+  }
   const startMon=mondayOfDate(new Date(start+'T00:00:00'));
   let athDone=0, totalSessions=0;
   try{
@@ -4457,15 +4538,27 @@ window.doStamp=async function(id){
       athDone++;
       if(msg) msg.textContent='Stamping… '+athDone+'/'+targets.length;
     }
-    document.getElementById('stampModal').style.display='none';
     conState._assigns=undefined; conState._progSess=undefined;
+    const replaced = window._stampConfirmed==='replace';
+    window._stampConfirmed=null;
     const who = window._stampMode==='team'
       ? (athDone+' athlete'+(athDone===1?'':'s'))
       : (((coachState.athletes||[]).find(a=>a.id===targets[0])||{}).full_name || 'athlete');
-    alert('✓ Stamped "'+p.name+'" onto '+who+' — '+totalSessions+' draft session'+(totalSessions===1?'':'s')+' created starting '+start+'. Open them in Coach View to review & publish.');
-    if(coachState.screen==='console' && conState.tab==='programs') renderConBody();
-  }catch(e){ if(btn) btn.disabled=false; if(msg){ msg.style.color='var(--bad)'; msg.textContent='Stamp failed — '+(e.message||e); } }
+    if(btn) btn.disabled=false;
+    if(msg){ msg.style.color='var(--good)'; msg.innerHTML='✓ '+(replaced?'Re-stamped':'Stamped')+' <b>'+esc(p.name)+'</b> onto '+esc(who)+' — '+totalSessions+' draft session'+(totalSessions===1?'':'s')+' created. Open them in Coach View to review &amp; publish.'; }
+    setTimeout(()=>{ const mm=document.getElementById('stampModal'); if(mm) mm.style.display='none'; if(coachState.screen==='console' && conState.tab==='programs') renderConBody(); }, 1900);
+  }catch(e){ window._stampConfirmed=null; if(btn) btn.disabled=false; if(msg){ msg.style.color='var(--bad)'; msg.textContent='Stamp failed — '+(e.message||e); } }
 };
+// delete an athlete's existing DRAFT sessions for a program (used by re-stamp "Replace"); leaves published/logged alone
+async function deleteProgramDrafts(athId, programId){
+  const { data: ss } = await sb.from('sessions').select('id').eq('athlete_id', athId).eq('program_id', programId).eq('status','draft');
+  const ids=(ss||[]).map(s=>s.id); if(!ids.length) return;
+  const { data: ex } = await sb.from('prescribed_exercises').select('id').in('session_id', ids);
+  const exIds=(ex||[]).map(e=>e.id);
+  if(exIds.length) await sb.from('prescribed_sets').delete().in('exercise_id', exIds);
+  await sb.from('prescribed_exercises').delete().in('session_id', ids);
+  await sb.from('sessions').delete().in('id', ids);
+}
 /* ================= PROGRAM BUILDER (build from scratch) ================= */
 let pbState=null; // {id,name,phase,weeks,wave,days:[{wk,dow,title,exercises:[{name,category,load_type,cues,coach_note,sets:[{reps,pct,vel,eff,kg}]}]}],wk}
 const PB_DOW=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
