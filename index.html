@@ -4974,9 +4974,9 @@ function renderMacro(){
   const compEv=planState.events.filter(e=>e.kind==='competition' && (!planState.teamId||!e.team_id||e.team_id===planState.teamId)).map(e=>({id:null,name:e.title,kind:'comp',comp_date:e.start_date}));
   const allComps=comps.concat(compEv).filter(c=>{const i=planWeekIdx(c.comp_date);return i>=0&&i<N;});
   const phaseAt=(i)=>mesoPhases.find(p=> col(p.start_date)<=i && i<=col(p.end_date));
-  // solid colored bands for the Training-phase + Sub-phase rows (Chris's color spec)
+  // Training-phase + Sub-phase bands — same tinted look/feel as the mesocycle blocks (Chris's color spec)
   const bandRow=(lvl,arr)=>arr.map(p=>{ const c=bandColor(lvl,p.kind); const nm=esc(p.name||bandLabel(lvl,p.kind));
-    return `<div class="mc2-seg" style="grid-column:${col(p.start_date)+1}/${col(p.end_date)+2};background:${c};border:1px solid ${c};color:${txtOn(c)}${ath?';cursor:default':''}"${ath?'':` onclick="planEditPhase('${p.id}')"`} title="${nm} · ${bandLabel(lvl,p.kind)}">${nm}</div>`; }).join('');
+    return `<div class="mc2-seg" style="grid-column:${col(p.start_date)+1}/${col(p.end_date)+2};${tintStyle(c)}${ath?';cursor:default':''}"${ath?'':` onclick="planEditPhase('${p.id}')"`} title="${nm} · ${bandLabel(lvl,p.kind)}">${nm}</div>`; }).join('');
   const phaseRow=bandRow('phase',phaseBands);
   const subRow=bandRow('subphase',subBands);
   const compWk=new Set(allComps.map(c=>col(c.comp_date)));
