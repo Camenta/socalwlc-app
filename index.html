@@ -1219,6 +1219,88 @@
   .cvt .cv-u{font-size:9px;color:var(--muted);font-weight:600}
   .cvt td.cva.summ{font-size:11px;color:var(--muted)}
   .cvt td.cva.summ b{color:var(--text);font-weight:700}
+  /* ---- Reports ---- */
+  .rpt-controls{display:flex;flex-direction:column;gap:12px}
+  .rpt-row{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end}
+  .rpt-fld{display:flex;flex-direction:column;gap:5px}
+  .rpt-fld label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700}
+  .rpt-fld input,.rpt-fld textarea{background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:8px 10px;font:inherit;font-size:13px}
+  .rpt-fld textarea{resize:vertical;min-height:54px}
+  .rpt-checks{display:flex;flex-wrap:wrap;gap:8px 18px}
+  .rpt-chk{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text);cursor:pointer}
+  .rpt-chk input{accent-color:var(--accent)}
+  .rpt-actions{align-items:center;padding-top:4px;border-top:1px solid var(--line);margin-top:2px}
+  .rpt-sp{flex:1}
+  /* the printable document */
+  .report{background:var(--bg);color:var(--text);max-width:860px;margin:14px auto;padding:30px 34px;border:1px solid var(--line);border-radius:10px;font-size:13px;line-height:1.5}
+  .rpt-head{border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:6px}
+  .rpt-brand{font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);font-weight:800}
+  .rpt-title{font-size:24px;font-weight:800;margin-top:4px;color:var(--text)}
+  .rpt-ath{font-size:17px;font-weight:700;color:var(--text);margin-top:8px}
+  .rpt-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+  .rpt-chip{background:var(--panel2);border:1px solid var(--line);border-radius:20px;padding:2px 10px;font-size:11px;color:var(--muted);font-weight:600}
+  .rpt-meta{font-size:11px;color:var(--muted);margin-top:9px}
+  .rpt-section{margin-top:20px;page-break-inside:avoid}
+  .rpt-section h3{font-size:15px;margin:0 0 9px;color:var(--text);border-left:3px solid var(--accent);padding-left:9px}
+  .rpt-section h3 .rpt-sub{border:0;font-weight:600;font-size:12px;color:var(--muted)}
+  .rpt-2col{display:grid;grid-template-columns:1fr 1fr;gap:0 26px}
+  table.rpt-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+  .rpt-tbl th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);border-bottom:1px solid var(--line);padding:5px 8px}
+  .rpt-tbl td{padding:5px 8px;border-bottom:1px solid var(--line);color:var(--text)}
+  .rpt-tbl td.rpt-num,.rpt-tbl th.rpt-num{text-align:right;font-variant-numeric:tabular-nums}
+  .rpt-tbl tr.rpt-tot td{font-weight:800;border-top:2px solid var(--line);border-bottom:0}
+  .rpt-tbl tr.rpt-grp td{font-weight:800;color:var(--accent2);font-size:11px;text-transform:uppercase;letter-spacing:.4px;padding-top:9px;border-bottom:0}
+  .rpt-read{font-size:10px;font-weight:800;padding:1px 7px;border-radius:10px}
+  .rpt-read.ineff{background:rgba(232,92,92,.16);color:var(--bad)}
+  .rpt-read.eff{background:rgba(62,201,122,.16);color:var(--good)}
+  .rpt-read.hyper{background:rgba(60,158,232,.16);color:var(--accent2)}
+  .rpt-line{font-size:13px;margin-bottom:8px}
+  .rpt-prog{height:9px;border-radius:6px;background:var(--panel2);overflow:hidden;margin:8px 0}
+  .rpt-prog i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--warn))}
+  .rpt-thr{border-collapse:collapse;margin:8px 0;font-size:12px}
+  .rpt-thr th,.rpt-thr td{border:1px solid var(--line);padding:3px 12px;text-align:center;color:var(--muted)}
+  .rpt-thr th.on,.rpt-thr td.on{background:rgba(62,201,122,.16);color:var(--good);font-weight:800;border-color:var(--good)}
+  .rpt-note{font-size:11px;color:var(--muted);margin-top:8px}
+  .rpt-story{font-size:12.5px;margin-top:10px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+  .rpt-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .rpt-tile{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:9px 10px;text-align:center}
+  .rpt-tile .v{font-size:18px;font-weight:800;color:var(--text)}
+  .rpt-tile .l{font-size:9.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-top:2px}
+  .rpt-chart-cap{font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px}
+  .rpt-leg{font-weight:600;color:var(--muted);font-size:11px;margin-left:8px}
+  .rpt-leg i{display:inline-block;width:9px;height:9px;border-radius:2px;margin:0 3px 0 8px;vertical-align:middle}
+  .report .chart{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px}
+  .rpt-summary .rpt-sumbody{white-space:pre-wrap;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:11px 13px;font-size:13px;min-height:30px}
+  .rpt-foot{margin-top:24px;padding-top:10px;border-top:1px solid var(--line);font-size:10px;color:var(--muted);text-align:center}
+  .rpt-sub{color:var(--muted)}
+  .rep-list{display:flex;flex-direction:column;gap:8px}
+  .rep-item{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 12px}
+  .rpt-winlbl{font-size:13px;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;display:inline-block}
+  /* athlete "My Review" panel */
+  .mreview{border:1px solid var(--accent)}
+  .mrev-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+  .mrev-head h2{margin:0}
+  .mrev-toggle{display:inline-flex;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:3px}
+  .mrev-toggle button{background:none;border:0;color:var(--muted);font:inherit;font-size:13px;font-weight:700;padding:6px 14px;border-radius:7px;cursor:pointer}
+  .mrev-toggle button.on{background:var(--accent);color:#fff}
+  .mrev-sub{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700;margin-bottom:10px}
+  .mrev-focus{margin-top:12px;background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:10px 13px;font-size:13.5px;line-height:1.5}
+  .mrev-focus.coach{background:rgba(232,100,60,.08);border-left-color:var(--accent)}
+  .mrev-flbl{font-weight:800;color:var(--accent);margin-right:4px}
+  .mrev-next{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:11px 13px;cursor:pointer}
+  .mrev-next:hover{border-color:var(--accent)}
+  .mrev-nlbl{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:700}
+  .mrev-nex{font-weight:700;color:var(--text);margin-top:2px}
+  .mrev-next .cta{color:var(--accent);font-weight:800;white-space:nowrap}
+  .mrev-empty{display:flex;gap:13px;align-items:flex-start;padding:6px 2px}
+  .mrev-eico{font-size:26px;line-height:1}
+  .mrev-sent-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .mrev-sent-t{font-size:16px;font-weight:800;color:var(--text)}
+  .mrev-sent-m{font-size:11.5px;color:var(--muted);margin-top:3px}
+  .mrev-older{margin-top:14px}
+  .mrev-olbl{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700;margin-bottom:7px}
+  .mrev-older .rep-item{margin-top:7px}
+  @media (max-width:760px){ .rpt-2col{grid-template-columns:1fr} .rpt-tiles{grid-template-columns:repeat(2,1fr)} .report{padding:20px 16px} }
 </style>
 </head>
 <body>
@@ -1227,6 +1309,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.3/dist/html2pdf.bundle.min.js"></script>
 <script>
 const SUPA_URL = "https://jurlbzobhdkijyvijjfg.supabase.co";
 const SUPA_KEY = "sb_publishable_3DfhkND-7yxN3yziwJ7Qhg_SuZr8eAB";
@@ -2638,6 +2721,7 @@ async function renderAthHome(){
     </div>
 
     <div id="athReviews"></div>
+    <div id="myReview" class="card mreview"><div class="spin">Loading your review…</div></div>
 
     <div class="grid2">
       <div class="card"><h2>📢 Team announcements</h2><div class="ann-list">${annHtml}</div></div>
@@ -2670,6 +2754,7 @@ async function renderAthHome(){
   await athChatFeed();
   const ci=document.getElementById('athChatInput'); if(ci) ci.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); athChatSend(); } });
   loadAthReviews();
+  renderMyReview();
 }
 // Home notification: the athlete's most recent coach video reviews
 async function loadAthReviews(){
@@ -2683,6 +2768,100 @@ async function loadAthReviews(){
       <span class="cbtn" onclick="openAnnStudio('${esc(r.video_path)}',{readOnly:true,title:'Coach review',athleteId:'${me_.id}'})">▶ View</span>
     </div>`; }).join('');
   host.innerHTML=`<div class="card revcard"><h2>🎬 Coach feedback <span class="rev-count">${data.length}</span></h2><div class="rev-list">${rows}</div></div>`;
+}
+
+/* ====================== Athlete "My Review" panel ======================
+   One panel on Home, three zoom levels. Week = auto-generated from the
+   athlete's own last completed week. Mesocycle / Macrocycle = the latest
+   review the coach SENT (reports table), shown inline + open-PDF.          */
+let athReviewState={ level:'week' };
+window.athReviewGo=(lv)=>{ athReviewState.level=lv; renderMyReview(); };
+window.renderMyReview=async()=>{
+  const host=document.getElementById('myReview'); if(!host) return;
+  const lv=athReviewState.level;
+  const tabs=[['week','This week'],['meso','Mesocycle'],['macro','Macrocycle']];
+  host.innerHTML=`<div class="mrev-head"><h2>📋 My Review</h2><div class="mrev-toggle">${tabs.map(t=>`<button class="${lv===t[0]?'on':''}" onclick="athReviewGo('${t[0]}')">${t[1]}</button>`).join('')}</div></div><div class="mrev-body" id="mrevBody"><div class="spin" style="padding:16px">Loading your review…</div></div>`;
+  const body=document.getElementById('mrevBody');
+  try{ const html = lv==='week' ? await myWeekReview() : await mySentReview(lv);
+    if(document.getElementById('mrevBody')===body) body.innerHTML=html;
+  }catch(e){ if(body) body.innerHTML=`<div class="note sub" style="padding:12px">Couldn't load this review — ${esc(e.message||e)}</div>`; }
+};
+// ---- weekly: auto review of the last completed week (Mon–Sun). Shared by the
+//      athlete's Home panel and the coach's "This week" level. ----
+async function weekReview(athleteId){
+  const today=new Date(); today.setHours(0,0,0,0); const D=s=>new Date(s+'T00:00:00');
+  const thisMon=new Date(today); thisMon.setDate(thisMon.getDate()-((thisMon.getDay()+6)%7));
+  const lwStart=new Date(thisMon); lwStart.setDate(lwStart.getDate()-7); const lwEnd=new Date(thisMon); lwEnd.setDate(lwEnd.getDate()-1);
+  const s0=iso(lwStart), s1=iso(lwEnd); const me=athleteId;
+  const rdScoreOf=r=>{ const vs=RK_METRICS.map(m=>r[m[0]]).filter(v=>v!=null); return vs.length?vs.reduce((a,b)=>a+b,0)/vs.length:null; };
+  const sR=await sb.from('sessions').select('id,session_date,title,prescribed_exercises(prescribed_sets(target_reps,target_pct))').eq('athlete_id',me).neq('status','draft').gte('session_date',s0).lte('session_date',s1);
+  const sess=sR.data||[]; const ids=sess.map(s=>s.id);
+  let logs=[]; if(ids.length){ const r=await sb.from('logged_sets').select('session_id,done,miss,prescribed_set_id,actual_kg,actual_reps,lights,velocity').in('session_id',ids); logs=r.data||[]; }
+  const rR=await sb.from('readiness').select('*').eq('athlete_id',me).gte('check_date',s0).lte('check_date',s1);
+  const rd=rR.data||[];
+  const planned=sess.length; const doneSet=new Set(logs.filter(l=>l.done).map(l=>l.session_id)); const doneN=doneSet.size;
+  let tonnage=0; logs.forEach(l=>{ if(l.done&&l.actual_kg&&l.actual_reps) tonnage+=l.actual_kg*l.actual_reps; });
+  const tonTxt=tonnage>=1000?(tonnage/1000).toFixed(1)+'K':(tonnage?String(Math.round(tonnage)):'—');
+  let presN=0; sess.forEach(s=>(s.prescribed_exercises||[]).forEach(ex=>presN+=(ex.prescribed_sets||[]).length));
+  const doneSets=logs.filter(l=>l.done&&l.prescribed_set_id).length; const compPct=presN?Math.round(doneSets/presN*100):null;
+  const rdScores=rd.map(rdScoreOf).filter(v=>v!=null); const rdAvg=rdScores.length?rdScores.reduce((a,b)=>a+b,0)/rdScores.length:null;
+  const withLights=logs.filter(l=>l.done&&l.lights!=null); const cleanN=withLights.filter(l=>l.lights===3).length; const cleanPct=withLights.length?Math.round(cleanN/withLights.length*100):null;
+  const misses=logs.reduce((a,l)=>a+(l.miss||0),0);
+  // auto focus
+  let focus;
+  if(!planned){ focus='Nothing was scheduled last week — a planned down week or a gap. This week starts fresh below.'; }
+  else if(!doneN){ const bits=[`No sessions logged last week — ${planned} ${planned>1?'were':'was'} scheduled`];
+    if(rdAvg!=null) bits.push(`but you kept up your check-ins (readiness ${rdAvg.toFixed(1)})`);
+    focus=bits.join(' ')+'. Let’s get back on the page this week.'; }
+  else { const bits=[`${doneN} of ${planned} session${planned>1?'s':''} done`];
+    if(compPct!=null){ if(compPct>=90) bits.push('you finished what was on the page'); else if(compPct<70) bits.push(`a few sets slipped (${compPct}% of prescribed) — worth closing this week`); else bits.push(`${compPct}% of prescribed sets`); }
+    if(rdAvg!=null){ if(rdAvg<3) bits.push('readiness ran low — bank some recovery'); else if(rdAvg>=4) bits.push('readiness held strong'); }
+    if(cleanPct!=null&&withLights.length>=3){ if(cleanPct>=80) bits.push(`bar work was clean (${cleanPct}% made)`); else if(cleanPct<60) bits.push(`make-rate dipped to ${cleanPct}% — tighten the makeable attempts`); }
+    focus=bits.join(' · ')+'.'; }
+  // up next (current/next published session)
+  const todayStr=iso(today);
+  const nR=await sb.from('sessions').select('id,session_date,title,prescribed_exercises(name,position)').eq('athlete_id',me).neq('status','draft').gte('session_date',todayStr).order('session_date',{ascending:true}).limit(1);
+  const nx=(nR.data||[])[0]; let upNext='';
+  if(nx){ const exs=(nx.prescribed_exercises||[]).slice().sort((a,b)=>(a.position||0)-(b.position||0)).map(e=>e.name).filter(Boolean).slice(0,4);
+    const lbl=nx.session_date===todayStr?'Today':D(nx.session_date).toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'});
+    upNext=`<div class="mrev-next" onclick="planOpenWeekAth('${nx.session_date}')"><div><div class="mrev-nlbl">Up next · ${esc(lbl)}</div><div class="mrev-nex">${esc(exs.join(' · ')||nx.title||'Training')}</div></div><span class="cta">${nx.session_date===todayStr?'Start →':'Preview →'}</span></div>`; }
+  const stat=(v,l,cls)=>`<div class="dev-stat"><div class="v ${cls||''}">${v}</div><div class="l">${l}</div></div>`;
+  const statsHtml=`<div class="mrev-sub">Last week · ${fmtShort(s0)} – ${fmtShort(s1)}</div>
+    <div class="dev-stats">
+      ${stat(doneN+'/'+planned,'Sessions')}
+      ${stat(tonTxt,'Tonnage (kg)')}
+      ${stat(compPct!=null?compPct+'%':'—','Set completion',compPct!=null&&compPct>=90?'good':'')}
+      ${stat(rdAvg!=null?rdAvg.toFixed(1):'—','Avg readiness',rdAvg!=null?(rdAvg>=4?'good':rdAvg>=3?'warn':''):'')}
+      ${stat(cleanPct!=null?cleanPct+'%':'—','Clean lifts',cleanPct!=null&&cleanPct>=80?'good':'')}
+      ${stat(String(misses),'Misses',misses?'warn':'')}
+    </div>`;
+  return { statsHtml, autoFocus:focus, upNextHtml:upNext, periodKey:iso(thisMon), weekStart:s0, weekEnd:s1 };
+}
+// athlete Home: weekly review HTML, with the coach's focus override if set for this week
+async function myWeekReview(){
+  const w=await weekReview(me_.id);
+  let coachFocus=null; try{ const r=await sb.from('coach_focus').select('focus').eq('athlete_id',me_.id).eq('scope','week').eq('period_key',w.periodKey).maybeSingle(); if(!r.error&&r.data&&r.data.focus&&r.data.focus.trim()) coachFocus=r.data.focus.trim(); }catch(e){}
+  const focusHtml = coachFocus
+    ? `<div class="mrev-focus coach"><span class="mrev-flbl">🎯 Focus from your coach</span> ${esc(coachFocus)}</div>`
+    : `<div class="mrev-focus"><span class="mrev-flbl">🎯 Focus</span> ${esc(w.autoFocus)}</div>`;
+  return w.statsHtml + focusHtml + w.upNextHtml;
+}
+// ---- meso/macro: surface the latest review the coach SENT ----
+async function mySentReview(level){
+  const lvLbl=level==='meso'?'mesocycle':'macrocycle';
+  let reps=[];
+  try{ const r=await sb.from('reports').select('id,title,level,block_name,summary,range_start,range_end,created_at').eq('athlete_id',me_.id).eq('delivered',true).eq('level',level).order('created_at',{ascending:false}).limit(5); if(!r.error) reps=r.data||[]; }catch(e){}
+  if(!reps.length){
+    return `<div class="mrev-empty"><div class="mrev-eico">${level==='meso'?'🧱':'🗺️'}</div><div><b>No ${lvLbl} review yet</b><div class="note sub" style="padding:3px 0 0">When your coach sends a ${lvLbl} review, it shows up here — where you are, what you've built, and what to focus on. Open it as a PDF anytime.</div></div></div>`;
+  }
+  const top=reps[0];
+  const card=`<div class="mrev-sent">
+    <div class="mrev-sent-hd"><div><div class="mrev-sent-t">${esc(top.title||(lvLbl+' review'))}</div><div class="mrev-sent-m">${top.block_name?esc(top.block_name)+' · ':''}${top.range_start?fmtShort(top.range_start)+' – '+fmtShort(top.range_end):''} · sent ${fmtShort(iso(new Date(top.created_at)))}</div></div><button class="btn" onclick="athReportOpen('${top.id}',this)">📄 Open full PDF</button></div>
+    ${top.summary?`<div class="mrev-focus"><span class="mrev-flbl">🎯 From your coach</span> ${esc(top.summary)}</div>`:''}
+  </div>`;
+  const older=reps.slice(1);
+  const olderHtml=older.length?`<div class="mrev-older"><div class="mrev-olbl">Earlier ${lvLbl} reviews</div>${older.map(r=>`<div class="rep-item"><div><b>${esc(r.title||(lvLbl+' review'))}</b><div class="sub" style="font-size:11px">${r.block_name?esc(r.block_name)+' · ':''}sent ${fmtShort(iso(new Date(r.created_at)))}</div></div><span class="cbtn alt" onclick="athReportOpen('${r.id}',this)">Open →</span></div>`).join('')}</div>`:'';
+  return card+olderHtml;
 }
 async function renderAthPlan(){
   athState.screen='plan';
@@ -3334,6 +3513,470 @@ async function renderAthDash(){
     ${fpLock}`;
 }
 window.dashSetVbtEx=(v)=>{ dashState.vbtEx=v; renderAthDash(); };
+
+/* ====================== Reports (coach -> athlete PDF) ======================
+   Assemble a polished athlete report from data the app already has, render a
+   live preview, and produce a PDF client-side (html2pdf). Reuses the dashboard
+   chart/table builders (climbSVG/effRows/homeTrendSVG/dashBWSVG/classify/...).
+   Storage + tables: migration 36_reports.sql. See docs/reports-spec.md.        */
+const REPORT_SECTIONS=[
+  ['maxes','Current maxes'],
+  ['climb','Classification — the climb'],
+  ['efficiency','Lift efficiency'],
+  ['methodology','Methodology metrics'],
+  ['trends','Trends — load / readiness / bodyweight'],
+  ['redflags','Training check — class guardrails'],
+  ['meets','Meet results'],
+  ['summary','Coach summary']
+];
+const REPORT_DEFAULT=['maxes','climb','efficiency','methodology','trends','summary'];
+const REPORT_RANGES=[['12w','Last 12 weeks'],['6m','Last 6 months'],['ytd','This year'],['1y','Last 12 months'],['career','Full career']];
+// the review LEVEL drives the date window + default sections. Weekly is auto on the athlete's
+// Home; the coach SENDS mesocycle + macrocycle reviews (period-anchored to the plan).
+const REPORT_LEVELS=[['week','This week','The athlete’s current week — focus only, no PDF'],['meso','Mesocycle','This training block'],['macro','Macrocycle','The whole annual plan'],['custom','Custom range','A rolling window']];
+const REPORT_LEVEL_SECTIONS={
+  meso:['methodology','trends','efficiency','redflags','summary'],
+  macro:['maxes','climb','efficiency','methodology','trends','summary'],
+  custom:REPORT_DEFAULT.slice()
+};
+let reportState={ athleteId:null, level:'meso', blockId:null, range:'1y', sections:REPORT_LEVEL_SECTIONS.meso.slice(), summary:'', title:'', titleEdited:false, templates:null, tplId:'', _phases:null, _teamId:undefined, _focusAuto:'', _data:null, _busy:false };
+// feature gate — set false until migration 36 is run (probed at boot)
+let REPORTS_READY = true;
+
+function reportRangeWindow(range){
+  const today=new Date(); let start, label='';
+  if(range==='12w'){ start=new Date(today); start.setDate(start.getDate()-7*12); label='Last 12 weeks'; }
+  else if(range==='6m'){ start=new Date(today); start.setMonth(start.getMonth()-6); label='Last 6 months'; }
+  else if(range==='ytd'){ start=new Date(today.getFullYear(),0,1); label='Year to date'; }
+  else if(range==='career'){ start=new Date(2015,0,1); label='Full career'; }
+  else { start=new Date(today); start.setFullYear(start.getFullYear()-1); label='Last 12 months'; }
+  const months=(today.getFullYear()-start.getFullYear())*12+(today.getMonth()-start.getMonth());
+  return { start, startStr:iso(start), endStr:iso(today), label, monthly: months>4 };
+}
+// the active mesocycle blocks for the selected athlete's scope (team or whole-gym), newest first not — start order
+function reportBlocks(){ const ph=reportState._phases||[]; return ph.filter(p=>(p.level||'meso')==='meso'); }
+function reportCurrentBlock(){ const today=iso(new Date()); const bl=reportBlocks(); return bl.find(p=>p.start_date<=today&&p.end_date>=today) || bl[bl.length-1] || null; }
+// resolve the date window from the chosen level
+function reportRangeFor(){
+  const today=new Date();
+  if(reportState.level==='meso'){
+    const bl=reportBlocks(); const b=bl.find(p=>p.id===reportState.blockId)||reportCurrentBlock();
+    if(b){ const months=(new Date(b.end_date)-new Date(b.start_date))/(30*864e5); return { start:new Date(b.start_date+'T00:00:00'), startStr:b.start_date, endStr:(b.end_date<iso(today)?b.end_date:iso(today)), label:b.name||'This block', monthly:months>4, block:b }; }
+    // no blocks planned -> fall back to last 8 weeks
+    const s=new Date(today); s.setDate(s.getDate()-7*8); return { start:s, startStr:iso(s), endStr:iso(today), label:'Recent training (no block set)', monthly:false, block:null };
+  }
+  if(reportState.level==='macro'){
+    const ph=reportState._phases||[];
+    if(ph.length){ const starts=ph.map(p=>p.start_date).sort(); const ends=ph.map(p=>p.end_date).sort(); const s0=starts[0], e0=ends[ends.length-1];
+      const start=new Date(s0+'T00:00:00'); const endStr=(e0<iso(today)?e0:iso(today)); return { start, startStr:s0, endStr, label:'Macrocycle '+s0.slice(0,4), monthly:true, block:null }; }
+    const s=new Date(today.getFullYear(),0,1); return { start:s, startStr:iso(s), endStr:iso(today), label:'This year', monthly:true, block:null };
+  }
+  return reportRangeWindow(reportState.range);
+}
+
+window.renderReports=async()=>{
+  coachState.screen='reports';
+  const chrome = topbar('Coach')+coachNav('reports');
+  app.innerHTML = chrome + `<div class="spin">Loading reports…</div>`;
+  if(!(await requireSession())) return;
+  if(!coachState.athletes || !coachState.athletes.length){
+    const r=await sb.from('profiles').select('id,full_name').eq('role','athlete').order('full_name'); coachState.athletes=r.data||[];
+  }
+  const aths=coachState.athletes||[];
+  if(!aths.length){ app.innerHTML = chrome + `<div class="card con-empty"><h2 style="margin:0 0 6px;color:var(--text)">Reports</h2><div>No athletes yet — add one from the Console, then build them a report.</div></div>`; return; }
+  if(!reportState.athleteId || !aths.find(a=>a.id===reportState.athleteId)) reportState.athleteId=aths[0].id;
+  if(reportState.templates==null){ const t=await sb.from('report_templates').select('*').order('created_at',{ascending:true}); reportState.templates = t.error?[]:(t.data||[]); }
+  // load the selected athlete's team + the plan blocks that scope to them (for mesocycle/macrocycle anchoring)
+  const tp=await sb.from('profiles').select('team_id').eq('id',reportState.athleteId).maybeSingle();
+  reportState._teamId=tp.data?tp.data.team_id:null;
+  const phR=await sb.from('plan_phases').select('*').order('start_date');
+  const allPh=phR.error?[]:(phR.data||[]);
+  reportState._phases=allPh.filter(p=>!p.team_id || p.team_id===reportState._teamId);
+  if(reportState.level==='meso'){ const cur=reportCurrentBlock(); if(!reportState.blockId || !reportBlocks().find(b=>b.id===reportState.blockId)) reportState.blockId=cur?cur.id:null; }
+  paintReports(chrome);
+  reportBuildPreview();
+};
+
+function paintReports(chrome){
+  const aths=coachState.athletes||[];
+  const tpls=reportState.templates||[];
+  const secChecks=REPORT_SECTIONS.map(([k,l])=>`<label class="rpt-chk"><input type="checkbox" ${reportState.sections.includes(k)?'checked':''} onchange="reportToggleSection('${k}')"> ${esc(l)}</label>`).join('');
+  const levelBtns=REPORT_LEVELS.map(([k,l,sub])=>`<button class="${reportState.level===k?'on':''}" onclick="reportSetLevel('${k}')" title="${esc(sub)}">${l}</button>`).join('');
+  const isWeek=reportState.level==='week';
+  const firstName=esc(((aths.find(a=>a.id===reportState.athleteId)||{}).full_name||'').split(/\s+/)[0]||'them');
+  const win=isWeek?null:reportRangeFor();
+  let scopeRow='';
+  if(isWeek){
+    scopeRow = `<span class="rpt-fld" style="flex:1"><label>This week</label><span class="rpt-winlbl">Auto review of ${firstName}'s last completed week. The focus you write below shows on their Home — no PDF is sent for the weekly.</span></span>`;
+  } else if(reportState.level==='meso'){
+    const blocks=reportBlocks();
+    scopeRow = blocks.length
+      ? `<span class="rpt-fld" style="flex:1"><label>Training block</label><select class="scopesel" onchange="reportSetBlock(this.value)">${blocks.map(b=>`<option value="${b.id}"${b.id===reportState.blockId?' selected':''}>${esc(b.name)} · ${fmtShort(b.start_date)}–${fmtShort(b.end_date)}</option>`).join('')}</select></span><span class="rpt-fld"><label>Window</label><span class="rpt-winlbl">${fmtShort(win.startStr)} – ${fmtShort(win.endStr)}</span></span>`
+      : `<span class="rpt-fld" style="flex:1"><label>Training block</label><span class="rpt-winlbl">No mesocycle blocks on this athlete's plan — using ${esc(win.label)} (${fmtShort(win.startStr)} – ${fmtShort(win.endStr)}). Add blocks in Annual Plan.</span></span>`;
+  } else if(reportState.level==='macro'){
+    scopeRow = `<span class="rpt-fld" style="flex:1"><label>Macrocycle window</label><span class="rpt-winlbl">${esc(win.label)} · ${fmtShort(win.startStr)} – ${fmtShort(win.endStr)}</span></span>`;
+  } else {
+    scopeRow = `<span class="rpt-fld" style="flex:1"><label>Date range</label><div class="drng">${REPORT_RANGES.map(r=>`<button class="${reportState.range===r[0]?'on':''}" onclick="reportSetRange('${r[0]}')">${r[1]}</button>`).join('')}</div></span>`;
+  }
+  const tplOpts=`<option value="">— templates —</option>`+tpls.map(t=>`<option value="${t.id}"${reportState.tplId===t.id?' selected':''}>${esc(t.name)}${t.level?' ('+t.level+')':''}</option>`).join('');
+  const titleFld = isWeek ? '' : `<span class="rpt-fld" style="flex:1"><label>Report title</label><input id="rptTitle" placeholder="e.g. Mid-cycle progress report" value="${esc(reportState.title)}" oninput="reportState.title=this.value;reportState.titleEdited=true;reportSyncHeader()"></span>`;
+  const sectionsRow = isWeek ? '' : `<div class="rpt-row"><span class="rpt-fld" style="flex:1"><label>Sections</label><div class="rpt-checks">${secChecks}</div></span></div>`;
+  const summaryLabel = isWeek
+    ? `Weekly focus <span class="sub" style="text-transform:none;letter-spacing:0">— shows on ${firstName}'s Home this week; auto-drafted, edit freely</span>`
+    : `Coach summary &amp; focus <span class="sub" style="text-transform:none;letter-spacing:0">— auto-drafted from the data; edit freely</span>`;
+  const actionsRow = isWeek
+    ? `<div class="rpt-row rpt-actions"><button class="btn" onclick="reportSaveWeeklyFocus()">💾 Save weekly focus</button><span class="sub" style="align-self:center">Appears on their Home — the auto review fills in the rest.</span><span class="rpt-sp"></span><span class="saved" id="rptMsg"></span></div>`
+    : `<div class="rpt-row rpt-actions">
+      <button class="btn" onclick="reportDownloadPDF()">⬇ Download PDF</button>
+      <button class="cbtn" onclick="reportSaveSend()">📨 Save &amp; send to athlete</button>
+      <span class="rpt-sp"></span>
+      <span class="rpt-fld"><label>Template</label><span style="display:flex;gap:6px"><select class="scopesel" onchange="reportLoadTemplate(this.value)">${tplOpts}</select><button class="cbtn alt" onclick="reportSaveTemplate()">Save current as…</button>${reportState.tplId?`<button class="cbtn alt" onclick="reportDeleteTemplate()">✕</button>`:''}</span></span>
+      <span class="saved" id="rptMsg"></span>
+    </div>`;
+  const controls=`<div class="card rpt-controls">
+    <div class="rpt-row">
+      <span class="rpt-fld"><label>Athlete</label><select class="scopesel" onchange="reportPick(this.value)">${aths.map(a=>`<option value="${a.id}"${a.id===reportState.athleteId?' selected':''}>${esc(a.full_name)}</option>`).join('')}</select></span>
+      <span class="rpt-fld"><label>Review level</label><div class="drng">${levelBtns}</div></span>
+      ${titleFld}
+    </div>
+    <div class="rpt-row">${scopeRow}</div>
+    ${sectionsRow}
+    <div class="rpt-row"><span class="rpt-fld" style="flex:1"><label>${summaryLabel} <button class="cbtn alt" style="margin-left:8px" onclick="reportApplyFocus(true)">✨ Re-draft</button></label><textarea id="rptSummary" rows="4" placeholder="Where ${firstName} is and what to focus on…" oninput="reportState.summary=this.value;reportSyncSummary()">${esc(reportState.summary)}</textarea></span></div>
+    ${actionsRow}
+  </div>`;
+  app.innerHTML = chrome + controls + `<div id="reportPreview"><div class="card"><div class="spin">Building preview…</div></div></div>`;
+}
+
+window.reportPick=(id)=>{ reportState.athleteId=id; reportState._data=null; reportState._phases=null; reportState.summary=''; reportState.titleEdited=false; renderReports(); };
+window.reportSetRange=(r)=>{ reportState.range=r; renderReports(); };
+window.reportSetLevel=(lv)=>{ reportState.level=lv; reportState.summary=''; reportState.titleEdited=false; if(REPORT_LEVEL_SECTIONS[lv]) reportState.sections=REPORT_LEVEL_SECTIONS[lv].slice(); renderReports(); };
+window.reportSetBlock=(id)=>{ reportState.blockId=id; renderReports(); };
+// auto-draft a focus from the data (efficiency gaps, guardrail flags, completion, climb)
+function reportFocusDraft(d){
+  if(!d) return '';
+  const first=(d.viewName||'The athlete').split(/\s+/)[0]; const bits=[];
+  // headline: where they are
+  if(d.cls){ if(d.cls.nextRank) bits.push(`${first} sits at ${d.cls.rank||'below Class III'} — ${d.cls.toGo}kg from ${d.cls.nextRank} (${d.cls.pct}% of the way).`);
+    else bits.push(`${first} is at ${d.cls.rank} — top of the standards.`); }
+  // efficiency: biggest gap to close
+  const effAll=(d.eff&&d.eff.groups?d.eff.groups:[]).flatMap(g=>g.rows).filter(r=>r.read);
+  const inf=effAll.filter(r=>r.read==='ineff').sort((a,b)=>a.gap-b.gap)[0];
+  const hy=effAll.filter(r=>r.read==='hyper').sort((a,b)=>b.gap-a.gap)[0];
+  if(inf) bits.push(`Focus: ${inf.mv} lags its target by ${Math.abs(inf.gap).toFixed(0)}kg — the priority to close.`);
+  if(hy) bits.push(`Strength to lean on: ${hy.mv} (+${hy.gap.toFixed(0)}kg over ideal).`);
+  // guardrails out of band
+  if(d.redflags&&d.redflags.flags){ const off=d.redflags.rows.filter(r=>r.flag==='under'||r.flag==='over').map(r=>r.lbl.replace(/ \(.*\)/,'')); if(off.length) bits.push(`Programming watch: ${off.slice(0,3).join(', ')} ${off.length>1?'are':'is'} outside the class band.`); }
+  // completion / consistency — only when there's a real sample (avoid scolding an in-progress block)
+  if(d.method&&d.method.compPct!=null&&d.method.sessLogged>=3){ if(d.method.compPct>=90) bits.push(`Consistency is strong — ${d.method.compPct}% set completion this period.`); else if(d.method.compPct<75) bits.push(`Completion is running ${d.method.compPct}% — worth a check on adherence.`); }
+  return bits.join(' ');
+}
+// fill the summary with the auto-draft (force = overwrite even if edited)
+window.reportApplyFocus=(force)=>{
+  let draft;
+  if(reportState.level==='week'){ draft=reportState._weekAuto||''; }
+  else { const d=reportState._data; if(!d) return; draft=reportFocusDraft(d); }
+  const prev=reportState._focusAuto; reportState._focusAuto=draft;
+  const cur=(reportState.summary||'').trim();
+  if(force || !cur || cur===prev){ reportState.summary=draft; const ta=document.getElementById('rptSummary'); if(ta) ta.value=draft; reportSyncSummary(); }
+};
+// save the coach's weekly focus override (shows on the athlete's Home this week)
+window.reportSaveWeeklyFocus=async()=>{
+  const period=reportState._weekPeriod; if(!period){ reportMsg('No week loaded yet.',true); return; }
+  reportMsg('Saving…');
+  const r=await sb.from('coach_focus').upsert({ gym_id:me_.gym_id, athlete_id:reportState.athleteId, scope:'week', period_key:period, focus:(reportState.summary||'').trim()||null, updated_at:new Date().toISOString() }, { onConflict:'athlete_id,scope,period_key' }).select();
+  if(r.error){ reportMsg('Save failed — '+r.error.message,true); return; }
+  reportMsg('Saved ✓ — it shows on their Home this week.');
+};
+window.reportToggleSection=(k)=>{ const i=reportState.sections.indexOf(k); if(i>=0) reportState.sections.splice(i,1); else { // keep canonical order
+    reportState.sections=REPORT_SECTIONS.map(s=>s[0]).filter(key=>key===k||reportState.sections.includes(key)); }
+  reportBuildPreview(); };
+// lightweight live edits — update the preview's header/summary without a full reload
+window.reportSyncHeader=()=>{ const h=document.getElementById('rptHdrTitle'); if(h) h.textContent=reportState.title||'Athlete Report'; };
+window.reportSyncSummary=()=>{ const s=document.getElementById('rptSumBody'); if(s) s.textContent=reportState.summary||'—'; };
+
+async function reportLoadData(viewId){
+  const win=reportRangeFor();
+  const { startStr, endStr, monthly } = win;
+  const today=new Date(), todayStr=iso(today); const D=s=>new Date(s+'T00:00:00');
+  const rdScoreOf=r=>{ const vs=RK_METRICS.map(m=>r[m[0]]).filter(v=>v!=null); return vs.length?vs.reduce((a,b)=>a+b,0)/vs.length:null; };
+  const aths=coachState.athletes||[]; const viewAth=aths.find(a=>a.id===viewId)||{};
+  // profile
+  const pr=await sb.from('profiles').select('*').eq('id',viewId).maybeSingle();
+  const prof=Object.assign({}, viewAth, pr.data||{});
+  const viewName=prof.full_name||'Athlete';
+  const sex=prof.sex; const age=prof.birthdate?Math.floor((Date.now()-new Date(prof.birthdate).getTime())/(365.25*864e5)):null;
+  let teamName=null; if(prof.team_id){ const tr=await sb.from('teams').select('name').eq('id',prof.team_id).maybeSingle(); teamName=tr.data&&tr.data.name; }
+  let gymName='Your gym'; try{ const g=await sb.from('gyms').select('name').eq('id',me_.gym_id).single(); if(g.data&&g.data.name) gymName=g.data.name; }catch(e){}
+  // maxes + classification
+  const maxesRows=(await sb.from('maxes').select('lift,kg,tested_at').eq('athlete_id',viewId)).data||[];
+  const maxMap={}; maxesRows.forEach(m=>{ maxMap[normEx(m.lift)]={kg:parseFloat(m.kg),tested_at:m.tested_at,lift:m.lift}; });
+  const totM=totalFromMaxes(maxesRows);
+  // bodyweight series + classification bw
+  const rR=await sb.from('readiness').select('*').eq('athlete_id',viewId).gte('check_date',startStr).lte('check_date',todayStr).order('check_date',{ascending:true});
+  const rd=rR.data||[];
+  const bwPts=rd.filter(r=>r.bodyweight!=null).map(r=>({ lbl:MONS[D(r.check_date).getMonth()]+' '+D(r.check_date).getDate(), bw:parseFloat(r.bodyweight) })).filter(p=>!isNaN(p.bw));
+  const latestBw=bwPts.length?bwPts[bwPts.length-1].bw:null;
+  const clsBw=(prof.weight_class)?(parseFloat(String(prof.weight_class))||latestBw):latestBw;
+  const cls=(sex&&clsBw!=null&&totM&&totM.hasBoth)?classify(sex,clsBw,totM.total):null;
+  // meets
+  const meetsR=await sb.from('meet_results').select('*').eq('athlete_id',viewId).order('meet_date',{ascending:true});
+  const meets=meetsR.error?[]:(meetsR.data||[]);
+  // range sessions + logs
+  const sR=await sb.from('sessions').select('id,session_date,prescribed_exercises(name,prescribed_sets(target_reps,target_pct))').eq('athlete_id',viewId).neq('status','draft').gte('session_date',startStr).lte('session_date',todayStr);
+  const sess=sR.data||[]; const ids=sess.map(s=>s.id);
+  let logs=[]; if(ids.length){ for(let i=0;i<ids.length;i+=200){ const r=await sb.from('logged_sets').select('session_id,done,miss,prescribed_set_id,actual_kg,actual_reps,lights').in('session_id',ids.slice(i,i+200)); if(r.data) logs=logs.concat(r.data); } }
+  // KPIs
+  const trainedSess=new Set(logs.filter(l=>l.done).map(l=>l.session_id)); const sessLogged=trainedSess.size;
+  let tonnage=0; logs.forEach(l=>{ if(l.done&&l.actual_kg&&l.actual_reps) tonnage+=l.actual_kg*l.actual_reps; });
+  let presN=0; sess.forEach(s=>(s.prescribed_exercises||[]).forEach(ex=>presN+=(ex.prescribed_sets||[]).length));
+  const doneSets=logs.filter(l=>l.done&&l.prescribed_set_id).length; const compPct=presN?Math.round(doneSets/presN*100):null;
+  const rdScores=rd.map(rdScoreOf).filter(v=>v!=null); const rdAvg=rdScores.length?rdScores.reduce((a,b)=>a+b,0)/rdScores.length:null;
+  const withLights=logs.filter(l=>l.done&&l.lights!=null); const cleanN=withLights.filter(l=>l.lights===3).length; const cleanPct=withLights.length?Math.round(cleanN/withLights.length*100):null;
+  // methodology (planned, over range) via liftMetrics
+  const flatSets=[]; let l90=0; const weeks=new Set();
+  const mon=ds=>{ const d=new Date(ds+'T00:00:00'); d.setDate(d.getDate()-((d.getDay()+6)%7)); return iso(d); };
+  sess.forEach(s=>{ weeks.add(mon(s.session_date)); (s.prescribed_exercises||[]).forEach(ex=>(ex.prescribed_sets||[]).forEach(ps=>{ const reps=ps.target_reps||0, pct=ps.target_pct!=null?parseFloat(ps.target_pct):0; if(reps){ flatSets.push({reps,pct}); if(pct>=90&&pct<=100) l90+=reps; } })); });
+  const mm=liftMetrics(flatSets); const nWk=Math.max(1,weeks.size);
+  const method={ vol:mm.vol, ari:mm.ari, ri:mm.ri, inol:mm.inol, peak:mm.peak, l90, weekly:Math.round(mm.vol/nWk), nWk, sessLogged, tonnage, compPct, rdAvg, cleanPct };
+  // trend buckets
+  const bmap={}; const bkey=ds=>{ const d=D(ds); return monthly?(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')):mon(ds); };
+  if(monthly){ let c=new Date(win.start.getFullYear(),win.start.getMonth(),1); while(c<=today){ const k=c.getFullYear()+'-'+String(c.getMonth()+1).padStart(2,'0'); bmap[k]={lbl:MONS[c.getMonth()], vol:0, rdSum:0, rdN:0, rd:null}; c.setMonth(c.getMonth()+1); } }
+  else { let c=new Date(win.start); c.setDate(c.getDate()-((c.getDay()+6)%7)); let wi=1; while(c<=today){ bmap[iso(c)]={lbl:'Wk'+wi, vol:0, rdSum:0, rdN:0, rd:null}; c.setDate(c.getDate()+7); wi++; } }
+  sess.forEach(s=>{ const k=bkey(s.session_date); if(!bmap[k]) return; let v=0; (s.prescribed_exercises||[]).forEach(ex=>(ex.prescribed_sets||[]).forEach(ps=>v+=ps.target_reps||0)); bmap[k].vol+=v; });
+  rd.forEach(r=>{ const k=bkey(r.check_date); if(!bmap[k]) return; const sc=rdScoreOf(r); if(sc!=null){ bmap[k].rdSum+=sc; bmap[k].rdN++; } });
+  const buckets=[]; Object.keys(bmap).sort().forEach(k=>{ const b=bmap[k]; b.rd=b.rdN?b.rdSum/b.rdN:null; buckets.push(b); });
+  const hasTrend=buckets.some(b=>b.vol>0||b.rd!=null);
+  // red-flag engine (52-week programmed vs guardrails) — only if classified
+  let redflags=null;
+  if(cls){
+    const g=CLASS_GUARDRAILS[cls.rank]; const yStart=new Date(today); yStart.setDate(yStart.getDate()-364);
+    const ysR=await sb.from('sessions').select('session_date,prescribed_exercises(name,prescribed_sets(target_reps,target_pct))').eq('athlete_id',viewId).neq('status','draft').gte('session_date',iso(yStart)).lte('session_date',todayStr);
+    const ysess=ysR.error?[]:(ysR.data||[]);
+    let reps=0,vw=0,pv=0,lifts90=0; const wkset=new Set(); const fam={snari:[0,0],cjari:[0,0],sqari:[0,0],pullari:[0,0]};
+    ysess.forEach(s=>{ wkset.add(mon(s.session_date)); (s.prescribed_exercises||[]).forEach(ex=>{ const fk=guardFam(ex.name);
+      (ex.prescribed_sets||[]).forEach(ps=>{ const r=ps.target_reps||0, p=ps.target_pct!=null?parseFloat(ps.target_pct):0; reps+=r;
+        if(p){ vw+=p*r; pv+=r; if(p>=90&&p<=100) lifts90+=r; if(fk){ fam[fk][0]+=p*r; fam[fk][1]+=r; } } }); }); });
+    const nWkY=Math.max(1,wkset.size); const meetsYr=meets.filter(m=>m.meet_date>=iso(yStart)).length;
+    const famAri=k=>fam[k][1]?(fam[k][0]/fam[k][1])/100:null;
+    const actual={ yearly:reps||null, weekly:reps?Math.round(reps/nWkY):null, lifts90:lifts90||null, ari:pv?vw/pv:null, meets:meetsYr, snari:famAri('snari'), cjari:famAri('cjari'), sqari:famAri('sqari') };
+    const LBL={yearly:'Yearly loading (reps)',weekly:'Avg weekly volume',lifts90:'Lifts at 90–100% / yr',ari:'Avg intensity (ARI)',meets:'Meets / yr',snari:'Snatch ARI',cjari:'C&J ARI',sqari:'Squat ARI'};
+    const fmtVal=(k,v)=>{ if(v==null) return '—'; if(k==='ari') return v.toFixed(1)+'%'; if(k==='snari'||k==='cjari'||k==='sqari') return v.toFixed(2); return Math.round(v).toLocaleString(); };
+    const ov=(prof.bio&&prof.bio.guardrails)||{};
+    const rows=GUARD_CHECK_KEYS.filter(k=>LBL[k]).map(k=>{ const band=parseBand(ov[k]||g[k]); const v=actual[k]; const f=gFlag(v,band);
+      return { lbl:LBL[k], val:fmtVal(k,v), band:g[k]||'—', flag:f }; });
+    const flagsN=rows.filter(r=>r.flag==='under'||r.flag==='over').length;
+    redflags={ rank:cls.rank, rows, flags:flagsN };
+  }
+  const levelLbl = reportState.level==='meso'?'Mesocycle review':(reportState.level==='macro'?'Macrocycle review':'Progress report');
+  const suggestedTitle = reportState.level==='meso'&&win.block ? (win.block.name+' — review') : levelLbl;
+  return { prof, viewName, sex, age, teamName, gymName, maxesRows, maxMap, totM, cls, meets, eff:{groups:effRows(maxMap)}, method, buckets, bwPts, hasTrend, redflags, rangeLabel:win.label, startStr, endStr, level:reportState.level, block:win.block||null, levelLbl, suggestedTitle };
+}
+
+// ---- report HTML (the .report node that becomes the PDF) ----
+function reportHTML(d){
+  const sec=k=>reportState.sections.includes(k);
+  const today=new Date();
+  const idChips=[ d.sex?(d.sex==='F'?'Female':'Male'):null, d.age!=null?'Age '+d.age:null,
+    d.prof.weight_class?d.prof.weight_class+' kg class':null, d.prof.skill_level||null, d.prof.experience||null, d.teamName?('Team: '+d.teamName):null
+  ].filter(Boolean).map(c=>`<span class="rpt-chip">${esc(c)}</span>`).join('');
+  let body='';
+  // Header (always)
+  body+=`<div class="rpt-head">
+    <div class="rpt-brand">${esc(d.gymName)} · ${esc(d.levelLbl||'Report')}</div>
+    <div class="rpt-title" id="rptHdrTitle">${esc(reportState.title||'Athlete Report')}</div>
+    <div class="rpt-ath">${esc(d.viewName)}</div>
+    <div class="rpt-chips">${idChips||''}</div>
+    <div class="rpt-meta">${esc(d.rangeLabel)} · ${fmtShort(d.startStr)} – ${fmtShort(d.endStr)} &nbsp;·&nbsp; generated ${MONS[today.getMonth()]+' '+today.getDate()+', '+today.getFullYear()}</div>
+  </div>`;
+  // Current maxes
+  if(sec('maxes')){
+    const row=lift=>{ const m=d.maxMap[normEx(lift)]; return `<tr><td>${esc(lift)}</td><td class="rpt-num">${m&&m.kg!=null?m.kg:'—'}</td></tr>`; };
+    const tot=d.totM?`<tr class="rpt-tot"><td>Total (Sn + C&amp;J)</td><td class="rpt-num">${d.totM.total}</td></tr>`:'';
+    body+=`<div class="rpt-section"><h3>Current maxes</h3>
+      <div class="rpt-2col">
+        <table class="rpt-tbl"><thead><tr><th>Lift</th><th class="rpt-num">1RM (kg)</th></tr></thead><tbody>${PF_MAXES_L.map(row).join('')}${tot}</tbody></table>
+        <table class="rpt-tbl"><thead><tr><th>Lift</th><th class="rpt-num">1RM (kg)</th></tr></thead><tbody>${PF_MAXES_R.map(row).join('')}</tbody></table>
+      </div></div>`;
+  }
+  // Classification — the climb
+  if(sec('climb')){
+    if(d.cls){
+      const c=d.cls; const goal=c.nextRank?`Next: <b>${esc(c.nextRank)}</b> at <b>${c.nextTotal}kg</b> — <b>${c.toGo}kg</b> to go (${c.pct}%).`:'At the top of the standards.';
+      const thr=`<table class="rpt-thr"><thead><tr>${c.ranks.map((r,i)=>`<th class="${i===c.rankIdx?'on':''}">${r==='Class III'?'III':r==='Class II'?'II':r==='Class I'?'I':r}</th>`).join('')}</tr></thead><tbody><tr>${c.thresholds.map((t,i)=>`<td class="${i===c.rankIdx?'on':''}">${t}</td>`).join('')}</tr></tbody></table>`;
+      body+=`<div class="rpt-section"><h3>Classification — the climb</h3>
+        <div class="rpt-line">Total <b>${d.totM.total}kg</b> (Sn ${d.totM.sn!=null?d.totM.sn:'—'} + CJ ${d.totM.cj!=null?d.totM.cj:'—'}) — current class <b>${esc(c.rank||'Below Class III')}</b>. ${goal}</div>
+        <div class="rpt-prog"><i style="width:${c.pct}%"></i></div>
+        ${thr}
+        ${d.meets.length?climbSVG(d.meets,c):'<div class="rpt-note">Standard: '+esc(c.label||'')+'. Log meets to plot the total over time.</div>'}</div>`;
+    } else {
+      body+=`<div class="rpt-section"><h3>Classification — the climb</h3><div class="rpt-note">Add sex, weight class, and Snatch + C&amp;J maxes to compute classification.</div></div>`;
+    }
+  }
+  // Lift efficiency
+  if(sec('efficiency')){
+    const story=effStory(d.eff.groups);
+    const rows=d.eff.groups.map(g=>{ const rs=g.rows.filter(r=>r.read); if(!rs.length) return '';
+      return `<tr class="rpt-grp"><td colspan="5">${esc(g.grp)}</td></tr>`+rs.map(r=>`<tr>
+        <td>${esc(r.mv)}</td><td class="rpt-num">${r.cur!=null?r.cur:'—'}</td>
+        <td class="rpt-num">${r.eff!=null?Math.round(r.eff*100)+'%':'—'}</td>
+        <td class="rpt-num">${Math.round(r.ratio*100)}%</td>
+        <td><span class="rpt-read ${r.read}">${EFF_READLBL[r.read]}</span></td></tr>`).join(''); }).join('');
+    body+=`<div class="rpt-section"><h3>Lift efficiency — strengths &amp; weaknesses</h3>
+      ${rows?`<table class="rpt-tbl rpt-eff"><thead><tr><th>Movement</th><th class="rpt-num">1RM</th><th class="rpt-num">Current</th><th class="rpt-num">Target</th><th>Read</th></tr></thead><tbody>${rows}</tbody></table>`:'<div class="rpt-note">Fill in the maxes to compute efficiency.</div>'}
+      ${story?`<div class="rpt-story"><b>Story:</b> ${esc(story)}</div>`:''}</div>`;
+  }
+  // Methodology metrics
+  if(sec('methodology')){
+    const m=d.method;
+    const tile=(v,l)=>`<div class="rpt-tile"><div class="v">${v}</div><div class="l">${l}</div></div>`;
+    body+=`<div class="rpt-section"><h3>Methodology metrics <span class="rpt-sub">· ${esc(d.rangeLabel).toLowerCase()}</span></h3>
+      <div class="rpt-tiles">
+        ${tile(m.ari?Math.round(m.ari)+'%':'—','Avg intensity (ARI)')}
+        ${tile(riDisplay(m.ri),'RI (effort)')}
+        ${tile(m.inol?m.inol.toFixed(2):'—','INOL')}
+        ${tile(m.peak?Math.round(m.peak)+'%':'—','Peak %')}
+        ${tile(m.vol?m.vol.toLocaleString():'—','Volume (NL)')}
+        ${tile(m.weekly?m.weekly.toLocaleString():'—','Avg weekly NL')}
+        ${tile(m.l90?m.l90.toLocaleString():'—','Lifts 90–100%')}
+        ${tile(m.sessLogged,'Sessions logged')}
+        ${tile(m.tonnage?Math.round(m.tonnage).toLocaleString():'—','Tonnage (kg)')}
+        ${tile(m.compPct!=null?m.compPct+'%':'—','Set completion')}
+        ${tile(m.rdAvg!=null?m.rdAvg.toFixed(1):'—','Avg readiness')}
+        ${tile(m.cleanPct!=null?m.cleanPct+'%':'—','Clean lifts')}
+      </div>
+      <div class="rpt-note">Intensity, RI, INOL and volume are from programmed work over the range; tonnage, completion, readiness and clean-lift rate are from what the athlete actually logged.</div></div>`;
+  }
+  // Trends
+  if(sec('trends')){
+    body+=`<div class="rpt-section"><h3>Trends</h3>
+      ${d.hasTrend?`<div class="rpt-chart-cap">Training load &amp; readiness <span class="rpt-leg"><i style="background:#e8643c"></i>Volume (NL) <i style="background:#3ec97a"></i>Readiness</span></div>${homeTrendSVG(d.buckets)}`:'<div class="rpt-note">Volume &amp; readiness trend builds as training and check-ins are logged over the range.</div>'}
+      ${d.bwPts.length>=2?`<div class="rpt-chart-cap" style="margin-top:14px">Bodyweight over time</div>${dashBWSVG(d.bwPts)}`:''}</div>`;
+  }
+  // Red flags / guardrails
+  if(sec('redflags')){
+    if(d.redflags){
+      const r=d.redflags;
+      const rows=r.rows.map(x=>{ const col=x.flag==='in'?'var(--good)':(x.flag==='na'?'var(--muted)':'var(--warn)'); const fl=x.flag==='in'?'in band':(x.flag==='under'?'under':(x.flag==='over'?'over':'—'));
+        return `<tr><td>${esc(x.lbl)}</td><td class="rpt-num" style="color:${col}">${x.val}</td><td class="rpt-num rpt-sub">${esc(x.band)}</td><td class="rpt-num" style="color:${col};font-weight:800">${fl}</td></tr>`; }).join('');
+      body+=`<div class="rpt-section"><h3>Training check — ${esc(r.rank)} guardrails <span class="rpt-sub">· ${r.flags?r.flags+' out of band':'all in band'}</span></h3>
+        <table class="rpt-tbl"><thead><tr><th>Metric</th><th class="rpt-num">Last 52 wks</th><th class="rpt-num">Class band</th><th class="rpt-num">Flag</th></tr></thead><tbody>${rows}</tbody></table>
+        <div class="rpt-note">Last-52-week programmed numbers vs the loading norms for this athlete's class. Out-of-band rows are where the program differs from what's typical for the level.</div></div>`;
+    } else {
+      body+=`<div class="rpt-section"><h3>Training check — class guardrails</h3><div class="rpt-note">Set the athlete's classification to compare their programming against the class loading norms.</div></div>`;
+    }
+  }
+  // Meet results
+  if(sec('meets')){
+    if(d.meets.length){
+      const rows=d.meets.slice().reverse().map(m=>{ const tot=m.total!=null?m.total:((+m.best_snatch||0)+(+m.best_cj||0));
+        return `<tr><td>${fmtShort(m.meet_date)} ’${String(new Date(m.meet_date+'T00:00:00').getFullYear()).slice(2)}</td><td>${esc(m.meet_name||'Meet')}</td><td class="rpt-num">${m.best_snatch!=null?m.best_snatch:'—'}</td><td class="rpt-num">${m.best_cj!=null?m.best_cj:'—'}</td><td class="rpt-num"><b>${tot}</b></td><td class="rpt-num">${m.bodyweight!=null?m.bodyweight:'—'}</td><td class="rpt-num">${m.placement?'#'+m.placement:'—'}</td></tr>`; }).join('');
+      body+=`<div class="rpt-section"><h3>Meet results</h3>
+        <table class="rpt-tbl"><thead><tr><th>Date</th><th>Meet</th><th class="rpt-num">Sn</th><th class="rpt-num">CJ</th><th class="rpt-num">Total</th><th class="rpt-num">BW</th><th class="rpt-num">Pl</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    } else {
+      body+=`<div class="rpt-section"><h3>Meet results</h3><div class="rpt-note">No competition results logged yet.</div></div>`;
+    }
+  }
+  // Coach summary (always rendered if selected, even empty, so coach can type live)
+  if(sec('summary')){
+    body+=`<div class="rpt-section rpt-summary"><h3>Coach summary</h3><div class="rpt-sumbody" id="rptSumBody">${esc(reportState.summary)||'—'}</div></div>`;
+  }
+  body+=`<div class="rpt-foot">${esc(d.gymName)} · ${esc(d.viewName)} · ${MONS[today.getMonth()]+' '+today.getDate()+', '+today.getFullYear()}</div>`;
+  return `<div class="report" id="reportDoc">${body}</div>`;
+}
+
+async function reportBuildPreview(){
+  if(reportState._busy) return; reportState._busy=true;
+  const host=document.getElementById('reportPreview'); if(host) host.innerHTML=`<div class="card"><div class="spin">Building preview…</div></div>`;
+  try{
+    if(reportState.level==='week'){
+      const w=await weekReview(reportState.athleteId);
+      reportState._weekAuto=w.autoFocus; reportState._weekPeriod=w.periodKey;
+      let override=null; try{ const r=await sb.from('coach_focus').select('focus').eq('athlete_id',reportState.athleteId).eq('scope','week').eq('period_key',w.periodKey).maybeSingle(); if(!r.error&&r.data&&r.data.focus&&r.data.focus.trim()) override=r.data.focus.trim(); }catch(e){}
+      if(override && !(reportState.summary||'').trim()){ reportState.summary=override; const ta=document.getElementById('rptSummary'); if(ta) ta.value=override; reportSyncSummary(); }
+      else reportApplyFocus(false);
+      const nm=esc(((coachState.athletes||[]).find(a=>a.id===reportState.athleteId)||{}).full_name||'Athlete');
+      const focusPreview=(reportState.summary||'').trim()||w.autoFocus;
+      const h=document.getElementById('reportPreview');
+      if(h) h.innerHTML=`<div class="card mreview"><div class="mrev-head"><h2>📋 What ${nm} sees · This week</h2>${override?'<span class="rpt-chip" style="border-color:var(--accent);color:var(--accent)">coach focus saved</span>':''}</div><div class="mrev-body">${w.statsHtml}<div class="mrev-focus coach"><span class="mrev-flbl">🎯 Focus from your coach</span> <span id="rptSumBody">${esc(focusPreview)}</span></div>${w.upNextHtml}</div></div>`;
+      reportState._busy=false; return;
+    }
+    const d=await reportLoadData(reportState.athleteId);
+    reportState._data=d;
+    // default title from the level/block until the coach types their own
+    if(!reportState.titleEdited){ reportState.title=d.suggestedTitle; const ti=document.getElementById('rptTitle'); if(ti) ti.value=d.suggestedTitle; reportSyncHeader(); }
+    // auto-draft the focus (only fills when empty or still the previous auto-draft)
+    reportApplyFocus(false);
+    const h=document.getElementById('reportPreview'); if(h) h.innerHTML=reportHTML(d);
+  }catch(e){ const h=document.getElementById('reportPreview'); if(h) h.innerHTML=`<div class="card"><div class="note" style="color:var(--bad)">Couldn't build the preview — ${esc(e.message||e)}</div></div>`; }
+  reportState._busy=false;
+}
+
+function reportFileName(d){ const nm=(d.viewName||'athlete').replace(/[^a-z0-9]+/gi,'_').replace(/^_|_$/g,''); return nm+'_report_'+iso(new Date())+'.pdf'; }
+function reportPdfWorker(node, d){
+  return html2pdf().set({
+    margin:[8,8,8,8],
+    filename:reportFileName(d),
+    image:{ type:'jpeg', quality:0.96 },
+    html2canvas:{ scale:2, backgroundColor:'#0c1116', useCORS:true, logging:false },
+    jsPDF:{ unit:'mm', format:'letter', orientation:'portrait' },
+    pagebreak:{ mode:['css','legacy'] }
+  }).from(node);
+}
+function reportMsg(t,bad){ const m=document.getElementById('rptMsg'); if(m){ m.style.color=bad?'var(--bad)':'var(--good)'; m.textContent=t; } }
+
+window.reportDownloadPDF=async()=>{
+  const node=document.getElementById('reportDoc'); if(!node){ reportMsg('Build a preview first.',true); return; }
+  if(!window.html2pdf){ reportMsg('PDF library still loading — try again in a second.',true); return; }
+  reportMsg('Generating PDF…'); try{ await reportPdfWorker(node, reportState._data||{viewName:'athlete'}).save(); reportMsg('PDF downloaded ✓'); }
+  catch(e){ reportMsg('PDF failed — '+(e.message||e),true); }
+};
+
+window.reportSaveSend=async()=>{
+  const d=reportState._data; const node=document.getElementById('reportDoc');
+  if(!d||!node){ reportMsg('Build a preview first.',true); return; }
+  if(!window.html2pdf){ reportMsg('PDF library still loading — try again.',true); return; }
+  reportMsg('Generating + sending…');
+  try{
+    const blob=await reportPdfWorker(node,d).outputPdf('blob');
+    const ts=Date.now(); const path=`${me_.gym_id}/${reportState.athleteId}/${ts}_report.pdf`;
+    const up=await sb.storage.from('reports').upload(path, blob, { contentType:'application/pdf', upsert:false });
+    if(up.error){ reportMsg('Upload failed — '+up.error.message,true); return; }
+    const win=reportRangeFor();
+    const ins=await sb.from('reports').insert({ gym_id:me_.gym_id, athlete_id:reportState.athleteId, title:reportState.title||(d.suggestedTitle||'Athlete Report'), level:reportState.level, block_name:(win.block?win.block.name:null), range_start:win.startStr, range_end:win.endStr, summary:reportState.summary||null, sections:reportState.sections, pdf_path:path, delivered:true }).select();
+    if(ins.error){ reportMsg('Saved the PDF but the record failed — '+ins.error.message,true); return; }
+    reportMsg('Sent to '+(d.viewName||'the athlete')+' ✓ — they\'ll see it on their Home.');
+  }catch(e){ reportMsg('Send failed — '+(e.message||e),true); }
+};
+
+/* ---- templates ---- */
+window.reportSaveTemplate=()=>{
+  ovModal('rptTplModal',`<div class="ov-hd"><h2 style="margin:0">Save section template</h2><span class="vid-x" onclick="document.getElementById('rptTplModal').style.display='none'">✕</span></div>
+    <div class="bf-row" style="margin-top:10px;gap:8px"><input id="rptTplName" placeholder="Template name (e.g. Monthly check-in)" style="flex:1;min-width:200px"><button class="btn" onclick="reportSaveTemplateGo()">Save</button></div>
+    <div class="note sub" style="padding:6px 0 0">Saves the currently-checked sections: ${esc(reportState.sections.map(k=>(REPORT_SECTIONS.find(s=>s[0]===k)||[,k])[1]).join(', '))}.</div>`);
+};
+window.reportSaveTemplateGo=async()=>{
+  const name=(document.getElementById('rptTplName')||{}).value; if(!name||!name.trim()){ return; }
+  const r=await sb.from('report_templates').insert({ gym_id:me_.gym_id, name:name.trim(), level:reportState.level, sections:reportState.sections }).select();
+  const m=document.getElementById('rptTplModal'); if(m) m.style.display='none';
+  if(r.error){ reportMsg('Template save failed — '+r.error.message,true); return; }
+  reportState.templates=null; reportState.tplId=(r.data&&r.data[0]&&r.data[0].id)||''; renderReports();
+};
+window.reportLoadTemplate=(id)=>{ reportState.tplId=id; if(!id) return; const t=(reportState.templates||[]).find(x=>x.id===id); if(t){ if(t.level) reportState.level=t.level; if(Array.isArray(t.sections)) reportState.sections=REPORT_SECTIONS.map(s=>s[0]).filter(k=>t.sections.includes(k)); } renderReports(); };
+window.reportDeleteTemplate=async()=>{ if(!reportState.tplId) return; const r=await sb.from('report_templates').delete().eq('id',reportState.tplId); reportState.tplId=''; reportState.templates=null; if(r.error){ reportMsg('Delete failed — '+r.error.message,true); } renderReports(); };
+
+// athlete (or coach) opens a delivered report's PDF via a signed URL
+window.athReportOpen=async(id, btn)=>{
+  const old=btn?btn.textContent:''; if(btn){ btn.textContent='Opening…'; btn.style.pointerEvents='none'; }
+  try{
+    const r=await sb.from('reports').select('pdf_path').eq('id',id).maybeSingle();
+    const path=r.data&&r.data.pdf_path; if(!path) throw new Error('no file');
+    const s=await sb.storage.from('reports').createSignedUrl(path, 300);
+    if(s.error||!s.data){ throw new Error(s.error?s.error.message:'sign failed'); }
+    window.open(s.data.signedUrl, '_blank');
+  }catch(e){ if(btn) btn.textContent='Unavailable'; return; }
+  if(btn){ btn.textContent=old; btn.style.pointerEvents=''; }
+};
+
 /* ---------------- uploads (coach inbox + athlete share) ---------------- */
 let upState={ mode:'athlete' };
 function uploadKind(name){ const n=(name||'').toLowerCase();
@@ -3734,10 +4377,11 @@ function coachNav(active){
     <button class="${active==='coach'?'on':''}" onclick="coachGo('coach')">Coach View</button>
     <button class="${active==='plan'?'on':''}" onclick="coachGo('plan')">🗓 Annual Plan</button>
     <button class="${active==='dash'?'on':''}" onclick="coachGo('dash')">📊 Athlete Dashboard</button>
+    <button class="${active==='reports'?'on':''}" onclick="coachGo('reports')">📄 Reports</button>
     <button class="${active==='uploads'?'on':''}" onclick="coachGo('uploads')">📤 Uploads</button>
   </div>`;
 }
-window.coachGo=(s)=>{ coachState.screen=s; ed=null; if(s==='coach') paintCoach(); else if(s==='plan') renderPlan(); else if(s==='dash') renderCoachAthDash(); else if(s==='uploads') renderCoachUploads(); else renderConsole(); };
+window.coachGo=(s)=>{ coachState.screen=s; ed=null; if(s==='coach') paintCoach(); else if(s==='plan') renderPlan(); else if(s==='dash') renderCoachAthDash(); else if(s==='reports') renderReports(); else if(s==='uploads') renderCoachUploads(); else renderConsole(); };
 
 async function paintCoach(){
   coachState.screen='coach';
