@@ -6789,15 +6789,15 @@ function paintSchemeLib(){
       <div class="sl-right" id="slDetail"></div>
     </div>
     <div class="sl-foot">
-      <button class="btn" id="slApply" onclick="applyLibScheme()">${schLib.scope==='block'?'Apply across block →':'Apply week '+(schLib.wk+1)+' →'}</button>
+      <button class="btn" id="slApply" onclick="applyLibScheme()">${schLib.scope==='block'?'Lay full scheme forward →':'Apply week '+(schLib.wk+1)+' →'}</button>
       <button class="btn ghost" onclick="tweakScheme()">⊞ Tweak &amp; save as new</button>
       <button class="btn ghost" onclick="paintCustomScheme()">⚙ Custom</button>
       <span class="sl-scope">Scope
         <select id="slScope" onchange="schLib.scope=this.value;refreshApplyLabel()">
           <option value="session"${schLib.scope==='session'?' selected':''}>Selected week → this session</option>
-          <option value="block"${schLib.scope==='block'?' selected':''}>Whole block (week by week)</option>
+          <option value="block"${schLib.scope==='block'?' selected':''}>Whole scheme → week by week forward</option>
         </select></span>
-      <span class="sub" id="slFootHelp" style="margin-left:auto;max-width:320px">${schLib.scope==='block'?(cw&&cw.block?'Each scheme week populates the matching exercise across '+esc(cw.block.name)+'.':'No block set for this week — define one to apply across a block.'):'Click a week column, then apply it to this exercise. Loads price off the athlete\'s max.'}</span>
+      <span class="sub" id="slFootHelp" style="margin-left:auto;max-width:340px">${schLib.scope==='block'?'Lays every week of this scheme onto this exercise from this week forward (same weekday), creating the sessions as needed. Loads price off the athlete\'s max.':'Click a week column, then apply it to this exercise. Loads price off the athlete\'s max.'}</span>
     </div>`);
   const box=document.querySelector('#schemeModal .vid-box'); if(box) box.classList.add('sch-wide');
   paintLibList();
@@ -6848,9 +6848,9 @@ window.paintLibDetail=function(){
     </tbody></table></div>`;
 };
 window.refreshApplyLabel=function(){
-  const a=document.getElementById('slApply'); if(a) a.textContent=schLib.scope==='block'?'Apply across block →':'Apply week '+(schLib.wk+1)+' →';
+  const a=document.getElementById('slApply'); if(a) a.textContent=schLib.scope==='block'?'Lay full scheme forward →':'Apply week '+(schLib.wk+1)+' →';
   const h=document.getElementById('slFootHelp');
-  if(h) h.innerHTML=schLib.scope==='block'?(cw&&cw.block?'Each scheme week populates the matching exercise across '+esc(cw.block.name)+'.':'No block set for this week — define one to apply across a block.'):'Click a week column, then apply it to this exercise. Loads price off the athlete\'s max.';
+  if(h) h.innerHTML=schLib.scope==='block'?'Lays every week of this scheme onto this exercise from this week forward (same weekday), creating the sessions as needed. Loads price off the athlete\'s max.':'Click a week column, then apply it to this exercise. Loads price off the athlete\'s max.';
 };
 function schemeRowsToSets(weekRows, exName){
   const anyPct=weekRows.some(r=>r.p!=null);
@@ -6877,40 +6877,59 @@ window.applyLibScheme=function(){
 };
 function addDaysIso(dateStr, days){ const d=new Date(dateStr+'T00:00:00'); d.setDate(d.getDate()+days); return iso(d); }
 window.applyAcrossBlock=async function(){
-  const s=libSelected(); const ex=ed&&ed.exercises[schemeTarget]; const block=cw&&cw.block;
+  const s=libSelected(); const ex=ed&&ed.exercises[schemeTarget];
   if(!s||!ex) return;
-  if(!block){ alert('No training block is set for this week. Define a block first (✎ edit on the block banner), then apply across it.'); return; }
-  if(ed.dirty){ alert('Save your current changes first, then apply across the block.'); return; }
-  const exName=(ex.name||'').trim(); if(!exName){ alert('Give the exercise a name first.'); return; }
+  if(ed.dirty){ edMsgSet('Save your current changes first, then lay the scheme across the weeks.','var(--warn)'); return; }
+  const exName=(ex.name||'').trim(); if(!exName){ edMsgSet('Give the exercise a name first.','var(--warn)'); return; }
   const btn=document.getElementById('slApply'); if(btn){ btn.disabled=true; btn.textContent='Applying…'; }
-  const totalW=Math.min((s.data||[]).length, blockWeeks(block));
-  let applied=0; const skipped=[];
+  const totalW=(s.data||[]).length;
+  // anchor at the source session's week, then lay each scheme week forward on the SAME weekday (creating sessions as needed)
+  const D0=new Date(ed.session.session_date+'T00:00:00');
+  const srcMon=mondayOfDate(D0), dow=((D0.getDay()+6)%7);   // dow: 0=Mon … 6=Sun
+  const baseTitle=ed.session.title||'Training';
+  let updated=0, createdEx=0, createdSess=0, blank=0;
   try{
     for(let w=0; w<totalW; w++){
-      const wkStart=addDaysIso(block.start_date, w*7), wkEnd=addDaysIso(block.start_date, w*7+6);
-      const { data: sess } = await sb.from('sessions')
-        .select('id,prescribed_exercises(id,name,prescribed_sets(id))')
-        .eq('athlete_id', cw.athId).gte('session_date', wkStart).lte('session_date', wkEnd);
-      let tgt=null;
-      (sess||[]).forEach(se=>(se.prescribed_exercises||[]).forEach(e=>{ if((e.name||'').trim().toLowerCase()===exName.toLowerCase()) tgt={exId:e.id, setIds:(e.prescribed_sets||[]).map(x=>x.id)}; }));
-      if(!tgt){ skipped.push('Wk'+(w+1)); continue; }
       const weekRows=(s.data||[])[w]||[];
+      if(!weekRows.length){ blank++; continue; }              // scheme week has no rows — skip
       const built=schemeRowsToSets(weekRows, exName);
-      if(tgt.setIds.length){ const r=await sb.from('prescribed_sets').delete().in('id', tgt.setIds); if(r.error) throw r.error; }
-      const rows=built.sets.map((st,pos)=>{ const row={ gym_id:me_.gym_id, exercise_id:tgt.exId, position:pos,
+      const td=new Date(srcMon); td.setDate(td.getDate()+w*7+dow); const targetDate=iso(td);
+      const { data: daySess } = await sb.from('sessions')
+        .select('id,prescribed_exercises(id,name,position,prescribed_sets(id))')
+        .eq('athlete_id', cw.athId).eq('session_date', targetDate);
+      let tgt=null, sessOnDay=(daySess||[])[0]||null;
+      (daySess||[]).forEach(se=>(se.prescribed_exercises||[]).forEach(e=>{ if((e.name||'').trim().toLowerCase()===exName.toLowerCase()) tgt={exId:e.id, setIds:(e.prescribed_sets||[]).map(x=>x.id)}; }));
+      let exId;
+      if(tgt){
+        // existing matching exercise → replace its sets
+        exId=tgt.exId;
+        if(tgt.setIds.length){ const r=await sb.from('prescribed_sets').delete().in('id', tgt.setIds); if(r.error) throw r.error; }
+        if(LT_READY){ await sb.from('prescribed_exercises').update({load_type:built.loadType}).eq('id', exId); }
+        updated++;
+      } else {
+        // no matching exercise this week → create the session (if the day is empty) + the exercise
+        let sid, pos=0;
+        if(sessOnDay){ sid=sessOnDay.id; pos=(sessOnDay.prescribed_exercises||[]).length; }
+        else { const si=await sb.from('sessions').insert({ gym_id:me_.gym_id, athlete_id:cw.athId, session_date:targetDate, title:baseTitle, status:'draft' }).select().single(); if(si.error) throw si.error; sid=si.data.id; createdSess++; }
+        const exIns={ gym_id:me_.gym_id, session_id:sid, position:pos, name:exName, category:ex.category||'primary' };
+        if(LT_READY){ exIns.load_type=built.loadType; }
+        const ei=await sb.from('prescribed_exercises').insert(exIns).select().single(); if(ei.error) throw ei.error;
+        exId=ei.data.id; createdEx++;
+      }
+      const rows=built.sets.map((st,pos)=>{ const row={ gym_id:me_.gym_id, exercise_id:exId, position:pos,
         target_reps: st.reps===''?null:parseInt(st.reps,10), target_pct: st.pct===''?null:parseFloat(st.pct),
         target_kg: st.kg===''?null:parseFloat(st.kg), target_text: targetText(st, built.loadType) };
         if(LT_READY){ row.target_vel=null; row.target_eff=null; } return row; });
       if(rows.length){ const r=await sb.from('prescribed_sets').insert(rows); if(r.error) throw r.error; }
-      if(LT_READY){ await sb.from('prescribed_exercises').update({load_type:built.loadType}).eq('id', tgt.exId); }
-      applied++;
     }
-    document.getElementById('schemeModal').style.display='none';
-    if(cw) cw.rollupCache=null;
-    await renderCoachDay();
-    edMsgSet('✓ Applied "'+s.name+'" across '+applied+' week'+(applied===1?'':'s')+(skipped.length?' · skipped '+skipped.join(', ')+' (no matching "'+exName+'")':''), applied?'var(--good)':'var(--warn)');
+    const _sm=document.getElementById('schemeModal'); if(_sm) _sm.style.display='none';
+    if(cw){ cw.rollupCache=null; }
+    await renderCoachDay();                                    // refresh the open editor (new sessions in other weeks show when the day modal closes)
+    const parts=[]; if(updated) parts.push(updated+' updated'); if(createdEx) parts.push(createdEx+' added'+(createdSess?' ('+createdSess+' new session'+(createdSess===1?'':'s')+')':''));
+    const n=updated+createdEx;
+    edMsgSet('✓ Applied "'+s.name+'" across '+n+' week'+(n===1?'':'s')+(parts.length?' — '+parts.join(', '):'')+(blank?' · '+blank+' scheme week'+(blank===1?'':'s')+' blank':''), n?'var(--good)':'var(--warn)');
     setTimeout(()=>edMsgSet(''),6000);
-  }catch(e){ if(btn){ btn.disabled=false; btn.textContent='Apply across block →'; } alert('Apply across block failed — '+(e.message||e)); }
+  }catch(e){ if(btn){ btn.disabled=false; btn.textContent='Apply across block →'; } edMsgSet('Apply across block failed — '+(e.message||e),'var(--bad)'); console.error('applyAcrossBlock:',e); }
 };
 /* ---- Tweak & save as new scheme (editable grid → schemes library) ---- */
 let tweak=null;
