@@ -304,6 +304,15 @@
   .cwd-sess.draft{border-left-color:var(--warn)}
   .cwd-sess:hover{border-color:var(--accent2)}
   .cwd-sess.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+  .cwd-sess.cw-sel{border-color:var(--bad);box-shadow:inset 0 0 0 2px var(--bad);background:rgba(229,90,90,.12)}
+  #cwCalScroll.cw-dragging *{user-select:none}
+  .cw-rubber{position:fixed;z-index:55;border:1.5px solid var(--bad);background:rgba(229,90,90,.12);border-radius:4px;pointer-events:none}
+  .cw-delbar{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:12px;background:#141b24;border:1px solid var(--line);box-shadow:0 10px 30px rgba(0,0,0,.5);border-radius:12px;padding:10px 14px}
+  .cw-delbar .cw-delc{font-size:13px;font-weight:700;color:var(--text)}
+  .cw-delbar .cw-delc small{display:block;font-size:10.5px;font-weight:700;color:var(--warn);margin-top:1px}
+  .cw-delbar button{border:none;border-radius:8px;font-weight:800;font-size:12.5px;padding:8px 14px;cursor:pointer}
+  .cw-delbar .cw-del-go{background:var(--bad);color:#fff}
+  .cw-delbar .cw-del-x{background:#0e151c;color:var(--muted);border:1px solid var(--line)}
   .cwd-st{font-size:12px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
   .cwd-dchip{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--warn);background:rgba(232,158,60,.16);border-radius:6px;padding:1px 5px}
   .cwd-sx{font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.35}
@@ -5595,6 +5604,7 @@ async function loadCoachVbt(athId){
 }
 async function renderCoachPanel(){
   const panel = document.getElementById('coachPanel'); if(!panel) return;
+  { const _b=document.getElementById('cwDelBar'); if(_b) _b.remove(); }   // clear any stale bulk-delete bar
   if((coachState.subject||'athlete')==='team'){ return renderCoachTeamPanel(panel); }
   const athId = coachState.selected; if(!athId){ panel.innerHTML=''; return; }
   const ath = coachState.athletes.find(a=>a.id===athId);
@@ -5648,12 +5658,12 @@ async function renderCoachPanel(){
       ${cwCalHeaderHtml(cal, ath)}
       ${blockBannerHtml(block, weekDates(0))}
       <div id="blockForm" style="display:none"></div>
-      <div class="sub" style="margin:2px 0 10px;font-size:11px">Click any session to open it · scroll through weeks or switch to Month view.</div>
+      <div class="sub" style="margin:2px 0 10px;font-size:11px">Click any session to open it · drag across days to select &amp; delete · scroll through weeks or switch to Month view.</div>
       <div id="cwCalScroll">${cal.mode==='scroll'?earlier:''}${rows}${more}</div>
     </div>`;
   if(cw.modalOpen && cw.selDate) cwOpenDayModal();
   if(cal._scrollTo){ cal._scrollTo=false; const el=panel.querySelector('.cw-wkrow.has-today'); if(el) el.scrollIntoView({block:'center',behavior:'auto'}); }
-  cwWireScroll();
+  cwWireScroll(); cwWireDrag();
 }
 /* ----- team/program calendar (same layout, scoped to a team) ----- */
 async function renderCoachTeamPanel(panel){
@@ -5698,11 +5708,11 @@ async function renderCoachTeamPanel(panel){
   const more=(cal.mode==='scroll')?`<div class="cw-loadmore" onclick="cwExtend(1)">↓ Show more weeks</div>`:'';
   panel.innerHTML = `<div class="card av-weekcard">
     ${cwCalHeaderHtml(cal, { full_name: team.name+' · '+athIds.length+' athlete'+(athIds.length===1?'':'s') })}
-    <div class="sub" style="margin:2px 0 10px;font-size:11px">Team view · shared sessions collapse to one card (×N athletes) · readiness &amp; load are team averages · click a day to open it for an athlete.</div>
+    <div class="sub" style="margin:2px 0 10px;font-size:11px">Team view · shared sessions collapse to one card (×N athletes) · readiness &amp; load are team averages · click a day to open it for an athlete · drag across days to delete for the whole team.</div>
     <div id="cwCalScroll">${cal.mode==='scroll'?earlier:''}${rows}${more}</div>
   </div>`;
   if(cal._scrollTo){ cal._scrollTo=false; const el=panel.querySelector('.cw-wkrow.has-today'); if(el) el.scrollIntoView({block:'center',behavior:'auto'}); }
-  cwWireScroll();
+  cwWireScroll(); cwWireDrag();
 }
 // team mode: click a day → open it as a BULK edit (saving applies to the whole team, unlogged only).
 // We open the representative athlete's real session in the editor, flagged so saveEditor propagates.
@@ -5800,7 +5810,9 @@ function cwWeekRowHtml(off, todayStr){
       const chip = tm ? `<span class="cwd-dchip" style="color:var(--accent2);background:rgba(56,160,255,.14)">×${s._teamCount||1}</span>`
                       : (draft?'<span class="cwd-dchip">draft</span>':'');
       const click = tm ? `cwTeamEdit('${dIso}','${s.id}')` : `cwOpenSess('${dIso}','${s.id}')`;
-      return `<div class="cwd-sess ${draft?'draft':'pub'}" onclick="${click}">
+      const logged = tm ? '' : ((cw.logsBySess[s.id]||[]).length ? ' data-logged="1"' : '');
+      const tdata = tm ? ` data-team="${s._teamCount||1}" data-title="${esc(s.title||'Training')}"` : '';
+      return `<div class="cwd-sess ${draft?'draft':'pub'}" onclick="${click}" data-sid="${s.id}" data-date="${dIso}"${logged}${tdata}>
         <div class="cwd-st">${esc(s.title||'Training')}${chip}</div>
         ${badges}${body}</div>`;
     }).join('') || `<div class="cwd-rest">Rest day</div>`;
@@ -5878,6 +5890,100 @@ function cwWireScroll(){
     }
   }, {passive:true});
 }
+/* ----- drag-to-select + bulk delete (TrainHeroic-style) ----- */
+let _cwDrag=null;
+function cwDragActive(){ return coachState.screen==='coach' && cw && cw.cal && !cw.modalOpen; }
+function cwWireDrag(){
+  if(window._cwDragWired) return; window._cwDragWired=true;
+  document.addEventListener('pointerdown', cwDragDown, true);
+  document.addEventListener('pointermove', cwDragMove, true);
+  document.addEventListener('pointerup', cwDragUp, true);
+  // swallow the click that fires right after a real drag so a card doesn't open
+  document.addEventListener('click', (e)=>{ if(window._cwJustDragged){ e.stopPropagation(); e.preventDefault(); window._cwJustDragged=false; } }, true);
+}
+function cwDragDown(e){
+  window._cwJustDragged=false;
+  if(!cwDragActive() || e.button!==0) return;
+  const scroll=document.getElementById('cwCalScroll'); if(!scroll || !scroll.contains(e.target)) return;
+  if(!e.target.closest('.cwd-grid')) return;          // only start inside the day grid, not on header buttons
+  _cwDrag={ x0:e.clientX, y0:e.clientY, started:false, scroll };
+}
+function cwDragMove(e){
+  if(!_cwDrag) return;
+  const dx=e.clientX-_cwDrag.x0, dy=e.clientY-_cwDrag.y0;
+  if(!_cwDrag.started){
+    if(Math.hypot(dx,dy)<6) return;                    // tiny moves = a click, let it through
+    _cwDrag.started=true;
+    cwClearSel();
+    const r=document.createElement('div'); r.id='cwRubber'; r.className='cw-rubber'; document.body.appendChild(r);
+    _cwDrag.scroll.classList.add('cw-dragging');
+  }
+  e.preventDefault();
+  const L=Math.min(_cwDrag.x0,e.clientX), R=Math.max(_cwDrag.x0,e.clientX);
+  const T=Math.min(_cwDrag.y0,e.clientY), B=Math.max(_cwDrag.y0,e.clientY);
+  const rub=document.getElementById('cwRubber');
+  if(rub){ rub.style.left=L+'px'; rub.style.top=T+'px'; rub.style.width=(R-L)+'px'; rub.style.height=(B-T)+'px'; }
+  _cwDrag.scroll.querySelectorAll('.cwd-sess').forEach(card=>{
+    const c=card.getBoundingClientRect();
+    const hit = !(c.right<L || c.left>R || c.bottom<T || c.top>B);
+    card.classList.toggle('cw-sel', hit);
+  });
+}
+function cwDragUp(){
+  if(!_cwDrag) return;
+  const wasDrag=_cwDrag.started; const sc=_cwDrag.scroll; _cwDrag=null;
+  const rub=document.getElementById('cwRubber'); if(rub) rub.remove();
+  if(sc) sc.classList.remove('cw-dragging');
+  if(wasDrag){ window._cwJustDragged=true; cwShowDelBar(); }
+}
+function cwClearSel(){ document.querySelectorAll('.cwd-sess.cw-sel').forEach(c=>c.classList.remove('cw-sel')); }
+window.cwClearDelBar=()=>{ cwClearSel(); const b=document.getElementById('cwDelBar'); if(b) b.remove(); };
+function cwShowDelBar(){
+  const sel=[...document.querySelectorAll('#cwCalScroll .cwd-sess.cw-sel')];
+  if(!sel.length){ cwClearDelBar(); return; }
+  const tm=!!cw.teamMode;
+  let bar=document.getElementById('cwDelBar');
+  if(!bar){ bar=document.createElement('div'); bar.id='cwDelBar'; bar.className='cw-delbar'; document.body.appendChild(bar); }
+  let line, warn='';
+  if(tm){
+    const ath=sel.reduce((a,c)=>a+(parseInt(c.dataset.team)||1),0);
+    line=`${sel.length} session${sel.length===1?'':'s'} selected`;
+    warn=`<small>removes for the whole team · ≈${ath} athlete-session${ath===1?'':'s'}</small>`;
+  } else {
+    const logged=sel.filter(c=>c.dataset.logged==='1').length;
+    line=`${sel.length} session${sel.length===1?'':'s'} selected`;
+    if(logged) warn=`<small>⚠ ${logged} already logged by the athlete</small>`;
+  }
+  bar.innerHTML=`<span class="cw-delc">${line}${warn}</span>
+    <button class="cw-del-go" onclick="cwSelDelete()">🗑 Delete</button>
+    <button class="cw-del-x" onclick="cwClearDelBar()">Cancel</button>`;
+}
+window.cwSelDelete=async()=>{
+  const sel=[...document.querySelectorAll('#cwCalScroll .cwd-sess.cw-sel')];
+  if(!sel.length){ cwClearDelBar(); return; }
+  const bar=document.getElementById('cwDelBar');
+  if(bar) bar.innerHTML=`<span class="cw-delc">Deleting…</span>`;
+  try{
+    let ids=[];
+    if(cw.teamMode){
+      const byDate={};
+      sel.forEach(c=>{ (byDate[c.dataset.date]=byDate[c.dataset.date]||[]).push((c.dataset.title||'Training').toLowerCase()); });
+      for(const d of Object.keys(byDate)){
+        const { data, error } = await sb.from('sessions').select('id,title').in('athlete_id', cw.athIds).eq('session_date', d);
+        if(error) throw error;
+        (data||[]).forEach(s=>{ if(byDate[d].includes((s.title||'Training').toLowerCase())) ids.push(s.id); });
+      }
+    } else {
+      ids=sel.map(c=>c.dataset.sid);
+    }
+    if(ids.length){ const r=await sb.from('sessions').delete().in('id', ids); if(r.error) throw r.error; }
+    cwClearDelBar();
+    await renderCoachPanel();
+  }catch(e){
+    console.error('bulk delete failed:', e);
+    if(bar) bar.innerHTML=`<span class="cw-delc" style="color:var(--bad)">Delete failed — ${esc(e.message||String(e))}</span><button class="cw-del-x" onclick="cwClearDelBar()">Close</button>`;
+  }
+};
 window.cwToggleCopy=(off)=>{ const u=document.getElementById('cwCopyUI'+off); if(u) u.style.display=u.style.display==='none'?'inline-flex':'none'; };
 window.cwDoCopy=async(off)=>{
   const tgt=parseInt((document.getElementById('cwCopyTgt'+off)||{}).value);
