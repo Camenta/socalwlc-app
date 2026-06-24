@@ -739,6 +739,22 @@
   .mc2-pcell select{width:100%;font-size:9.5px;background:#0c1116;border:1px solid var(--line);border-radius:5px;color:var(--text);padding:3px 2px;cursor:pointer}
   .mc2-pstatic{display:block;font-size:9.5px;color:var(--muted);padding:3px 2px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .mc2-today-line{position:relative}
+  /* track groups — rendered as rows inside the scrolling timeline so they align + scroll with the weeks */
+  .mc2-grp{background:#13202b}
+  .mc2-glbl{cursor:pointer;color:#aebfd0;gap:7px;background:#13202b}
+  .mc2-glbl .ar{color:var(--muted);font-size:10px}
+  .mc2-glbl .gi{font-size:11px;font-weight:800;letter-spacing:.4px}
+  .mc2-grp:hover .mc2-glbl .gi{color:#fff}
+  .mc2-grpfill{flex:1;display:flex;align-items:center;gap:14px;padding:9px 12px;background:#13202b;cursor:pointer}
+  .mc2-grpfill .gc{font-size:10.5px;color:var(--muted);font-weight:600}
+  .mc2-grpfill .grp-add{font-size:11px;font-weight:700;color:var(--accent2);cursor:pointer}
+  .mc2-grpfill .grp-add:hover{color:#7bc0f5}
+  .mc2-addgrp .mc2-glbl:hover .gi{color:#7bc0f5}
+  .mc2-trk .mc2-lbl{text-transform:none;letter-spacing:0;font-size:11.5px;font-weight:700;color:#9fb2c4;justify-content:space-between;gap:6px;background:#0c1218}
+  .mc2-trklbl .tdel{color:var(--bad);opacity:.5;cursor:pointer;font-size:11px}
+  .mc2-trk:hover .mc2-trklbl .tdel{opacity:1}
+  .mc2-trk .mc2-track{cursor:pointer;min-height:38px}
+  .mc2-seg.tg-seg2{font-weight:700;font-size:11px;min-height:30px}
   /* track groups */
   .tg{border:1px solid var(--line);border-radius:10px;margin-top:12px;overflow:hidden}
   .tg-head{display:flex;align-items:center;gap:10px;padding:11px 14px;background:#0e151c;cursor:pointer}
@@ -4830,6 +4846,15 @@ function pvRenderDay(host){
 window.conOpenAthlete=(id)=>{ ed=null; cw=null; coachState.selected=id; coachGo('coach'); };
 /* ================= ANNUAL PLAN (macrocycle timeline + calendar) ================= */
 const PHASE_KINDS=[['exposure','Exposure','#3c9ee8'],['comprehension','Comprehension','#3ec97a'],['ascension','Ascension','#e8b13c'],['summit','Summit','#e8643c'],['realization','Realization','#e85c5c'],['transition','Transition','#3a4654']];
+// Chris's macrocycle bands (exact color spec). Training phase = 3 broad blocks; Sub-phase = 5 finer ones.
+const TRAINING_PHASE_KINDS=[['preparation','Preparation','#3c9ee8'],['competitive','Competitive','#ed8478'],['transition','Transition','#e8c23c']];
+const SUBPHASE_KINDS=[['general_prep','General Prep','#3c9ee8'],['specific_prep','Specific Prep','#3ec97a'],['pre_comp','Pre-Competitive','#ed8478'],['competitive','Competitive','#a83232'],['transition','Transition','#e8c23c']];
+const PLAN_LEVELS={ phase:{label:'Training phase',kinds:TRAINING_PHASE_KINDS}, subphase:{label:'Sub-phase',kinds:SUBPHASE_KINDS}, meso:{label:'Mesocycle',kinds:PHASE_KINDS} };
+function levelKinds(lvl){ return (PLAN_LEVELS[lvl]||PLAN_LEVELS.meso).kinds; }
+function bandColor(lvl,k){ const m=levelKinds(lvl).find(x=>x[0]===k); return m?m[2]:'#3ec97a'; }
+function bandLabel(lvl,k){ const m=levelKinds(lvl).find(x=>x[0]===k); return m?m[1]:k; }
+// readable text color for a solid band background (dark text on light fills, white on dark)
+function txtOn(hex){ const [r,g,b]=_hx(hex); return (0.299*r+0.587*g+0.114*b)>150?'#0b1117':'#fff'; }
 const COMP_KINDS=[['comp','Comp','#e85c5c'],['test','Test','#3c9ee8'],['peak','Peak','#e8643c']];
 function phaseColor(k){ const m=PHASE_KINDS.find(x=>x[0]===k); return m?m[2]:'#3ec97a'; }
 function phaseLabel(k){ const m=PHASE_KINDS.find(x=>x[0]===k); return m?m[1]:k; }
@@ -4941,10 +4966,19 @@ function renderMacro(){
   const todayWk = (planMonday(td)>=start && planMonday(td)<=planMonday(new Date(y,11,31))) ? planWeekIdx(iso(td)) : -1;
   if(planState.selWk==null) planState.selWk = (todayWk>=0&&todayWk<N)?todayWk:0;
   const phases=planScopedPhases();
+  const lvlOf=(p)=>p.level||'meso';
+  const mesoPhases=phases.filter(p=>lvlOf(p)==='meso');
+  const phaseBands=phases.filter(p=>lvlOf(p)==='phase');
+  const subBands=phases.filter(p=>lvlOf(p)==='subphase');
   const comps=planScopedComps().map(c=>({id:c.id,name:c.name,kind:c.kind,comp_date:c.comp_date}));
   const compEv=planState.events.filter(e=>e.kind==='competition' && (!planState.teamId||!e.team_id||e.team_id===planState.teamId)).map(e=>({id:null,name:e.title,kind:'comp',comp_date:e.start_date}));
   const allComps=comps.concat(compEv).filter(c=>{const i=planWeekIdx(c.comp_date);return i>=0&&i<N;});
-  const phaseAt=(i)=>phases.find(p=> col(p.start_date)<=i && i<=col(p.end_date));
+  const phaseAt=(i)=>mesoPhases.find(p=> col(p.start_date)<=i && i<=col(p.end_date));
+  // solid colored bands for the Training-phase + Sub-phase rows (Chris's color spec)
+  const bandRow=(lvl,arr)=>arr.map(p=>{ const c=bandColor(lvl,p.kind); const nm=esc(p.name||bandLabel(lvl,p.kind));
+    return `<div class="mc2-seg" style="grid-column:${col(p.start_date)+1}/${col(p.end_date)+2};background:${c};border:1px solid ${c};color:${txtOn(c)}${ath?';cursor:default':''}"${ath?'':` onclick="planEditPhase('${p.id}')"`} title="${nm} · ${bandLabel(lvl,p.kind)}">${nm}</div>`; }).join('');
+  const phaseRow=bandRow('phase',phaseBands);
+  const subRow=bandRow('subphase',subBands);
   const compWk=new Set(allComps.map(c=>col(c.comp_date)));
   const gridStyle=`grid-template-columns:repeat(${N},var(--cw))`;
   // month row
@@ -4955,7 +4989,7 @@ function renderMacro(){
   // microcycle
   let wkCells=''; for(let i=0;i<N;i++) wkCells+=`<div class="mc2-cell mc2-wk${i===todayWk?' today':''}" onclick="planSelWk(${i})"${i===planState.selWk?' style="box-shadow:inset 0 0 0 1px var(--accent2)"':''}>${i+1}</div>`;
   // mesocycle
-  const mesoRow=phases.map(p=>{ const ck=PHASE_COLORKEY[p.kind]||'green'; return `<div class="mc2-seg" style="grid-column:${col(p.start_date)+1}/${col(p.end_date)+2};${tintStyle(segColor(ck))}${ath?';cursor:default':''}"${ath?'':` onclick="planEditPhase('${p.id}')"`} title="${esc(p.name)} · ${phaseLabel(p.kind)}">${esc(p.name)}</div>`; }).join('');
+  const mesoRow=mesoPhases.map(p=>{ const ck=PHASE_COLORKEY[p.kind]||'green'; return `<div class="mc2-seg" style="grid-column:${col(p.start_date)+1}/${col(p.end_date)+2};${tintStyle(segColor(ck))}${ath?';cursor:default':''}"${ath?'':` onclick="planEditPhase('${p.id}')"`} title="${esc(p.name)} · ${phaseLabel(p.kind)}">${esc(p.name)}</div>`; }).join('');
   // comps
   const compsRow=allComps.map(c=>{ const cc=col(c.comp_date)+1; const color=compColor(c.kind); return `<div class="mc2-comp${c.kind==='peak'?' star':''}" style="grid-column:${cc};color:${tintText(color)}${ath?';cursor:default':''}"${(c.id&&!ath)?` onclick="planEditComp('${c.id}')"`:''}><span class="dot" style="background:${color}"></span>${esc(c.name)}<br>${fmtShort(c.comp_date)}</div>`; }).join('');
   // loading wave
@@ -4963,7 +4997,7 @@ function renderMacro(){
     if(compWk.has(i)) lvl='comp'; else if(p){ const pw=col(p.end_date)-col(p.start_date)+1, wi=i-col(p.start_date); lvl=waveLevels(p.pattern||'Linear Ascending',pw)[wi]||'moderate'; }
     const W=WAVE_LVL[lvl]; waveCells+=`<div class="mc2-bcell"><div class="mc2-bar" style="height:${W[1]}px;background:${W[0]}" title="${lvl}"></div></div>`; }
   // loading pattern
-  const patCells=phases.map(p=> ath
+  const patCells=mesoPhases.map(p=> ath
     ? `<div class="mc2-pcell" style="grid-column:${col(p.start_date)+1}/${col(p.end_date)+2}"><span class="mc2-pstatic">${esc(p.pattern||'Linear Ascending')}</span></div>`
     : `<div class="mc2-pcell" style="grid-column:${col(p.start_date)+1}/${col(p.end_date)+2}"><select onchange="planSetPattern('${p.id}',this.value)">${LOAD_PATTERNS.map(pt=>`<option${(p.pattern||'Linear Ascending')===pt?' selected':''}>${pt}</option>`).join('')}</select></div>`).join('');
   // upcoming peaks
@@ -4974,21 +5008,29 @@ function renderMacro(){
   const trks=planState.tracks.filter(t=>!planState.teamId || !t.team_id || t.team_id===planState.teamId);
   const segByTrack={}; planState.segments.forEach(s=>{ (segByTrack[s.track_id]=segByTrack[s.track_id]||[]).push(s); });
   const grps=[]; trks.forEach(t=>{ let g=grps.find(x=>x.name===t.grp); if(!g){ g={name:t.grp,tracks:[]}; grps.push(g); } g.tracks.push(t); });
-  let tgHtml=grps.map(g=>{ const open=planState.openGroups[g.name]!==false;
-    const rows=open ? (g.tracks.map(t=>{ const segs=(segByTrack[t.id]||[]).map(s=>`<div class="tg-seg" style="grid-column:${col(s.start_date)+1}/${col(s.end_date)+2};${tintStyle(segColor(s.color))}${ath?';cursor:default':''}"${ath?'':` onclick="event.stopPropagation();planEditSegment('${t.id}','${s.id}')"`}>${esc(s.label)}</div>`).join('');
-        return `<div class="tg-row"><div class="tg-lbl"><span>${esc(t.name)}</span>${ath?'':`<span class="tdel" onclick="event.stopPropagation();planDelTrack('${t.id}','${esq(t.name)}')">✕</span>`}</div><div class="tg-track" style="${gridStyle}"${ath?'':` onclick="planEditSegment('${t.id}')" title="click an empty spot to add a block"`}>${segs}</div></div>`;
-      }).join('')+(ath?'':`<div class="tg-add"><span onclick="planAddTrack('${esq(g.name)}')">＋ Add track</span></div>`)) : '';
-    return `<div class="tg"><div class="tg-head" onclick="planToggleGroup('${esq(g.name)}')"><span class="ar">${open?'▾':'▸'}</span><span class="ti">${esc(g.name)}</span><span class="tc">${g.tracks.length} track${g.tracks.length===1?'':'s'}</span></div>${rows}</div>`;
+  // track groups — rendered as rows INSIDE the scrolling timeline so they align + scroll with the week columns
+  let trkRows=grps.map(g=>{ const open=planState.openGroups[g.name]!==false;
+    let html=`<div class="mc2-row mc2-grp">
+      <div class="mc2-lbl mc2-glbl" onclick="planToggleGroup('${esq(g.name)}')"><span class="ar">${open?'▾':'▸'}</span><span class="gi">${esc(g.name)}</span></div>
+      <div class="mc2-grpfill" onclick="planToggleGroup('${esq(g.name)}')"><span class="gc">${g.tracks.length} track${g.tracks.length===1?'':'s'}</span>${ath?'':`<span class="grp-add" onclick="event.stopPropagation();planAddTrack('${esq(g.name)}')">＋ track</span>`}</div></div>`;
+    if(open){ html+=g.tracks.map(t=>{ const segs=(segByTrack[t.id]||[]).map(s=>`<div class="mc2-seg tg-seg2" style="grid-column:${col(s.start_date)+1}/${col(s.end_date)+2};${tintStyle(segColor(s.color))}${ath?';cursor:default':''}"${ath?'':` onclick="event.stopPropagation();planEditSegment('${t.id}','${s.id}')"`} title="${esc(s.label)}">${esc(s.label)}</div>`).join('');
+        return `<div class="mc2-row mc2-trk"><div class="mc2-lbl mc2-trklbl"><span>${esc(t.name)}</span>${ath?'':`<span class="tdel" onclick="event.stopPropagation();planDelTrack('${t.id}','${esq(t.name)}')">✕</span>`}</div><div class="mc2-track" style="${gridStyle}"${ath?'':` onclick="planEditSegment('${t.id}')" title="click to add a block"`}>${segs}</div></div>`;
+      }).join(''); }
+    return html;
   }).join('');
-  if(!ath) tgHtml+=`<div class="tg-add" style="border:1px dashed var(--line);border-radius:10px;margin-top:12px"><span onclick="planAddTrack()">＋ Add track group</span></div>`;
-  else if(!grps.length) tgHtml=`<div class="note sub" style="margin-top:8px">Your coach hasn’t broken out the periodization tracks yet.</div>`;
+  if(!ath) trkRows+=`<div class="mc2-row mc2-grp mc2-addgrp" onclick="planAddTrack()"><div class="mc2-lbl mc2-glbl"><span class="ar" style="color:var(--accent2)">＋</span><span class="gi" style="color:var(--accent2)">Add group / track</span></div><div class="mc2-grpfill"></div></div>`;
+  const trkEmptyNote = (ath && !grps.length) ? `<div class="note sub" style="margin-top:8px">Your coach hasn’t broken out the periodization tracks yet.</div>` : '';
   // detail bar
   const sw=planState.selWk, swStr=iso(planWkDate(sw)), sp=phaseAt(sw);
   const spw=sp?col(sp.end_date)-col(sp.start_date)+1:0, swi=sp?sw-col(sp.start_date):0;
   const swLvl=compWk.has(sw)?'comp':(sp?waveLevels(sp.pattern||'Linear Ascending',spw)[swi]:null);
   const cap=(s)=>s?s.charAt(0).toUpperCase()+s.slice(1):'—';
   // legend
-  const legend=`<div class="cal-legend" style="margin-top:10px">${PHASE_KINDS.map(k=>`<span><i style="background:${hexA(segColor(PHASE_COLORKEY[k[0]]),0.55)}"></i>${k[1]}</span>`).join('')}<span style="margin-left:8px;color:#7e93a6">Load: ${Object.keys(WAVE_LVL).map(l=>`<i style="background:${WAVE_LVL[l][0]}"></i>${l}`).join(' ')}</span></div>`;
+  const sw_=(c,lbl)=>`<span><i style="background:${c}"></i>${lbl}</span>`;
+  const legend=`<div class="cal-legend" style="margin-top:10px;gap:7px 14px">`
+    +`<b style="font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)">Phase</b>${TRAINING_PHASE_KINDS.map(k=>sw_(k[2],k[1])).join('')}`
+    +`<b style="font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-left:6px">Sub-phase</b>${SUBPHASE_KINDS.map(k=>sw_(k[2],k[1])).join('')}`
+    +`<span style="margin-left:6px;color:#7e93a6">Load: ${Object.keys(WAVE_LVL).map(l=>`<i style="background:${WAVE_LVL[l][0]}"></i>${l}`).join(' ')}</span></div>`;
   host.innerHTML=`
     <div class="card">
       <div class="mc2-head">
@@ -5000,17 +5042,20 @@ function renderMacro(){
       </div>
       ${ath
         ? `<div class="ctoolbar" style="margin-bottom:10px"><span class="note sub" style="margin:0;flex:1">Your season at a glance — mesocycle phases, competitions &amp; peaks, and how the loading rises and falls week to week. Click a week to see its detail below.</span></div>`
-        : `<div class="ctoolbar" style="margin-bottom:10px"><span class="note sub" style="margin:0;flex:1">Click a mesocycle band or track block to edit · click an empty track spot to add one.</span><span class="cbtn alt" onclick="planEditPhase()">＋ Mesocycle</span><span class="cbtn alt" onclick="planEditComp()">＋ Comp</span></div>`}
+        : `<div class="ctoolbar" style="margin-bottom:10px"><span class="note sub" style="margin:0;flex:1">Click a band or track block to edit · click an empty track row to add a block.</span><span class="cbtn alt" onclick="planEditPhase('','phase')">＋ Phase</span><span class="cbtn alt" onclick="planEditPhase('','subphase')">＋ Sub-phase</span><span class="cbtn alt" onclick="planEditPhase('','meso')">＋ Mesocycle</span><span class="cbtn alt" onclick="planEditComp()">＋ Comp</span></div>`}
       <div class="mc2-wrap"><div class="mc2">
         <div class="mc2-row"><div class="mc2-lbl">Month</div><div class="mc2-track" style="${gridStyle}">${monthCells}</div></div>
         <div class="mc2-row"><div class="mc2-lbl">Microcycle</div><div class="mc2-track" style="${gridStyle}">${wkCells}</div></div>
+        <div class="mc2-row"><div class="mc2-lbl">Training phase</div><div class="mc2-track" style="${gridStyle}">${phaseRow}</div></div>
+        <div class="mc2-row"><div class="mc2-lbl">Sub-phase</div><div class="mc2-track" style="${gridStyle}">${subRow}</div></div>
         <div class="mc2-row"><div class="mc2-lbl">Mesocycle</div><div class="mc2-track" style="${gridStyle}">${mesoRow}</div></div>
         <div class="mc2-row"><div class="mc2-lbl">Comps / tests</div><div class="mc2-track" style="${gridStyle};min-height:48px">${compsRow}</div></div>
         <div class="mc2-row"><div class="mc2-lbl">Loading wave</div><div class="mc2-track" style="${gridStyle}">${waveCells}</div></div>
         <div class="mc2-row"><div class="mc2-lbl">Loading pattern</div><div class="mc2-track" style="${gridStyle}">${patCells}</div></div>
+        ${trkRows}
       </div></div>
       ${legend}
-      ${tgHtml}
+      ${trkEmptyNote}
       <div class="mc2-detail">
         <div class="mc2-db"><span class="l">Selected week</span><span class="v">Wk ${sw+1} · ${fmtShort(swStr)}</span></div>
         <div class="mc2-db"><span class="l">Mesocycle</span><span class="v">${sp?esc(sp.name):'—'}</span></div>
@@ -5185,28 +5230,36 @@ window.planSaveEvent=async(id)=>{
   document.getElementById('calEvtModal').style.display='none'; await loadPlan(); paintPlan();
 };
 window.planDelEvent=async(id)=>{ const res=await sb.from('calendar_events').delete().eq('id',id).select(); if(res.error){ alert('Delete failed — '+res.error.message); return; } const m=document.getElementById('calEvtModal'); if(m) m.style.display='none'; await loadPlan(); paintPlan(); };
-window.planEditPhase=(id)=>{
+window.planEditPhase=(id,level)=>{
   const p = id ? planState.phases.find(x=>x.id===id) : null;
+  const lvl = p ? (p.level||'meso') : (level||'meso');
+  const meta = PLAN_LEVELS[lvl]||PLAN_LEVELS.meso;
   const teams=conState._teams||[];
+  const isMeso = lvl==='meso';
   ovModal('phaseModal', `
-    <div class="ov-hd"><h2 style="margin:0">${p?'Edit phase':'＋ Add phase'}</h2><span class="vid-x" onclick="document.getElementById('phaseModal').style.display='none'">✕</span></div>
-    <div class="bf-row"><input id="phName" placeholder="Phase name (e.g. Base Build)" value="${p?esc(p.name):''}" style="flex:1;min-width:200px">
-      <select id="phKind" class="cw-sel">${PHASE_KINDS.map(k=>`<option value="${k[0]}"${p&&p.kind===k[0]?' selected':''}>${k[1]}</option>`).join('')}</select></div>
+    <div class="ov-hd"><h2 style="margin:0">${p?'Edit':'＋ Add'} ${esc(meta.label.toLowerCase())}</h2><span class="vid-x" onclick="document.getElementById('phaseModal').style.display='none'">✕</span></div>
+    <div class="sub" style="margin:4px 0 10px">${isMeso?'A named training block (its loading pattern drives the wave below).':'A '+esc(meta.label.toLowerCase())+' band across the year — pick the type, set the weeks. Leave the name blank to use the type name.'}</div>
+    <div class="bf-row"><input id="phName" placeholder="${isMeso?'Block name (e.g. Base Build)':meta.label+' name (optional)'}" value="${p?esc(p.name||''):''}" style="flex:1;min-width:200px">
+      <select id="phKind" class="cw-sel">${meta.kinds.map(k=>`<option value="${k[0]}"${p&&p.kind===k[0]?' selected':''}>${k[1]}</option>`).join('')}</select></div>
     <div class="bf-row" style="margin-top:10px">
       <span class="bf-wk"><label>Start</label><input id="phStart" type="date" style="width:150px;text-align:left" value="${p?p.start_date:iso(new Date(planState.year,planState.month,1))}"></span>
       <span class="bf-wk"><label>End</label><input id="phEnd" type="date" style="width:150px;text-align:left" value="${p?p.end_date:iso(new Date(planState.year,planState.month,28))}"></span>
       <span class="bf-wk"><label>Team</label><select id="phTeam" class="cw-sel"><option value="">Whole gym</option>${teams.map(t=>`<option value="${t.id}"${(p&&p.team_id===t.id)||(!p&&planState.teamId===t.id)?' selected':''}>${esc(t.name)}</option>`).join('')}</select></span>
-      <span class="bf-wk"><label>Loading pattern</label><select id="phPattern" class="cw-sel">${LOAD_PATTERNS.map(pt=>`<option${(p&&p.pattern===pt)?' selected':''}>${pt}</option>`).join('')}</select></span>
+      ${isMeso?`<span class="bf-wk"><label>Loading pattern</label><select id="phPattern" class="cw-sel">${LOAD_PATTERNS.map(pt=>`<option${(p&&p.pattern===pt)?' selected':''}>${pt}</option>`).join('')}</select></span>`:''}
     </div>
-    <div class="bf-row" style="margin-top:12px"><button class="btn" onclick="planSavePhase('${id||''}')">Save phase</button>${p?`<span class="extool del" style="margin-left:10px" onclick="planDelPhase('${id}')">✕ delete</span>`:''}<span class="saved" id="phMsg"></span></div>`);
+    <div class="bf-row" style="margin-top:12px"><button class="btn" onclick="planSavePhase('${id||''}','${lvl}')">Save</button>${p?`<span class="extool del" style="margin-left:10px" onclick="planDelPhase('${id}')">✕ delete</span>`:''}<span class="saved" id="phMsg"></span></div>`);
 };
-window.planSavePhase=async(id)=>{
-  const name=(document.getElementById('phName').value||'').trim(); const msg=document.getElementById('phMsg');
-  if(!name){ document.getElementById('phName').focus(); return; }
+window.planSavePhase=async(id,level)=>{
+  const lvl=level||'meso'; const msg=document.getElementById('phMsg');
+  const kind=document.getElementById('phKind').value;
+  let name=(document.getElementById('phName').value||'').trim();
+  if(!name) name = bandLabel(lvl,kind);   // bands default to their type name
   const start=document.getElementById('phStart').value, end=document.getElementById('phEnd').value;
   if(!start||!end){ if(msg){msg.style.color='var(--warn)';msg.textContent='Pick start & end dates.';} return; }
   if(end<start){ if(msg){msg.style.color='var(--warn)';msg.textContent='End must be after start.';} return; }
-  const payload={ name, kind:document.getElementById('phKind').value, start_date:start, end_date:end, team_id:document.getElementById('phTeam').value||null, pattern:document.getElementById('phPattern').value };
+  const patEl=document.getElementById('phPattern');
+  const payload={ name, kind, level:lvl, start_date:start, end_date:end, team_id:document.getElementById('phTeam').value||null, pattern: patEl?patEl.value:(id?undefined:'Linear Ascending') };
+  if(payload.pattern===undefined) delete payload.pattern;
   let res; if(id) res=await sb.from('plan_phases').update(payload).eq('id',id).select(); else res=await sb.from('plan_phases').insert(Object.assign({gym_id:me_.gym_id},payload)).select();
   if(res.error||!res.data||!res.data.length){ if(msg){msg.style.color='var(--bad)';msg.textContent='Save failed — '+(res.error?res.error.message:'try again');} return; }
   document.getElementById('phaseModal').style.display='none'; await loadPlan(); paintPlan();
