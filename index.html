@@ -200,6 +200,14 @@
   .bp-tile{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
   .bp-tile .bp-v{font-size:15px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums}
   .bp-tile .bp-l{font-size:10px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);margin-top:1px}
+  .bp-phases{grid-column:1/-1;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 8px;margin-top:2px}
+  .bp-ph-h{font-size:10px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);margin-bottom:4px}
+  .bp-ph-h span{cursor:help;opacity:.7}
+  .bp-ph-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:3px 0;border-top:1px solid var(--line);font-variant-numeric:tabular-nums}
+  .bp-ph-row:first-of-type{border-top:0}
+  .bp-ph-n{font-size:12px;color:var(--text);font-weight:600;flex:1}
+  .bp-ph-d{font-size:12px;color:var(--muted);min-width:48px;text-align:right}
+  .bp-ph-v{font-size:12px;color:var(--text);font-weight:700;min-width:58px;text-align:right}
   .bp-prog{height:6px;border-radius:4px;background:var(--panel2);overflow:hidden;margin-top:8px}
   .bp-prog>i{display:block;height:100%;background:var(--accent);width:0}
   .bp-hint{font-size:11px;color:var(--accent2);margin-top:6px;line-height:1.35}
@@ -1626,6 +1634,7 @@ async function openAnnStudio(path, meta){
           <div class="bp-hint" id="bpHint">No bar-path analysis on this clip.</div>
           <div class="bp-tiles" id="bpTiles" style="display:none"></div>
           <label class="bp-toggle" id="bpToggleWrap" style="display:none"><input type="checkbox" id="bpShow" checked> Show trace overlay</label>
+          <label class="bp-toggle" id="bpDriftWrap" style="display:none"><input type="checkbox" id="bpDrift" checked> Drift lines (start ↔ bar)</label>
         </div>` : `
         ${rvNavHtml(meta)}
         <div class="vst-card">
@@ -1672,6 +1681,7 @@ async function openAnnStudio(path, meta){
           <div class="bp-hint" id="bpHint">Films best side-on, but slight angles track fine. Trend-grade, not lab-grade.</div>
           <div class="bp-tiles" id="bpTiles" style="display:none"></div>
           <label class="bp-toggle" id="bpToggleWrap" style="display:none"><input type="checkbox" id="bpShow" checked> Show trace overlay</label>
+          <label class="bp-toggle" id="bpDriftWrap" style="display:none"><input type="checkbox" id="bpDrift" checked> Drift lines (start ↔ bar)</label>
           <div class="bp-pins" id="bpPinRow" style="display:none">
             <span class="vst-btn" id="bpFacing" title="Tap so the arrow points the way the bar travels FORWARD (off the hip) in this video. Flips the back/forward sign.">← Forward (off hip)</span>
             <span class="vst-btn" id="bpPinPeak" title="Pin peak height to the current frame">📍 Peak</span>
@@ -1735,7 +1745,7 @@ async function openAnnStudio(path, meta){
       <div class="vst-side">${sidePanel}</div>
     </div>`;
   annS={ path, meta, readOnly:ro, shapes:[], tool:'select', color:VST_COLORS[0], fps:30, draft:null, ang:null, noteId:null, athleteId:meta.athleteId||null,
-    exercise:meta.exercise||null, trackMode:null, calib:null, seed:null, seedT:null, track:null, metrics:null, scale:null, trackId:null, showTrace:true,
+    exercise:meta.exercise||null, trackMode:null, calib:null, seed:null, seedT:null, track:null, metrics:null, scale:null, trackId:null, showTrace:true, showDrift:true,
     facing:'left', pinPeakT:null, pinCatchT:null,
     gA:{metric:'velocity',axis:'v'}, gB:{metric:'displacement',axis:'h'}, graph:null, _load:(meta.load!=null?meta.load:null), _cursorT:0, win:null, _looping:false, _zoom:1, _panx:0, _pany:0,
     voiceBlob:null, voiceUrl:null, voicePath:null, reviewBlob:null, reviewUrl:null, reviewPath:null };
@@ -1798,6 +1808,30 @@ function vstDrawTrack(ctx,W,H){
   }
   // seed crosshair (amber) — until a track exists
   if(annS.seed&&!(annS.track&&annS.track.length)){ const q=P(annS.seed); ctx.strokeStyle='#fbbf24'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(q.x,q.y,8,0,7); ctx.moveTo(q.x-12,q.y); ctx.lineTo(q.x+12,q.y); ctx.moveTo(q.x,q.y-12); ctx.lineTo(q.x,q.y+12); ctx.stroke(); }
+  // drift lines — a fixed vertical at the bar's START x + a live vertical tracking the bar; the gap = horizontal travel.
+  // drawn first so the orange trace + markers sit on top. driven entirely off the existing track (works in read-only too).
+  if(annS.showDrift&&annS.track&&annS.track.length>1){
+    const t=bpWinPts();
+    if(t&&t.length>1){
+      const startX=t[0].x*W;
+      const v=document.getElementById('vstVid'); let near=t[0];
+      if(v){ let bd=1e9; t.forEach(p=>{ const d=Math.abs(p.t-v.currentTime); if(d<bd){bd=d;near=p;} }); }
+      const curX=near.x*W;
+      ctx.save();
+      ctx.fillStyle='rgba(56,189,248,.12)'; ctx.fillRect(Math.min(startX,curX),0,Math.abs(curX-startX),H);   // band = drift
+      ctx.strokeStyle='rgba(125,211,252,.75)'; ctx.lineWidth=2; ctx.setLineDash([6,5]);                       // start line (dashed)
+      ctx.beginPath(); ctx.moveTo(startX,0); ctx.lineTo(startX,H); ctx.stroke(); ctx.setLineDash([]);
+      ctx.strokeStyle='#38bdf8'; ctx.lineWidth=2.5;                                                            // moving bar line (solid)
+      ctx.beginPath(); ctx.moveTo(curX,0); ctx.lineTo(curX,H); ctx.stroke();
+      const fs=(annS.facing==='right')?1:-1;                                                                   // forward sign
+      const lbl=annS.scale ? (cm=>(cm>0?'+':'')+cm+' cm')(Math.round(fs*(near.x-t[0].x)*W*annS.scale*100))
+                           : (px=>(px>0?'+':'')+px+' px')(Math.round(fs*(curX-startX)));
+      ctx.font='700 12px system-ui,sans-serif'; ctx.textBaseline='top';
+      const lw=ctx.measureText(lbl).width, lx=Math.min(Math.max(curX+6,2),W-lw-8);
+      ctx.fillStyle='rgba(0,0,0,.6)'; ctx.fillRect(lx-3,4,lw+6,18); ctx.fillStyle='#7dd3fc'; ctx.fillText(lbl,lx,6);
+      ctx.restore();
+    }
+  }
   // bar-path trace (orange) + current-frame dot — limited to the trim window so the messy pre-pull / post-drop tail is hidden
   if(annS.showTrace&&annS.track&&annS.track.length>1){
     const t=bpWinPts();
@@ -1915,7 +1949,7 @@ function wireAnnStudio(){
     if(annS._looping){ const end=w?w.b:(v.duration||0), start=w?w.a:0; if(end&&v.currentTime>=end-0.03){ v.currentTime=start; if(v.paused) v.play(); } }
     else if(w&&!v.paused&&v.currentTime>=w.b-0.01){ v.pause(); v.currentTime=w.b; }   // trim: stop the video at the out-point
     if(v.duration) vstSyncScrub();
-    if(annS.track&&annS.showTrace) vstRedraw();
+    if(annS.track&&(annS.showTrace||annS.showDrift)) vstRedraw();
     if(annS.graph){ if(annS._bakedReview){ if(annS._revTimeline&&annS._revTimeline.length){ const lt=bpgReviewLift(v.currentTime); if(lt!=null) bpgCursor(lt); } } else bpgCursor(v.currentTime); } });
   scrub.oninput=()=>{ const r=vstRange(); v.currentTime=r[0]+scrub.value/1000*((r[1]-r[0])||0); };
   document.getElementById('vstRate').onchange=e=>{ v.playbackRate=parseFloat(e.target.value); };
@@ -1937,6 +1971,7 @@ function wireAnnStudio(){
   document.getElementById('vstBack').onclick=()=>step(-1); document.getElementById('vstFwd').onclick=()=>step(1);
   const fpsEl=document.getElementById('vstFps'); if(fpsEl) fpsEl.oninput=e=>{ annS.fps=Math.max(1,parseInt(e.target.value,10)||30); };
   const showEl=document.getElementById('bpShow'); if(showEl) showEl.onchange=e=>{ annS.showTrace=e.target.checked; vstRedraw(); };
+  const driftEl=document.getElementById('bpDrift'); if(driftEl) driftEl.onchange=e=>{ annS.showDrift=e.target.checked; vstRedraw(); };
   // lift-graph metric pickers (available to viewers too — they just re-graph the saved track)
   ['A','B'].forEach(k=>{ const sel=document.getElementById('bpgMet'+k), ax=document.getElementById('bpgAxis'+k);
     if(sel) sel.onchange=e=>{ annS['g'+k].metric=e.target.value; if(BPG_VONLY[e.target.value]) annS['g'+k].axis='v'; bpgDraw(); };
@@ -2117,6 +2152,36 @@ function vstSetTrim(which,tt){ if(!annS) return; const v=document.getElementById
 function vstTrimUI(){ const lbl=document.getElementById('vstTrimLbl'), clr=document.getElementById('vstTrimClr'); const w=annS&&annS.win;
   if(lbl) lbl.textContent=w?('trim '+w.a.toFixed(2)+'–'+w.b.toFixed(2)+'s'):'';
   if(clr) clr.style.display=w?'inline-block':'none'; }
+// Vorobyev/Hiskia barbell-trajectory type from the signed horizontal series h (+ anterior/away, − toward lifter).
+// Returns {k:'1'|'2'|'3'|'4', lbl, note} or null. tol = jitter floor in px.
+function bpTrajType(h, tol){
+  if(!h||h.length<4) return null;
+  // zigzag: reduce to alternating extrema separated by >= tol of horizontal swing (seeded off the start baseline)
+  const piv=[]; let dir=0, exV=h[0];
+  for(let i=1;i<h.length;i++){ const v=h[i];
+    if(dir===0){ if(v>=h[0]+tol){ dir=1; exV=v; } else if(v<=h[0]-tol){ dir=-1; exV=v; } continue; }
+    if(dir>0){ if(v>exV) exV=v; else if(v<=exV-tol){ piv.push(exV); dir=-1; exV=v; } }
+    else { if(v<exV) exV=v; else if(v>=exV+tol){ piv.push(exV); dir=1; exV=v; } }
+  }
+  if(dir!==0) piv.push(exV);
+  const seq=[h[0]].concat(piv);
+  const pat=[]; for(let i=1;i<seq.length;i++){ const d=seq[i]-seq[i-1]; if(Math.abs(d)>=tol*0.5){ const L=d>0?'A':'T'; if(!pat.length||pat[pat.length-1]!==L) pat.push(L); } }
+  if(pat.length<2) return null;
+  const maxH=Math.max.apply(null,h), minH=Math.min.apply(null,h);
+  let firstT=-1, firstA=-1; for(let i=0;i<h.length;i++){ if(firstT<0&&h[i]<-tol) firstT=i; if(firstA<0&&h[i]>tol) firstA=i; }
+  const towardFirst=(firstT>=0 && (firstA<0 || firstT<firstA));
+  const crosses=(maxH>tol && minH<-tol);
+  let k;
+  if(!towardFirst) k=(pat.length>=5)?'4':'3';
+  else if(pat.length>=5) k='4'; else if(crosses) k='1'; else k='2';
+  const META={
+    '1':{lbl:'Type 1',note:'Toward → away → toward, crossing the start line — bar passes in front of the start then returns to you. Efficient; ~13% of elite snatches.'},
+    '2':{lbl:'Type 2',note:'Toward → away → toward, never crossing the start line (stays over/behind mid-foot). ~28% of elites, more common in women.'},
+    '3':{lbl:'Type 3',note:'Away → toward → away → toward — bar loops out first. The MOST common elite pattern (~53%), especially heavier men.'},
+    '4':{lbl:'Type 4',note:'An extra away–toward loop mid-pull. Rare (~6%).'}
+  };
+  return Object.assign({k}, META[k]);
+}
 function bpComputeMetrics(){
   const pts=bpWinPts(); if(!pts||pts.length<2){ annS.metrics=null; return; }
   const W=annS._trackW||1, H=annS._trackH||1;
@@ -2149,6 +2214,37 @@ function bpComputeMetrics(){
     m.crash_m=Math.max(0,(Y[iCatch]-Y[iPeak]))*mpp;
     m.back_m=backPx*mpp; m.fwd_m=fwdPx*mpp;
   }
+  // ---- advanced: phase split + horizontal suite + timing (all off the existing track; cm/velocity need calibration) ----
+  // vertical-velocity series (up positive), smoothed — the pull's double-hump drives the phase split
+  const vy=[]; for(let i=0;i<Y.length;i++){ if(i===0){ vy.push(0); continue; } const d=ts[i]-ts[i-1]; vy.push(d>0?(Y[i-1]-Y[i])/d:0); }
+  const vys=sm(sm(vy));
+  const vmax=Math.max.apply(null,vys), iVmax=Math.max(1,vys.indexOf(vmax));
+  let iLift=0; for(let i=0;i<iVmax;i++){ if(vys[i]>0.12*vmax){ iLift=i; break; } }           // lift-off ~ first real upward motion
+  let iTrough=iLift,tv=1e9; for(let i=iLift+1;i<iVmax;i++){ if(vys[i]<tv){ tv=vys[i]; iTrough=i; } }  // transition dip (double-knee-bend)
+  let iFirst=iLift,fv=-1e9; for(let i=iLift;i<=iTrough;i++){ if(vys[i]>fv){ fv=vys[i]; iFirst=i; } }     // first-pull velocity peak
+  const haveDip=(iFirst<iTrough && iTrough<iVmax && tv<0.90*Math.min(fv,vmax) && (iVmax-iLift)>=4);
+  m.iLift=iLift; m.iVmax=iVmax;
+  if(haveDip){
+    const seg=(a,b,name)=>{ let pk=-1e9; for(let i=a;i<=b;i++) if(vys[i]>pk) pk=vys[i]; return { name, dur:Math.max(0,ts[b]-ts[a]), vpk:(mpp?pk*mpp:null) }; };
+    m.phases=[seg(iLift,iFirst,'1st pull'),seg(iFirst,iTrough,'Transition'),seg(iTrough,iVmax,'2nd pull'),seg(iVmax,iCatch,'Turnover')];
+  } else m.phases=null;
+  // timing & efficiency
+  const totalPull=Math.max(1e-6,ts[iCatch]-ts[iLift]);
+  m.pull_dur=Math.max(0,ts[iVmax]-ts[iLift]);        // lift-off → peak velocity
+  m.pct_to_peak=Math.round(100*(ts[iVmax]-ts[iLift])/totalPull);
+  // ---- horizontal trajectory: Stone/Cunanan variables (X1,X2,Xloop,Xnet,θ1,Catchrel) + Vorobyev/Hiskia trajectory type ----
+  // h = signed horizontal displacement vs start; + = anterior (away from lifter), − = toward the lifter (rearward)
+  const h=X.map(x=>fs*(x-x0)), iYm=iPeak;
+  const hRange=Math.max.apply(null,h)-Math.min.apply(null,h), tol=Math.max(2,hRange*0.18);   // jitter floor for direction changes
+  let iX1=iLift, x1v=Infinity; for(let i=iLift;i<=iYm;i++){ if(h[i]<x1v){ x1v=h[i]; iX1=i; } }   // most rearward up to Ymax
+  let iX2=iX1, x2v=-Infinity; for(let i=iX1;i<=iYm;i++){ if(h[i]>x2v){ x2v=h[i]; iX2=i; } }        // most anterior X1→Ymax
+  m.X1_px=Math.abs(h[iX1]); m.X2_px=Math.abs(h[iX2]-h[iX1]); m.Xloop_px=Math.abs(h[iCatch]-h[iX2]); m.Xnet_px=Math.abs(h[iCatch]-h[iLift]);
+  const dvert=Math.max(1,Y[iLift]-Y[iX1]);                                                         // vertical rise to X1 (px)
+  m.theta1=Math.round(Math.atan2(Math.abs(h[iX1]),dvert)*180/Math.PI);
+  const ph_px=(yFloor-Y[iPeak]), ch_px=(yFloor-Y[iCatch]); m.catchrel=ph_px>0?Math.round(100*ch_px/ph_px):null;   // Ycatch/Ymax %
+  m.X1Pt={x:pts[iX1].x,y:pts[iX1].y}; m.X2Pt={x:pts[iX2].x,y:pts[iX2].y};
+  m.traj=bpTrajType(h.slice(iLift,iCatch+1),tol);
+  if(mpp){ m.X1_m=m.X1_px*mpp; m.X2_m=m.X2_px*mpp; m.Xloop_m=m.Xloop_px*mpp; m.Xnet_m=m.Xnet_px*mpp; }
   annS.metrics=m;
 }
 function bpRender(){
@@ -2157,6 +2253,7 @@ function bpRender(){
   const hasTrack=annS.track&&annS.track.length>1;
   bpgBuild();   // build the graph FIRST so the Peak m/s tile uses the exact same velocity series as the chart
   if(tw) tw.style.display=hasTrack?'flex':'none';
+  const dw=document.getElementById('bpDriftWrap'); if(dw) dw.style.display=hasTrack?'flex':'none';
   if(pinrow) pinrow.style.display=(hasTrack&&!annS.readOnly)?'flex':'none';
   if(fb) fb.textContent=(annS.facing==='right'?'Forward → (off hip)':'← Forward (off hip)');
   if(tiles){
@@ -2172,14 +2269,27 @@ function bpRender(){
       m.peak_h_pct=pct(m.peak_h_m); m.catch_h_pct=pct(m.catch_h_m);
       const relLbl=(base,v)=>{ const p=pct(v); return p!=null?(base+' · '+p+'% ht'):base; };
       tiles.style.display='grid';
+      const phHtml=m.phases
+        ? `<div class="bp-phases"><div class="bp-ph-h">Pull phases <span title="Auto-split from the bar's vertical-velocity curve: first pull → transition (double-knee-bend dip) → second pull → turnover. The Kipp first-vs-second-pull lens.">ⓘ</span></div>`+
+          m.phases.map(p=>`<div class="bp-ph-row"><span class="bp-ph-n">${p.name}</span><span class="bp-ph-d">${p.dur.toFixed(2)}s</span><span class="bp-ph-v">${p.vpk!=null?p.vpk.toFixed(2)+' m/s':'—'}</span></div>`).join('')+`</div>`
+        : `<div class="bp-phases"><div class="bp-ph-h" style="color:var(--muted);font-weight:400">Pull phases — need a clearer two-hump pull (re-seed or check fps)</div></div>`;
+      const tr=m.traj;
+      // Stone/Cunanan barbell-trajectory variables (USAW reference), with elite normative ranges in the tooltips
       tiles.innerHTML=
-        tile((+pk).toFixed(2),'Peak m/s')+
-        tile(cm(m.peak_h_m),relLbl('Peak height',m.peak_h_m))+
-        tile(scm(m.back_m),'Back (toward)')+
-        tile(scm(m.fwd_m),'Forward (away)')+
-        tile(cm(m.crash_m),'Crash peak→catch')+
-        tile(cm(m.catch_h_m),relLbl('Catch height',m.catch_h_m))+
-        tile(tmc!=null?tmc.toFixed(2):'—','TMC (→1 best)','Technical Mastery Coefficient = peak height ÷ catch height (Aita, Weightlifting Technique Triad). Closer to 1 = the bar settles near its peak.');
+        tile((+pk).toFixed(2),'Vmax · peak m/s','Peak vertical bar velocity. Elite snatch ≈ 1.7–2.0 m/s.')+
+        tile(cm(m.peak_h_m),relLbl('Ymax · peak ht',m.peak_h_m),'Maximum bar height (Ymax). Elite ≈ 65–70% of standing height.')+
+        tile(cm(m.catch_h_m),relLbl('Ycatch · catch ht',m.catch_h_m),'Bar height at the catch / fixation (Ycatch).')+
+        tile(cm(m.crash_m),'Ydrop · drop','Ymax − Ycatch — how far the bar drops into the catch. Elite ≈ 13–17 cm.')+
+        tile(m.catchrel!=null?m.catchrel+'%':'—','Catchrel · catch÷peak','Ycatch ÷ Ymax. Higher = caught nearer peak height. Elite ≈ 82–87%. (Inverse of the Aita TMC.)')+
+        tile(m.theta1!=null?m.theta1+'°':'—','θ1 · pull angle','Angle of the start→rearmost-point (X1) line from vertical. Elite ≈ 5–10°.')+
+        tile(cm(m.X1_m),'X1 · rearward','How far the bar travels toward you in the first pull (rearmost point). Elite ≈ 4–7 cm.')+
+        tile(cm(m.X2_m),'X2 · anterior','Forward swing from X1 to the most anterior point before peak height. Elite ≈ 4–8 cm.')+
+        tile(cm(m.Xloop_m),'Xloop · loop','Horizontal travel from X2 to the catch. Elite ≈ 8–15 cm.')+
+        tile(cm(m.Xnet_m),'Xnet · net horiz','Net horizontal travel, start → catch. Elite ≈ 6–15 cm.')+
+        (tr?tile('Type '+tr.k,'Trajectory',tr.note):'')+
+        tile(m.pull_dur!=null?m.pull_dur.toFixed(2):'—','Pull time (s)','Lift-off → peak velocity.')+
+        tile(m.pct_to_peak!=null?m.pct_to_peak+'%':'—','Peak speed @','How far into the pull peak velocity occurs (% of lift-off → catch). Later = a more patient, sustained second pull.')+
+        phHtml;
     } else {
       tiles.style.display='block';
       tiles.innerHTML=`<div class="bp-tile"><div class="bp-v">Trace captured</div><div class="bp-l">Calibrate a plate for cm &amp; m/s</div></div>`;
@@ -2329,7 +2439,7 @@ async function bpLoadTrack(path){
     if(annS.metrics&&annS.metrics.win) annS.win=annS.metrics.win;   // coach's trim window
     vstTrimUI();
     if(payload.fps){ annS.fps=payload.fps; const f=document.getElementById('vstFps'); if(f) f.value=payload.fps; }
-    if(annS._bakedReview){ annS.showTrace=false; const sh=document.getElementById('bpShow'); if(sh) sh.checked=false; }  // trace is already baked into the review video
+    if(annS._bakedReview){ annS.showTrace=false; annS.showDrift=false; const sh=document.getElementById('bpShow'); if(sh) sh.checked=false; const dr=document.getElementById('bpDrift'); if(dr) dr.checked=false; }  // trace is already baked into the review video
     bpRender(); bpSteps(); vstRedraw(); vstSyncScrub();
   } else { bpRender(); }
 }
