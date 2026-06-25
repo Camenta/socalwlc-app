@@ -270,6 +270,65 @@
   .rk-donebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;cursor:pointer}
   .rk-donebar .ok{color:var(--good);font-weight:700}
   .rk-edit{margin-left:auto;font-size:12px;font-weight:700;color:var(--accent2)}
+  /* body pain / injury heat-map */
+  .bm-card{padding:14px 16px}
+  .bm-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer}
+  .bm-q{font-weight:800;font-size:15px}
+  .bm-stat{display:flex;align-items:center;gap:8px}
+  .bm-opt{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:700}
+  .bm-badge{background:rgba(232,100,60,.16);color:var(--accent);border:1px solid rgba(232,100,60,.4);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:800}
+  .bm-chev{color:var(--muted);font-size:13px}
+  .bm-views{display:inline-flex;gap:0;border:1px solid var(--line);border-radius:9px;overflow:hidden;margin-bottom:10px}
+  .bm-views button{background:#0e151c;color:var(--muted);border:none;padding:8px 18px;font-weight:700;font-size:13px;cursor:pointer}
+  .bm-views button.on{background:var(--accent2);color:#06121d}
+  .bm-stage{max-width:280px;margin:0 auto}
+  .bm-svg{width:100%;height:auto;display:block;touch-action:manipulation}
+  .bm-outline circle{fill:#1a232c;stroke:#2c3a47;stroke-width:1.5}
+  .bm-region{cursor:pointer}
+  .bm-region :is(rect,ellipse,circle){fill:#222d38;stroke:#3645524d;stroke-width:1.2;transition:fill .12s,fill-opacity .12s}
+  .bm-region:not(.ro):hover :is(rect,ellipse,circle){fill:#2f3e4c;stroke:var(--accent2);stroke-width:1.6}
+  .bm-region.on :is(rect,ellipse,circle){fill:var(--c);fill-opacity:.85;stroke:var(--c);stroke-opacity:.95;stroke-width:1.6}
+  .bm-region.ro{cursor:default}
+  .bm-editor{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin:10px 0 4px}
+  .bm-ehead{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+  .bm-ehead b{font-size:15px}
+  .bm-eclose{cursor:pointer;color:var(--muted);font-weight:700;font-size:14px;padding:0 4px}
+  .bm-erow{display:flex;align-items:center;gap:10px;margin:7px 0}
+  .bm-erow.sub{margin-top:0}
+  .bm-elbl{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700;width:38px;flex:none}
+  .bm-shint{font-size:11px;color:var(--muted);font-style:italic}
+  .bm-sides{display:flex;gap:6px;flex-wrap:wrap}
+  .bm-side{background:#0e151c;border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:7px 13px;font-weight:700;font-size:12px;cursor:pointer}
+  .bm-side.on{background:var(--accent2);border-color:var(--accent2);color:#06121d}
+  .bm-scale{display:flex;gap:4px;flex-wrap:wrap}
+  .bm-dot{width:30px;height:32px;border-radius:8px;border:1px solid var(--line);background:#0e151c;color:var(--muted);font-weight:700;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .bm-dot.lo.on{background:var(--good);border-color:var(--good);color:#05140b}
+  .bm-dot.mid.on{background:var(--warn);border-color:var(--warn);color:#1a1304}
+  .bm-dot.hi.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .bm-dot.on:not(.lo):not(.mid):not(.hi){background:#3a4654;border-color:#3a4654;color:var(--text)}
+  .bm-enote textarea{width:100%;background:#0e151c;border:1px solid var(--line);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;min-height:42px;resize:vertical;font-family:inherit}
+  .bm-enote textarea:focus{outline:none;border-color:var(--accent2)}
+  .bm-marks{margin-top:8px}
+  .bm-none{font-size:12.5px;color:var(--muted);font-style:italic}
+  .bm-chips{display:flex;gap:7px;flex-wrap:wrap}
+  .bm-chip{display:inline-flex;align-items:center;gap:7px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 11px;font-size:12px;font-weight:700;color:var(--text);cursor:pointer}
+  .bm-chip .bm-cdot{width:9px;height:9px;border-radius:50%;background:var(--muted)}
+  .bm-chip.lo .bm-cdot{background:var(--good)}.bm-chip.mid .bm-cdot{background:var(--warn)}.bm-chip.hi .bm-cdot{background:var(--accent)}
+  /* coach + report read-only pain panel */
+  .pn-wrap{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
+  .pn-maps{display:flex;gap:10px}
+  .pn-map{width:130px}
+  .pn-map .bm-cap{text-align:center;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700;margin-top:2px}
+  .pn-list{flex:1;min-width:240px}
+  .pn-row{display:flex;align-items:center;gap:9px;padding:7px 0;border-top:1px solid var(--line);font-size:13px}
+  .pn-row:first-child{border-top:none}
+  .pn-dot{width:10px;height:10px;border-radius:50%;flex:none}
+  .pn-reg{font-weight:700;min-width:120px}
+  .pn-sev{font-weight:800}
+  .pn-meta{color:var(--muted);font-size:12px;margin-left:auto;white-space:nowrap}
+  .pn-note{color:var(--muted);font-style:italic;font-size:12px;flex-basis:100%;padding-left:19px}
+  .pn-legend{display:flex;gap:12px;font-size:11px;color:var(--muted);margin-top:6px}
+  .pn-legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px;vertical-align:middle}
   /* week day-strip */
   .av-weekcard{padding:14px 16px}
   .av-weekhd{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:11px}
@@ -1287,6 +1346,8 @@
   .mrev-focus{margin-top:12px;background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:10px 13px;font-size:13.5px;line-height:1.5}
   .mrev-focus.coach{background:rgba(232,100,60,.08);border-left-color:var(--accent)}
   .mrev-flbl{font-weight:800;color:var(--accent);margin-right:4px}
+  .mrev-pain{margin-top:12px}
+  .mrev-plbl{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:700;margin-bottom:6px}
   .mrev-next{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:11px 13px;cursor:pointer}
   .mrev-next:hover{border-color:var(--accent)}
   .mrev-nlbl{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:700}
@@ -1349,6 +1410,7 @@ async function boot(){
   await probeProgramId();
   await probeVideoNotes();
   await probeSrpe();
+  await probeBodyPain();
   if(profile.role === 'coach') renderCoach(); else athGo(athState.screen||'athlete');
 }
 async function renderJoin(token){
@@ -2449,6 +2511,8 @@ async function probeVideoNotes(){
 let SRPE_READY=false;   // sessions.session_minutes + session_rpe (migration 33) → session-RPE load
 async function probeSrpe(){ const { error } = await sb.from('sessions').select('session_rpe').limit(1); SRPE_READY = !error;
   if(SRPE_READY && SESSION_SELECT.indexOf('session_rpe')<0) SESSION_SELECT += ',session_minutes,session_rpe'; }
+let PAIN_READY=false;   // body_pain_reports (migration 37) → injury heat-map
+async function probeBodyPain(){ const { error } = await sb.from('body_pain_reports').select('id').limit(1); PAIN_READY = !error; }
 const DOW=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], MONS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function iso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function weekDates(offset){ // Mon..Sun of the current week, shifted by `offset` weeks
@@ -2537,6 +2601,222 @@ async function submitCheckin(){
   }
   rkState.id=res.data[0].id; rkState.savedToday=true; rkState.open=false;
   repaintCheckin();
+}
+
+/* ====================== Body pain / injury heat-map ======================
+   A front + back human-body diagram in the check-in flow. The athlete taps a
+   labelled region → picks a side + a 0-10 pain scale + a note. Stored STRUCTURED
+   (one row per region/side/date) in body_pain_reports so it's trendable and
+   AI-queryable later — not a drawing blob. Coach sees it on the athlete dashboard
+   + in reports; recent pain feeds the weekly "My Review" + auto-focus.
+   Migration 37_body_pain.sql.                                                  */
+// region geometry — each shape is its own tappable hit-area; `side` is the athlete's
+// side (front view: viewer-left = athlete's RIGHT; back view: viewer-left = athlete's LEFT).
+const PAIN_REGIONS=[
+  // ---- FRONT (anterior) ----
+  {key:'neck',     label:'Neck',          view:'front', side:'center', el:'<rect x="90" y="50" width="20" height="14" rx="6"/>'},
+  {key:'shoulder', label:'Shoulder',      view:'front', side:'right',  el:'<ellipse cx="66" cy="80" rx="14" ry="12"/>'},
+  {key:'shoulder', label:'Shoulder',      view:'front', side:'left',   el:'<ellipse cx="134" cy="80" rx="14" ry="12"/>'},
+  {key:'chest',    label:'Chest / pec',   view:'front', side:'center', el:'<rect x="74" y="68" width="52" height="30" rx="9"/>'},
+  {key:'elbow',    label:'Elbow',         view:'front', side:'right',  el:'<ellipse cx="52" cy="150" rx="9" ry="13"/>'},
+  {key:'elbow',    label:'Elbow',         view:'front', side:'left',   el:'<ellipse cx="148" cy="150" rx="9" ry="13"/>'},
+  {key:'abs',      label:'Abs / trunk',   view:'front', side:'center', el:'<rect x="78" y="100" width="44" height="58" rx="10"/>'},
+  {key:'wrist',    label:'Wrist / hand',  view:'front', side:'right',  el:'<ellipse cx="44" cy="206" rx="9" ry="13"/>'},
+  {key:'wrist',    label:'Wrist / hand',  view:'front', side:'left',   el:'<ellipse cx="156" cy="206" rx="9" ry="13"/>'},
+  {key:'hip',      label:'Hip / groin',   view:'front', side:'right',  el:'<ellipse cx="84" cy="176" rx="13" ry="13"/>'},
+  {key:'hip',      label:'Hip / groin',   view:'front', side:'left',   el:'<ellipse cx="116" cy="176" rx="13" ry="13"/>'},
+  {key:'quad',     label:'Quad',          view:'front', side:'right',  el:'<rect x="72" y="200" width="22" height="72" rx="11"/>'},
+  {key:'quad',     label:'Quad',          view:'front', side:'left',   el:'<rect x="106" y="200" width="22" height="72" rx="11"/>'},
+  {key:'knee',     label:'Knee',          view:'front', side:'right',  el:'<ellipse cx="83" cy="292" rx="13" ry="15"/>'},
+  {key:'knee',     label:'Knee',          view:'front', side:'left',   el:'<ellipse cx="117" cy="292" rx="13" ry="15"/>'},
+  {key:'shin',     label:'Shin',          view:'front', side:'right',  el:'<rect x="74" y="312" width="18" height="64" rx="9"/>'},
+  {key:'shin',     label:'Shin',          view:'front', side:'left',   el:'<rect x="108" y="312" width="18" height="64" rx="9"/>'},
+  {key:'ankle',    label:'Ankle',         view:'front', side:'right',  el:'<ellipse cx="83" cy="388" rx="9" ry="11"/>'},
+  {key:'ankle',    label:'Ankle',         view:'front', side:'left',   el:'<ellipse cx="117" cy="388" rx="9" ry="11"/>'},
+  {key:'foot',     label:'Foot',          view:'front', side:'right',  el:'<rect x="71" y="404" width="22" height="18" rx="7"/>'},
+  {key:'foot',     label:'Foot',          view:'front', side:'left',   el:'<rect x="107" y="404" width="22" height="18" rx="7"/>'},
+  // ---- BACK (posterior) ----
+  {key:'neck_traps', label:'Neck / traps', view:'back', side:'center', el:'<rect x="86" y="50" width="28" height="16" rx="7"/>'},
+  {key:'shoulder',   label:'Shoulder',     view:'back', side:'left',   el:'<ellipse cx="66" cy="82" rx="14" ry="12"/>'},
+  {key:'shoulder',   label:'Shoulder',     view:'back', side:'right',  el:'<ellipse cx="134" cy="82" rx="14" ry="12"/>'},
+  {key:'upper_back', label:'Upper back',   view:'back', side:'center', el:'<rect x="80" y="70" width="40" height="38" rx="9"/>'},
+  {key:'lat',        label:'Lat',          view:'back', side:'left',   el:'<ellipse cx="74" cy="124" rx="11" ry="18"/>'},
+  {key:'lat',        label:'Lat',          view:'back', side:'right',  el:'<ellipse cx="126" cy="124" rx="11" ry="18"/>'},
+  {key:'elbow',      label:'Elbow',        view:'back', side:'left',   el:'<ellipse cx="52" cy="150" rx="9" ry="13"/>'},
+  {key:'elbow',      label:'Elbow',        view:'back', side:'right',  el:'<ellipse cx="148" cy="150" rx="9" ry="13"/>'},
+  {key:'low_back',   label:'Low back',     view:'back', side:'center', el:'<rect x="82" y="110" width="36" height="40" rx="9"/>'},
+  {key:'wrist',      label:'Wrist / hand', view:'back', side:'left',   el:'<ellipse cx="44" cy="206" rx="9" ry="13"/>'},
+  {key:'wrist',      label:'Wrist / hand', view:'back', side:'right',  el:'<ellipse cx="156" cy="206" rx="9" ry="13"/>'},
+  {key:'glute',      label:'Glute',        view:'back', side:'left',   el:'<ellipse cx="85" cy="178" rx="15" ry="16"/>'},
+  {key:'glute',      label:'Glute',        view:'back', side:'right',  el:'<ellipse cx="115" cy="178" rx="15" ry="16"/>'},
+  {key:'hamstring',  label:'Hamstring',    view:'back', side:'left',   el:'<rect x="72" y="202" width="22" height="70" rx="11"/>'},
+  {key:'hamstring',  label:'Hamstring',    view:'back', side:'right',  el:'<rect x="106" y="202" width="22" height="70" rx="11"/>'},
+  {key:'calf',       label:'Calf',         view:'back', side:'left',   el:'<rect x="74" y="296" width="18" height="68" rx="9"/>'},
+  {key:'calf',       label:'Calf',         view:'back', side:'right',  el:'<rect x="108" y="296" width="18" height="68" rx="9"/>'},
+  {key:'achilles',   label:'Achilles',     view:'back', side:'left',   el:'<ellipse cx="83" cy="382" rx="8" ry="12"/>'},
+  {key:'achilles',   label:'Achilles',     view:'back', side:'right',  el:'<ellipse cx="117" cy="382" rx="8" ry="12"/>'},
+  {key:'heel',       label:'Heel / foot',  view:'back', side:'left',   el:'<rect x="71" y="404" width="22" height="18" rx="7"/>'},
+  {key:'heel',       label:'Heel / foot',  view:'back', side:'right',  el:'<rect x="107" y="404" width="22" height="18" rx="7"/>'}
+];
+const SIDE_LBL={left:'L',right:'R',center:'C',both:'L+R'};
+const SIDE_FULL={left:'Left',right:'Right',center:'Central',both:'Both'};
+function painColor(sev){ if(sev==null||sev<=0) return null; if(sev<=3) return '#3ec97a'; if(sev<=6) return '#e8c23c'; return '#e8643c'; }
+function painSevClass(sev){ if(sev==null||sev<=0) return ''; if(sev<=3) return 'lo'; if(sev<=6) return 'mid'; return 'hi'; }
+// non-interactive body silhouette (head + a faint outline) behind the region shapes
+function bodyOutline(){ return '<g class="bm-outline"><circle cx="100" cy="30" r="20"/></g>'; }
+// sevMap keys are `region|side`; returns the SVG for one view.
+function bodyHeatSVG(view, sevMap, opts){
+  opts=opts||{}; const ro=opts.readOnly;
+  const shapes=PAIN_REGIONS.filter(r=>r.view===view).map((r,i)=>{
+    let sev=sevMap[r.key+'|'+r.side];
+    if(sev==null && r.side!=='center'){ const b=sevMap[r.key+'|both']; if(b!=null) sev=b; } // a 'both' mark lights both sides
+    const col=painColor(sev);
+    const fill=col?`--c:${col}`:'';
+    const cls='bm-region'+(col?' on':'')+(ro?' ro':'');
+    const attrs=ro?'':` data-key="${r.key}" data-side="${r.side}" data-label="${esc(r.label)}" data-view="${view}"`;
+    return `<g class="${cls}" style="${fill}"${attrs}>${r.el}</g>`;
+  }).join('');
+  return `<svg class="bm-svg" viewBox="0 0 200 432" preserveAspectRatio="xMidYMid meet" aria-label="${view} body map">${bodyOutline()}${shapes}</svg>`;
+}
+
+let painState=null; // {date, marks:[{region,label,side,severity,note,view}], view, open, sel:{key,side,label,view}}
+function painSevMap(){ const m={}; (painState&&painState.marks||[]).forEach(k=>{ m[k.region+'|'+k.side]=k.severity; }); return m; }
+function painFindMark(key,side){ return (painState&&painState.marks||[]).find(m=>m.region===key&&m.side===side); }
+function painActiveCount(){ return (painState&&painState.marks||[]).filter(m=>m.severity>0).length; }
+// chips for the marks already recorded today
+function painChips(){
+  const ms=(painState&&painState.marks||[]).filter(m=>m.severity>0).sort((a,b)=>b.severity-a.severity);
+  if(!ms.length) return '<div class="bm-none">No pain marked today — tap a body part above only if something hurts.</div>';
+  return '<div class="bm-chips">'+ms.map(m=>`<button class="bm-chip ${painSevClass(m.severity)}" onclick="painEdit('${m.region}','${m.side}')"><span class="bm-cdot"></span>${esc(m.label)}${m.side!=='center'?' '+SIDE_LBL[m.side]:''} · ${m.severity}/10</button>`).join('')+'</div>';
+}
+// the editor row for the currently-selected region
+function painEditor(){
+  if(!painState||!painState.sel) return '';
+  const s=painState.sel; const existing=painFindMark(s.key,s.side)||{};
+  const sev=existing.severity!=null?existing.severity:(painState._pendSev!=null?painState._pendSev:0);
+  const note=existing.note!=null?existing.note:(painState._pendNote||'');
+  const sides = s.side==='center' ? ['center','both'] : ['left','right','both'];
+  const sidePills=sides.map(sd=>`<button class="bm-side${s.side===sd?' on':''}" onclick="painSetSide('${sd}')">${SIDE_FULL[sd]}</button>`).join('');
+  let dots=''; for(let v=0;v<=10;v++){ const c=v===0?'':painSevClass(v); dots+=`<button class="bm-dot ${c}${sev===v?' on':''}" onclick="painSetSev(${v})">${v}</button>`; }
+  return `<div class="bm-editor" id="bmEditor">
+    <div class="bm-ehead"><b>${esc(s.label)}</b><span class="bm-eclose" onclick="painCloseEditor()">✕</span></div>
+    <div class="bm-erow"><span class="bm-elbl">Side</span><div class="bm-sides">${sidePills}</div></div>
+    <div class="bm-erow"><span class="bm-elbl">Pain</span><div class="bm-scale">${dots}</div></div>
+    <div class="bm-erow sub"><span></span><span class="bm-shint">0 = none · 1–3 twinge · 4–6 sore · 7–10 sharp</span></div>
+    <div class="bm-enote"><textarea id="bmNote" placeholder="What does it feel like? When? (optional)" oninput="painNoteInput()">${esc(note)}</textarea></div>
+    <div class="bm-erow"><span></span><span class="saved" id="bmMsg"></span></div>
+  </div>`;
+}
+function painBlock(){
+  if(!PAIN_READY) return ''; // hidden until migration 37 is run
+  const n=painActiveCount();
+  const head=`<div class="bm-bar" onclick="painToggle()">
+      <span class="bm-q">🩺 Any pain or twinges?</span>
+      <span class="bm-stat">${n?`<span class="bm-badge">${n} marked</span>`:'<span class="bm-opt">optional</span>'}<span class="bm-chev">${painState&&painState.open?'▾':'▸'}</span></span></div>`;
+  if(!painState||!painState.open) return `<div class="card bm-card">${head}</div>`;
+  const vt=`<div class="bm-views"><button class="${painState.view==='front'?'on':''}" onclick="painSetView('front')">Front</button><button class="${painState.view==='back'?'on':''}" onclick="painSetView('back')">Back</button></div>`;
+  return `<div class="card bm-card open" id="bmCard">
+    ${head}
+    <div class="sub" style="margin:2px 0 8px">Tap where it hurts. Shown as if you're facing the diagram — you can fix the side after. Your coach sees this.</div>
+    ${vt}
+    <div class="bm-stage" id="bmStage">${bodyHeatSVG(painState.view, painSevMap())}</div>
+    ${painEditor()}
+    <div class="bm-marks">${painChips()}</div>
+  </div>`;
+}
+function repaintPain(){ const host=document.getElementById('painHost'); if(host) host.innerHTML=painBlock(); wirePainStage(); }
+function wirePainStage(){
+  const stage=document.getElementById('bmStage'); if(!stage||stage._wired) return; stage._wired=true;
+  stage.addEventListener('click', e=>{ const g=e.target.closest('.bm-region'); if(!g||g.classList.contains('ro')) return;
+    painState.sel={ key:g.dataset.key, side:g.dataset.side, label:g.dataset.label, view:g.dataset.view };
+    painState._pendSev=null; painState._pendNote=''; repaintPain();
+    const ed=document.getElementById('bmEditor'); if(ed) ed.scrollIntoView({behavior:'smooth',block:'nearest'});
+  });
+}
+window.painToggle=()=>{ if(!painState) return; painState.open=!painState.open; if(!painState.open) painState.sel=null; repaintPain(); };
+window.painSetView=(v)=>{ if(!painState) return; painState.view=v; painState.sel=null; repaintPain(); };
+window.painEdit=(key,side)=>{ const r=PAIN_REGIONS.find(x=>x.key===key&&(x.side===side))||PAIN_REGIONS.find(x=>x.key===key); const m=painFindMark(key,side);
+  painState.sel={ key, side, label:(m&&m.label)||(r&&r.label)||key, view:(m&&m.view)||(r&&r.view)||painState.view };
+  painState.view=painState.sel.view; painState._pendSev=null; painState._pendNote=''; repaintPain();
+  const ed=document.getElementById('bmEditor'); if(ed) ed.scrollIntoView({behavior:'smooth',block:'nearest'}); };
+window.painCloseEditor=()=>{ if(!painState) return; painState.sel=null; repaintPain(); };
+window.painNoteInput=()=>{ const ta=document.getElementById('bmNote'); if(!painState||!painState.sel) return; const note=ta?ta.value:''; const m=painFindMark(painState.sel.key,painState.sel.side);
+  if(m){ m.note=note; clearTimeout(painState._noteT); painState._noteT=setTimeout(()=>savePainMark(m,true),700); } else { painState._pendNote=note; } };
+window.painSetSide=(sd)=>{ if(!painState||!painState.sel) return; const oldSide=painState.sel.side; if(oldSide===sd) return;
+  const old=painFindMark(painState.sel.key,oldSide); painState.sel.side=sd;
+  if(old){ // move an existing mark to the new side
+    deletePainMark(old.region,oldSide,true); old.side=sd; painState.marks.push(old); savePainMark(old);
+  }
+  repaintPain(); };
+window.painSetSev=async(v)=>{ if(!painState||!painState.sel) return; const s=painState.sel;
+  let m=painFindMark(s.key,s.side);
+  if(v===0){ if(m) await deletePainMark(s.key,s.side); painState.sel=null; repaintPain(); return; }
+  if(!m){ m={ region:s.key, label:s.label, side:s.side, severity:v, note:(document.getElementById('bmNote')||{}).value||painState._pendNote||'', view:s.view }; painState.marks.push(m); }
+  else m.severity=v;
+  await savePainMark(m); repaintPain(); };
+async function savePainMark(m, quiet){
+  const msg=document.getElementById('bmMsg'); if(msg&&!quiet){ msg.style.color=''; msg.textContent='Saving…'; }
+  if(!PAIN_READY){ if(msg) msg.textContent='Saved locally (coach sync needs migration 37)'; return; }
+  const payload={ gym_id:me_.gym_id, athlete_id:me_.id, report_date: painState.date, view:m.view, region:m.region, region_label:m.label, side:m.side, severity:m.severity, note:(m.note||'').trim()||null, updated_at:new Date().toISOString() };
+  const r=await sb.from('body_pain_reports').upsert(payload,{ onConflict:'athlete_id,report_date,region,side' }).select();
+  if(r.error){ if(msg){ msg.style.color='var(--bad)'; msg.textContent='⚠ '+r.error.message; } return; }
+  if(msg&&!quiet){ msg.style.color=''; msg.textContent='Saved ✓'; setTimeout(()=>{ if(msg) msg.textContent=''; },1500); }
+}
+async function deletePainMark(key, side, quiet){
+  const i=(painState.marks||[]).findIndex(m=>m.region===key&&m.side===side); if(i>=0) painState.marks.splice(i,1);
+  if(!PAIN_READY) return;
+  await sb.from('body_pain_reports').delete().eq('athlete_id',me_.id).eq('report_date',painState.date).eq('region',key).eq('side',side);
+  if(!quiet) repaintPain();
+}
+async function loadPainToday(){
+  const today=iso(new Date());
+  painState={ date:today, marks:[], view:'front', open:false, sel:null };
+  if(!PAIN_READY) return;
+  const r=await sb.from('body_pain_reports').select('*').eq('athlete_id',me_.id).eq('report_date',today);
+  if(!r.error&&r.data){ painState.marks=r.data.map(x=>({ region:x.region, label:x.region_label||x.region, side:x.side, severity:x.severity, note:x.note||'', view:x.view||'front' })); if(painState.marks.some(m=>m.severity>0)) painState.open=true; }
+}
+
+// ---- read-only aggregation (coach dashboard + reports + My Review) ----
+function painMonKey(ds){ const d=new Date(ds+'T00:00:00'); d.setDate(d.getDate()-((d.getDay()+6)%7)); return iso(d); }
+async function loadPainRange(athleteId, startStr, endStr){
+  if(!PAIN_READY) return [];
+  let q=sb.from('body_pain_reports').select('*').eq('athlete_id',athleteId).gt('severity',0);
+  if(startStr) q=q.gte('report_date',startStr); if(endStr) q=q.lte('report_date',endStr);
+  const r=await q.order('report_date',{ascending:false}); return r.error?[]:(r.data||[]);
+}
+// roll raw rows into per-region/side summaries (latest severity + weeks-reported persistence)
+function painAggregate(rows){
+  const by={}; (rows||[]).forEach(x=>{ const k=x.region+'|'+x.side; if(!by[k]) by[k]={ region:x.region, label:x.region_label||x.region, side:x.side, view:x.view||'front', latest:0, latestDate:null, peak:0, note:'', weeks:new Set(), count:0 };
+    const e=by[k]; e.count++; e.weeks.add(painMonKey(x.report_date)); if(x.severity>e.peak) e.peak=x.severity;
+    if(!e.latestDate || x.report_date>e.latestDate){ e.latestDate=x.report_date; e.latest=x.severity; e.note=x.note||''; } });
+  const list=Object.values(by).map(e=>({ ...e, weeksN:e.weeks.size })).sort((a,b)=> (b.latest-a.latest)||(b.weeksN-a.weeksN));
+  const sevMap={}; list.forEach(e=>{ sevMap[e.region+'|'+e.side]=e.latest; });
+  const persistent=list.filter(e=>e.weeksN>=2 || e.peak>=7);
+  return { list, sevMap, persistent };
+}
+// the read-only panel: front+back mini-maps + a list of recent pain
+function painPanelHTML(agg, opts){
+  opts=opts||{}; const name=opts.name||'This athlete';
+  if(!agg||!agg.list.length) return `<div class="note sub" style="padding:6px 0">No pain reported${opts.rangeLabel?' over '+esc(opts.rangeLabel):' recently'}. ${esc(name.split(' ')[0])} can flag aches on the body map in the daily check-in.</div>`;
+  const maps=`<div class="pn-maps">
+    <div class="pn-map">${bodyHeatSVG('front',agg.sevMap,{readOnly:true})}<div class="bm-cap">Front</div></div>
+    <div class="pn-map">${bodyHeatSVG('back',agg.sevMap,{readOnly:true})}<div class="bm-cap">Back</div></div></div>`;
+  const D=s=>new Date(s+'T00:00:00');
+  const rows=agg.list.slice(0,opts.limit||8).map(e=>{ const col=painColor(e.latest)||'var(--muted)';
+    const sd=e.side!=='center'?' '+SIDE_FULL[e.side]:''; const dl=e.latestDate?MONS[D(e.latestDate).getMonth()]+' '+D(e.latestDate).getDate():'';
+    const persist=e.weeksN>=2?` · ${e.weeksN} wks`:''; const pk=e.peak>e.latest?` · peak ${e.peak}`:'';
+    return `<div class="pn-row"><span class="pn-dot" style="background:${col}"></span><span class="pn-reg">${esc(e.label)}${sd}</span><span class="pn-sev" style="color:${col}">${e.latest}/10</span><span class="pn-meta">${esc(dl)}${persist}${pk}</span>${e.note?`<div class="pn-note">“${esc(e.note)}”</div>`:''}</div>`;
+  }).join('');
+  const legend=`<div class="pn-legend"><span><i style="background:var(--good)"></i>1–3 twinge</span><span><i style="background:var(--warn)"></i>4–6 sore</span><span><i style="background:var(--accent)"></i>7–10 sharp</span></div>`;
+  return `<div class="pn-wrap">${maps}<div class="pn-list">${rows}${legend}</div></div>`;
+}
+// a one-line persistence summary for focus drafts ("Watch: right knee pain 3 wks running")
+function painFocusLine(agg, first){
+  if(!agg||!agg.persistent.length) return '';
+  const e=agg.persistent.slice().sort((a,b)=>(b.weeksN-a.weeksN)||(b.peak-a.peak))[0];
+  const sd=e.side!=='center'?SIDE_FULL[e.side].toLowerCase()+' ':'';
+  const span=e.weeksN>=2?`${e.weeksN} weeks running`:`peaked at ${e.peak}/10`;
+  return `Watch: ${sd}${(e.label||'').toLowerCase()} pain reported ${span}.`;
 }
 
 /* ---------------- athlete nav + router ---------------- */
@@ -2825,6 +3105,16 @@ async function weekReview(athleteId){
   if(nx){ const exs=(nx.prescribed_exercises||[]).slice().sort((a,b)=>(a.position||0)-(b.position||0)).map(e=>e.name).filter(Boolean).slice(0,4);
     const lbl=nx.session_date===todayStr?'Today':D(nx.session_date).toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'});
     upNext=`<div class="mrev-next" onclick="planOpenWeekAth('${nx.session_date}')"><div><div class="mrev-nlbl">Up next · ${esc(lbl)}</div><div class="mrev-nex">${esc(exs.join(' · ')||nx.title||'Training')}</div></div><span class="cta">${nx.session_date===todayStr?'Start →':'Preview →'}</span></div>`; }
+  // recent pain (last 4 weeks) — surfaces in the athlete's My Review + the coach's week preview
+  let painHtml='';
+  if(PAIN_READY){ const pStart=new Date(today); pStart.setDate(pStart.getDate()-27);
+    const pAgg=painAggregate(await loadPainRange(me, iso(pStart), todayStr));
+    if(pAgg.list.length){
+      const top=pAgg.list.slice(0,5).map(e=>`<span class="bm-chip ${painSevClass(e.latest)}"><span class="bm-cdot"></span>${esc(e.label)}${e.side!=='center'?' '+SIDE_LBL[e.side]:''} · ${e.latest}/10${e.weeksN>=2?' · '+e.weeksN+'w':''}</span>`).join('');
+      painHtml=`<div class="mrev-pain"><div class="mrev-plbl">🩺 Recent pain · last 4 wks</div><div class="bm-chips">${top}</div></div>`;
+      const fl=painFocusLine(pAgg); if(fl) focus += ' '+fl;
+    }
+  }
   const stat=(v,l,cls)=>`<div class="dev-stat"><div class="v ${cls||''}">${v}</div><div class="l">${l}</div></div>`;
   const statsHtml=`<div class="mrev-sub">Last week · ${fmtShort(s0)} – ${fmtShort(s1)}</div>
     <div class="dev-stats">
@@ -2834,7 +3124,7 @@ async function weekReview(athleteId){
       ${stat(rdAvg!=null?rdAvg.toFixed(1):'—','Avg readiness',rdAvg!=null?(rdAvg>=4?'good':rdAvg>=3?'warn':''):'')}
       ${stat(cleanPct!=null?cleanPct+'%':'—','Clean lifts',cleanPct!=null&&cleanPct>=80?'good':'')}
       ${stat(String(misses),'Misses',misses?'warn':'')}
-    </div>`;
+    </div>${painHtml}`;
   return { statsHtml, autoFocus:focus, upNextHtml:upNext, periodKey:iso(thisMon), weekStart:s0, weekEnd:s1 };
 }
 // athlete Home: weekly review HTML, with the coach's focus override if set for this week
@@ -3495,6 +3785,13 @@ async function renderAthDash(){
     </div>`;
   }
 
+  // ---- pain / injury heat-map (read-only) ----
+  let painCard='';
+  if(PAIN_READY){ const prRows=await loadPainRange(viewId, startStr, todayStr); const pAgg=painAggregate(prRows);
+    if(pAgg.list.length){ painCard=`<div class="card">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px"><h2 style="margin:0">🩺 Pain &amp; injury</h2>${pAgg.persistent.length?`<span class="eff-read ineff" style="font-size:11px">${pAgg.persistent.length} to watch</span>`:'<span class="eff-read eff" style="font-size:11px">nothing persistent</span>'}</div>
+      <div class="note sub" style="padding:2px 0 8px">Self-reported aches over ${esc(label)}. Colour = most recent severity; “N wks” = reported in that many separate weeks (a persistence signal).</div>
+      ${painPanelHTML(pAgg,{name:viewName,limit:10,rangeLabel:label})}</div>`; } }
   app.innerHTML = chrome + picker + subtabs + `
     <div class="card">
       <div class="filterbar"><span class="fl">Date range</span>
@@ -3507,6 +3804,7 @@ async function renderAthDash(){
     ${vbtCard}
     ${trendCard}
     <div class="grid2">${heatCard}${bwCard}</div>
+    ${painCard}
     ${checkCard}
     ${classCard}
     ${climbCard}
@@ -3526,17 +3824,18 @@ const REPORT_SECTIONS=[
   ['methodology','Methodology metrics'],
   ['trends','Trends — load / readiness / bodyweight'],
   ['redflags','Training check — class guardrails'],
+  ['injury','Injury / pain'],
   ['meets','Meet results'],
   ['summary','Coach summary']
 ];
-const REPORT_DEFAULT=['maxes','climb','efficiency','methodology','trends','summary'];
+const REPORT_DEFAULT=['maxes','climb','efficiency','methodology','trends','injury','summary'];
 const REPORT_RANGES=[['12w','Last 12 weeks'],['6m','Last 6 months'],['ytd','This year'],['1y','Last 12 months'],['career','Full career']];
 // the review LEVEL drives the date window + default sections. Weekly is auto on the athlete's
 // Home; the coach SENDS mesocycle + macrocycle reviews (period-anchored to the plan).
 const REPORT_LEVELS=[['week','This week','The athlete’s current week — focus only, no PDF'],['meso','Mesocycle','This training block'],['macro','Macrocycle','The whole annual plan'],['custom','Custom range','A rolling window']];
 const REPORT_LEVEL_SECTIONS={
-  meso:['methodology','trends','efficiency','redflags','summary'],
-  macro:['maxes','climb','efficiency','methodology','trends','summary'],
+  meso:['methodology','trends','efficiency','redflags','injury','summary'],
+  macro:['maxes','climb','efficiency','methodology','trends','injury','summary'],
   custom:REPORT_DEFAULT.slice()
 };
 let reportState={ athleteId:null, level:'meso', blockId:null, range:'1y', sections:REPORT_LEVEL_SECTIONS.meso.slice(), summary:'', title:'', titleEdited:false, templates:null, tplId:'', _phases:null, _teamId:undefined, _focusAuto:'', _data:null, _busy:false };
@@ -3668,6 +3967,8 @@ function reportFocusDraft(d){
   if(d.redflags&&d.redflags.flags){ const off=d.redflags.rows.filter(r=>r.flag==='under'||r.flag==='over').map(r=>r.lbl.replace(/ \(.*\)/,'')); if(off.length) bits.push(`Programming watch: ${off.slice(0,3).join(', ')} ${off.length>1?'are':'is'} outside the class band.`); }
   // completion / consistency — only when there's a real sample (avoid scolding an in-progress block)
   if(d.method&&d.method.compPct!=null&&d.method.sessLogged>=3){ if(d.method.compPct>=90) bits.push(`Consistency is strong — ${d.method.compPct}% set completion this period.`); else if(d.method.compPct<75) bits.push(`Completion is running ${d.method.compPct}% — worth a check on adherence.`); }
+  // persistent pain — a "watch" line if anything recurred or spiked
+  const painLine=painFocusLine(d.pain, first); if(painLine) bits.push(painLine);
   return bits.join(' ');
 }
 // fill the summary with the auto-draft (force = overwrite even if edited)
@@ -3767,9 +4068,11 @@ async function reportLoadData(viewId){
     const flagsN=rows.filter(r=>r.flag==='under'||r.flag==='over').length;
     redflags={ rank:cls.rank, rows, flags:flagsN };
   }
+  // injury / pain over the range
+  const pain = painAggregate(await loadPainRange(viewId, startStr, endStr));
   const levelLbl = reportState.level==='meso'?'Mesocycle review':(reportState.level==='macro'?'Macrocycle review':'Progress report');
   const suggestedTitle = reportState.level==='meso'&&win.block ? (win.block.name+' — review') : levelLbl;
-  return { prof, viewName, sex, age, teamName, gymName, maxesRows, maxMap, totM, cls, meets, eff:{groups:effRows(maxMap)}, method, buckets, bwPts, hasTrend, redflags, rangeLabel:win.label, startStr, endStr, level:reportState.level, block:win.block||null, levelLbl, suggestedTitle };
+  return { prof, viewName, sex, age, teamName, gymName, maxesRows, maxMap, totM, cls, meets, eff:{groups:effRows(maxMap)}, method, buckets, bwPts, hasTrend, redflags, pain, rangeLabel:win.label, startStr, endStr, level:reportState.level, block:win.block||null, levelLbl, suggestedTitle };
 }
 
 // ---- report HTML (the .report node that becomes the PDF) ----
@@ -3863,6 +4166,18 @@ function reportHTML(d){
         <div class="rpt-note">Last-52-week programmed numbers vs the loading norms for this athlete's class. Out-of-band rows are where the program differs from what's typical for the level.</div></div>`;
     } else {
       body+=`<div class="rpt-section"><h3>Training check — class guardrails</h3><div class="rpt-note">Set the athlete's classification to compare their programming against the class loading norms.</div></div>`;
+    }
+  }
+  // Injury / pain
+  if(sec('injury')){
+    const p=d.pain;
+    if(p && p.list.length){
+      const watch=p.persistent.length?` <span class="rpt-sub">· ${p.persistent.length} to watch</span>`:'';
+      body+=`<div class="rpt-section"><h3>Injury / pain${watch}</h3>
+        ${painPanelHTML(p,{name:d.viewName,limit:12,rangeLabel:d.rangeLabel})}
+        <div class="rpt-note">Athlete-reported pain over ${esc(d.rangeLabel).toLowerCase()}. Colour shows the most recent severity; “N wks” means it was flagged in that many separate weeks — a persistence signal worth a closer look.</div></div>`;
+    } else {
+      body+=`<div class="rpt-section"><h3>Injury / pain</h3><div class="rpt-note">No pain reported over ${esc(d.rangeLabel).toLowerCase()} — nothing flagged on the body map.</div></div>`;
     }
   }
   // Meet results
@@ -4289,6 +4604,7 @@ async function renderAthlete(selDate){
       <div class="av-daystrip">${strip}</div>
     </div>
     <div id="rkHost">${checkinCard()}</div>
+    <div id="painHost"></div>
     ${dayList.length>1?`<div class="cw-stabs" style="margin:0 0 12px">${dayList.map(x=>`<button class="cw-stab${x.id===session.id?' on':''}" onclick="athSelectSess('${x.id}')">${esc(x.title||'Session')}</button>`).join('')}</div>`:''}
     <div id="logRoot">${body}</div>
     <div class="card">
@@ -4307,6 +4623,7 @@ async function renderAthlete(selDate){
   wireCheckin();
   recompute();
   markAthReviews();
+  loadPainToday().then(repaintPain);
 }
 // flag any sets in this session whose clip the coach has reviewed (badge + tap-to-open)
 async function markAthReviews(){
