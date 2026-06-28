@@ -208,6 +208,15 @@
   .bp-ph-n{font-size:12px;color:var(--text);font-weight:600;flex:1}
   .bp-ph-d{font-size:12px;color:var(--muted);min-width:48px;text-align:right}
   .bp-ph-v{font-size:12px;color:var(--text);font-weight:700;min-width:58px;text-align:right}
+  .ja-list{margin-top:6px;display:flex;flex-direction:column;gap:4px}
+  .ja-row{display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:5px 8px}
+  .ja-deg{font-size:14px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;min-width:42px}
+  .ja-lbl{flex:1;font-size:12px;color:var(--text)}
+  .ja-t{font-size:11px;color:var(--muted);cursor:pointer;text-decoration:underline dotted}
+  .ja-del{cursor:pointer;color:var(--muted);font-size:13px}
+  .ja-del:hover{color:#e8643c}
+  .ja-empty{font-size:11px;color:var(--muted);margin-top:4px}
+  .ja-in{width:100%;margin-top:6px;background:var(--panel2);border:1px solid var(--accent,#38bdf8);border-radius:8px;padding:6px 8px;color:var(--text);font-size:13px}
   .bp-prog{height:6px;border-radius:4px;background:var(--panel2);overflow:hidden;margin-top:8px}
   .bp-prog>i{display:block;height:100%;background:var(--accent);width:0}
   .bp-hint{font-size:11px;color:var(--accent2);margin-top:6px;line-height:1.35}
@@ -1635,6 +1644,10 @@ async function openAnnStudio(path, meta){
           <div class="bp-tiles" id="bpTiles" style="display:none"></div>
           <label class="bp-toggle" id="bpToggleWrap" style="display:none"><input type="checkbox" id="bpShow" checked> Show trace overlay</label>
           <label class="bp-toggle" id="bpDriftWrap" style="display:none"><input type="checkbox" id="bpDrift" checked> Drift lines (start ↔ bar)</label>
+        </div>
+        <div class="vst-card" id="jaCard" style="display:none">
+          <h4>Joint angles</h4>
+          <div id="jaList" class="ja-list"></div>
         </div>` : `
         ${rvNavHtml(meta)}
         <div class="vst-card">
@@ -1670,15 +1683,16 @@ async function openAnnStudio(path, meta){
         <div class="vst-card" id="bpCard">
           <h4>Bar path &amp; velocity</h4>
           <div class="bp-steps">
-            <div class="bp-step" id="bpS1"><span class="bp-num">1</span><div>Calibrate — tap two points across a plate edge (45&nbsp;cm). <span id="bpCalLbl" style="color:var(--good)"></span></div></div>
-            <div class="bp-step" id="bpS2"><span class="bp-num">2</span><div>Seed — click the bar end on the start frame. <span id="bpSeedLbl" style="color:var(--good)"></span></div></div>
-            <div class="bp-step" id="bpS3"><span class="bp-num">3</span><div>Track — runs from the start frame to the end of the clip.</div></div>
+            <div class="bp-step" id="bpS1"><span class="bp-num">1</span><div>Find the plate — on the start frame tap <b>Detect bar</b>; it auto-finds &amp; sizes the plate. <span id="bpSeedLbl" style="color:var(--good)"></span></div></div>
+            <div class="bp-step" id="bpS2"><span class="bp-num">2</span><div>Track — runs from that frame to the end of the clip.</div></div>
           </div>
-          <span class="vst-btn bp-btn" id="bpCalib">📏 Calibrate plate</span>
-          <span class="vst-btn bp-btn" id="bpSeed">🎯 Set start point</span>
+          <span class="vst-btn pri bp-btn" id="bpDetect">🎯 Detect bar</span>
+          <span class="vst-btn bp-btn" id="bpManual">✋ Tap plate</span>
           <span class="vst-btn pri bp-btn" id="bpTrack">▶ Track bar</span>
+          <div id="bpDetectBar" style="display:none;margin-top:8px;font-size:12px;color:var(--accent2)">Plate found (green box) — <span class="vst-btn pri" id="bpDetOk">✓ Looks right</span> <span class="vst-btn" id="bpDetNo">✋ I&rsquo;ll tap it</span></div>
+          <span class="vst-btn bp-btn" id="bpCalib" style="opacity:.7;font-size:11px">📏 Adjust scale (optional)</span>
           <div class="bp-prog" id="bpProgWrap" style="display:none"><i id="bpProg"></i></div>
-          <div class="bp-hint" id="bpHint">Films best side-on, but slight angles track fine. Trend-grade, not lab-grade.</div>
+          <div class="bp-hint" id="bpHint">Auto-finds the plate &amp; calibrates from its 45&nbsp;cm size. Films best side-on; trend-grade, not lab-grade.</div>
           <div class="bp-tiles" id="bpTiles" style="display:none"></div>
           <label class="bp-toggle" id="bpToggleWrap" style="display:none"><input type="checkbox" id="bpShow" checked> Show trace overlay</label>
           <label class="bp-toggle" id="bpDriftWrap" style="display:none"><input type="checkbox" id="bpDrift" checked> Drift lines (start ↔ bar)</label>
@@ -1690,6 +1704,12 @@ async function openAnnStudio(path, meta){
           </div>
           <div class="vst-row" style="margin-top:8px"><span class="vst-btn" id="bpClear">Clear path</span><span class="vst-btn pri" id="bpSave" style="flex:1;text-align:center">Save bar path</span></div>
           ${VTRACKS_READY?'':'<div class="bp-hint" style="color:#e0a85a">Run migration 30 to save bar paths to the cloud — kept locally for now.</div>'}
+        </div>
+        <div class="vst-card" id="jaCard" style="display:none">
+          <h4>Joint angles <span title="Manual joint-angle log: draw a 3-point angle with the ∠ tool (e.g. knee at lift-off, hip at the 2nd pull), scrub to that frame, then log it. Saved with the clip and queryable later. Cross-session trending is a later add. The video proxy for Kipp's joint-kinematics — manual, not auto.">ⓘ</span></h4>
+          <div class="bp-hint">Draw an ∠ angle, scrub to the frame, then log it with a label.</div>
+          <div class="vst-row" style="margin-top:6px"><span class="vst-btn pri" id="jaLog">📐 Log current angle</span></div>
+          <div id="jaList" class="ja-list"></div>
         </div>`;
   host.innerHTML=`
     <div class="vst-top">
@@ -1745,7 +1765,7 @@ async function openAnnStudio(path, meta){
       <div class="vst-side">${sidePanel}</div>
     </div>`;
   annS={ path, meta, readOnly:ro, shapes:[], tool:'select', color:VST_COLORS[0], fps:30, draft:null, ang:null, noteId:null, athleteId:meta.athleteId||null,
-    exercise:meta.exercise||null, trackMode:null, calib:null, seed:null, seedT:null, track:null, metrics:null, scale:null, trackId:null, showTrace:true, showDrift:true,
+    exercise:meta.exercise||null, trackMode:null, calib:null, seed:null, seedR:null, _detect:null, seedT:null, track:null, metrics:null, scale:null, trackId:null, showTrace:true, showDrift:true, jointAngles:[],
     facing:'left', pinPeakT:null, pinCatchT:null,
     gA:{metric:'velocity',axis:'v'}, gB:{metric:'displacement',axis:'h'}, graph:null, _load:(meta.load!=null?meta.load:null), _cursorT:0, win:null, _looping:false, _zoom:1, _panx:0, _pany:0,
     voiceBlob:null, voiceUrl:null, voicePath:null, reviewBlob:null, reviewUrl:null, reviewPath:null };
@@ -1806,8 +1826,18 @@ function vstDrawTrack(ctx,W,H){
     annS.calib.forEach(p=>{ const q=P(p); ctx.fillStyle='#34d399'; ctx.beginPath(); ctx.arc(q.x,q.y,4,0,7); ctx.fill(); });
     if(annS.calib.length===2){ const a=P(annS.calib[0]),b=P(annS.calib[1]); ctx.strokeStyle='#34d399'; ctx.lineWidth=2; ctx.setLineDash([4,4]); ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); ctx.setLineDash([]); }
   }
-  // seed crosshair (amber) — until a track exists
-  if(annS.seed&&!(annS.track&&annS.track.length)){ const q=P(annS.seed); ctx.strokeStyle='#fbbf24'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(q.x,q.y,8,0,7); ctx.moveTo(q.x-12,q.y); ctx.lineTo(q.x+12,q.y); ctx.moveTo(q.x,q.y-12); ctx.lineTo(q.x,q.y+12); ctx.stroke(); }
+  // pending auto-detect — green box + circle around the candidate plate (WL-Analysis style)
+  if(annS._detect){ const d=annS._detect, cx=d.x*W, cy=d.y*H, rr=d.r*W;
+    ctx.strokeStyle='#34d399'; ctx.lineWidth=2.5; ctx.strokeRect(cx-rr,cy-rr,rr*2,rr*2);
+    ctx.globalAlpha=.9; ctx.beginPath(); ctx.arc(cx,cy,rr,0,7); ctx.stroke(); ctx.globalAlpha=1;
+    ctx.fillStyle='#34d399'; ctx.beginPath(); ctx.arc(cx,cy,3,0,7); ctx.fill();
+  }
+  // locked seed plate (green circle) until a track exists
+  else if(annS.seed&&annS.seedR&&!(annS.track&&annS.track.length)){ const q=P(annS.seed), rr=annS.seedR*W;
+    ctx.strokeStyle='#34d399'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.arc(q.x,q.y,rr,0,7); ctx.stroke();
+    ctx.fillStyle='#34d399'; ctx.beginPath(); ctx.arc(q.x,q.y,3,0,7); ctx.fill(); }
+  // fallback amber crosshair (plate size unknown) until a track exists
+  else if(annS.seed&&!(annS.track&&annS.track.length)){ const q=P(annS.seed); ctx.strokeStyle='#fbbf24'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(q.x,q.y,8,0,7); ctx.moveTo(q.x-12,q.y); ctx.lineTo(q.x+12,q.y); ctx.moveTo(q.x,q.y-12); ctx.lineTo(q.x,q.y+12); ctx.stroke(); }
   // drift lines — a fixed vertical at the bar's START x + a live vertical tracking the bar; the gap = horizontal travel.
   // drawn first so the orange trace + markers sit on top. driven entirely off the existing track (works in read-only too).
   if(annS.showDrift&&annS.track&&annS.track.length>1){
@@ -1993,14 +2023,19 @@ function wireAnnStudio(){
   // bar-path tracking
   const bp=id=>document.getElementById(id);
   if(bp('bpCalib')) bp('bpCalib').onclick=()=>bpSetMode(annS.trackMode==='calib'?null:'calib');
-  if(bp('bpSeed'))  bp('bpSeed').onclick =()=>{ v.pause(); bpSetMode(annS.trackMode==='seed'?null:'seed'); };
+  if(bp('bpDetect')) bp('bpDetect').onclick=bpDetect;
+  if(bp('bpManual')) bp('bpManual').onclick=()=>{ const vv=document.getElementById('vstVid'); if(vv) vv.pause(); annS._detect=null; const bar=document.getElementById('bpDetectBar'); if(bar) bar.style.display='none'; const on=annS.trackMode!=='seed'; bpSetMode(on?'seed':null); if(on) bpHint('Tap the centre of the plate on the video.'); };
+  if(bp('bpDetOk')) bp('bpDetOk').onclick=bpDetectConfirm;
+  if(bp('bpDetNo')) bp('bpDetNo').onclick=bpDetectReject;
   if(bp('bpTrack')) bp('bpTrack').onclick=bpRunTrack;
-  if(bp('bpClear')) bp('bpClear').onclick=()=>{ annS.track=null; annS.metrics=null; annS.seed=null; annS.seedT=null; annS.calib=null; annS.scale=null; annS.pinPeakT=null; annS.pinCatchT=null; bpSetMode(null); bpRender(); bpSteps(); vstRedraw(); };
+  if(bp('bpClear')) bp('bpClear').onclick=()=>{ annS.track=null; annS.metrics=null; annS.seed=null; annS.seedR=null; annS._detect=null; annS.seedT=null; annS.calib=null; annS.scale=null; annS.pinPeakT=null; annS.pinCatchT=null; bpSetMode(null); bpRender(); bpSteps(); vstRedraw(); };
   if(bp('bpFacing')) bp('bpFacing').onclick=()=>{ annS.facing=annS.facing==='right'?'left':'right'; bpComputeMetrics(); bpRender(); vstRedraw(); };
   if(bp('bpPinPeak')) bp('bpPinPeak').onclick=()=>{ annS.pinPeakT=v.currentTime; bpComputeMetrics(); bpRender(); vstRedraw(); bpHint('Peak pinned to this frame.'); };
   if(bp('bpPinCatch')) bp('bpPinCatch').onclick=()=>{ annS.pinCatchT=v.currentTime; bpComputeMetrics(); bpRender(); vstRedraw(); bpHint('Catch / fixation pinned to this frame.'); };
   if(bp('bpPinAuto')) bp('bpPinAuto').onclick=()=>{ annS.pinPeakT=null; annS.pinCatchT=null; bpComputeMetrics(); bpRender(); vstRedraw(); bpHint('Peak & catch auto-detected.'); };
   if(bp('bpSave'))  bp('bpSave').onclick =bpSaveTrack;
+  if(bp('jaLog'))   bp('jaLog').onclick  =jaLog;
+  jaRender();
   // drawing
   c.addEventListener('pointerdown',e=>{
     if(annS.trackMode){ bpCanvasClick(vstPt(e)); return; }
@@ -2024,30 +2059,62 @@ function wireAnnStudio(){
 const TRACK_MAXW=480, BP_TR=12, BP_SR=20, BP_CAP=300, PLATE_M=0.45, BP_NCC_MIN=0.45;
 function bpHint(t,warn){ const h=document.getElementById('bpHint'); if(h){ h.textContent=t; h.style.color=warn?'#e0a85a':'var(--accent2)'; } }
 function bpSteps(){
-  const calDone=annS.calib&&annS.calib.length===2, seedDone=!!annS.seed;
-  const s1=document.getElementById('bpS1'), s2=document.getElementById('bpS2'), s3=document.getElementById('bpS3');
-  if(s1){ s1.classList.toggle('done',calDone); s1.classList.toggle('active',annS.trackMode==='calib'); }
-  if(s2){ s2.classList.toggle('done',seedDone); s2.classList.toggle('active',annS.trackMode==='seed'); }
-  if(s3){ s3.classList.toggle('active',(calDone||seedDone)&&!annS.trackMode); }
-  const cl=document.getElementById('bpCalLbl'); if(cl) cl.textContent=calDone?'✓ set':'';
-  const sl=document.getElementById('bpSeedLbl'); if(sl) sl.textContent=seedDone?'✓ set':'';
+  const seedDone=!!annS.seed;
+  const s1=document.getElementById('bpS1'), s2=document.getElementById('bpS2');
+  if(s1){ s1.classList.toggle('done',seedDone); s1.classList.toggle('active',annS.trackMode==='seed'||!!annS._detect); }
+  if(s2){ s2.classList.toggle('active',seedDone&&!annS._tracking); }
+  const sl=document.getElementById('bpSeedLbl'); if(sl) sl.textContent=seedDone?(annS.seedR?'✓ plate locked':'✓ point set'):'';
 }
 function bpSetMode(mode){
   annS.trackMode=mode;
-  const cal=document.getElementById('bpCalib'), seed=document.getElementById('bpSeed');
+  const cal=document.getElementById('bpCalib'), man=document.getElementById('bpManual');
   if(cal) cal.classList.toggle('pri',mode==='calib');
-  if(seed) seed.classList.toggle('pri',mode==='seed');
+  if(man) man.classList.toggle('pri',mode==='seed');
   if(mode==='calib') annS.calib=[];
   const c=document.getElementById('vstCanvas'); if(c) c.style.cursor=mode?'crosshair':((annS.tool==='select')?'default':'crosshair');
   bpSteps();
 }
+// 🎯 Detect bar — auto-find the plate circle on the current (start) frame
+function bpDetect(){
+  if(!annS||annS.readOnly) return;
+  const v=document.getElementById('vstVid'); if(!v||!v.videoWidth){ bpHint('Video not ready yet.',true); return; }
+  v.pause();
+  const fr=vstGrabGray(v);
+  if(fr&&fr.error==='cors'){ bpHint('Can’t read this clip’s pixels (host blocks cross-origin) — annotation still works.',true); return; }
+  if(!fr){ bpHint('Pixel read failed.',true); return; }
+  const d=bpAutoDetect(fr);
+  if(!d){ annS._detect=null; bpSetMode('seed'); bpHint('Couldn’t auto-find the plate — tap its centre on the video.',true); bpSteps(); vstRedraw(); return; }
+  annS._detect={ x:d.x/fr.w, y:d.y/fr.h, r:d.r/fr.w, t:v.currentTime };
+  const bar=document.getElementById('bpDetectBar'); if(bar) bar.style.display='block';
+  bpHint('Plate detected (green box). Looks right, or tap it yourself?');
+  bpSteps(); vstRedraw();
+}
+function bpDetectConfirm(){
+  const d=annS&&annS._detect; if(!d) return;
+  const v=document.getElementById('vstVid');
+  annS.seed={x:d.x,y:d.y}; annS.seedR=d.r; annS.seedT=(d.t!=null)?d.t:(v?v.currentTime:null);
+  annS._detect=null; const bar=document.getElementById('bpDetectBar'); if(bar) bar.style.display='none';
+  bpHint('Plate locked + auto-calibrated — press “Track bar”.'); bpSteps(); vstRedraw();
+}
+function bpDetectReject(){
+  annS._detect=null; const bar=document.getElementById('bpDetectBar'); if(bar) bar.style.display='none';
+  bpSetMode('seed'); bpHint('Tap the centre of the plate on the video.'); bpSteps(); vstRedraw();
+}
 function bpCanvasClick(p){
   if(annS.trackMode==='calib'){
     annS.calib=annS.calib||[]; if(annS.calib.length>=2) annS.calib=[]; annS.calib.push(p);
-    if(annS.calib.length===2){ bpSetMode(null); if(annS.track){ bpComputeMetrics(); bpRender(); } bpHint('Plate calibrated — set the start point next.'); }
+    if(annS.calib.length===2){ bpSetMode(null); if(annS.track){ bpComputeMetrics(); bpRender(); } bpHint('Scale set from your two taps.'); }
     bpSteps(); vstRedraw(); return;
   }
-  if(annS.trackMode==='seed'){ annS.seed=p; const v=document.getElementById('vstVid'); annS.seedT=v?v.currentTime:null; bpSetMode(null); bpHint('Start point set — press “Track bar”.'); bpSteps(); vstRedraw(); return; }
+  if(annS.trackMode==='seed'){
+    const v=document.getElementById('vstVid'), fr=vstGrabGray(v);
+    if(fr&&!fr.error){ const det=bpSeedAt(fr,Math.round(p.x*fr.w),Math.round(p.y*fr.h),null);
+      if(det){ annS.seed={x:det.x/fr.w,y:det.y/fr.h}; annS.seedR=det.r/fr.w; } else { annS.seed=p; annS.seedR=null; } }
+    else { annS.seed=p; annS.seedR=null; }
+    annS.seedT=v?v.currentTime:null; annS._detect=null; bpSetMode(null);
+    bpHint(annS.seedR?'Plate locked — press “Track bar”.':'Point set (couldn’t size the plate) — press “Track bar”.');
+    bpSteps(); vstRedraw(); return;
+  }
 }
 function vstSeekTo(v,t){ return new Promise(res=>{ const f=()=>{ v.removeEventListener('seeked',f); res(); }; v.addEventListener('seeked',f); try{ v.currentTime=t; }catch(e){ v.removeEventListener('seeked',f); res(); } }); }
 function vstGrabGray(v){
@@ -2092,10 +2159,92 @@ function bpSmoothPath(pts){
   const X=avg3(med3(xs)), Y=avg3(med3(ys));
   return pts.map((p,i)=>({ t:p.t, x:X[i], y:Y[i] }));
 }
+// ===================== PLATE-CIRCLE DETECTION (gradient Hough) =====================
+// We track the barbell PLATE as a CIRCLE, not a brightness patch. A circle's centre
+// doesn't move when the plate spins (rotation-proof) and can't wander onto the lifter,
+// which kills the old template-drift. The radius also self-calibrates (45 cm = plate Ø).
+const BP_EDGE_MIN=70;       // Sobel |gx|+|gy| edge threshold (3-tap kernel, ~0..4300)
+const BP_CIRC_MIN=0.16;     // min circumference-support fraction to trust a tracked circle
+// 3-tap Sobel gradient at (x,y) of a gray frame — returns {gx,gy}
+function bpGrad(g,w,x,y){
+  const gx=(g[y*w+x+1]-g[y*w+x-1])+(g[(y-1)*w+x+1]-g[(y-1)*w+x-1])+(g[(y+1)*w+x+1]-g[(y+1)*w+x-1]);
+  const gy=(g[(y+1)*w+x]-g[(y-1)*w+x])+(g[(y+1)*w+x-1]-g[(y-1)*w+x-1])+(g[(y+1)*w+x+1]-g[(y-1)*w+x+1]);
+  return {gx,gy};
+}
+// Gradient-Hough circle search in an ROI of fr. Each edge pixel votes for a centre at
+// ±r along its gradient direction (handles bright-on-dark and dark-on-bright plates).
+// box={x0,y0,x1,y1} px; radii sampled rMin..rMax. scoreFn(x,y,r,votes,w,h) ranks cells
+// (default = circumference-support fraction). Returns {x,y,r,score} px or null.
+function bpHoughCircle(fr,box,rMin,rMax,scoreFn){
+  const g=fr.gray, w=fr.w, h=fr.h;
+  const x0=Math.max(1,box.x0|0), y0=Math.max(1,box.y0|0), x1=Math.min(w-2,box.x1|0), y1=Math.min(h-2,box.y1|0);
+  const aw=x1-x0+1, ah=y1-y0+1; if(aw<6||ah<6) return null;
+  rMin=Math.max(4,Math.round(rMin)); rMax=Math.max(rMin+1,Math.round(rMax));
+  const nR=Math.min(14,Math.max(3,(rMax-rMin)+1));
+  const rs=new Float32Array(nR); for(let i=0;i<nR;i++) rs[i]=rMin+(rMax-rMin)*(nR>1?i/(nR-1):0);
+  const acc=new Float32Array(aw*ah*nR);
+  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
+    const gr=bpGrad(g,w,x,y), mag=Math.abs(gr.gx)+Math.abs(gr.gy);
+    if(mag<BP_EDGE_MIN) continue;
+    const inv=1/Math.hypot(gr.gx,gr.gy), ux=gr.gx*inv, uy=gr.gy*inv;
+    for(let ri=0;ri<nR;ri++){ const r=rs[ri];
+      for(let s=-1;s<=1;s+=2){
+        const vx=(x+s*r*ux+0.5)|0, vy=(y+s*r*uy+0.5)|0;
+        if(vx<x0||vx>x1||vy<y0||vy>y1) continue;
+        acc[((vy-y0)*aw+(vx-x0))*nR+ri]++;
+      }
+    }
+  }
+  // 3x3 spatial blur per radius (centre votes scatter a few px from discretisation/noise)
+  let best=-1,bx=0,by=0,br=rMin;
+  for(let ri=0;ri<nR;ri++){ const r=rs[ri], circ=2*Math.PI*r;
+    for(let yy=1;yy<ah-1;yy++)for(let xx=1;xx<aw-1;xx++){
+      let v=0; for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++) v+=acc[((yy+dy)*aw+(xx+dx))*nR+ri];
+      const sc=scoreFn?scoreFn(xx+x0,yy+y0,r,v,w,h):(v/circ);
+      if(sc>best){ best=sc; bx=xx+x0; by=yy+y0; br=r; }
+    }
+  }
+  if(best<=0) return null;
+  return {x:bx,y:by,r:br,score:best};
+}
+// Refine the circle around a guessed centre (used per tracked frame + after a manual tap).
+function bpRefineCircle(fr,cx,cy,rGuess,searchR){
+  const rTol=Math.max(3,Math.round(rGuess*0.22)); searchR=searchR||Math.round(rGuess*0.5)+6;
+  const pad=Math.round(rGuess)+searchR+2;
+  return bpHoughCircle(fr,{x0:cx-pad,y0:cy-pad,x1:cx+pad,y1:cy+pad},rGuess-rTol,rGuess+rTol);
+}
+// One-shot auto-detect on a frame: scan broad radii over the whole frame, bias toward the
+// big, central, well-supported circle (the working plate vs small background plates).
+function bpAutoDetect(fr){
+  const w=fr.w, h=fr.h, rMin=Math.round(w*0.045), rMax=Math.round(w*0.20);
+  const score=(x,y,r,votes,W,Hh)=>{
+    const frac=votes/(2*Math.PI*r); if(frac<0.12) return -1;     // needs real edge support
+    const dx=(x-W/2)/W, dy=(y-Hh*0.5)/Hh;                        // working plate ~ horizontally central
+    const central=1-Math.min(1,Math.hypot(dx*1.4,dy*0.9));
+    const size=r/(W*0.20);                                        // bigger ⇒ more likely foreground
+    return frac*(0.45+0.55*central)*(0.55+0.7*size);
+  };
+  const f=bpHoughCircle(fr,{x0:0,y0:0,x1:w-1,y1:h-1},rMin,rMax,score);
+  if(!f||f.score<0.07) return null;
+  return f;
+}
+// Refine + commit a seed at a clicked/auto point: locks the plate circle, sets seed + radius.
+function bpSeedAt(fr,px,py,rGuess){
+  if(rGuess) return bpRefineCircle(fr,px,py,rGuess,Math.round(rGuess*0.5)+6);
+  // no size hint: the coach tapped the plate centre — favour the BIG circle centred on the
+  // tap (the plate) over the small hub or noise circles.
+  const pad=Math.round(fr.w*0.22);
+  return bpHoughCircle(fr,{x0:px-pad,y0:py-pad,x1:px+pad,y1:py+pad},fr.w*0.04,fr.w*0.20,
+    (x,y,r,votes)=>{ const frac=votes/(2*Math.PI*r); if(frac<0.1) return -1;
+      const central=1-Math.min(1,Math.hypot(x-px,y-py)/(fr.w*0.12));
+      const size=r/(fr.w*0.20);
+      return frac*Math.max(0,central)*(0.4+0.8*size); });
+}
 async function bpRunTrack(){
   if(!annS||annS.readOnly||annS._tracking) return;
   const v=document.getElementById('vstVid');
-  if(!annS.seed){ bpHint('Set the start point first (🎯).', true); return; }
+  if(annS._detect) bpDetectConfirm();   // pressed Track with an unconfirmed detection -> accept it
+  if(!annS.seed){ bpHint('Tap “Detect bar” (or “Tap plate”) on the start frame first.', true); return; }
   if(!v||!v.videoWidth){ bpHint('Video not ready yet.', true); return; }
   v.pause();
   const probe=vstGrabGray(v);
@@ -2109,36 +2258,38 @@ async function bpRunTrack(){
   if(!frS||frS.error){ annS._tracking=false; bpHint('Pixel read failed.', true); return; }
   const W=frS.w, H=frS.h;
   let px=Math.round(annS.seed.x*W), py=Math.round(annS.seed.y*H);
-  let tmpl=vstTemplate(frS,px,py);
+  // seed-frame plate radius (px): from the confirmed detect, else refine it on the seed frame
+  let r0=annS.seedR?annS.seedR*W:0;
+  if(!r0){ const d0=bpSeedAt(frS,px,py,null); if(d0){ px=d0.x; py=d0.y; r0=d0.r; annS.seedR=r0/W; } }
+  if(!r0) r0=Math.round(W*0.08);
+  let r=r0;
   const pts=[{ t:start, x:px/W, y:py/H }];
   const prog=document.getElementById('bpProg'), pw=document.getElementById('bpProgWrap');
   if(pw) pw.style.display='block';
   const total=Math.min(BP_CAP, Math.max(1, Math.round((end-start)/dt)));
-  let vx=0, vy=0, lostStreak=0; const vmax=BP_SR*1.6, LOST_STOP=12;
+  let vx=0, vy=0, lostStreak=0; const LOST_STOP=12;
   for(let i=1;i<=total;i++){
     const t=start+i*dt; if(t>end+1e-3) break;
     await vstSeekTo(v,t); const fr=vstGrabGray(v); if(!fr||fr.error) break;
-    // predict next position from last velocity, then search around the prediction
-    let predX=Math.max(BP_TR,Math.min(W-BP_TR-1, px+vx)), predY=Math.max(BP_TR,Math.min(H-BP_TR-1, py+vy));
-    const m=vstMatch(fr,tmpl,predX,predY);
+    const vmax=Math.max(20, r*0.9);                                            // a plate can travel ~its radius/frame at peak
+    // predict next centre from velocity, then re-detect the circle around the prediction
+    let predX=Math.max(2,Math.min(W-3, px+vx)), predY=Math.max(2,Math.min(H-3, py+vy));
+    const det=bpRefineCircle(fr,predX,predY,r,Math.round(r*0.5)+8);
     let nx,ny;
-    if(m.score<BP_NCC_MIN){ nx=predX; ny=predY; lostStreak++; }   // weak match -> coast on the motion model
-    else { nx=m.x; ny=m.y; lostStreak=0;
-      // strong match: lightly adapt the template so it tracks the plate's changing look (rotation / off-axis angle)
-      if(m.score>0.86){ const fresh=vstTemplate(fr,nx,ny); let ss=0; for(let k=0;k<tmpl.tz.length;k++){ tmpl.tz[k]=tmpl.tz[k]*0.92+fresh.tz[k]*0.08; ss+=tmpl.tz[k]*tmpl.tz[k]; } tmpl.tnorm=Math.sqrt(ss)||1; }
-    }
-    vx=nx-px; vy=ny-py; const sp=Math.hypot(vx,vy); if(sp>vmax){ vx*=vmax/sp; vy*=vmax/sp; }
+    if(!det || det.score<BP_CIRC_MIN){ nx=predX; ny=predY; lostStreak++; }     // plate occluded/lost -> coast on motion
+    else { nx=det.x; ny=det.y; r=r*0.8+det.r*0.2; lostStreak=0; }              // lock to circle centre, ease the radius
+    vx=nx-px; vy=ny-py; const sp=Math.hypot(vx,vy); if(sp>vmax){ vx*=vmax/sp; vy*=vmax/sp; nx=px+vx; ny=py+vy; }
     px=nx; py=ny;
     pts.push({ t, x:px/W, y:py/H });
     if(prog) prog.style.width=Math.round(i/total*100)+'%';
-    // bar left the frame / got occluded for too long -> stop and drop the coasted tail
+    // plate left the frame / occluded too long -> stop and drop the coasted tail
     if(lostStreak>=LOST_STOP){ pts.splice(pts.length-lostStreak); break; }
-    if(i%4===0){ annS.track=bpSmoothPath(pts); vstRedraw(); await new Promise(r=>setTimeout(r,0)); }
+    if(i%3===0){ annS.track=bpSmoothPath(pts); vstRedraw(); await new Promise(res=>setTimeout(res,0)); }
   }
   if(pw) pw.style.display='none';
   annS.track=bpSmoothPath(pts); annS._trackW=W; annS._trackH=H; annS._tracking=false; annS._lost=lostStreak;
   bpComputeMetrics(); bpRender(); bpSteps(); vstRedraw();
-  bpHint(annS.scale?'Tracked. Scrub to replay; re-seed any frame + re-track to fix drift.':'Tracked — calibrate a plate to get ROM & m/s.');
+  bpHint(annS.scale?'Tracked — circle-locked to the plate. Scrub to replay; re-detect any frame to fix a slip.':'Tracked — couldn’t read plate size; tap 📏 to set scale for cm & m/s.');
 }
 // analysis window (trim): everything downstream uses only the points inside it, re-zeroed to its first point
 function bpWinPts(){ const t=annS&&annS.track; if(!t) return t; const w=annS.win; if(!w) return t;
@@ -2186,7 +2337,8 @@ function bpComputeMetrics(){
   const pts=bpWinPts(); if(!pts||pts.length<2){ annS.metrics=null; return; }
   const W=annS._trackW||1, H=annS._trackH||1;
   let mpp=null;
-  if(annS.calib&&annS.calib.length===2){ const a=annS.calib[0],b=annS.calib[1]; const dpx=Math.hypot((b.x-a.x)*W,(b.y-a.y)*H); if(dpx>2) mpp=PLATE_M/dpx; }
+  if(annS.calib&&annS.calib.length===2){ const a=annS.calib[0],b=annS.calib[1]; const dpx=Math.hypot((b.x-a.x)*W,(b.y-a.y)*H); if(dpx>2) mpp=PLATE_M/dpx; }   // manual override (two taps across a plate)
+  else if(annS.seedR){ const dia=2*annS.seedR*W; if(dia>2) mpp=PLATE_M/dia; }                                                                                  // auto: detected plate Ø = 45 cm
   annS.scale=mpp;
   const sm=a=>a.map((_,i)=>{ const p=a[Math.max(0,i-1)],q=a[i],r=a[Math.min(a.length-1,i+1)]; return (p+q+r)/3; });
   const ts=pts.map(p=>p.t), Y=sm(pts.map(p=>p.y*H)), X=sm(pts.map(p=>p.x*W));
@@ -2246,6 +2398,38 @@ function bpComputeMetrics(){
   m.traj=bpTrajType(h.slice(iLift,iCatch+1),tol);
   if(mpp){ m.X1_m=m.X1_px*mpp; m.X2_m=m.X2_px*mpp; m.Xloop_m=m.Xloop_px*mpp; m.Xnet_m=m.Xnet_px*mpp; }
   annS.metrics=m;
+}
+// ---- manual joint-angle log: coach draws a 3-point ∠, we capture its degrees + the frame, persist with the clip ----
+function jaAngleOf(s){
+  if(!s||s.tool!=='angle'||!s.pts||s.pts.length<3) return null;
+  const W=annS._cw||1,H=annS._ch||1, P=p=>({x:p.x*W,y:p.y*H});
+  const A=P(s.pts[0]),B=P(s.pts[1]),C=P(s.pts[2]);
+  let deg=Math.abs(Math.atan2(A.y-B.y,A.x-B.x)-Math.atan2(C.y-B.y,C.x-B.x))*180/Math.PI; if(deg>180) deg=360-deg;
+  return Math.round(deg);
+}
+function jaLog(){
+  if(!annS||annS.readOnly) return;
+  const angles=(annS.shapes||[]).filter(s=>s.tool==='angle'&&s.pts&&s.pts.length>=3);
+  if(!angles.length){ vstMsg('Draw an angle with the ∠ tool first'); return; }
+  const deg=jaAngleOf(angles[angles.length-1]);
+  const v=document.getElementById('vstVid'); jaOpenLabel(deg, v?+v.currentTime.toFixed(2):0);
+}
+function jaOpenLabel(deg,t){
+  const card=document.getElementById('jaCard'); if(!card||card.querySelector('.ja-in')) return;
+  const inp=document.createElement('input'); inp.className='ja-in'; inp.placeholder=`Label this ${deg}° (e.g. Knee @ lift-off) — Enter`;
+  card.appendChild(inp); inp.focus();
+  const commit=save=>{ if(!inp.isConnected) return; const lbl=inp.value.trim()||(deg+'°'); inp.remove(); if(save){ annS.jointAngles.push({label:lbl,deg,t}); annS.jointAngles.sort((a,b)=>a.t-b.t); jaRender(); } };
+  inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); commit(true); } else if(e.key==='Escape'){ commit(false); } });
+  inp.addEventListener('blur',()=>commit(true));
+}
+function jaDelete(i){ if(!annS||annS.readOnly) return; annS.jointAngles.splice(i,1); jaRender(); }
+function jaSeek(t){ const v=document.getElementById('vstVid'); if(v){ v.currentTime=t; if(typeof vstSyncScrub==='function') vstSyncScrub(); } }
+function jaRender(){
+  const card=document.getElementById('jaCard'), list=document.getElementById('jaList'); if(!card||!list) return;
+  const has=annS&&annS.jointAngles&&annS.jointAngles.length;
+  if(annS&&annS.readOnly) card.style.display=has?'block':'none';
+  if(!has){ list.innerHTML=(annS&&!annS.readOnly)?'<div class="ja-empty">No angles logged yet.</div>':''; return; }
+  list.innerHTML=annS.jointAngles.map((a,i)=>`<div class="ja-row"><span class="ja-deg">${a.deg}°</span><span class="ja-lbl">${esc(a.label)}</span><span class="ja-t" onclick="jaSeek(${a.t})" title="Jump to this frame">${vstFmt(a.t)}</span>${annS.readOnly?'':`<span class="ja-del" onclick="jaDelete(${i})" title="Remove">🗑</span>`}</div>`).join('');
 }
 function bpRender(){
   const tiles=document.getElementById('bpTiles'), tw=document.getElementById('bpToggleWrap'), hint=document.getElementById('bpHint');
@@ -2453,6 +2637,7 @@ async function loadAnnNotes(path){
   }
   if(!payload){ try{ const ls=localStorage.getItem('vst:'+path); if(ls) payload=JSON.parse(ls); }catch(e){} }
   if(payload&&annS){ annS.shapes=Array.isArray(payload.shapes)?payload.shapes:[]; annS.noteId=id;
+    annS.jointAngles=Array.isArray(payload.jointAngles)?payload.jointAngles:[]; jaRender();
     if(payload.fps){ annS.fps=payload.fps; const f=document.getElementById('vstFps'); if(f) f.value=payload.fps; }
     const n=document.getElementById('vstNote'); if(n) n.value=payload.note||'';
     const ro=document.getElementById('vstNoteRO'); if(ro) ro.textContent=(payload.note&&payload.note.trim())?payload.note:'No written note — see the marks on the video.';
@@ -2485,7 +2670,7 @@ async function saveAnnNotes(){
     if(up.error){ if(btn){ btn.style.pointerEvents=''; btn.textContent='Save & send to athlete'; } vstMsg('Review upload failed — try again'); return; }
     annS.reviewPath=vp;
   }
-  const payload={ shapes:annS.shapes, note, fps:annS.fps, reviewVideoPath:annS.reviewPath||null, voicePath:annS.voicePath||null, reviewTimeline:(annS.reviewPath&&annS._revTimeline&&annS._revTimeline.length)?annS._revTimeline:null };
+  const payload={ shapes:annS.shapes, note, fps:annS.fps, jointAngles:annS.jointAngles||[], reviewVideoPath:annS.reviewPath||null, voicePath:annS.voicePath||null, reviewTimeline:(annS.reviewPath&&annS._revTimeline&&annS._revTimeline.length)?annS._revTimeline:null };
   try{ localStorage.setItem('vst:'+annS.path, JSON.stringify(payload)); }catch(e){}
   if(!VNOTES_READY){ if(btn){ btn.style.pointerEvents=''; btn.textContent='Save & send to athlete'; } vstMsg('✓ Saved locally'); return; }
   const row={ gym_id:me_.gym_id, video_path:annS.path, athlete_id:annS.athleteId||null, payload, timestamp_sec:null };
