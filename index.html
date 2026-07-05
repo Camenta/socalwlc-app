@@ -658,6 +658,16 @@
   .dev-stat .v{font-size:23px;font-weight:800;color:var(--text)}
   .dev-stat .l{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-top:3px}
   .dev-stat .v.good{color:var(--good)} .dev-stat .v.warn{color:var(--warn)}
+  .tdash-wrap{overflow-x:auto}
+  .tdash{width:100%;border-collapse:collapse;font-size:13px}
+  .tdash th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+  .tdash td{padding:9px 10px;border-bottom:1px solid var(--line);color:var(--text);white-space:nowrap}
+  .tdash tbody tr{cursor:pointer}
+  .tdash tbody tr:hover{background:var(--panel2)}
+  .tdash .tdash-name{font-weight:700}
+  .tdash .tdash-bad{color:var(--bad);font-weight:700}
+  .tdash .tdash-flags{white-space:normal;font-size:11.5px;color:var(--muted);min-width:180px}
+  .tdash .tdash-nodata td{color:var(--muted)}
   .heatwrap{overflow-x:auto;padding:4px 0}
   .heatgrid{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,12px);gap:3px;min-width:max-content}
   .heatcell{width:12px;height:12px;border-radius:3px;background:#16202b}
@@ -688,6 +698,8 @@
   .pf-lift{font-weight:600;white-space:nowrap}
   .pf-max{width:66px;background:#0e151c;border:1px solid var(--line);border-radius:6px;padding:5px 7px;color:var(--text);font-size:13px;font-weight:700;text-align:center}
   .pf-max:focus{outline:none;border-color:var(--accent2)}
+  input.pf-edited{border-color:var(--accent2)!important;background:rgba(60,158,232,.10)!important;box-shadow:0 0 0 2px rgba(60,158,232,.18)}
+  .pf-savebar .pf-save-go{background:var(--good);color:#0c1116}
   .pf-dt{color:var(--muted);font-size:11px;white-space:nowrap}
   .pf-tot td{border-top:1px solid var(--line);border-bottom:none;font-weight:800} .pf-tot .pf-lift{color:var(--accent)}
   .pf-thr{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px;text-align:center}
@@ -752,6 +764,12 @@
   .attn-chip{font-size:10.5px;background:var(--panel2);border:1px solid var(--line);border-radius:20px;padding:2px 8px;color:#9fb0c0}
   .attn-chip.bad{color:var(--warn);border-color:var(--warn)}
   .attn-foot{margin-top:10px;padding-top:8px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+  .attn-title{cursor:pointer;display:flex;align-items:center;gap:8px;user-select:none}
+  .attn-caret{color:var(--muted);font-size:12px;transition:transform .1s}
+  .attn-count{font-size:11px;font-weight:800;background:var(--warn);color:#0c1116;border-radius:20px;padding:1px 9px;line-height:1.6}
+  .attn-summary{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;padding:8px 2px 2px;cursor:pointer;color:#aebccd;font-size:13px}
+  .attn-summary.muted{color:var(--muted)}
+  .attn-sumitem{font-weight:700;color:var(--text)} .attn-sumitem.muted{font-weight:600;color:var(--muted)}
   /* toast — non-native, non-mutable notification (replaces native alert dialogs) */
   #toastHost{position:fixed;left:0;right:0;bottom:20px;z-index:9999;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;padding:0 12px}
   .toast{background:#1b2430;color:#eaf0f6;border:1px solid var(--line,#2b3648);border-left:3px solid var(--accent,#3c9ee8);border-radius:10px;padding:11px 16px;font-size:13.5px;line-height:1.4;max-width:460px;box-shadow:0 8px 28px rgba(0,0,0,.45);opacity:0;transform:translateY(10px);transition:opacity .25s,transform .25s;pointer-events:auto}
@@ -839,6 +857,12 @@
   .mc2-wk.today{color:var(--accent);font-weight:800;background:rgba(232,100,60,.14);border-radius:4px}
   .mc2-seg{margin:3px 2px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;padding:0 6px;overflow:hidden;white-space:nowrap;cursor:pointer;min-height:26px}
   .mc2-seg:hover{filter:brightness(1.25)}
+  .mc2-seg.mc2-own{box-shadow:inset 0 0 0 2px var(--accent);position:relative}
+  .mc2-owntag{color:var(--accent);font-size:10px}
+  .ap-sel{display:flex;flex-direction:column;gap:3px} .ap-sel>span{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:800}
+  .ap-forwho{display:inline-flex;align-items:center;min-height:34px;color:var(--accent);font-weight:800;border-style:dashed}
+  .ap-scope{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:9px 12px;margin:0 0 12px;font-size:13px;color:#aebccd}
+  .ap-scope.warn{border-left-color:var(--warn);color:#e0b06a} .ap-scope b{color:var(--text)}
   .mc2-comp{display:flex;flex-direction:column;align-items:center;font-size:8.5px;font-weight:700;cursor:pointer;padding-top:4px;text-align:center;line-height:1.2;overflow:hidden}
   .mc2-comp .dot{width:9px;height:9px;border-radius:50%;margin-bottom:2px;flex:0 0 9px}
   .mc2-comp.star .dot{border-radius:2px;transform:rotate(45deg)}
@@ -950,6 +974,9 @@
   .cx-sess{font-size:10px;font-weight:600;border-radius:4px;padding:2px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:#152433;color:#cfe0f2;border-left:3px solid #3c9ee8}
   .cx-sess.done{background:#13241a;color:#cfeede;border-left-color:#3ec97a}
   .cx-sess.draft{background:transparent;color:#8fb0cc;border:1px dashed #3c5a7a;border-left:3px dashed #3c9ee8;font-style:italic}
+  .cx-sess.cx-sel{outline:2px solid var(--bad);outline-offset:1px;box-shadow:0 0 0 3px rgba(229,90,90,.22)}
+  .mc2-seg.mc2-sel,.mc2-comp.mc2-sel{outline:2px solid var(--bad);outline-offset:1px;box-shadow:0 0 0 3px rgba(229,90,90,.22);border-radius:4px}
+  .cx-lassohint{font-size:11px;color:var(--muted);margin-top:8px;display:flex;align-items:center;gap:6px}
   .cx-day{max-width:720px}
   .cx-day-hd{font-size:18px;font-weight:700;margin-bottom:12px}
   .cx-evrow{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--panel2);border:1px solid var(--line);border-left-width:4px;border-radius:8px;padding:10px 12px;margin-bottom:8px;cursor:pointer}
@@ -1413,6 +1440,162 @@
   .mrev-olbl{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700;margin-bottom:7px}
   .mrev-older .rep-item{margin-top:7px}
   @media (max-width:760px){ .rpt-2col{grid-template-columns:1fr} .rpt-tiles{grid-template-columns:repeat(2,1fr)} .report{padding:20px 16px} }
+
+  /* ============ REPORTS REDESIGN (rptx) — executive layout, light/dark themeable ============ */
+  .rptx{--rx-sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --rx-card:#FFFFFF;--rx-ink:#141A23;--rx-muted:#606B7B;--rx-muted2:#8A94A2;--rx-line:#E3E7EC;--rx-line2:#EDF0F3;
+    --rx-fill:#FBFCFD;--rx-navy:#1D2A38;--rx-accent:#E4572E;--rx-accent-soft:rgba(228,87,46,.10);
+    --rx-good:#1F9D5B;--rx-warn:#B8791A;--rx-crit:#C0392B;--rx-good-bg:rgba(31,157,91,.12);--rx-warn-bg:rgba(184,121,26,.14);--rx-crit-bg:rgba(192,57,43,.12);--rx-chip:#E7ECF1;
+    max-width:840px;margin:14px auto;background:var(--rx-card);color:var(--rx-ink);border:1px solid var(--rx-line);
+    border-radius:6px;overflow:hidden;font-family:var(--rx-body,system-ui,-apple-system,"Segoe UI",sans-serif);font-size:13.5px;line-height:1.55}
+  .rptx[data-theme="dark"]{--rx-card:#141B24;--rx-ink:#E7EEF4;--rx-muted:#93A2B3;--rx-muted2:#6B7C8E;--rx-line:#243140;--rx-line2:#1B2531;
+    --rx-fill:#111A23;--rx-navy:#0E1620;--rx-accent:#F2703F;--rx-accent-soft:rgba(242,112,63,.16);
+    --rx-good:#3ECD84;--rx-warn:#E0A23A;--rx-crit:#EA6A5C;--rx-good-bg:rgba(62,205,132,.14);--rx-warn-bg:rgba(224,162,58,.16);--rx-crit-bg:rgba(234,106,92,.16);--rx-chip:#20303F}
+  .rptx .tnum{font-variant-numeric:tabular-nums}
+  .rptx .rx-accent{color:var(--rx-accent)}
+  .rptx .rx-pad{padding:22px 30px}
+  .rptx .rx-note{font-size:11px;color:var(--rx-muted);margin-top:9px;line-height:1.5}
+  .rptx .rx-dim{color:var(--rx-muted2)}
+  .rptx .rx-modsub{font-weight:600;font-size:11px;color:var(--rx-muted);letter-spacing:0;text-transform:none}
+  /* masthead */
+  .rptx .rx-mast{background:var(--rx-navy);color:#fff;padding:24px 30px 20px;display:flex;justify-content:space-between;gap:18px;position:relative}
+  .rptx .rx-mast::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:linear-gradient(90deg,var(--rx-accent) 0 34%,rgba(255,255,255,.12) 34%)}
+  .rptx .rx-lockup{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .rptx .rx-mark{width:28px;height:28px;border-radius:6px;background:var(--rx-accent);color:#fff;display:grid;place-items:center;font:800 12px/1 var(--rx-sans)}
+  .rptx .rx-name{font:800 14px/1 var(--rx-sans);letter-spacing:.02em}
+  .rptx .rx-name small{display:block;font:600 9px/1.3 var(--rx-sans);letter-spacing:.16em;color:rgba(255,255,255,.5);text-transform:uppercase;margin-top:3px}
+  .rptx .rx-eyebrow{font:700 10px/1 var(--rx-sans);letter-spacing:.18em;text-transform:uppercase;color:var(--rx-accent)}
+  .rptx .rx-h1{font:800 27px/1.05 var(--rx-sans);letter-spacing:-.01em;margin:8px 0 3px;text-wrap:balance}
+  .rptx .rx-sub{color:rgba(255,255,255,.62);font-size:12px}
+  .rptx .rx-meta{margin-top:12px;display:flex;flex-wrap:wrap;gap:4px 14px;font-size:11px;color:rgba(255,255,255,.55)}
+  .rptx .rx-meta b{color:rgba(255,255,255,.82);font-weight:600}
+  .rptx .rx-badge{flex:none;text-align:center;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:11px 15px;min-width:100px;align-self:flex-start}
+  .rptx .rx-badge .k{font:800 28px/1 var(--rx-sans);color:#fff}
+  .rptx .rx-badge .l{font:700 8.5px/1.3 var(--rx-sans);letter-spacing:.13em;text-transform:uppercase;color:rgba(255,255,255,.5);margin-top:6px}
+  .rptx .rx-badge .goal{font-size:10.5px;color:var(--rx-accent);margin-top:5px;font-weight:700}
+  /* exec */
+  .rptx .rx-eyebrow2{font:700 10px/1 var(--rx-sans);letter-spacing:.16em;text-transform:uppercase;color:var(--rx-muted2)}
+  .rptx .rx-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--rx-line);border:1px solid var(--rx-line);border-radius:10px;overflow:hidden;margin-top:11px}
+  .rptx .rx-kpi{background:var(--rx-card);padding:12px 14px}
+  .rptx .rx-kpi .l{font:700 9px/1.2 var(--rx-sans);letter-spacing:.08em;text-transform:uppercase;color:var(--rx-muted)}
+  .rptx .rx-kpi .v{font:800 25px/1.05 var(--rx-sans);letter-spacing:-.01em;margin-top:4px;display:flex;align-items:baseline;gap:6px}
+  .rptx .rx-kpi .v small{font-size:12px;color:var(--rx-muted2);font-weight:700}
+  .rptx .rx-knote{font-size:10.5px;color:var(--rx-muted2);margin-top:3px;background:none;border:0;padding:0}
+  .rptx .rx-trend{font:700 10.5px/1 var(--rx-sans);padding:2px 6px;border-radius:20px}
+  .rptx .rx-trend.up{color:var(--rx-good);background:var(--rx-good-bg)}
+  .rptx .rx-trend.down{color:var(--rx-warn);background:var(--rx-warn-bg)}
+  .rptx .rx-trend.flat{color:var(--rx-muted);background:var(--rx-line2)}
+  .rptx .rx-exec{display:grid;grid-template-columns:1.35fr 1fr;gap:20px;margin-top:18px;align-items:start}
+  .rptx .rx-read{border-left:3px solid var(--rx-accent);padding:2px 0 2px 14px}
+  .rptx .rx-read p{margin:0;font-size:13.5px;line-height:1.6;color:var(--rx-ink)}
+  .rptx .rx-read .sig{margin-top:10px;font-size:11px;color:var(--rx-muted)}
+  .rptx .rx-read .sig b{color:var(--rx-ink)}
+  .rptx .rx-callouts{display:flex;flex-direction:column;gap:7px}
+  .rptx .rx-call{display:flex;gap:9px;align-items:flex-start;padding:9px 11px;border-radius:9px;border:1px solid var(--rx-line);background:var(--rx-fill);font-size:12px;line-height:1.4}
+  .rptx .rx-call .dot{flex:none;width:8px;height:8px;border-radius:50%;margin-top:5px}
+  .rptx .rx-call.g .dot{background:var(--rx-good)} .rptx .rx-call.w .dot{background:var(--rx-warn)} .rptx .rx-call.c .dot{background:var(--rx-crit)}
+  .rptx .rx-call .tag{margin-left:auto;flex:none;font:700 8.5px/1 var(--rx-sans);letter-spacing:.09em;text-transform:uppercase;padding:3px 7px;border-radius:20px}
+  .rptx .rx-call.g .tag{color:var(--rx-good);background:var(--rx-good-bg)}
+  .rptx .rx-call.w .tag{color:var(--rx-warn);background:var(--rx-warn-bg)}
+  .rptx .rx-call.c .tag{color:var(--rx-crit);background:var(--rx-crit-bg)}
+  /* chapters */
+  .rptx .rx-chapter{border-top:1px solid var(--rx-line)}
+  .rptx .rx-chhead{display:flex;align-items:center;gap:13px;padding:18px 30px 0}
+  .rptx .rx-chnum{font:800 12px/1 var(--rx-sans);color:#fff;background:var(--rx-navy);border-radius:7px;width:28px;height:28px;display:grid;place-items:center}
+  .rptx[data-theme="dark"] .rx-chnum{background:var(--rx-accent)}
+  .rptx .rx-chtitle{font:800 17px/1.1 var(--rx-sans);letter-spacing:-.01em}
+  .rptx .rx-chdesc{font-size:11px;color:var(--rx-muted);margin-top:1px}
+  .rptx .rx-chapter .rx-pad{padding-top:6px}
+  .rptx .rx-module{page-break-inside:avoid}
+  .rptx h4.rx-mod{font:800 11.5px/1 var(--rx-sans);letter-spacing:.05em;text-transform:uppercase;color:var(--rx-ink);margin:20px 0 10px;display:flex;align-items:center;gap:9px}
+  .rptx h4.rx-mod::after{content:"";flex:1;height:1px;background:var(--rx-line)}
+  .rptx .rx-2col{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  /* tables */
+  .rptx .rx-tbl{width:100%;border-collapse:collapse;font-size:12px}
+  .rptx .rx-tbl th{text-align:left;font:700 9px/1.2 var(--rx-sans);letter-spacing:.07em;text-transform:uppercase;color:var(--rx-muted);padding:0 7px 6px;border-bottom:1.5px solid var(--rx-ink)}
+  .rptx .rx-tbl td{padding:5px 7px;border-bottom:1px solid var(--rx-line2)}
+  .rptx .rx-tbl td.num,.rptx .rx-tbl th.num{text-align:right;font-variant-numeric:tabular-nums}
+  .rptx .rx-tbl tr.tot td{border-top:1.5px solid var(--rx-ink);border-bottom:none;font-weight:800;padding-top:7px}
+  .rptx .rx-tbl tr.rx-grp td{font:700 9px/1 var(--rx-sans);letter-spacing:.08em;text-transform:uppercase;color:var(--rx-muted);padding-top:11px;border-bottom:none}
+  .rptx .rx-line{font-size:12.5px;color:var(--rx-ink);margin-bottom:6px}
+  /* ladder + progress */
+  .rptx .rx-ladder{display:grid;grid-template-columns:repeat(6,1fr);gap:1px;background:var(--rx-line);border:1px solid var(--rx-line);border-radius:8px;overflow:hidden;margin-top:11px}
+  .rptx .rx-ladder .cell{background:var(--rx-card);padding:7px 3px;text-align:center}
+  .rptx .rx-ladder .cell.on{background:var(--rx-navy);color:#fff}
+  .rptx[data-theme="dark"] .rx-ladder .cell.on{background:var(--rx-accent)}
+  .rptx .rx-ladder .cell .r{font:700 8px/1.2 var(--rx-sans);letter-spacing:.04em;text-transform:uppercase;color:var(--rx-muted)}
+  .rptx .rx-ladder .cell.on .r{color:rgba(255,255,255,.75)}
+  .rptx .rx-ladder .cell .t{font:800 13px/1.2 var(--rx-sans);margin-top:2px}
+  .rptx .rx-prog{height:7px;border-radius:20px;background:var(--rx-line);margin:12px 0 3px;overflow:hidden}
+  .rptx .rx-prog i{display:block;height:100%;border-radius:20px;background:var(--rx-accent)}
+  /* clusters */
+  .rptx .rx-clusters{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+  .rptx .rx-cluster{border:1px solid var(--rx-line);border-radius:11px;padding:12px 14px}
+  .rptx .rx-cluster .ct{font:700 9.5px/1 var(--rx-sans);letter-spacing:.11em;text-transform:uppercase;color:var(--rx-accent);margin-bottom:10px}
+  .rptx .rx-cluster .row{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--rx-line2)}
+  .rptx .rx-cluster .row:last-child{border-bottom:none}
+  .rptx .rx-cluster .row .lab{font-size:11.5px;color:var(--rx-muted)}
+  .rptx[data-theme="dark"] .rx-cluster .row .lab{color:var(--rx-ink)}
+  .rptx .rx-cluster .row .val{font:800 13px/1 var(--rx-sans);font-variant-numeric:tabular-nums}
+  /* reads / flags */
+  .rptx .rx-read-x{}
+  .rptx .rx-read.ineff,.rptx .rx-read.eff,.rptx .rx-read.hyper{all:unset}
+  .rptx span.rx-read{font:700 9px/1 var(--rx-sans);letter-spacing:.03em;padding:3px 7px;border-radius:20px;text-transform:uppercase}
+  .rptx span.rx-read.ineff{color:var(--rx-crit);background:var(--rx-crit-bg)}
+  .rptx span.rx-read.eff{color:var(--rx-good);background:var(--rx-good-bg)}
+  .rptx span.rx-read.hyper{color:var(--rx-ink);background:var(--rx-chip)}
+  .rptx .rx-flag{font:800 9.5px/1 var(--rx-sans);text-transform:uppercase;letter-spacing:.03em}
+  .rptx .rx-flag.in{color:var(--rx-good)} .rptx .rx-flag.over{color:var(--rx-crit)} .rptx .rx-flag.under{color:var(--rx-warn)}
+  .rptx .rx-story{font-size:12px;color:var(--rx-ink);margin-top:10px;padding:11px 13px;border:1px solid var(--rx-line);border-radius:9px;background:var(--rx-fill)}
+  .rptx .rx-cap{font:700 9.5px/1 var(--rx-sans);letter-spacing:.05em;text-transform:uppercase;color:var(--rx-muted);margin-bottom:8px;display:flex;gap:13px;align-items:center;flex-wrap:wrap}
+  .rptx .rx-cap .leg{display:inline-flex;align-items:center;gap:5px;color:var(--rx-muted2);font-weight:600;letter-spacing:0;text-transform:none;font-size:10px}
+  .rptx .rx-cap .leg i{width:9px;height:9px;border-radius:2px;display:inline-block}
+  /* footer */
+  .rptx .rx-foot{border-top:1px solid var(--rx-line);padding:13px 30px;display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--rx-muted2)}
+  .rptx .rx-foot .conf{font:700 8.5px/1 var(--rx-sans);letter-spacing:.13em;text-transform:uppercase}
+  /* theme toggle control */
+  .rpt-theme{display:inline-flex;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:2px}
+  .rpt-theme button{border:0;background:transparent;color:var(--muted);font:700 12px/1 inherit;padding:6px 11px;border-radius:7px;cursor:pointer}
+  .rpt-theme button.on{background:var(--accent);color:#fff}
+  /* report structure builder */
+  .rb-groups{display:flex;gap:10px;overflow-x:auto;padding:4px 2px 8px;align-items:stretch}
+  .rb-group{flex:0 0 190px;background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:9px;display:flex;flex-direction:column;gap:8px}
+  .rb-ghead{display:flex;align-items:center;gap:3px}
+  .rb-gname{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:5px 8px;color:var(--text);font-size:12px;font-weight:800}
+  .rb-gname:focus{outline:none;border-color:var(--accent2)}
+  .rb-mv{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:11px;padding:3px 4px;border-radius:5px}
+  .rb-mv:hover:not(:disabled){background:var(--panel);color:var(--text)} .rb-mv:disabled{opacity:.3;cursor:default}
+  .rb-del{border:0;background:transparent;cursor:pointer;font-size:12px;padding:3px 4px;border-radius:5px;opacity:.7}
+  .rb-del:hover{opacity:1;background:var(--panel)}
+  .rb-body{display:flex;flex-direction:column;gap:6px;min-height:36px;border-radius:8px}
+  .rb-chip{display:flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:7px 8px;font-size:11.5px;cursor:grab}
+  .rb-chip:active{cursor:grabbing}
+  .rb-chip .grip{color:var(--muted2,#6b7f92);letter-spacing:-1px}
+  .rb-chip .lab{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rb-chip .x{color:var(--muted);cursor:pointer;font-size:11px}
+  .rb-chip .x:hover{color:var(--bad)}
+  .rb-empty{font-size:10.5px;color:var(--muted2,#6b7f92);text-align:center;padding:8px 0;border:1px dashed var(--line);border-radius:7px}
+  .rb-add{background:var(--panel);border:1px dashed var(--line);border-radius:7px;color:var(--muted);font-size:11px;padding:5px 7px;cursor:pointer}
+  .rb-addgroup{flex:0 0 120px;border:1.5px dashed var(--line);border-radius:11px;background:transparent;color:var(--muted);font-weight:700;font-size:12px;cursor:pointer}
+  .rb-addgroup:hover{border-color:var(--accent);color:var(--accent)}
+  .rb-avail{font-size:11px;color:var(--muted);margin-top:6px}
+  /* slice 3: coach-note block + note-add tool */
+  .rb-tools{display:flex;align-items:center;gap:12px;margin-top:8px;flex-wrap:wrap}
+  .rb-note{border:1.5px dashed var(--line);border-radius:9px;background:transparent;color:var(--muted);font-weight:700;font-size:12px;padding:7px 12px;cursor:pointer}
+  .rb-note:hover{border-color:var(--accent);color:var(--accent)}
+  .rb-toolnote{font-size:11px;color:var(--muted)}
+  .rptx .rx-note-block{border:1px solid var(--rx-line);border-left:3px solid var(--rx-accent);border-radius:8px;background:var(--rx-fill);padding:13px 15px}
+  .rptx .rx-nb-title{font:800 13px/1.3 var(--rx-sans);color:var(--rx-ink);letter-spacing:.01em}
+  .rptx .rx-nb-body{font-size:12.5px;color:var(--rx-ink);line-height:1.55;margin-top:5px;white-space:pre-wrap}
+  /* slice 3: inline value-edit chrome — screen-only, scoped under .rx-editing so it never bakes into the PDF */
+  .rptx.rx-editing .rx-ev{cursor:text;border-bottom:1px dashed var(--rx-muted2);border-radius:2px;padding:0 1px}
+  .rptx.rx-editing .rx-ev:hover{background:var(--rx-accent-soft)}
+  .rptx.rx-editing .rx-ev.edited{background:var(--rx-accent-soft);border-bottom-color:var(--rx-accent);color:var(--rx-accent);font-weight:700}
+  .rx-ev-inp{font:inherit;color:var(--rx-ink);background:var(--rx-card);border:1px solid var(--rx-accent);border-radius:4px;padding:0 4px;width:7em;max-width:14em}
+  .rptx.rx-editing [contenteditable]{outline:1px dashed var(--rx-muted2);outline-offset:3px;border-radius:3px}
+  .rptx.rx-editing [contenteditable]:focus{outline:1.5px solid var(--rx-accent)}
+  .rptx.rx-editing .rx-nb-title:empty:before,.rptx.rx-editing .rx-nb-body:empty:before{content:attr(data-ph);color:var(--rx-muted2);font-weight:400}
+  @media (max-width:760px){ .rptx .rx-exec,.rptx .rx-2col,.rptx .rx-clusters{grid-template-columns:1fr} .rptx .rx-kpis{grid-template-columns:1fr 1fr} .rptx .rx-mast{flex-direction:column} .rptx .rx-pad,.rptx .rx-chhead{padding-left:18px;padding-right:18px} }
 </style>
 </head>
 <body>
@@ -1473,6 +1656,7 @@ async function boot(){
   await probeVideoNotes();
   await probeSrpe();
   await probeBodyPain();
+  await probeAthPlan();
   if(profile.role === 'coach') renderCoach(); else athGo(athState.screen||'athlete');
 }
 async function renderJoin(token){
@@ -2967,6 +3151,8 @@ async function probeSrpe(){ const { error } = await sb.from('sessions').select('
   if(SRPE_READY && SESSION_SELECT.indexOf('session_rpe')<0) SESSION_SELECT += ',session_minutes,session_rpe'; }
 let PAIN_READY=false;   // body_pain_reports (migration 37) → injury heat-map
 async function probeBodyPain(){ const { error } = await sb.from('body_pain_reports').select('id').limit(1); PAIN_READY = !error; }
+let ATHPLAN_READY=false;   // plan_phases/competitions/plan_tracks.athlete_id (migration 38) → per-athlete override plans
+async function probeAthPlan(){ const { error } = await sb.from('plan_phases').select('athlete_id').limit(1); ATHPLAN_READY = !error; }
 const DOW=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], MONS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function iso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function weekDates(offset){ // Mon..Sun of the current week, shifted by `offset` weeks
@@ -3619,17 +3805,40 @@ async function renderAthPlan(){
   paintPlan();
 }
 /* ---------------- athlete dashboard ---------------- */
-let dashState={ tab:'dash', range:'1y', mode:'athlete', athleteId:null };
+let dashState={ tab:'dash', range:'1y', mode:'athlete', athleteId:null, teamId:'' };
+// load the coach roster WITH team_id (so the Team scope can filter) + the teams list
+async function ensureDashRoster(){
+  const a=coachState.athletes;
+  if(!a || !a.length || a.some(x=>x.team_id===undefined)){
+    const r=await sb.from('profiles').select('id,full_name,team_id').eq('role','athlete').order('full_name'); if(!r.error) coachState.athletes=r.data||[];
+  }
+  if(conState._teams==null){ const { data }=await sb.from('teams').select('*').order('name'); conState._teams=data||[]; }
+}
 window.renderCoachAthDash=async()=>{
   dashState.mode='coach'; coachState.screen='dash';
-  if(!coachState.athletes || !coachState.athletes.length){
-    const r=await sb.from('profiles').select('id,full_name').eq('role','athlete').order('full_name'); coachState.athletes=r.data||[];
-  }
-  const aths=coachState.athletes||[];
-  if(!dashState.athleteId || !aths.find(a=>a.id===dashState.athleteId)) dashState.athleteId = aths[0]?aths[0].id:null;
+  await ensureDashRoster();
+  // athleteId null ⇒ team roll-up (the default landing); an id ⇒ that athlete's dashboard
+  if(dashState.athleteId && !(coachState.athletes||[]).find(a=>a.id===dashState.athleteId)) dashState.athleteId=null;
   renderAthDash();
 };
-window.dashPickAth=(id)=>{ dashState.athleteId=id; dashState.vbtEx=null; renderAthDash(); };
+window.dashPickAth=(id)=>{ if(window.pfResetBuffer) pfResetBuffer(); dashState.athleteId=id||null; dashState.vbtEx=null; renderAthDash(); };   // switching athlete drops unsaved profile edits
+window.dashSetTeam=(id)=>{ if(window.pfResetBuffer) pfResetBuffer(); dashState.teamId=id||''; dashState.athleteId=null; dashState.vbtEx=null; renderAthDash(); };   // switching team drops to that team's roll-up
+// shared Team + Athlete picker (Annual-Plan style) — Athlete '' = team roll-up
+function dashPicker(){
+  const teams=conState._teams||[]; const teamId=dashState.teamId||'';
+  const roster=(coachState.athletes||[]).filter(a=>!teamId||a.team_id===teamId);
+  const curAth=dashState.athleteId||'';
+  const firstName=(nm)=>((nm||'').split(/\s+/)[0]||'they');
+  const teamName=teamId?((teams.find(t=>t.id===teamId)||{}).name||'team'):'the whole gym';
+  const rightNote = dashState.athleteId
+    ? `Read-only — exactly what ${esc(firstName(((coachState.athletes||[]).find(a=>a.id===dashState.athleteId)||{}).full_name))} sees.`
+    : `Team roll-up — averages across ${esc(teamName)}. Click an athlete to drill in.`;
+  return `<div class="card" style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+      <label class="ap-sel"><span>Team</span><select class="cw-sel" onchange="dashSetTeam(this.value)"><option value="">Whole gym</option>${teams.map(t=>`<option value="${t.id}"${teamId===t.id?' selected':''}>${esc(t.name)}</option>`).join('')}</select></label>
+      <label class="ap-sel"><span>Athlete</span><select class="cw-sel" onchange="dashPickAth(this.value)"><option value="">— Team roll-up —</option>${roster.map(a=>`<option value="${a.id}"${curAth===a.id?' selected':''}>${esc(a.full_name)}</option>`).join('')}</select></label>
+      <span class="sub" style="margin-left:auto">${rightNote}</span>
+    </div>`;
+}
 const DASH_RANGES=[['12w','Last 12 weeks'],['ytd','This year'],['1y','Last 12 months'],['career','Full career']];
 window.dashGo=(t)=>{ dashState.tab=t; renderAthDash(); };
 window.dashSetRange=(r)=>{ dashState.range=r; renderAthDash(); };
@@ -4032,6 +4241,46 @@ window.saveMax=async(athId,lift,val)=>{
   await sb.from('maxes').upsert({gym_id:me_.gym_id,athlete_id:athId,lift,kg:v,tested_at:iso(new Date())},{onConflict:'athlete_id,lift'});
   renderAthDash();
 };
+/* ---- Athlete Profile: buffer all max / rep-max edits, commit with ONE batch Save (no per-cell reload) ---- */
+function pfBuf(){ if(!dashState.pfDirty) dashState.pfDirty={maxes:{},reps:{}}; return dashState.pfDirty; }
+function pfDirtyCount(){ const b=dashState.pfDirty; return b?(Object.keys(b.maxes).length+Object.keys(b.reps).length):0; }
+function pfResetBuffer(){ dashState.pfDirty={maxes:{},reps:{}}; const bar=document.getElementById('pfSaveBar'); if(bar) bar.remove(); }
+const PF_SEP=String.fromCharCode(1);
+const pfRepKey=(lift,reps)=>lift+PF_SEP+reps;   // buffer key for a rep-max cell (SEP never appears in a lift name)
+window.pfEditMax=(lift,el)=>{ const b=pfBuf(); const raw=(el.value||'').trim(); const v=parseFloat(raw); b.maxes[lift]=(raw===''||isNaN(v))?null:v; el.classList.add('pf-edited'); pfSaveBar(); };
+window.pfEditRep=(lift,reps,el)=>{ const b=pfBuf(); const raw=(el.value||'').trim(); const v=parseFloat(raw); b.reps[pfRepKey(lift,reps)]=(raw===''||isNaN(v))?null:v; el.classList.add('pf-edited'); pfSaveBar(); };
+window.pfSaveBar=function(){ const n=pfDirtyCount(); let bar=document.getElementById('pfSaveBar');
+  if(!n){ if(bar) bar.remove(); return; }
+  if(!bar){ bar=document.createElement('div'); bar.id='pfSaveBar'; bar.className='cw-delbar pf-savebar'; document.body.appendChild(bar); }
+  bar.innerHTML=`<span class="cw-delc">${n} unsaved change${n>1?'s':''}<small>Total &amp; classification refresh on save</small></span>
+    <button class="cw-del-go pf-save-go" onclick="pfSaveChanges()">💾 Save changes</button>
+    <button class="cw-del-x" onclick="pfDiscard()">Discard</button>`;
+};
+window.pfDiscard=()=>{ pfResetBuffer(); renderAthDash(); };
+window.pfSaveChanges=async()=>{
+  const athId=dashState.pfAth, b=dashState.pfDirty;
+  if(!athId || !b || !pfDirtyCount()){ pfResetBuffer(); return; }
+  const bar=document.getElementById('pfSaveBar'); if(bar) bar.innerHTML=`<span class="cw-delc">Saving…</span>`;
+  try{
+    const now=iso(new Date());
+    const mUp=[], mDel=[];
+    Object.keys(b.maxes).forEach(lift=>{ const v=b.maxes[lift]; if(v==null) mDel.push(lift); else mUp.push({gym_id:me_.gym_id,athlete_id:athId,lift,kg:v,tested_at:now}); });
+    if(mUp.length){ const r=await sb.from('maxes').upsert(mUp,{onConflict:'athlete_id,lift'}); if(r.error) throw r.error; }
+    if(mDel.length){ const r=await sb.from('maxes').delete().eq('athlete_id',athId).in('lift',mDel); if(r.error) throw r.error; }
+    const rUp=[], rDel=[];
+    Object.keys(b.reps).forEach(key=>{ const p=key.split(PF_SEP), lift=p[0], reps=parseInt(p[1]); const v=b.reps[key];
+      if(v==null) rDel.push({lift,reps}); else rUp.push({gym_id:me_.gym_id,athlete_id:athId,lift,reps,kg:v,tested_at:now}); });
+    if(rUp.length){ const r=await sb.from('rep_maxes').upsert(rUp,{onConflict:'athlete_id,lift,reps'}); if(r.error) throw r.error; }
+    for(const d of rDel){ const r=await sb.from('rep_maxes').delete().eq('athlete_id',athId).eq('lift',d.lift).eq('reps',d.reps); if(r.error) throw r.error; }
+    const total=mUp.length+mDel.length+rUp.length+rDel.length;
+    pfResetBuffer();
+    toast('Saved '+total+' change'+(total===1?'':'s'),'good');
+    renderAthDash();
+  }catch(e){
+    console.error('profile batch save failed:', e);
+    if(bar) bar.innerHTML=`<span class="cw-delc" style="color:var(--bad)">Save failed — ${esc(e.message||String(e))}</span><button class="cw-del-x" onclick="pfSaveBar()">Back</button>`;
+  }
+};
 window.editProfile=(athId, p)=>{
   p=p||{};
   const _tin=p.height_cm?Math.round(parseFloat(p.height_cm)/2.54):null;   // total inches (rounded) from stored cm
@@ -4123,8 +4372,73 @@ window.saveClassInputs=async(athId)=>{
   }
   renderAthDash();
 };
+// ---- TEAM ROLL-UP dashboard: averages across a team's athletes (reuses trainingResponse); click a row to drill into one athlete ----
+async function renderTeamDash(){
+  if(window.pfResetBuffer) pfResetBuffer();   // leaving any athlete profile
+  dashState.mode='coach'; coachState.screen='dash';
+  const chrome=topbar('Coach')+coachNav('dash');
+  app.innerHTML = chrome + `<div class="spin">Loading the team dashboard…</div>`;
+  if(!(await requireSession())) return;
+  await ensureDashRoster();
+  const teams=conState._teams||[]; const teamId=dashState.teamId||'';
+  const teamName=teamId?((teams.find(t=>t.id===teamId)||{}).name||'Team'):'Whole gym';
+  const roster=(coachState.athletes||[]).filter(a=>!teamId||a.team_id===teamId);
+  const picker=dashPicker();
+  if(!roster.length){ app.innerHTML=chrome+picker+`<div class="card con-empty"><h2 style="margin:0 0 6px;color:var(--text)">Team dashboard</h2><div>${teamId?'No athletes on this team yet — assign athletes to a team from the Console → Teams.':'No athletes yet — add one from the Console.'}</div></div>`; return; }
+  const basis=dashState.trBasis==='rolling'?'rolling':'block';
+  const basisBtns=`<span class="tr-toggle"><button class="${basis==='block'?'on':''}" onclick="dashSetTrBasis('block')">Block</button><button class="${basis==='rolling'?'on':''}" onclick="dashSetTrBasis('rolling')">Rolling</button></span>`;
+  const headCard=(inner)=>`<div class="card"><div class="tr-head" style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap"><h2 style="margin:0">${esc(teamName)} · team roll-up</h2>${basisBtns}</div>${inner}</div>`;
+  app.innerHTML = chrome + picker + headCard(`<div class="note sub" style="padding:6px 0">Scanning ${roster.length} athlete${roster.length>1?'s':''} — training response + recovery…</div>`);
+  let results;
+  try{ results=await Promise.all(roster.map(a=>trainingResponse(a.id,{basis}).then(tr=>({a,tr})).catch(()=>({a,tr:null})))); }
+  catch(e){ app.innerHTML=chrome+picker+headCard(`<div class="note sub">Couldn't scan the team right now.</div>`); return; }
+  const withData=results.filter(r=>r.tr&&r.tr.ok);
+  const noData=results.filter(r=>!r.tr||!r.tr.ok);
+  const avg=(fn)=>{ const vs=withData.map(r=>fn(r.tr)).filter(v=>v!=null); return vs.length? vs.reduce((a,b)=>a+b,0)/vs.length : null; };
+  const rng=(fn)=>{ const vs=withData.map(r=>fn(r.tr)).filter(v=>v!=null); return vs.length? {min:Math.min.apply(null,vs),max:Math.max.apply(null,vs)} : null; };
+  const aReady=avg(t=>t.rec.readiness), rReady=rng(t=>t.rec.readiness);
+  const aLoad=avg(t=>t.rec.srpeWeekly), rLoad=rng(t=>t.rec.srpeWeekly);
+  const aDone=avg(t=>t.rec.completion), aMake=avg(t=>t.rec.makeRate), aAri=avg(t=>t.rec.ari), aVol=avg(t=>t.rec.weeklyVol);
+  const nFlag=withData.filter(r=>r.tr.score>0).length;
+  const nPain=withData.filter(r=>r.tr.painAgg&&r.tr.painAgg.persistent.length).length;
+  const pct=v=>v==null?'—':Math.round(v*100)+'%';
+  const stat=(v,l,cls,sub)=>`<div class="dev-stat"><div class="v ${cls||''}">${v}</div><div class="l">${l}</div>${sub?`<div class="l" style="text-transform:none;letter-spacing:0;margin-top:4px">${sub}</div>`:''}</div>`;
+  const rdCls=aReady==null?'':(aReady>=4?'good':aReady>=3?'warn':'');
+  const kpis=`<div class="dev-stats">
+    ${stat(aReady!=null?aReady.toFixed(1):'—','Avg readiness',rdCls, rReady?`range ${rReady.min.toFixed(1)}–${rReady.max.toFixed(1)}`:'')}
+    ${stat(aLoad!=null?Math.round(aLoad):'—','Avg sRPE load / wk','', rLoad?`range ${Math.round(rLoad.min)}–${Math.round(rLoad.max)}`:(SRPE_READY?'':'needs session RPE'))}
+    ${stat(pct(aDone),'Set completion', aDone!=null&&aDone>=0.9?'good':(aDone!=null&&aDone<0.75?'warn':''))}
+    ${stat(pct(aMake),'Make-rate', aMake!=null&&aMake>=0.8?'good':(aMake!=null&&aMake<0.7?'warn':''))}
+    ${stat(aAri!=null?aAri.toFixed(1)+'%':'—','Avg intensity (ARI)')}
+    ${stat(aVol!=null?Math.round(aVol).toLocaleString():'—','Avg weekly volume','','reps / wk')}
+  </div>`;
+  const flagsLine=`<div class="note sub" style="padding:8px 0 2px">${nFlag?`🔴 ${nFlag} athlete${nFlag>1?'s':''} flagged`:'🟢 nobody flagged'}${nPain?` · ⚠ ${nPain} with persistent pain`:''}${noData.length?` · ○ ${noData.length} no recent data`:''} — window: ${basis==='block'?'current vs previous mesocycle block':'last 4 weeks vs prior 4'}.</div>`;
+  const sevDot={high:'🔴',warn:'🟠',info:'🔵',good:'🟢'};
+  const rdKey=r=>(r.tr.rec.readiness==null?9:r.tr.rec.readiness);
+  const ranked=withData.slice().sort((x,y)=> (y.tr.score-x.tr.score) || (rdKey(x)-rdKey(y)));
+  const cell=(v,bad)=>`<td class="${bad?'tdash-bad':''}">${v}</td>`;
+  const rows=ranked.map(({a,tr})=>{ const r=tr.rec; const pain=tr.painAgg&&tr.painAgg.persistent.length;
+    return `<tr onclick="dashPickAth('${a.id}')">
+      <td class="tdash-name">${sevDot[tr.topSev]||'•'} ${esc(a.full_name)}</td>
+      ${cell(r.readiness!=null?r.readiness.toFixed(1):'—', r.readiness!=null&&r.readiness<3)}
+      ${cell(r.srpeWeekly!=null?Math.round(r.srpeWeekly):'—')}
+      ${cell(r.completion!=null?Math.round(r.completion*100)+'%':'—', r.completion!=null&&r.completion<0.75)}
+      ${cell(r.makeRate!=null?Math.round(r.makeRate*100)+'%':'—', r.makeRate!=null&&r.makeRate<0.7)}
+      ${cell(r.ari!=null?r.ari.toFixed(0)+'%':'—')}
+      ${cell(pain?`⚠ ${tr.painAgg.persistent.length}`:'—', pain)}
+      <td class="tdash-flags">${tr.score>0?`<span class="attn-badge">${tr.suggestions.length}</span> ${esc((tr.topSignal||'').slice(0,64))}${(tr.topSignal||'').length>64?'…':''}`:'<span class="sub">on plan</span>'}</td>
+    </tr>`; }).join('');
+  const noRows=noData.map(({a})=>`<tr class="tdash-nodata" onclick="dashPickAth('${a.id}')"><td class="tdash-name">○ ${esc(a.full_name)}</td><td colspan="7" class="sub">no recent training / response data</td></tr>`).join('');
+  const table=`<div class="card"><h2 style="margin:0 0 4px">Roster</h2><div class="note sub" style="padding:0 0 8px">Sorted most-concerning first · click a row to open that athlete's full dashboard.</div>
+    <div class="tdash-wrap"><table class="tdash">
+      <thead><tr><th>Athlete</th><th>Rdy</th><th>Load/wk</th><th>Done</th><th>Make</th><th>ARI</th><th>Pain</th><th>Signal</th></tr></thead>
+      <tbody>${rows}${noRows}</tbody>
+    </table></div></div>`;
+  app.innerHTML = chrome + picker + headCard(flagsLine+kpis) + table;
+}
 async function renderAthDash(){
   const coach = dashState.mode==='coach';
+  if(coach && !dashState.athleteId) return renderTeamDash();   // no athlete picked ⇒ team roll-up
   if(coach) coachState.screen='dash'; else athState.screen='dash';
   const chrome = coach ? topbar('Coach')+coachNav('dash') : topbar('Athlete')+athNav('dash');
   app.innerHTML = chrome + `<div class="spin">Loading ${coach?'the':'your'} dashboard…</div>`;
@@ -4133,12 +4447,8 @@ async function renderAthDash(){
   const viewId = coach ? dashState.athleteId : (me_&&me_.id);
   const viewAth = coach ? aths.find(a=>a.id===viewId) : me_;
   const viewName = (viewAth&&viewAth.full_name)||'Athlete';
-  // coach athlete-picker bar
-  const picker = coach ? `<div class="card" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <span class="fl" style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Viewing</span>
-      <select class="scopesel" onchange="dashPickAth(this.value)">${aths.map(a=>`<option value="${a.id}"${a.id===viewId?' selected':''}>${esc(a.full_name)}</option>`).join('')||'<option>No athletes</option>'}</select>
-      <span class="sub" style="margin-left:auto">Read-only — this is exactly what ${esc((viewName||'').split(/\s+/)[0]||'they')} sees.</span>
-    </div>` : '';
+  // coach Team + Athlete picker (Athlete '' = team roll-up)
+  const picker = coach ? dashPicker() : '';
   if(coach && !viewId){ app.innerHTML = chrome + `<div class="card con-empty"><h2 style="margin:0 0 6px;color:var(--text)">Athlete Dashboard</h2><div>No athletes yet — add one from the Console to see their dashboard.</div></div>`; return; }
   const today=new Date(), todayStr=iso(today); const D=s=>new Date(s+'T00:00:00');
   const rdScoreOf=r=>{ const vs=RK_METRICS.map(m=>r[m[0]]).filter(v=>v!=null); return vs.length?vs.reduce((a,b)=>a+b,0)/vs.length:null; };
@@ -4212,17 +4522,22 @@ async function renderAthDash(){
   </div>`;
 
   if(dashState.tab==='profile'){
+    dashState.pfAth=viewId;   // batch-save targets this athlete
+    const _pfM=(dashState.pfDirty&&dashState.pfDirty.maxes)||{}, _pfR=(dashState.pfDirty&&dashState.pfDirty.reps)||{};   // buffered edits win over DB values so they survive re-renders
+    const _hasM=(lift)=>Object.prototype.hasOwnProperty.call(_pfM,lift), _hasR=(key)=>Object.prototype.hasOwnProperty.call(_pfR,key);
     const age = prof&&prof.birthdate ? Math.floor((Date.now()-new Date(prof.birthdate).getTime())/(365.25*864e5)) : null;
     let nextComp=null; const ncR=await sb.from('competitions').select('name,comp_date').gte('comp_date', todayStr).order('comp_date',{ascending:true}).limit(1); if(!ncR.error && ncR.data && ncR.data[0]) nextComp=ncR.data[0];
     const rmMap={}; const rmR=await sb.from('rep_maxes').select('lift,reps,kg').eq('athlete_id', viewId); if(!rmR.error)(rmR.data||[]).forEach(r=>{ const k=normEx(r.lift); (rmMap[k]=rmMap[k]||{})[r.reps]=parseFloat(r.kg); });
     const rmMoves=[]; const rmSeen=new Set(); const rmAdd=n=>{ const k=normEx(n); if(!rmSeen.has(k)){ rmSeen.add(k); rmMoves.push(n); } };
     REP_MAX_DEFAULT.forEach(rmAdd); Object.keys(rmMap).forEach(k=>{ const nm=(maxMap[k]&&maxMap[k].lift)||k; rmAdd(nm); }); (dashState.rmExtra||[]).forEach(rmAdd);
-    const rmCell=(lift,reps)=>{ const k=normEx(lift); const base=maxMap[k]?maxMap[k].kg:null;
+    const rmCell=(lift,reps)=>{ const k=normEx(lift); const base=maxMap[k]?maxMap[k].kg:null; const escL=esc(lift).replace(/'/g,"\\'");
       if(RM_CLASSIC.has(k) && reps>5) return '<td class="rm-cell off"><span class="dash">–</span></td>';
-      if(reps===1){ const v=base!=null?base:''; return `<td class="rm-cell c1"><input type="number" step="0.5" inputmode="decimal" value="${v}" onchange="saveMax('${viewId}','${esc(lift).replace(/'/g,"\\'")}',this.value)" placeholder="–"><div class="rm-pct">${v!==''?'100%':''}</div></td>`; }
-      const rmv = rmMap[k]&&rmMap[k][reps]!=null ? rmMap[k][reps] : '';
+      if(reps===1){ const has=_hasM(lift); const v= has?(_pfM[lift]==null?'':_pfM[lift]):(base!=null?base:'');
+        return `<td class="rm-cell c1"><input class="${has?'pf-edited':''}" type="number" step="0.5" inputmode="decimal" value="${v}" onchange="pfEditMax('${escL}',this)" placeholder="–"><div class="rm-pct">${v!==''?'100%':''}</div></td>`; }
+      const rkey=pfRepKey(lift,reps); const has=_hasR(rkey);
+      const rmv = has ? (_pfR[rkey]==null?'':_pfR[rkey]) : ((rmMap[k]&&rmMap[k][reps]!=null)?rmMap[k][reps]:'');
       const pct = (rmv!==''&&base)? Math.round(rmv/base*1000)/10 : null;
-      return `<td class="rm-cell"><input type="number" step="0.5" inputmode="decimal" value="${rmv!==''?rmv:''}" onchange="saveRepMax('${viewId}','${esc(lift).replace(/'/g,"\\'")}',${reps},this.value)" placeholder="–"><div class="rm-pct ${pct!=null&&pct>100?'over':''}">${pct!=null?pct+'%':''}</div></td>`; };
+      return `<td class="rm-cell"><input class="${has?'pf-edited':''}" type="number" step="0.5" inputmode="decimal" value="${rmv!==''?rmv:''}" onchange="pfEditRep('${escL}',${reps},this)" placeholder="–"><div class="rm-pct ${pct!=null&&pct>100?'over':''}">${pct!=null?pct+'%':''}</div></td>`; };
     const idChips=[ sex?(sex==='F'?'Female':'Male'):null, age!=null?'Age <b>'+age+'</b>':null,
       prof&&prof.weight_class?'Weight class <b>'+esc(prof.weight_class)+' kg</b>':null,
       prof&&prof.skill_level?'Skill <b>'+esc(prof.skill_level)+'</b>':null,
@@ -4230,8 +4545,8 @@ async function renderAthDash(){
       nextComp?'Next comp <b>'+fmtShort(nextComp.comp_date)+'</b>':null
     ].filter(Boolean).join('<span style="color:var(--line);margin:0 7px">·</span>');
     const editable = coach || !coach; // both can edit own/athlete maxes (RLS enforces)
-    const maxRow=(lift)=>{ const m=maxMap[normEx(lift)]; const v=m&&m.kg!=null?m.kg:''; const dt=m&&m.tested_at?fmtShort(m.tested_at):'—';
-      return `<tr><td class="pf-lift">${esc(lift)}</td><td><input class="pf-max" type="number" step="0.5" inputmode="decimal" value="${v}" onchange="saveMax('${viewId}','${esc(lift).replace(/'/g,"\\'")}',this.value)" placeholder="—"></td><td class="pf-dt">${dt}</td></tr>`; };
+    const maxRow=(lift)=>{ const m=maxMap[normEx(lift)]; const has=_hasM(lift); const v= has?(_pfM[lift]==null?'':_pfM[lift]):(m&&m.kg!=null?m.kg:''); const dt=m&&m.tested_at?fmtShort(m.tested_at):'—';
+      return `<tr><td class="pf-lift">${esc(lift)}</td><td><input class="pf-max${has?' pf-edited':''}" type="number" step="0.5" inputmode="decimal" value="${v}" onchange="pfEditMax('${esc(lift).replace(/'/g,"\\'")}',this)" placeholder="—"></td><td class="pf-dt">${dt}</td></tr>`; };
     const totRow=`<tr class="pf-tot"><td class="pf-lift">Total (Sn+CJ)</td><td><b style="font-size:15px">${totM?totM.total:'—'}</b></td><td class="pf-dt">computed</td></tr>`;
     const thr = cls ? `<div style="overflow-x:auto"><table class="pf-thr"><thead><tr>${cls.ranks.map((r,i)=>`<th class="${i===cls.rankIdx?'on':''}">${r==='Class III'?'III':r==='Class II'?'II':r==='Class I'?'I':r}</th>`).join('')}</tr></thead><tbody><tr>${cls.thresholds.map((t,i)=>`<td class="${i===cls.rankIdx?'on':''}">${t}</td>`).join('')}</tr></tbody></table></div>` : '';
     app.innerHTML = chrome + picker + subtabs + `
@@ -4247,7 +4562,7 @@ async function renderAthDash(){
       </div>
       <div class="grid2">
         <div class="card"><h2 style="margin:0 0 4px">Current maxes</h2>
-          <div class="note sub" style="padding:2px 0 10px">Each max is a dated entry — <b>tap a number to edit</b>. Snatch &amp; C&amp;J recompute the Total + classification.</div>
+          <div class="note sub" style="padding:2px 0 10px">Each max is a dated entry — <b>tap a number to edit</b>. Edits collect until you hit <b>Save changes</b>; Total &amp; classification refresh then.</div>
           <div class="grid2" style="gap:0 24px">
             <div style="overflow-x:auto"><table class="pf-mx"><thead><tr><th>Lift</th><th>1RM (kg)</th><th>Last</th></tr></thead><tbody>${PF_MAXES_L.map(maxRow).join('')}${totRow}</tbody></table></div>
             <div style="overflow-x:auto"><table class="pf-mx"><thead><tr><th>Lift</th><th>1RM (kg)</th><th>Last</th></tr></thead><tbody>${PF_MAXES_R.map(maxRow).join('')}</tbody></table></div>
@@ -4278,7 +4593,7 @@ async function renderAthDash(){
           <div style="overflow-x:auto"><table class="eff-tbl"><thead><tr><th>Movement</th><th>Parent</th><th class="eff-num">Current 1RM</th><th class="eff-num">Current eff</th><th class="eff-num">Target ratio</th><th class="eff-num">Ideal 1RM</th><th class="eff-num">Gap</th><th>Read</th></tr></thead><tbody>${body||'<tr><td colspan="8" class="sub" style="padding:14px;text-align:center">'+(anyMax?'No lifts match this filter.':'Fill in the Current maxes above to see efficiency.')+'</td></tr>'}</tbody></table></div>
           ${story?`<div class="note" style="margin-top:10px"><b>Story:</b> ${esc(story)}</div>`:''}`); })()}
       ${rollup('repmax','Rep-max chart',
-        `<div class="note sub" style="padding:2px 0 10px">Log the best lift at each rep count — <b>% of 1RM computes automatically</b>. Tap a cell to type.</div>
+        `<div class="note sub" style="padding:2px 0 10px">Log the best lift at each rep count — <b>% of 1RM computes automatically</b>. Tap a cell to type; edits collect until <b>Save changes</b>.</div>
         <div style="overflow-x:auto"><table class="rm-tbl"><thead><tr><th class="rm-mv">Movement</th>${REP_COLS.map(c=>`<th class="${c===1?'rm-1rm':''}">${c}RM</th>`).join('')}</tr></thead><tbody>${rmMoves.map(mv=>`<tr><td class="rm-mv">${esc(mv)}</td>${REP_COLS.map(c=>rmCell(mv,c)).join('')}</tr>`).join('')}</tbody></table></div>
         <div class="note" style="margin-top:10px">Classic lifts (Snatch, C&amp;J, Clean, Jerk) cap at 5RM. A rep-max above <b style="color:var(--good)">100%</b> means the tested 1RM is conservative — flag for a re-test. Editing a 1RM here syncs to maxes &amp; classification above.</div>`,
         `<span class="cbtn alt" onclick="addRepMaxMove()">＋ Add movement</span>`)}
@@ -4467,11 +4782,26 @@ const REPORT_RANGES=[['12w','Last 12 weeks'],['6m','Last 6 months'],['ytd','This
 // Home; the coach SENDS mesocycle + macrocycle reviews (period-anchored to the plan).
 const REPORT_LEVELS=[['week','This week','The athlete’s current week — focus only, no PDF'],['meso','Mesocycle','This training block'],['macro','Macrocycle','The whole annual plan'],['custom','Custom range','A rolling window']];
 const REPORT_LEVEL_SECTIONS={
-  meso:['methodology','trends','efficiency','redflags','injury','summary'],
+  meso:['maxes','climb','methodology','trends','efficiency','redflags','injury','summary'],
   macro:['maxes','climb','efficiency','methodology','trends','injury','summary'],
   custom:REPORT_DEFAULT.slice()
 };
-let reportState={ athleteId:null, level:'meso', blockId:null, range:'1y', sections:REPORT_LEVEL_SECTIONS.meso.slice(), summary:'', title:'', titleEdited:false, templates:null, tplId:'', _phases:null, _teamId:undefined, _focusAuto:'', _data:null, _busy:false };
+// placeable report modules (the exec summary is always on, not placed here)
+const REPORT_MODULE_KEYS=['maxes','climb','meets','methodology','trends','redflags','efficiency','injury'];
+const reportModLabel=k=>{ if(typeof k==='string'&&k.indexOf('note:')===0){ const n=reportState.notes&&reportState.notes[k]; return '📝 '+(((n&&n.title)||'Coach note').slice(0,22)); } return (REPORT_SECTIONS.find(s=>s[0]===k)||[,k])[1]; };
+// default grouping (chapters) per level — the coach can then edit/add/delete/reorder
+function reportDefaultGroups(level){
+  const base=[
+    {name:'Performance & Classification', mods:level==='macro'?['maxes','climb','meets']:['maxes','climb']},
+    {name:'Training Analysis', mods:['methodology','trends','redflags']},
+    {name:'Strengths & Weaknesses', mods:['efficiency']},
+    {name:'Health & Availability', mods:['injury']}
+  ];
+  return base.map(g=>({name:g.name, mods:g.mods.slice()}));
+}
+// keep the flat sections list in sync with the group structure (used by save/send + templates)
+function reportSyncSections(){ const out=[]; (reportState.groups||[]).forEach(g=>(g.mods||[]).forEach(k=>{ if(out.indexOf(k)<0) out.push(k); })); if(reportState.sections&&reportState.sections.indexOf('summary')>=0) out.push('summary'); reportState.sections=out; }
+let reportState={ athleteId:null, level:'meso', blockId:null, range:'1y', sections:REPORT_LEVEL_SECTIONS.meso.slice(), groups:reportDefaultGroups('meso'), summary:'', title:'', titleEdited:false, templates:null, tplId:'', theme:'light', editMode:false, overrides:{}, notes:{}, _noteSeq:0, _phases:null, _teamId:undefined, _focusAuto:'', _data:null, _busy:false };
 // feature gate — set false until migration 36 is run (probed at boot)
 let REPORTS_READY = true;
 
@@ -4552,7 +4882,7 @@ function paintReports(chrome){
   }
   const tplOpts=`<option value="">— templates —</option>`+tpls.map(t=>`<option value="${t.id}"${reportState.tplId===t.id?' selected':''}>${esc(t.name)}${t.level?' ('+t.level+')':''}</option>`).join('');
   const titleFld = isWeek ? '' : `<span class="rpt-fld" style="flex:1"><label>Report title</label><input id="rptTitle" placeholder="e.g. Mid-cycle progress report" value="${esc(reportState.title)}" oninput="reportState.title=this.value;reportState.titleEdited=true;reportSyncHeader()"></span>`;
-  const sectionsRow = isWeek ? '' : `<div class="rpt-row"><span class="rpt-fld" style="flex:1"><label>Sections</label><div class="rpt-checks">${secChecks}</div></span></div>`;
+  const sectionsRow = isWeek ? '' : `<div class="rpt-row"><span class="rpt-fld" style="flex:1"><label>Report structure <span class="sub" style="text-transform:none;letter-spacing:0">— rename or ✕ a section · drag ⠿ modules to reorder / move · ＋ add</span></label><div id="rptBuilder">${renderReportBuilder()}</div></span></div>`;
   const summaryLabel = isWeek
     ? `Weekly focus <span class="sub" style="text-transform:none;letter-spacing:0">— shows on ${firstName}'s Home this week; auto-drafted, edit freely</span>`
     : `Coach summary &amp; focus <span class="sub" style="text-transform:none;letter-spacing:0">— auto-drafted from the data; edit freely</span>`;
@@ -4561,6 +4891,8 @@ function paintReports(chrome){
     : `<div class="rpt-row rpt-actions">
       <button class="btn" onclick="reportDownloadPDF()">⬇ Download PDF</button>
       <button class="cbtn" onclick="reportSaveSend()">📨 Save &amp; send to athlete</button>
+      <span class="rpt-fld"><label>Theme</label><div class="rpt-theme"><button class="${reportState.theme!=='dark'?'on':''}" onclick="reportSetTheme('light')">☀ Light</button><button class="${reportState.theme==='dark'?'on':''}" onclick="reportSetTheme('dark')">☾ Dark</button></div></span>
+      <span class="rpt-fld"><label>Edit values</label><span style="display:flex;gap:6px;align-items:center"><div class="rpt-theme rpt-edit"><button class="${!reportState.editMode?'on':''}" onclick="reportSetEdit(false)" title="Preview / lock values">Off</button><button class="${reportState.editMode?'on':''}" onclick="reportSetEdit(true)" title="Click any value in the report to override it for this report">✎ On</button></div>${Object.keys(reportState.overrides||{}).length?`<button class="cbtn alt" onclick="reportResetEdits()" title="Clear all value edits for this report">↺ Reset (${Object.keys(reportState.overrides).length})</button>`:''}</span></span>
       <span class="rpt-sp"></span>
       <span class="rpt-fld"><label>Template</label><span style="display:flex;gap:6px"><select class="scopesel" onchange="reportLoadTemplate(this.value)">${tplOpts}</select><button class="cbtn alt" onclick="reportSaveTemplate()">Save current as…</button>${reportState.tplId?`<button class="cbtn alt" onclick="reportDeleteTemplate()">✕</button>`:''}</span></span>
       <span class="saved" id="rptMsg"></span>
@@ -4579,10 +4911,76 @@ function paintReports(chrome){
   app.innerHTML = chrome + controls + `<div id="reportPreview"><div class="card"><div class="spin">Building preview…</div></div></div>`;
 }
 
-window.reportPick=(id)=>{ reportState.athleteId=id; reportState._data=null; reportState._phases=null; reportState.summary=''; reportState.titleEdited=false; renderReports(); };
+window.reportPick=(id)=>{ reportState.athleteId=id; reportState._data=null; reportState._phases=null; reportState.summary=''; reportState.titleEdited=false; reportState.overrides={}; reportState.notes={}; renderReports(); };
 window.reportSetRange=(r)=>{ reportState.range=r; renderReports(); };
-window.reportSetLevel=(lv)=>{ reportState.level=lv; reportState.summary=''; reportState.titleEdited=false; if(REPORT_LEVEL_SECTIONS[lv]) reportState.sections=REPORT_LEVEL_SECTIONS[lv].slice(); renderReports(); };
+window.reportSetLevel=(lv)=>{ reportState.level=lv; reportState.summary=''; reportState.titleEdited=false; if(REPORT_LEVEL_SECTIONS[lv]) reportState.sections=REPORT_LEVEL_SECTIONS[lv].slice(); reportState.groups=reportDefaultGroups(lv); reportState.notes={}; reportSyncSections(); renderReports(); };
 window.reportSetBlock=(id)=>{ reportState.blockId=id; renderReports(); };
+window.reportSetTheme=(t)=>{ reportState.theme=(t==='dark'?'dark':'light');
+  if(reportState._data && reportState.level!=='week'){ const h=document.getElementById('reportPreview'); if(h) h.innerHTML=reportHTML(reportState._data); }   // re-render from cache, no reload
+  const btns=document.querySelectorAll('.rpt-theme:not(.rpt-edit) button'); if(btns[0])btns[0].classList.toggle('on',reportState.theme!=='dark'); if(btns[1])btns[1].classList.toggle('on',reportState.theme==='dark'); };
+/* ---- slice 3: per-report editable value overrides + coach-note blocks ---- */
+window.reportSetEdit=(on)=>{ reportState.editMode=!!on;
+  if(reportState._data && reportState.level!=='week'){ const h=document.getElementById('reportPreview'); if(h) h.innerHTML=reportHTML(reportState._data); }   // re-render from cache, no reload
+  const btns=document.querySelectorAll('.rpt-edit button'); if(btns[0])btns[0].classList.toggle('on',!reportState.editMode); if(btns[1])btns[1].classList.toggle('on',reportState.editMode); };
+window.reportResetEdits=()=>{ if(!Object.keys(reportState.overrides||{}).length) return; reportState.overrides={};
+  if(reportState._data && reportState.level!=='week'){ const h=document.getElementById('reportPreview'); if(h) h.innerHTML=reportHTML(reportState._data); }
+  renderReports(); reportMsg('Value edits cleared for this report.'); };
+// click a value in edit mode → inline free-text override (per report; baked into the PDF, restores original when cleared)
+window.rptEvClick=(e,el)=>{ if(!reportState.editMode||el.querySelector('input')) return; e.stopPropagation();
+  const key=el.getAttribute('data-ovk'); const orig=el.getAttribute('data-ovv')||''; const cur=el.textContent;
+  const inp=document.createElement('input'); inp.type='text'; inp.className='rx-ev-inp'; inp.value=cur; inp.setAttribute('aria-label','Edit value');
+  el.textContent=''; el.appendChild(inp); inp.focus(); inp.select();
+  let done=false;
+  const commit=(save)=>{ if(done) return; done=true; let out;
+    if(save){ const t=inp.value.trim();
+      if(t===''||t===orig){ delete reportState.overrides[key]; out=orig; el.classList.remove('edited'); }
+      else { reportState.overrides[key]=t; out=t; el.classList.add('edited'); } }
+    else { out=(reportState.overrides[key]!=null)?reportState.overrides[key]:orig; }
+    el.textContent=out; };
+  inp.addEventListener('keydown',ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); commit(true); } else if(ev.key==='Escape'){ ev.preventDefault(); commit(false); } });
+  inp.addEventListener('blur',()=>commit(true)); };
+/* ---- report structure BUILDER: coach-editable groups + drag-reorder modules ---- */
+function renderReportBuilder(){
+  const groups=reportState.groups||[];
+  const placed=new Set(); groups.forEach(g=>(g.mods||[]).forEach(k=>placed.add(k)));
+  const avail=REPORT_MODULE_KEYS.filter(k=>!placed.has(k));
+  const groupsHtml=groups.map((g,gi)=>{
+    const chips=(g.mods||[]).map((k,mi)=>`<div class="rb-chip" draggable="true" ondragstart="rptDragStart(event,${gi},${mi})" ondragover="event.preventDefault()" ondrop="event.stopPropagation();rptDropChip(event,${gi},${mi})"><span class="grip">⠿</span><span class="lab">${esc(reportModLabel(k))}</span><span class="x" onclick="rptModRemove(${gi},${mi})" title="Remove">✕</span></div>`).join('');
+    const addMod = avail.length ? `<select class="rb-add" onchange="rptModAdd(${gi},this.value);this.selectedIndex=0"><option value="">＋ module…</option>${avail.map(k=>`<option value="${k}">${esc(reportModLabel(k))}</option>`).join('')}</select>` : '';
+    return `<div class="rb-group">
+      <div class="rb-ghead">
+        <button class="rb-mv" ${gi===0?'disabled':''} onclick="rptGroupMove(${gi},-1)" title="Move left">◀</button>
+        <input class="rb-gname" value="${esc(g.name||'')}" onchange="rptGroupRename(${gi},this.value)" placeholder="Section name">
+        <button class="rb-mv" ${gi===groups.length-1?'disabled':''} onclick="rptGroupMove(${gi},1)" title="Move right">▶</button>
+        <button class="rb-del" onclick="rptGroupDel(${gi})" title="Delete section">🗑</button>
+      </div>
+      <div class="rb-body" ondragover="event.preventDefault()" ondrop="rptDropGroup(event,${gi})">${chips||'<div class="rb-empty">drag modules here</div>'}</div>
+      ${addMod}
+    </div>`;
+  }).join('');
+  const availNote = avail.length ? `<div class="rb-avail">Hidden from the report: ${avail.map(k=>esc(reportModLabel(k))).join(', ')} — add from any section's ＋ menu.</div>` : '';
+  return `<div class="rb-groups">${groupsHtml}<button class="rb-addgroup" onclick="rptGroupAdd()">＋ Add section</button></div><div class="rb-tools"><button class="rb-note" onclick="rptNoteAdd()">📝 ＋ Coach-note block</button><span class="rb-toolnote">Drops an editable note into the last section — then edit its text in the preview with <b>Edit values ✎ On</b>.</span></div>${availNote}`;
+}
+function rptRebuild(){ const b=document.getElementById('rptBuilder'); if(b) b.innerHTML=renderReportBuilder(); const h=document.getElementById('reportPreview'); if(h&&reportState._data&&reportState.level!=='week') h.innerHTML=reportHTML(reportState._data); }
+function rptStructChanged(){ reportSyncSections(); rptRebuild(); }
+window.rptGroupAdd=()=>{ reportState.groups.push({name:'New section',mods:[]}); rptStructChanged(); };
+window.rptGroupDel=(gi)=>{ if(reportState.groups[gi]){ reportState.groups.splice(gi,1); rptStructChanged(); } };
+window.rptGroupMove=(gi,dir)=>{ const g=reportState.groups, ni=gi+dir; if(ni<0||ni>=g.length) return; const t=g[gi]; g[gi]=g[ni]; g[ni]=t; rptStructChanged(); };
+window.rptGroupRename=(gi,name)=>{ if(reportState.groups[gi]) reportState.groups[gi].name=name; const h=document.getElementById('reportPreview'); if(h&&reportState._data) h.innerHTML=reportHTML(reportState._data); };
+window.rptModRemove=(gi,mi)=>{ const g=reportState.groups[gi]; if(g&&g.mods){ const k=g.mods[mi]; g.mods.splice(mi,1); if(typeof k==='string'&&k.indexOf('note:')===0){ delete reportState.notes[k]; } rptStructChanged(); } };
+window.rptNoteAdd=()=>{ reportState._noteSeq=(reportState._noteSeq||0)+1; const id='note:n'+reportState._noteSeq; reportState.notes[id]={title:'Coach note',body:''};
+  let g=reportState.groups[reportState.groups.length-1]; if(!g){ reportState.groups.push({name:'Coach notes',mods:[]}); g=reportState.groups[reportState.groups.length-1]; }
+  g.mods.push(id); if(!reportState.editMode) reportState.editMode=true; rptStructChanged(); };
+window.rptNoteEdit=(key,field,el)=>{ if(!reportState.notes[key]) reportState.notes[key]={title:'Coach note',body:''}; reportState.notes[key][field]=(el.innerText||'').trim(); if(field==='title'){ const b=document.getElementById('rptBuilder'); if(b) b.innerHTML=renderReportBuilder(); } };
+window.rptModAdd=(gi,k)=>{ if(!k||!reportState.groups[gi]) return; reportState.groups.forEach(gr=>{ const i=gr.mods.indexOf(k); if(i>=0) gr.mods.splice(i,1); }); reportState.groups[gi].mods.push(k); rptStructChanged(); };
+window.rptDragStart=(ev,gi,mi)=>{ window._rptDrag={gi,mi}; try{ ev.dataTransfer.effectAllowed='move'; ev.dataTransfer.setData('text/plain','m'); }catch(e){} };
+window.rptDropChip=(ev,gi,mi)=>{ ev.preventDefault(); rptMoveMod(gi,mi); };
+window.rptDropGroup=(ev,gi)=>{ ev.preventDefault(); const g=reportState.groups[gi]; rptMoveMod(gi, g?g.mods.length:0); };
+function rptMoveMod(tgi,tmi){ const d=window._rptDrag; window._rptDrag=null; if(!d) return; const src=reportState.groups[d.gi]; if(!src) return; const key=src.mods[d.mi]; if(key==null) return;
+  src.mods.splice(d.mi,1);
+  let idx=tmi; if(d.gi===tgi && d.mi<tmi) idx=tmi-1;                    // removal shifted the target index
+  const tgt=reportState.groups[tgi]; if(!tgt) return; idx=Math.max(0,Math.min(tgt.mods.length,idx)); tgt.mods.splice(idx,0,key);
+  rptStructChanged(); }
 // auto-draft a focus from the data (efficiency gaps, guardrail flags, completion, climb)
 function reportFocusDraft(d){
   if(!d) return '';
@@ -4704,13 +5102,133 @@ async function reportLoadData(viewId){
   }
   // injury / pain over the range
   const pain = painAggregate(await loadPainRange(viewId, startStr, endStr));
+  // vs-previous deltas for the executive KPI band (block basis lines up with a mesocycle review; falls back to rolling)
+  let tr=null; try{ tr=await trainingResponse(viewId,{basis:'block'}); if(tr&&!tr.ok) tr=null; }catch(e){}
   const levelLbl = reportState.level==='meso'?'Mesocycle review':(reportState.level==='macro'?'Macrocycle review':'Progress report');
   const suggestedTitle = reportState.level==='meso'&&win.block ? (win.block.name+' — review') : levelLbl;
-  return { prof, viewName, sex, age, teamName, gymName, maxesRows, maxMap, totM, cls, meets, eff:{groups:effRows(maxMap)}, method, buckets, bwPts, hasTrend, redflags, pain, rangeLabel:win.label, startStr, endStr, level:reportState.level, block:win.block||null, levelLbl, suggestedTitle };
+  return { prof, viewName, sex, age, teamName, gymName, maxesRows, maxMap, totM, cls, meets, eff:{groups:effRows(maxMap)}, method, buckets, bwPts, hasTrend, redflags, pain, tr, rangeLabel:win.label, startStr, endStr, level:reportState.level, block:win.block||null, levelLbl, suggestedTitle };
 }
 
-// ---- report HTML (the .report node that becomes the PDF) ----
+// ---- report HTML (the #reportDoc node that becomes the PDF) — grouped executive layout, themed ----
 function reportHTML(d){
+  const theme = reportState.theme==='dark' ? 'dark' : 'light';
+  const sec=k=>reportState.sections.includes(k);
+  const today=new Date();
+  const num=v=>v==null?'—':(typeof v==='number'?v.toLocaleString():v);
+  // slice 3: editable value override — click in edit mode to type a free-text override for THIS report; clearing restores the computed value
+  const ov=reportState.overrides||{};
+  const ev=(key,val)=>{ const base=(val==null||val==='')?'—':String(val); const has=Object.prototype.hasOwnProperty.call(ov,key)&&ov[key]!==base; const disp=has?ov[key]:base;
+    return `<span class="rx-ev${has?' edited':''}" data-ovk="${esc(key)}" data-ovv="${esc(base)}" onclick="rptEvClick(event,this)">${esc(disp)}</span>`; };
+  // slice 3: coach-note block (insertable module, edited inline in edit mode)
+  const noteHTML=(key)=>{ const n=(reportState.notes||{})[key]||{title:'Coach note',body:''}; const ed=reportState.editMode?' contenteditable="true"':'';
+    return `<div class="rx-note-block" data-nk="${esc(key)}">
+      <div class="rx-nb-title"${ed}${reportState.editMode?` onblur="rptNoteEdit('${esc(key)}','title',this)"`:''} data-ph="Note title">${esc(n.title||'')}</div>
+      <div class="rx-nb-body"${ed}${reportState.editMode?` onblur="rptNoteEdit('${esc(key)}','body',this)"`:''} data-ph="Write your note to the athlete here…">${esc(n.body||'')}</div>
+    </div>`; };
+  // --- executive KPI band + vs-previous trend arrows (from d.tr, block basis) ---
+  const tr=d.tr, lev=k=>tr&&tr.levers?tr.levers.find(l=>l.key===k):null;
+  const arrPct=(p,goodUp)=>{ if(p==null) return ''; const dir=p>0.02?'up':(p<-0.02?'down':'flat'); const cls=dir==='flat'?'flat':((dir==='up')===(goodUp!==false)?'up':'down');
+    return `<span class="rx-trend ${cls}">${dir==='up'?'▲':dir==='down'?'▼':'—'} ${(p>0?'+':'')+Math.round(p*100)}%</span>`; };
+  const arrPt=(rec,pri,digits)=>{ if(rec==null||pri==null) return ''; const delta=rec-pri; const dir=Math.abs(delta)<(digits?0.05:0.5)?'flat':(delta>0?'up':'down');
+    return `<span class="rx-trend ${dir}">${dir==='up'?'▲':dir==='down'?'▼':'—'} ${(delta>0?'+':'')+(digits?delta.toFixed(1):Math.round(delta))}</span>`; };
+  const m=d.method, recc=tr&&tr.rec, pri=tr&&tr.pri;
+  const kpi=(key,l,v,unit,trend,note)=>`<div class="rx-kpi"><div class="l">${l}</div><div class="v tnum">${ev(key,v)}${unit?`<small>${unit}</small>`:''} ${trend||''}</div>${note?`<div class="rx-knote">${note}</div>`:''}</div>`;
+  const kpis=`<div class="rx-kpis">
+    ${kpi('kpi:total','Competition total', d.totM?d.totM.total:'—','kg','', d.totM?`Sn ${d.totM.sn!=null?d.totM.sn:'—'} · CJ ${d.totM.cj!=null?d.totM.cj:'—'}`:'Needs Sn + C&amp;J')}
+    ${kpi('kpi:ari','Avg intensity (ARI)', m.ari!=null?Math.round(m.ari):'—','%', arrPct(lev('intensity')&&lev('intensity').trendPct,true), d.redflags?bandNote(d.redflags,'Avg intensity (ARI)'):'')}
+    ${kpi('kpi:weekly','Weekly volume', m.weekly!=null?m.weekly:'—','NL', arrPct(lev('volume')&&lev('volume').trendPct,true), d.redflags?bandNote(d.redflags,'Avg weekly volume'):'')}
+    ${kpi('kpi:comp','Set completion', m.compPct!=null?m.compPct:'—','%', (recc&&pri)?arrPt(recc.completion*100,pri.completion*100):'', '')}
+    ${kpi('kpi:rd','Avg readiness', m.rdAvg!=null?m.rdAvg.toFixed(1):'—','/5', (recc&&pri)?arrPt(recc.readiness,pri.readiness,true):'', '')}
+    ${kpi('kpi:make','Make-rate', m.cleanPct!=null?m.cleanPct:'—','%', (recc&&pri)?arrPt(recc.makeRate*100,pri.makeRate*100):'', 'Clean lifts')}
+  </div>`;
+  // --- status callouts ---
+  const co=[];
+  if(d.cls){ if(d.cls.nextRank) co.push(['g','On track',`<b>On track for ${esc(d.cls.nextRank)}</b> — ${d.cls.toGo}kg to go (${d.cls.pct}%).`]);
+    else co.push(['g','Top',`<b>At the top of the standards</b> for the class.`]); }
+  if(d.redflags && d.redflags.flags>0) co.push(['w','Watch',`<b>${d.redflags.flags} metric${d.redflags.flags>1?'s':''} outside the ${esc(d.redflags.rank)} band</b> — see the guardrail check.`]);
+  if(d.pain && d.pain.persistent && d.pain.persistent.length){ const p=d.pain.persistent[0]; const side=(p.side&&p.side!=='na')?(p.side==='both'?'both-side ':p.side+' '):'';
+    co.push([p.peak>=7?'c':'w','Monitor',`<b>${d.pain.persistent.length} persistent twinge${d.pain.persistent.length>1?'s':''}</b> — ${esc(side+((p.label||p.region)||'').toLowerCase())} (peak ${p.peak}/10).`]); }
+  if(d.method.compPct!=null && d.method.compPct<75) co.push(['w','Adherence',`<b>Set completion ${d.method.compPct}%</b> — adherence gap worth a look.`]);
+  const callouts = co.slice(0,4).map(([sv,tag,html])=>`<div class="rx-call ${sv}"><span class="dot"></span><div>${html}</div><span class="tag">${tag}</span></div>`).join('');
+  const read=(reportState.summary||'').trim()||reportFocusDraft(d)||'';
+  // --- identity chips + masthead ---
+  const chips=[ d.sex?(d.sex==='F'?'Female':'Male'):null, d.age!=null?('Age '+d.age):null,
+    d.prof.weight_class?(esc(d.prof.weight_class)+' kg class'):null, d.prof.skill_level||null, d.teamName?('Team: '+esc(d.teamName)):null
+  ].filter(Boolean);
+  const mast=`<header class="rx-mast">
+    <div class="rx-mast-l">
+      <div class="rx-lockup"><div class="rx-mark">${esc((d.gymName||'G').slice(0,2)).toUpperCase()}</div><div class="rx-name">${esc(d.gymName)}<small>Performance Report</small></div></div>
+      <div class="rx-eyebrow">${esc(d.levelLbl||'Report')}</div>
+      <div class="rx-h1">${esc(reportState.title||d.viewName)}</div>
+      <div class="rx-sub">${esc(d.viewName)}${d.block?' · '+esc(d.block.name):''}</div>
+      <div class="rx-meta"><span>${chips.map(esc).join('</span><span>')}</span><span>Window <b>${fmtShort(d.startStr)} – ${fmtShort(d.endStr)}</b></span><span>Issued <b>${MONS[today.getMonth()]+' '+today.getDate()+', '+today.getFullYear()}</b></span></div>
+    </div>
+    ${d.cls?`<div class="rx-badge"><div class="k">${esc(d.cls.rank||'—')}</div><div class="l">Classification</div>${d.cls.nextRank?`<div class="goal">${d.cls.toGo}kg to ${esc(d.cls.nextRank)}</div>`:''}</div>`:''}
+  </header>`;
+  const execSec=`<section class="rx-pad rx-exec-wrap">
+    <div class="rx-eyebrow2">Executive summary${tr?' · this block vs. previous':''}</div>
+    ${kpis}
+    <div class="rx-exec">
+      <div class="rx-read"><p>${esc(read)||'—'}</p><div class="sig">Prepared by <b>Coach</b> · ${esc(d.gymName)}</div></div>
+      ${callouts?`<div class="rx-callouts">${callouts}</div>`:''}
+    </div>
+  </section>`;
+
+  // ---------- module renderers (reuse the existing data + SVG builders) ----------
+  const mMaxes=()=>{ const row=lift=>{ const mx=d.maxMap[normEx(lift)]; return `<tr><td>${esc(lift)}</td><td class="num">${ev('maxes:'+lift, mx&&mx.kg!=null?mx.kg:'—')}</td></tr>`; };
+    const tot=d.totM?`<tr class="tot"><td>Total (Sn + C&amp;J)</td><td class="num"><span class="rx-accent">${ev('maxes:total',d.totM.total)}</span></td></tr>`:'';
+    return `<h4 class="rx-mod">Current maxes</h4><div class="rx-2col">
+      <table class="rx-tbl"><thead><tr><th>Lift</th><th class="num">1RM (kg)</th></tr></thead><tbody>${PF_MAXES_L.map(row).join('')}${tot}</tbody></table>
+      <table class="rx-tbl"><thead><tr><th>Lift</th><th class="num">1RM (kg)</th></tr></thead><tbody>${PF_MAXES_R.map(row).join('')}</tbody></table></div>`; };
+  const mClimb=()=>{ if(!d.cls) return `<h4 class="rx-mod">Classification — the climb</h4><div class="rx-note">Add sex, weight class, and Snatch + C&amp;J maxes to compute classification.</div>`;
+    const c=d.cls; const goal=c.nextRank?`Next standard <b>${esc(c.nextRank)} at ${c.nextTotal}kg</b> — ${c.toGo}kg to go (${c.pct}%).`:'At the top of the standards.';
+    const ladder=`<div class="rx-ladder">${c.ranks.map((r,i)=>`<div class="cell${i===c.rankIdx?' on':''}"><div class="r">${r==='Class III'?'III':r==='Class II'?'II':r==='Class I'?'I':r}${i===c.rankIdx?' ← now':''}</div><div class="t tnum">${c.thresholds[i]}</div></div>`).join('')}</div>`;
+    return `<h4 class="rx-mod">The climb — total over time</h4>
+      <div class="rx-line">Total <b>${d.totM.total}kg</b> (Sn ${d.totM.sn!=null?d.totM.sn:'—'} + CJ ${d.totM.cj!=null?d.totM.cj:'—'}) — current class <b>${esc(c.rank||'Below Class III')}</b>. ${goal}</div>
+      ${d.meets.length?climbSVG(d.meets,c):''}
+      ${ladder}<div class="rx-prog"><i style="width:${Math.max(2,Math.min(100,c.pct))}%"></i></div>
+      <div class="rx-note">Thresholds come from the versioned classification table (${esc(c.label||'')}) — never typed per athlete.</div>`; };
+  const mMeets=()=>{ if(!d.meets.length) return `<h4 class="rx-mod">Meet results</h4><div class="rx-note">No competition results logged yet.</div>`;
+    const rows=d.meets.slice().reverse().map(mt=>{ const tot=mt.total!=null?mt.total:((+mt.best_snatch||0)+(+mt.best_cj||0)); const mk=mt.meet_date||mt.meet_name||'m';
+      return `<tr><td>${fmtShort(mt.meet_date)}</td><td>${esc(mt.meet_name||'Meet')}</td><td class="num">${ev('meet:'+mk+':sn', mt.best_snatch!=null?mt.best_snatch:'—')}</td><td class="num">${ev('meet:'+mk+':cj', mt.best_cj!=null?mt.best_cj:'—')}</td><td class="num"><b>${ev('meet:'+mk+':tot',tot)}</b></td><td class="num">${ev('meet:'+mk+':bw', mt.bodyweight!=null?mt.bodyweight:'—')}</td><td class="num">${ev('meet:'+mk+':pl', mt.placement?'#'+mt.placement:'—')}</td></tr>`; }).join('');
+    return `<h4 class="rx-mod">Meet results</h4><table class="rx-tbl"><thead><tr><th>Date</th><th>Meet</th><th class="num">Sn</th><th class="num">CJ</th><th class="num">Total</th><th class="num">BW</th><th class="num">Pl</th></tr></thead><tbody>${rows}</tbody></table>`; };
+  const mMethod=()=>{ const r=(key,lab,v)=>`<div class="row"><span class="lab">${lab}</span><span class="val tnum">${ev('method:'+key,v)}</span></div>`;
+    return `<h4 class="rx-mod">Methodology — grouped</h4><div class="rx-clusters">
+      <div class="rx-cluster"><div class="ct">Intensity</div>${r('ari','Avg relative intensity',m.ari!=null?Math.round(m.ari)+'%':'—')}${r('peak','Peak intensity',m.peak!=null?Math.round(m.peak)+'%':'—')}${r('l90','Lifts 90–100%',m.l90?m.l90.toLocaleString():'—')}</div>
+      <div class="rx-cluster"><div class="ct">Volume</div>${r('vol','Total volume',m.vol!=null?m.vol.toLocaleString()+' NL':'—')}${r('weekly','Avg weekly',m.weekly!=null?m.weekly.toLocaleString()+' NL':'—')}${r('tonnage','Tonnage',m.tonnage?Math.round(m.tonnage).toLocaleString()+' kg':'—')}</div>
+      <div class="rx-cluster"><div class="ct">Adherence</div>${r('comp','Set completion',m.compPct!=null?m.compPct+'%':'—')}${r('sess','Sessions logged',m.sessLogged)}${r('make','Make-rate (clean)',m.cleanPct!=null?m.cleanPct+'%':'—')}</div>
+      <div class="rx-cluster"><div class="ct">Recovery / effort</div>${r('rd','Avg readiness',m.rdAvg!=null?m.rdAvg.toFixed(1)+' /5':'—')}${r('ri','RI (effort)',riDisplay(m.ri))}${r('inol','INOL',m.inol!=null?m.inol.toFixed(2):'—')}</div>
+    </div><div class="rx-note">Intensity, RI, INOL and volume are from programmed work over the window; tonnage, completion, readiness and clean-lift rate are from what ${esc(d.viewName.split(/\s+/)[0])} actually logged.</div>`; };
+  const mTrends=()=>`<h4 class="rx-mod">Load &amp; readiness</h4>${d.hasTrend?`<div class="rx-cap">Training load &amp; readiness <span class="leg"><i style="background:#e8643c"></i>Volume (NL)</span><span class="leg"><i style="background:#3ec97a"></i>Readiness</span></div>${homeTrendSVG(d.buckets)}`:'<div class="rx-note">Volume &amp; readiness trend builds as training and check-ins are logged.</div>'}${d.bwPts.length>=2?`<div class="rx-cap" style="margin-top:14px">Bodyweight over time</div>${dashBWSVG(d.bwPts)}`:''}`;
+  const mGuard=()=>{ if(!d.redflags) return `<h4 class="rx-mod">Class guardrail check</h4><div class="rx-note">Set the athlete's classification to compare programming against the class loading norms.</div>`;
+    const r=d.redflags; const rows=r.rows.map(x=>{ const fl=x.flag==='in'?'in band':(x.flag==='under'?'under':(x.flag==='over'?'over':'—')); const cls=x.flag==='in'?'in':(x.flag==='na'?'':x.flag);
+      return `<tr><td>${esc(x.lbl)}</td><td class="num">${ev('guard:'+x.lbl,x.val)}</td><td class="num rx-dim">${esc(x.band)}</td><td class="num"><span class="rx-flag ${cls}">${fl}</span></td></tr>`; }).join('');
+    return `<h4 class="rx-mod">Class guardrail check · ${esc(r.rank)} <span class="rx-modsub">${r.flags?r.flags+' out of band':'all in band'}</span></h4>
+      <table class="rx-tbl"><thead><tr><th>Metric</th><th class="num">Last 52 wks</th><th class="num">Class band</th><th class="num">Flag</th></tr></thead><tbody>${rows}</tbody></table>
+      <div class="rx-note">Programmed numbers vs. the loading norms for this class. Out-of-band rows are where the program differs from what's typical for the level.</div>`; };
+  const mEff=()=>{ const rows=d.eff.groups.map(g=>{ const rs=g.rows.filter(r=>r.read); if(!rs.length) return '';
+      return `<tr class="rx-grp"><td colspan="5">${esc(g.grp)}</td></tr>`+rs.map(r=>`<tr><td>${esc(r.mv)}</td><td class="num">${ev('eff:'+r.mv+':1rm', r.cur!=null?r.cur:'—')}</td><td class="num">${r.eff!=null?Math.round(r.eff*100)+'%':'—'}</td><td class="num">${Math.round(r.ratio*100)}%</td><td class="num"><span class="rx-read ${r.read}">${EFF_READLBL[r.read]}</span></td></tr>`).join(''); }).join('');
+    const story=effStory(d.eff.groups);
+    return `<h4 class="rx-mod">Lift efficiency — strengths &amp; weaknesses</h4>${rows?`<table class="rx-tbl"><thead><tr><th>Movement</th><th class="num">1RM</th><th class="num">Current</th><th class="num">Target</th><th class="num">Read</th></tr></thead><tbody>${rows}</tbody></table>`:'<div class="rx-note">Fill in the maxes to compute efficiency.</div>'}${story?`<div class="rx-story"><b>Story:</b> ${esc(story)}</div>`:''}`; };
+  const mInjury=()=>{ const p=d.pain; if(p && p.list.length){ const watch=p.persistent.length?` <span class="rx-modsub">${p.persistent.length} to watch</span>`:'';
+      return `<h4 class="rx-mod">Injury / pain${watch}</h4>${painPanelHTML(p,{name:d.viewName,limit:12,rangeLabel:d.rangeLabel})}<div class="rx-note">Athlete-reported pain over ${esc(d.rangeLabel).toLowerCase()}. “N wks” means it was flagged in that many separate weeks — a persistence signal.</div>`; }
+    return `<h4 class="rx-mod">Injury / pain</h4><div class="rx-note">No pain reported over ${esc(d.rangeLabel).toLowerCase()} — nothing flagged on the body map.</div>`; };
+
+  // module registry — the coach's group structure (reportState.groups) decides order/placement
+  const MOD={ maxes:mMaxes, climb:mClimb, meets:mMeets, methodology:mMethod, trends:mTrends, redflags:mGuard, efficiency:mEff, injury:mInjury };
+  const isNote=k=>typeof k==='string'&&k.indexOf('note:')===0;
+  let chNo=0, body='';
+  (reportState.groups||[]).forEach(g=>{ const active=(g.mods||[]).filter(k=>MOD[k]||isNote(k)); if(!active.length) return; chNo++;
+    const inner=active.map(k=>`<div class="rx-module">${isNote(k)?noteHTML(k):MOD[k]()}</div>`).join('');
+    body+=`<section class="rx-chapter"><div class="rx-chhead"><div class="rx-chnum">${String(chNo).padStart(2,'0')}</div><div><div class="rx-chtitle">${esc(g.name||'Section')}</div></div></div><div class="rx-pad">${inner}</div></section>`; });
+
+  return `<div class="rptx${reportState.editMode?' rx-editing':''}" id="reportDoc" data-theme="${theme}">
+    ${mast}${execSec}${body}
+    <footer class="rx-foot"><span class="conf">Confidential</span><span>${esc(d.gymName)} · ${esc(d.viewName)} · ${esc(d.levelLbl)} · ${MONS[today.getMonth()]+' '+today.getDate()+', '+today.getFullYear()}</span></footer>
+  </div>`;
+}
+function bandNote(rf,lbl){ if(!rf) return ''; const r=(rf.rows||[]).find(x=>x.lbl===lbl); if(!r) return ''; return r.flag==='in'?('In band ('+esc(r.band)+')'):(r.flag==='over'?'Above band':(r.flag==='under'?'Below band':'')); }
+function reportHTML_legacy(d){
   const sec=k=>reportState.sections.includes(k);
   const today=new Date();
   const idChips=[ d.sex?(d.sex==='F'?'Female':'Male'):null, d.age!=null?'Age '+d.age:null,
@@ -4866,18 +5384,29 @@ function reportPdfWorker(node, d){
     margin:[8,8,8,8],
     filename:reportFileName(d),
     image:{ type:'jpeg', quality:0.96 },
-    html2canvas:{ scale:2, backgroundColor:'#0c1116', useCORS:true, logging:false },
+    // scrollX/Y:0 pin the capture to the document top — without this, html2canvas grabs from the
+    // window's current scroll offset, so a coach who scrolled through the report before hitting
+    // "Download PDF" gets that scroll distance baked in as blank space above the masthead (the
+    // "bunch of open space" bug). Fixes the download for every browser without moving the view.
+    html2canvas:{ scale:2, backgroundColor:(reportState.theme==='dark'?'#0A0E13':'#EEF1F4'), useCORS:true, logging:false, scrollX:0, scrollY:0 },
     jsPDF:{ unit:'mm', format:'letter', orientation:'portrait' },
     pagebreak:{ mode:['css','legacy'] }
   }).from(node);
 }
 function reportMsg(t,bad){ const m=document.getElementById('rptMsg'); if(m){ m.style.color=bad?'var(--bad)':'var(--good)'; m.textContent=t; } }
 
+// strip the on-screen edit chrome (outlines, placeholders) so it never bakes into the PDF; returns a restore fn
+function reportPrepPrint(node){ const wasEd=node.classList.contains('rx-editing'); node.classList.remove('rx-editing');
+  const eds=node.querySelectorAll('[contenteditable]'); eds.forEach(e=>e.removeAttribute('contenteditable'));
+  return ()=>{ if(wasEd) node.classList.add('rx-editing'); };
+}
 window.reportDownloadPDF=async()=>{
   const node=document.getElementById('reportDoc'); if(!node){ reportMsg('Build a preview first.',true); return; }
   if(!window.html2pdf){ reportMsg('PDF library still loading — try again in a second.',true); return; }
-  reportMsg('Generating PDF…'); try{ await reportPdfWorker(node, reportState._data||{viewName:'athlete'}).save(); reportMsg('PDF downloaded ✓'); }
+  reportMsg('Generating PDF…'); const restore=reportPrepPrint(node);
+  try{ await reportPdfWorker(node, reportState._data||{viewName:'athlete'}).save(); reportMsg('PDF downloaded ✓'); }
   catch(e){ reportMsg('PDF failed — '+(e.message||e),true); }
+  finally{ restore(); }
 };
 
 window.reportSaveSend=async()=>{
@@ -4885,6 +5414,7 @@ window.reportSaveSend=async()=>{
   if(!d||!node){ reportMsg('Build a preview first.',true); return; }
   if(!window.html2pdf){ reportMsg('PDF library still loading — try again.',true); return; }
   reportMsg('Generating + sending…');
+  const restore=reportPrepPrint(node);
   try{
     const blob=await reportPdfWorker(node,d).outputPdf('blob');
     const ts=Date.now(); const path=`${me_.gym_id}/${reportState.athleteId}/${ts}_report.pdf`;
@@ -4895,22 +5425,31 @@ window.reportSaveSend=async()=>{
     if(ins.error){ reportMsg('Saved the PDF but the record failed — '+ins.error.message,true); return; }
     reportMsg('Sent to '+(d.viewName||'the athlete')+' ✓ — they\'ll see it on their Home.');
   }catch(e){ reportMsg('Send failed — '+(e.message||e),true); }
+  finally{ restore(); }
 };
 
 /* ---- templates ---- */
 window.reportSaveTemplate=()=>{
   ovModal('rptTplModal',`<div class="ov-hd"><h2 style="margin:0">Save section template</h2><span class="vid-x" onclick="document.getElementById('rptTplModal').style.display='none'">✕</span></div>
     <div class="bf-row" style="margin-top:10px;gap:8px"><input id="rptTplName" placeholder="Template name (e.g. Monthly check-in)" style="flex:1;min-width:200px"><button class="btn" onclick="reportSaveTemplateGo()">Save</button></div>
-    <div class="note sub" style="padding:6px 0 0">Saves the currently-checked sections: ${esc(reportState.sections.map(k=>(REPORT_SECTIONS.find(s=>s[0]===k)||[,k])[1]).join(', '))}.</div>`);
+    <div class="note sub" style="padding:6px 0 0">Saves this structure: ${esc((reportState.groups||[]).map(g=>g.name).join(' · '))||'—'}.</div>`);
 };
 window.reportSaveTemplateGo=async()=>{
   const name=(document.getElementById('rptTplName')||{}).value; if(!name||!name.trim()){ return; }
-  const r=await sb.from('report_templates').insert({ gym_id:me_.gym_id, name:name.trim(), level:reportState.level, sections:reportState.sections }).select();
+  const payload={ v:3, groups:reportState.groups, flat:reportState.sections, notes:reportState.notes };   // structure + coach-note blocks stored in the existing jsonb column (no migration)
+  const r=await sb.from('report_templates').insert({ gym_id:me_.gym_id, name:name.trim(), level:reportState.level, sections:payload }).select();
   const m=document.getElementById('rptTplModal'); if(m) m.style.display='none';
   if(r.error){ reportMsg('Template save failed — '+r.error.message,true); return; }
   reportState.templates=null; reportState.tplId=(r.data&&r.data[0]&&r.data[0].id)||''; renderReports();
 };
-window.reportLoadTemplate=(id)=>{ reportState.tplId=id; if(!id) return; const t=(reportState.templates||[]).find(x=>x.id===id); if(t){ if(t.level) reportState.level=t.level; if(Array.isArray(t.sections)) reportState.sections=REPORT_SECTIONS.map(s=>s[0]).filter(k=>t.sections.includes(k)); } renderReports(); };
+window.reportLoadTemplate=(id)=>{ reportState.tplId=id; if(!id) return; const t=(reportState.templates||[]).find(x=>x.id===id); if(t){ if(t.level) reportState.level=t.level;
+    const s=t.sections;
+    if(s && !Array.isArray(s) && Array.isArray(s.groups)){ reportState.groups=s.groups.map(g=>({name:g.name||'Section',mods:(g.mods||[]).filter(k=>REPORT_MODULE_KEYS.includes(k)||(typeof k==='string'&&k.indexOf('note:')===0))}));
+      reportState.notes=(s.notes&&typeof s.notes==='object')?JSON.parse(JSON.stringify(s.notes)):{};
+      let mx=0; Object.keys(reportState.notes).forEach(k=>{ const mm=/^note:n(\d+)$/.exec(k); if(mm) mx=Math.max(mx,+mm[1]); }); reportState._noteSeq=Math.max(reportState._noteSeq||0,mx); }
+    else if(Array.isArray(s)){ const keep=new Set(s); reportState.groups=reportDefaultGroups(reportState.level).map(g=>({name:g.name,mods:g.mods.filter(k=>keep.has(k))})).filter(g=>g.mods.length); if(!reportState.groups.length) reportState.groups=reportDefaultGroups(reportState.level); reportState.notes={}; }
+    reportSyncSections();
+  } renderReports(); };
 window.reportDeleteTemplate=async()=>{ if(!reportState.tplId) return; const r=await sb.from('report_templates').delete().eq('id',reportState.tplId); reportState.tplId=''; reportState.templates=null; if(r.error){ reportMsg('Delete failed — '+r.error.message,true); } renderReports(); };
 
 // athlete (or coach) opens a delivered report's PDF via a signed URL
@@ -5414,6 +5953,7 @@ async function renderConsole(){
     </div>
     <div id="conBody"></div>`;
   renderConBody();
+  conState._attnCache=null;   // fresh scan on each console load; toggling collapse reuses the cache
   renderAttnOverview();
 }
 window.conTab=(t)=>{ conState.tab=t;
@@ -5434,15 +5974,39 @@ async function renderAttnOverview(){
   const aths=coachState.athletes||[];
   if(!aths.length){ host.innerHTML=''; return; }
   const basis=conState.attnBasis||'rolling';
+  // reuse the cached scan when only the collapse state changed — avoids re-querying every athlete on each toggle
+  if(conState._attnCache && conState._attnCache.basis===basis){ attnPaint(host, conState._attnCache); return; }
   const toggle=`<span class="tr-toggle"><button class="${basis==='block'?'on':''}" onclick="attnSetBasis('block')">Block</button><button class="${basis==='rolling'?'on':''}" onclick="attnSetBasis('rolling')">Rolling</button></span>`;
   host.innerHTML=`<div class="card"><div class="attn-head"><h2 style="margin:0">🔎 Athletes to watch</h2>${toggle}</div><div class="note sub" style="padding:6px 0">Scanning ${aths.length} athlete${aths.length>1?'s':''} — training response + recovery…</div></div>`;
   let results;
   try{ results=await Promise.all(aths.map(a=>trainingResponse(a.id,{basis}).then(tr=>({a,tr})).catch(()=>({a,tr:null})))); }
   catch(e){ host.innerHTML=`<div class="card"><div class="attn-head"><h2 style="margin:0">🔎 Athletes to watch</h2>${toggle}</div><div class="note sub">Couldn't scan the roster right now.</div></div>`; return; }
-  const sevDot={high:'🔴',warn:'🟠',info:'🔵',good:'🟢'};
   const flagged=results.filter(r=>r.tr&&r.tr.ok&&r.tr.score>0).sort((x,y)=>y.tr.score-x.tr.score);
   const onPlan=results.filter(r=>r.tr&&r.tr.ok&&r.tr.score===0);
   const noData=results.filter(r=>!r.tr||!r.tr.ok);
+  conState._attnCache={ basis, flagged, onPlan, noData };
+  attnPaint(host, conState._attnCache);
+}
+// rollup renderer: a compact one-line summary that expands into the full ranked list on click
+function attnPaint(host, C){
+  const basis=C.basis, flagged=C.flagged, onPlan=C.onPlan, noData=C.noData;
+  const collapsed=(conState.attnCollapsed!==false);   // default rolled up
+  const sevDot={high:'🔴',warn:'🟠',info:'🔵',good:'🟢'};
+  const toggle=`<span class="tr-toggle"><button class="${basis==='block'?'on':''}" onclick="attnSetBasis('block')">Block</button><button class="${basis==='rolling'?'on':''}" onclick="attnSetBasis('rolling')">Rolling</button></span>`;
+  const head=`<div class="attn-head"><h2 class="attn-title" style="margin:0" onclick="attnToggle()"><span class="attn-caret">${collapsed?'▸':'▾'}</span> 🔎 Athletes to watch${flagged.length?` <span class="attn-count">${flagged.length}</span>`:''}</h2>${toggle}</div>`;
+  if(collapsed){
+    let sum;
+    if(flagged.length){
+      const names=flagged.slice(0,6).map(({a,tr})=>`<span class="attn-sumitem">${sevDot[tr.topSev]||'•'} ${esc(a.full_name)}</span>`).join('');
+      const more=flagged.length>6?`<span class="attn-sumitem muted">+${flagged.length-6} more</span>`:'';
+      const plan=onPlan.length?`<span class="attn-sumitem muted">🟢 ${onPlan.length} on plan</span>`:'';
+      sum=`<div class="attn-summary" onclick="attnToggle()">${names}${more}${plan}</div>`;
+    } else {
+      sum=`<div class="attn-summary muted" onclick="attnToggle()">Nobody flagged — the whole roster is responding on plan. 🟢${noData.length?` · ○ ${noData.length} no recent data`:''}</div>`;
+    }
+    host.innerHTML=`<div class="card">${head}${sum}</div>`;
+    return;
+  }
   const recChips=(tr)=>{ const r=tr.rec; const c=[];
     if(r.readiness!=null) c.push(`<span class="attn-chip ${r.readiness<3?'bad':''}">rdy ${r.readiness.toFixed(1)}</span>`);
     if(r.srpeWeekly!=null) c.push(`<span class="attn-chip">load ${Math.round(r.srpeWeekly)}/wk</span>`);
@@ -5459,14 +6023,15 @@ async function renderAttnOverview(){
   const footBits=[];
   if(onPlan.length) footBits.push(`🟢 ${onPlan.length} responding on plan`);
   if(noData.length) footBits.push(`○ ${noData.length} no recent data`);
-  host.innerHTML=`<div class="card">
-    <div class="attn-head"><h2 style="margin:0">🔎 Athletes to watch</h2>${toggle}</div>
+  host.innerHTML=`<div class="card">${head}
     <div class="note sub" style="padding:2px 0 8px">Ranked by training-response + recovery signals over ${basis==='block'?'the current vs previous block':'the last 4 weeks vs the prior 4'}. Tap an athlete to open their full response panel.</div>
     ${flagged.length? rows : `<div class="note sub" style="padding:8px 0">Nobody's flagged right now — the whole roster is responding on plan. 🟢</div>`}
     ${footBits.length?`<div class="attn-foot">${footBits.join(' · ')}</div>`:''}
   </div>`;
 }
-window.attnSetBasis=(b)=>{ conState.attnBasis=b; renderAttnOverview(); };
+window.attnToggle=()=>{ const cur=(conState.attnCollapsed!==false); conState.attnCollapsed=!cur;
+  const host=document.getElementById('attnHost'); if(host&&conState._attnCache&&conState._attnCache.basis===(conState.attnBasis||'rolling')) attnPaint(host,conState._attnCache); else renderAttnOverview(); };
+window.attnSetBasis=(b)=>{ conState.attnBasis=b; conState._attnCache=null; renderAttnOverview(); };
 window.attnOpen=(id)=>{ dashState.athleteId=id; dashState.mode='coach'; coachGo('dash'); };
 function conSoon(title, what, needs){
   return `<div class="card con-empty"><h2 style="margin:0 0 6px;color:var(--text)">${esc(title)}</h2>
@@ -6518,6 +7083,12 @@ function planIsAth(){ return planState.mode==='athlete'; }
 const ATH_EVENT_KINDS=['travel','work','life','unavail','other'];
 async function loadPlan(){
   if(conState._teams===undefined){ const { data:tms } = await sb.from('teams').select('*').order('name'); conState._teams=tms||[]; }
+  // coach side: make sure the athlete roster carries team_id so the Athlete dropdown filters by team (also lets planTeamOf resolve inheritance)
+  if(!planIsAth()){ const a=coachState.athletes;
+    if(!a || !a.length || a.some(x=>x.team_id===undefined)){
+      const r=await sb.from('profiles').select('id,full_name,team_id').eq('role','athlete').order('full_name');
+      if(!r.error) coachState.athletes=r.data||[];
+    } }
   const ph=await sb.from('plan_phases').select('*').order('start_date');
   const cp=await sb.from('competitions').select('*').order('comp_date');
   const ev=await sb.from('calendar_events').select('*').order('start_date');
@@ -6558,8 +7129,40 @@ function planYearStart(){ return planMonday(new Date(planState.year,0,1)); }
 function planWeeksInYear(){ const s=planYearStart(); const e=planMonday(new Date(planState.year,11,31)); return Math.round((e-s)/(7*864e5))+1; }
 function planWeekIdx(dateStr){ const s=planYearStart(); const d=planMonday(new Date(dateStr+'T00:00:00')); return Math.round((d-s)/(7*864e5)); }
 function planWkDate(i){ const s=planYearStart(); const d=new Date(s); d.setDate(d.getDate()+i*7); return d; }
-function planScopedPhases(){ return planState.phases.filter(p=> !planState.teamId || p.team_id===planState.teamId || !p.team_id); }
-function planScopedComps(){ return planState.comps.filter(c=> !planState.teamId || c.team_id===planState.teamId || !c.team_id); }
+function planTeamOf(athId){ if(me_ && athId===me_.id) return me_.team_id||null;   // athlete side: coachState.athletes has no team_id, use own profile
+  const a=(coachState.athletes||[]).find(x=>x.id===athId); return a?(a.team_id||null):null; }
+// Scope resolution. ATHLETE scope (planState.athleteId set): the athlete's OWN rows take precedence, and where they
+// don't cover, the athlete's team (then whole-gym) plan shows through — so an individual peak overrides the team plan
+// only for the weeks it spans. TEAM/GYM scope: team + gym rows, exactly as before. `own.concat(inh)` puts own first so
+// a `.find()` by date resolves to the override.
+function planScopedPhases(){ const A=planState.athleteId;
+  if(A){ const T=planTeamOf(A); const own=planState.phases.filter(p=>p.athlete_id===A); const inh=planState.phases.filter(p=>!p.athlete_id&&(!p.team_id||p.team_id===T)); return own.concat(inh); }
+  return planState.phases.filter(p=> !p.athlete_id && (!planState.teamId || p.team_id===planState.teamId || !p.team_id)); }
+function planScopedComps(){ const A=planState.athleteId;
+  if(A){ const T=planTeamOf(A); return planState.comps.filter(c=> c.athlete_id===A || (!c.athlete_id&&(!c.team_id||c.team_id===T))); }
+  return planState.comps.filter(c=> !c.athlete_id && (!planState.teamId || c.team_id===planState.teamId || !c.team_id)); }
+function planScopedTracks(){ const A=planState.athleteId;
+  if(A){ const T=planTeamOf(A); return planState.tracks.filter(t=> t.athlete_id===A || (!t.athlete_id&&(!t.team_id||t.team_id===T))); }
+  return planState.tracks.filter(t=> !t.athlete_id && (!planState.teamId || !t.team_id || t.team_id===planState.teamId)); }
+function planColOf(dateStr){ const N=planWeeksInYear(); return Math.max(0,Math.min(N-1,planWeekIdx(dateStr))); }
+// Split one band-level (meso/phase/subphase) into render segments: the athlete's OWN bands, plus the inherited
+// team/gym bands with the weeks covered by an own band removed — so own visually overrides the team for its span.
+// Returns [{c0,c1,name,kind,pattern,src:'own'|'inherit',id}]. In team/gym scope there are no own bands → inherited whole.
+function planBandSegments(level){
+  const A=planState.athleteId, at=p=>(p.level||'meso')===level;
+  const own=A?planState.phases.filter(p=>p.athlete_id===A&&at(p)):[];
+  const inh=A? planState.phases.filter(p=>!p.athlete_id&&at(p)&&(!p.team_id||p.team_id===planTeamOf(A)))
+            : planState.phases.filter(p=>!p.athlete_id&&at(p)&&(!planState.teamId||!p.team_id||p.team_id===planState.teamId));
+  const ownR=own.map(p=>[planColOf(p.start_date),planColOf(p.end_date)]);
+  const covered=i=>ownR.some(r=>r[0]<=i&&i<=r[1]);
+  const segs=[];
+  inh.forEach(p=>{ const s=planColOf(p.start_date), e=planColOf(p.end_date); let i=s;
+    while(i<=e){ if(covered(i)){ i++; continue; } let j=i; while(j+1<=e&&!covered(j+1)) j++; segs.push({c0:i,c1:j,name:p.name,kind:p.kind,pattern:p.pattern,src:'inherit',id:p.id}); i=j+1; } });
+  own.forEach(p=>segs.push({c0:planColOf(p.start_date),c1:planColOf(p.end_date),name:p.name,kind:p.kind,pattern:p.pattern,src:'own',id:p.id}));
+  return segs.sort((a,b)=>a.c0-b.c0);
+}
+window.planInheritNote=()=>toast('That block is part of the team plan. Set the Athlete selector to “— none —” and pick the Team to edit it.');
+window.planSetAthlete=(id)=>{ planState.athleteId=id||''; planState.selWk=null; paintPlan(); };
 async function renderPlan(){
   coachState.screen='plan';
   planState.mode='coach';
@@ -6569,6 +7172,7 @@ async function renderPlan(){
   paintPlan();
 }
 function paintPlan(){
+  if(window.plClearDelBar) plClearDelBar(); if(window.mclClearDelBar) mclClearDelBar();   // never leave a stale lasso bar across tab/scope switches
   const ath=planIsAth();
   const chrome = ath ? topbar('Athlete')+athNav('plan') : topbar('Coach')+coachNav('plan');
   if(!PLAN_READY){
@@ -6576,16 +7180,16 @@ function paintPlan(){
     app.innerHTML = chrome + conSoon('Annual Plan','map the macrocycle — mesocycle phases, peaks &amp; competitions across the year, on a timeline and a calendar','the plan tables — run 21_annual_plan.sql'); return;
   }
   const teams=conState._teams||[];
-  const aths=coachState.athletes||[];
+  const aths=(coachState.athletes||[]).filter(a=>!planState.teamId || a.team_id===planState.teamId);   // Athlete dropdown scopes to the selected team (all athletes when Whole gym)
   const head = ath
     ? `<div class="console-head">
         <div><h1>Your Annual Plan</h1><div class="sub">Your season — the team plan, your sessions, and your own life events around training.</div></div>
       </div>`
     : `<div class="console-head">
         <div><h1>Annual Plan</h1><div class="sub">Map the season — phases, comps, events &amp; sessions across the year.</div></div>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          <select class="cw-sel" onchange="planState.teamId=this.value;paintPlan()" title="Team scope"><option value="">Whole gym</option>${teams.map(t=>`<option value="${t.id}"${planState.teamId===t.id?' selected':''}>${esc(t.name)}</option>`).join('')}</select>
-          <select class="cw-sel" onchange="planState.athleteId=this.value;paintPlan()" title="Overlay an athlete's sessions"><option value="">No sessions</option>${aths.map(a=>`<option value="${a.id}"${planState.athleteId===a.id?' selected':''}>${esc(a.full_name)}</option>`).join('')}</select>
+        <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+          <label class="ap-sel"><span>Team plan</span><select class="cw-sel" onchange="planState.athleteId='';planState.teamId=this.value;planState.selWk=null;paintPlan()" title="View a team's plan"><option value="">Whole gym</option>${teams.map(t=>`<option value="${t.id}"${!planState.athleteId&&planState.teamId===t.id?' selected':''}>${esc(t.name)}</option>`).join('')}</select></label>
+          <label class="ap-sel"><span>Athlete</span><select class="cw-sel" onchange="planSetAthlete(this.value)" title="View an individual athlete's plan"><option value="">— none —</option>${aths.map(a=>`<option value="${a.id}"${planState.athleteId===a.id?' selected':''}>${esc(a.full_name)}</option>`).join('')}</select></label>
         </div>
       </div>`;
   app.innerHTML = chrome + head + `
@@ -6593,8 +7197,19 @@ function paintPlan(){
       <button class="${planState.tab==='calendar'?'on':''}" onclick="planState.tab='calendar';paintPlan()">Calendar</button>
       <button class="${planState.tab==='macro'?'on':''}" onclick="planState.tab='macro';paintPlan()">Macrocycle</button>
     </div>
+    ${planScopeBanner()}
     <div id="planBody"></div>`;
   if(planState.tab==='macro') renderMacro(); else renderPlanCal();
+}
+function planScopeBanner(){
+  if(planIsAth()) return '';
+  const A=planState.athleteId; if(!A) return '';
+  const a=(coachState.athletes||[]).find(x=>x.id===A); const name=a?esc(a.full_name):'Athlete';
+  const T=planTeamOf(A); const team=(conState._teams||[]).find(t=>t.id===T);
+  const teamTxt=team?(esc(team.name)+' plan'):'whole-gym plan';
+  const hasOwn=planState.phases.some(p=>p.athlete_id===A);
+  if(!ATHPLAN_READY) return `<div class="ap-scope warn">Viewing <b>${name}</b> — following the ${teamTxt} + their own sessions. Run <b>migration 38</b> to build custom blocks that override the team plan.</div>`;
+  return `<div class="ap-scope"><b>${name}</b> ${hasOwn?`— <b>custom blocks</b> (◆) override the ${teamTxt} where they overlap; the rest follows the ${teamTxt}.`:`— following the ${teamTxt}. Use the ＋ buttons to add a custom block (e.g. a comp peak) that overrides the team plan for those weeks.`}</div>`;
 }
 function macBounds(){ const y=planState.year; const a=new Date(y,0,1); const b=new Date(y,11,31); return { a, days:Math.round((b-a)/864e5)+1 }; }
 function macPct(dateStr){ const {a,days}=macBounds(); const d=new Date(dateStr+'T00:00:00'); return Math.max(0,Math.min(100,((d-a)/864e5)/days*100)); }
@@ -6604,26 +7219,30 @@ window.planSetPattern=async(id,val)=>{ const res=await sb.from('plan_phases').up
 window.planOpenWeekCoach=(dStr)=>{ if(!planState.athleteId){ toast('Pick an athlete (top-right) to open their week.'); return; } planOpenInCoach(planState.athleteId, dStr); };
 function renderMacro(){
   const host=document.getElementById('planBody'); if(!host) return;
+  if(window.mclClearDelBar) mclClearDelBar();   // drop any stale lasso bar when the macrocycle re-renders
   const ath=planIsAth();
   const y=planState.year, N=planWeeksInYear(), start=planYearStart(), td=new Date();
   const esq=(t)=>esc(t).replace(/'/g,"\\'");
   const col=(dateStr)=>Math.max(0,Math.min(N-1,planWeekIdx(dateStr)));
   const todayWk = (planMonday(td)>=start && planMonday(td)<=planMonday(new Date(y,11,31))) ? planWeekIdx(iso(td)) : -1;
   if(planState.selWk==null) planState.selWk = (todayWk>=0&&todayWk<N)?todayWk:0;
-  const phases=planScopedPhases();
-  const lvlOf=(p)=>p.level||'meso';
-  const mesoPhases=phases.filter(p=>lvlOf(p)==='meso');
-  const phaseBands=phases.filter(p=>lvlOf(p)==='phase');
-  const subBands=phases.filter(p=>lvlOf(p)==='subphase');
-  const comps=planScopedComps().map(c=>({id:c.id,name:c.name,kind:c.kind,comp_date:c.comp_date}));
-  const compEv=planState.events.filter(e=>e.kind==='competition' && (!planState.teamId||!e.team_id||e.team_id===planState.teamId)).map(e=>({id:null,name:e.title,kind:'comp',comp_date:e.start_date}));
+  // per-week meso lookup — own overrides inherited on overlap (planScopedPhases puts own first, so find() resolves to it)
+  const mesoScoped=planScopedPhases().filter(p=>(p.level||'meso')==='meso');
+  const phaseAt=(i)=>mesoScoped.find(p=> col(p.start_date)<=i && i<=col(p.end_date));
+  const T_=planState.athleteId?planTeamOf(planState.athleteId):null;
+  const comps=planScopedComps().map(c=>({id:c.id,name:c.name,kind:c.kind,comp_date:c.comp_date,own:(!!planState.athleteId && c.athlete_id===planState.athleteId)}));
+  const compEv=planState.events.filter(e=>e.kind==='competition' && (planState.athleteId
+      ? (e.athlete_id===planState.athleteId || (!e.athlete_id&&(!e.team_id||e.team_id===T_)))
+      : (!e.athlete_id&&(!planState.teamId||!e.team_id||e.team_id===planState.teamId)))).map(e=>({id:null,name:e.title,kind:'comp',comp_date:e.start_date}));
   const allComps=comps.concat(compEv).filter(c=>{const i=planWeekIdx(c.comp_date);return i>=0&&i<N;});
-  const phaseAt=(i)=>mesoPhases.find(p=> col(p.start_date)<=i && i<=col(p.end_date));
+  // bands render from override-split segments: own = editable + ◆ marker; inherited = read-only when scoped to an athlete
+  const segEditable=(seg)=> !ath && (seg.src==='own' || !planState.athleteId);
+  const segClick=(seg)=> segEditable(seg)?` onclick="planEditPhase('${seg.id}')"` : ((planState.athleteId&&!ath&&seg.src==='inherit')?` onclick="planInheritNote()"`:'');
   // Training-phase + Sub-phase bands — same tinted look/feel as the mesocycle blocks (Chris's color spec)
-  const bandRow=(lvl,arr)=>arr.map(p=>{ const c=bandColor(lvl,p.kind); const nm=esc(p.name||bandLabel(lvl,p.kind));
-    return `<div class="mc2-seg" style="grid-column:${col(p.start_date)+1}/${col(p.end_date)+2};${tintStyle(c)}${ath?';cursor:default':''}"${ath?'':` onclick="planEditPhase('${p.id}')"`} title="${nm} · ${bandLabel(lvl,p.kind)}">${nm}</div>`; }).join('');
-  const phaseRow=bandRow('phase',phaseBands);
-  const subRow=bandRow('subphase',subBands);
+  const bandRow=(lvl)=>planBandSegments(lvl).map(seg=>{ const c=bandColor(lvl,seg.kind); const nm=esc(seg.name||bandLabel(lvl,seg.kind));
+    return `<div class="mc2-seg${seg.src==='own'?' mc2-own':''}" style="grid-column:${seg.c0+1}/${seg.c1+2};${tintStyle(c)}${segEditable(seg)?'':';cursor:default'}"${segClick(seg)}${segEditable(seg)?` data-mlasso data-mkind="phase" data-mid="${seg.id}"`:''} title="${nm} · ${bandLabel(lvl,seg.kind)}">${seg.src==='own'?'◆ ':''}${nm}</div>`; }).join('');
+  const phaseRow=bandRow('phase');
+  const subRow=bandRow('subphase');
   const compWk=new Set(allComps.map(c=>col(c.comp_date)));
   const gridStyle=`grid-template-columns:repeat(${N},var(--cw))`;
   // month row
@@ -6634,23 +7253,25 @@ function renderMacro(){
   // microcycle
   let wkCells=''; for(let i=0;i<N;i++) wkCells+=`<div class="mc2-cell mc2-wk${i===todayWk?' today':''}" onclick="planSelWk(${i})"${i===planState.selWk?' style="box-shadow:inset 0 0 0 1px var(--accent2)"':''}>${i+1}</div>`;
   // mesocycle
-  const mesoRow=mesoPhases.map(p=>{ const ck=PHASE_COLORKEY[p.kind]||'green'; return `<div class="mc2-seg" style="grid-column:${col(p.start_date)+1}/${col(p.end_date)+2};${tintStyle(segColor(ck))}${ath?';cursor:default':''}"${ath?'':` onclick="planEditPhase('${p.id}')"`} title="${esc(p.name)} · ${phaseLabel(p.kind)}">${esc(p.name)}</div>`; }).join('');
+  const mesoRow=planBandSegments('meso').map(seg=>{ const ck=PHASE_COLORKEY[seg.kind]||'green'; return `<div class="mc2-seg${seg.src==='own'?' mc2-own':''}" style="grid-column:${seg.c0+1}/${seg.c1+2};${tintStyle(segColor(ck))}${segEditable(seg)?'':';cursor:default'}"${segClick(seg)}${segEditable(seg)?` data-mlasso data-mkind="phase" data-mid="${seg.id}"`:''} title="${esc(seg.name)} · ${phaseLabel(seg.kind)}">${seg.src==='own'?'◆ ':''}${esc(seg.name)}</div>`; }).join('');
   // comps
-  const compsRow=allComps.map(c=>{ const cc=col(c.comp_date)+1; const color=compColor(c.kind); return `<div class="mc2-comp${c.kind==='peak'?' star':''}" style="grid-column:${cc};color:${tintText(color)}${ath?';cursor:default':''}"${(c.id&&!ath)?` onclick="planEditComp('${c.id}')"`:''}><span class="dot" style="background:${color}"></span>${esc(c.name)}<br>${fmtShort(c.comp_date)}</div>`; }).join('');
+  const compEditable=(c)=> !ath && !!c.id && (!planState.athleteId || c.own);   // lasso-eligible = same own-only scope as click-to-edit (event-sourced comps have no id → excluded)
+  const compsRow=allComps.map(c=>{ const cc=col(c.comp_date)+1; const color=compColor(c.kind); return `<div class="mc2-comp${c.kind==='peak'?' star':''}" style="grid-column:${cc};color:${tintText(color)}${ath?';cursor:default':''}"${(c.id&&!ath)?` onclick="planEditComp('${c.id}')"`:''}${compEditable(c)?` data-mlasso data-mkind="comp" data-mid="${c.id}"`:''}><span class="dot" style="background:${color}"></span>${esc(c.name)}<br>${fmtShort(c.comp_date)}</div>`; }).join('');
   // loading wave
   let waveCells=''; for(let i=0;i<N;i++){ const p=phaseAt(i); let lvl='light';
     if(compWk.has(i)) lvl='comp'; else if(p){ const pw=col(p.end_date)-col(p.start_date)+1, wi=i-col(p.start_date); lvl=waveLevels(p.pattern||'Linear Ascending',pw)[wi]||'moderate'; }
     const W=WAVE_LVL[lvl]; waveCells+=`<div class="mc2-bcell"><div class="mc2-bar" style="height:${W[1]}px;background:${W[0]}" title="${lvl}"></div></div>`; }
   // loading pattern
-  const patCells=mesoPhases.map(p=> ath
-    ? `<div class="mc2-pcell" style="grid-column:${col(p.start_date)+1}/${col(p.end_date)+2}"><span class="mc2-pstatic">${esc(p.pattern||'Linear Ascending')}</span></div>`
-    : `<div class="mc2-pcell" style="grid-column:${col(p.start_date)+1}/${col(p.end_date)+2}"><select onchange="planSetPattern('${p.id}',this.value)">${LOAD_PATTERNS.map(pt=>`<option${(p.pattern||'Linear Ascending')===pt?' selected':''}>${pt}</option>`).join('')}</select></div>`).join('');
+  const patCells=planBandSegments('meso').map(seg=> segEditable(seg)
+    ? `<div class="mc2-pcell" style="grid-column:${seg.c0+1}/${seg.c1+2}"><select onchange="planSetPattern('${seg.id}',this.value)">${LOAD_PATTERNS.map(pt=>`<option${(seg.pattern||'Linear Ascending')===pt?' selected':''}>${pt}</option>`).join('')}</select></div>`
+    : `<div class="mc2-pcell" style="grid-column:${seg.c0+1}/${seg.c1+2}"><span class="mc2-pstatic">${esc(seg.pattern||'Linear Ascending')}</span></div>`).join('');
   // upcoming peaks
   const todStr=iso(td);
   const upcoming=allComps.filter(c=>c.comp_date>=todStr).sort((a,b)=>a.comp_date<b.comp_date?-1:1).slice(0,3);
   const peakChips=upcoming.map((c,idx)=>{ const wo=Math.max(0,Math.ceil((new Date(c.comp_date+'T00:00:00')-new Date(todStr+'T00:00:00'))/(7*864e5))); return `<div class="mc2-peak${idx===0?' next':''}"${c.id?` onclick="planEditComp('${c.id}')"`:''}><div class="nm">${idx===0?'★ ':''}${esc(c.name)}</div><div class="wo">${fmtShort(c.comp_date)} · <b>${wo} wk out</b></div></div>`; }).join('');
   // track groups
-  const trks=planState.tracks.filter(t=>!planState.teamId || !t.team_id || t.team_id===planState.teamId);
+  const trks=planScopedTracks();
+  const trkRO=(t)=> ath || (planState.athleteId && t.athlete_id!==planState.athleteId);   // inherited team tracks are read-only in athlete scope
   const segByTrack={}; planState.segments.forEach(s=>{ (segByTrack[s.track_id]=segByTrack[s.track_id]||[]).push(s); });
   const grps=[]; trks.forEach(t=>{ let g=grps.find(x=>x.name===t.grp); if(!g){ g={name:t.grp,tracks:[]}; grps.push(g); } g.tracks.push(t); });
   // track groups — rendered as rows INSIDE the scrolling timeline so they align + scroll with the week columns
@@ -6658,8 +7279,9 @@ function renderMacro(){
     let html=`<div class="mc2-row mc2-grp">
       <div class="mc2-lbl mc2-glbl" onclick="planToggleGroup('${esq(g.name)}')"><span class="ar">${open?'▾':'▸'}</span><span class="gi">${esc(g.name)}</span></div>
       <div class="mc2-grpfill" onclick="planToggleGroup('${esq(g.name)}')"><span class="gc">${g.tracks.length} track${g.tracks.length===1?'':'s'}</span>${ath?'':`<span class="grp-add" onclick="event.stopPropagation();planAddTrack('${esq(g.name)}')">＋ track</span>`}</div></div>`;
-    if(open){ html+=g.tracks.map(t=>{ const segs=(segByTrack[t.id]||[]).map(s=>`<div class="mc2-seg tg-seg2" style="grid-column:${col(s.start_date)+1}/${col(s.end_date)+2};${tintStyle(segColor(s.color))}${ath?';cursor:default':''}"${ath?'':` onclick="event.stopPropagation();planEditSegment('${t.id}','${s.id}')"`} title="${esc(s.label)}">${esc(s.label)}</div>`).join('');
-        return `<div class="mc2-row mc2-trk"><div class="mc2-lbl mc2-trklbl"><span>${esc(t.name)}</span>${ath?'':`<span class="tdel" onclick="event.stopPropagation();planDelTrack('${t.id}','${esq(t.name)}')">✕</span>`}</div><div class="mc2-track" style="${gridStyle}"${ath?'':` onclick="planEditSegment('${t.id}')" title="click to add a block"`}>${segs}</div></div>`;
+    if(open){ html+=g.tracks.map(t=>{ const ro=trkRO(t); const isOwn=planState.athleteId&&t.athlete_id===planState.athleteId;
+        const segs=(segByTrack[t.id]||[]).map(s=>`<div class="mc2-seg tg-seg2${isOwn?' mc2-own':''}" style="grid-column:${col(s.start_date)+1}/${col(s.end_date)+2};${tintStyle(segColor(s.color))}${ro?';cursor:default':''}"${ro?'':` onclick="event.stopPropagation();planEditSegment('${t.id}','${s.id}')" data-mlasso data-mkind="seg" data-mid="${s.id}"`} title="${esc(s.label)}">${esc(s.label)}</div>`).join('');
+        return `<div class="mc2-row mc2-trk"><div class="mc2-lbl mc2-trklbl"><span>${esc(t.name)}${isOwn?' <span class="mc2-owntag">◆</span>':''}</span>${ro?'':`<span class="tdel" onclick="event.stopPropagation();planDelTrack('${t.id}','${esq(t.name)}')">✕</span>`}</div><div class="mc2-track" style="${gridStyle}"${ro?'':` onclick="planEditSegment('${t.id}')" title="click to add a block"`}>${segs}</div></div>`;
       }).join(''); }
     return html;
   }).join('');
@@ -6687,7 +7309,7 @@ function renderMacro(){
       </div>
       ${ath
         ? `<div class="ctoolbar" style="margin-bottom:10px"><span class="note sub" style="margin:0;flex:1">Your season at a glance — mesocycle phases, competitions &amp; peaks, and how the loading rises and falls week to week. Click a week to see its detail below.</span></div>`
-        : `<div class="ctoolbar" style="margin-bottom:10px"><span class="note sub" style="margin:0;flex:1">Click a band or track block to edit · click an empty track row to add a block.</span><span class="cbtn alt" onclick="planEditPhase('','phase')">＋ Phase</span><span class="cbtn alt" onclick="planEditPhase('','subphase')">＋ Sub-phase</span><span class="cbtn alt" onclick="planEditPhase('','meso')">＋ Mesocycle</span><span class="cbtn alt" onclick="planEditComp()">＋ Comp</span></div>`}
+        : `<div class="ctoolbar" style="margin-bottom:10px"><span class="note sub" style="margin:0;flex:1">Click a band or track block to edit · click an empty track row to add a block · 🖱 drag across blocks to lasso &amp; bulk-delete.</span><span class="cbtn alt" onclick="planEditPhase('','phase')">＋ Phase</span><span class="cbtn alt" onclick="planEditPhase('','subphase')">＋ Sub-phase</span><span class="cbtn alt" onclick="planEditPhase('','meso')">＋ Mesocycle</span><span class="cbtn alt" onclick="planEditComp()">＋ Comp</span></div>`}
       <div class="mc2-wrap"><div class="mc2">
         <div class="mc2-row"><div class="mc2-lbl">Month</div><div class="mc2-track" style="${gridStyle}">${monthCells}</div></div>
         <div class="mc2-row"><div class="mc2-lbl">Microcycle</div><div class="mc2-track" style="${gridStyle}">${wkCells}</div></div>
@@ -6713,6 +7335,7 @@ function renderMacro(){
           : `<button class="openbtn" onclick="planOpenWeekCoach('${swStr}')">Open this week in Coach View →</button>`}
       </div>
     </div>`;
+  mclWireDrag();
 }
 window.planOpenWeekAth=(dStr)=>{ athState.screen='athlete'; renderAthlete(dStr); };
 function phaseForDay(dStr){ return planScopedPhases().find(p=> p.start_date<=dStr && p.end_date>=dStr); }
@@ -6723,13 +7346,15 @@ function dIdx(y,m,d){ return Math.round(new Date(y,m,d).getTime()/864e5); }
 function calEventsList(){
   const out=[];
   const myId=(me_&&me_.id);
+  const A=planState.athleteId, T=A?planTeamOf(A):null;
   planState.events.forEach(e=>{
-    if(planState.teamId && e.team_id && e.team_id!==planState.teamId) return;
-    if(e.athlete_id && e.athlete_id!==planState.athleteId) return;
+    if(A){ if(!(e.athlete_id===A || (!e.athlete_id&&(!e.team_id||e.team_id===T)))) return; }   // athlete scope: their own + their team + gym
+    else { if(e.athlete_id) return; if(planState.teamId && e.team_id && e.team_id!==planState.teamId) return; }
     out.push({ id:e.id, src:'ev', title:e.title, kind:e.kind, mine:(e.athlete_id&&e.athlete_id===myId), y:+e.start_date.slice(0,4), m:+e.start_date.slice(5,7)-1, d:+e.start_date.slice(8,10), days:e.days||1 });
   });
   planState.comps.forEach(c=>{
-    if(planState.teamId && c.team_id && c.team_id!==planState.teamId) return;
+    if(A){ if(!(c.athlete_id===A || (!c.athlete_id&&(!c.team_id||c.team_id===T)))) return; }
+    else { if(c.athlete_id) return; if(planState.teamId && c.team_id && c.team_id!==planState.teamId) return; }
     out.push({ id:c.id, src:'comp', title:c.name, kind:(c.kind==='test'?'testing':'competition'), mine:false, y:+c.comp_date.slice(0,4), m:+c.comp_date.slice(5,7)-1, d:+c.comp_date.slice(8,10), days:1 });
   });
   return out;
@@ -6753,7 +7378,7 @@ async function loadCalSessions(){
     planState.calSess[s.session_date]={ id:s.id, title:s.title, status, nl:st.vol, ari:st.ari?Math.round(st.ari):null, exs:(s.prescribed_exercises||[]).slice().sort(sortByPos).map(e=>e.name).filter(Boolean).slice(0,3).join(' · ') }; });
 }
 function sessOn(y,m,d){ return planState.calSess[iso(new Date(y,m,d))]; }
-function sessChip(s){ const cls=s.status==='draft'?'draft':(s.status==='done'?'done':''); const txt=s.status==='draft'?'Training · draft':('Training · '+s.nl+'NL'); return `<div class="cx-sess ${cls}">${txt}</div>`; }
+function sessChip(s,dIso){ const cls=s.status==='draft'?'draft':(s.status==='done'?'done':''); const txt=s.status==='draft'?'Training · draft':('Training · '+s.nl+'NL'); const lasso=(!planIsAth()&&s.id)?` data-psid="${s.id}" data-pdate="${dIso||''}" data-plogged="${s.status==='done'?1:0}"`:''; return `<div class="cx-sess ${cls}"${lasso}>${txt}</div>`; }
 function calLegend(){ const ath=planIsAth(); return `<div class="cx-legend2">${Object.keys(CAL_KINDS).map(k=>`<span><i style="background:${CAL_KINDS[k][0]}"></i>${CAL_KINDS[k][1]}</span>`).join('')}<span style="margin-left:6px"><i style="background:#3c9ee8"></i>Session · ${ath?'training':'published'}</span><span><i style="background:#3ec97a"></i>Session · done</span>${ath?'':'<span><i style="border:1px dashed #3c5a7a;background:transparent"></i>Session · draft</span>'}</div>`; }
 window.planSetView=(v)=>{ planState.calView=v; paintPlan(); };
 window.planToday=()=>{ const t=new Date(); planState.cur={y:t.getFullYear(),m:t.getMonth(),d:t.getDate()}; paintPlan(); };
@@ -6766,6 +7391,7 @@ window.planOpenMonth=(m)=>{ planState.cur.m=m; planState.calView='month'; paintP
 window.planOpenDay=(y,m,d)=>{ planState.cur={y,m,d}; planState.calView='day'; paintPlan(); };
 async function renderPlanCal(){
   const host=document.getElementById('planBody'); if(!host) return;
+  if(window.plClearDelBar) plClearDelBar();   // drop any stale lasso bar when the calendar re-renders
   await loadCalSessions();
   const v=planState.calView, c=planState.cur, td=new Date(), isToday=(y,m,d)=>y===td.getFullYear()&&m===td.getMonth()&&d===td.getDate();
   let title='', body='';
@@ -6781,14 +7407,14 @@ async function renderPlanCal(){
     title=MONF[c.m]+' '+c.y; const fd=new Date(c.y,c.m,1).getDay(), n=new Date(c.y,c.m+1,0).getDate();
     const pm=c.m===0?11:c.m-1, py=c.m===0?c.y-1:c.y, pn=new Date(py,pm+1,0).getDate();
     let cells=''; for(let i=0;i<fd;i++) cells+=`<div class="cx-cell dim"><span class="cx-date">${pn-fd+1+i}</span></div>`;
-    for(let d=1;d<=n;d++){ cells+=`<div class="cx-cell${isToday(c.y,c.m,d)?' today':''}" onclick="planOpenDay(${c.y},${c.m},${d})"><span class="cx-date">${d}</span>${evOn(c.y,c.m,d).map(evChip).join('')}${(()=>{const s=sessOn(c.y,c.m,d);return s?sessChip(s):'';})()}</div>`; }
+    for(let d=1;d<=n;d++){ cells+=`<div class="cx-cell${isToday(c.y,c.m,d)?' today':''}" onclick="planOpenDay(${c.y},${c.m},${d})"><span class="cx-date">${d}</span>${evOn(c.y,c.m,d).map(evChip).join('')}${(()=>{const s=sessOn(c.y,c.m,d);return s?sessChip(s,iso(new Date(c.y,c.m,d))):'';})()}</div>`; }
     const trail=(7-((fd+n)%7))%7; for(let t=1;t<=trail;t++) cells+=`<div class="cx-cell dim"><span class="cx-date">${t}</span></div>`;
     body=`<div class="cx-dow">${CAL_DOW.map(d=>`<span>${d}</span>`).join('')}</div><div class="cx-grid">${cells}</div>`;
   } else if(v==='week'){
     const base=new Date(c.y,c.m,c.d); base.setDate(base.getDate()-base.getDay()); const end=new Date(base); end.setDate(end.getDate()+6);
     title=MONS[base.getMonth()]+' '+base.getDate()+' – '+MONS[end.getMonth()]+' '+end.getDate()+', '+end.getFullYear();
     let cols=''; for(let i=0;i<7;i++){ const dt=new Date(base); dt.setDate(dt.getDate()+i); const y=dt.getFullYear(),m=dt.getMonth(),d=dt.getDate(); const s=sessOn(y,m,d);
-      cols+=`<div class="cx-wcol${isToday(y,m,d)?' today':''}" onclick="planOpenDay(${y},${m},${d})"><h5>${CAL_DOW[i]}</h5><div class="cx-wd">${d}</div>${evOn(y,m,d).map(evChip).join('')}${s?sessChip(s)+(s.status!=='draft'?`<div class="cx-wmet">${s.nl}NL${s.ari?' · '+s.ari+'%':''}</div>`:''):''}</div>`; }
+      cols+=`<div class="cx-wcol${isToday(y,m,d)?' today':''}" onclick="planOpenDay(${y},${m},${d})"><h5>${CAL_DOW[i]}</h5><div class="cx-wd">${d}</div>${evOn(y,m,d).map(evChip).join('')}${s?sessChip(s,iso(new Date(y,m,d)))+(s.status!=='draft'?`<div class="cx-wmet">${s.nl}NL${s.ari?' · '+s.ari+'%':''}</div>`:''):''}</div>`; }
     body=`<div class="cx-week">${cols}</div>`;
   } else {
     const dt=new Date(c.y,c.m,c.d); title=CAL_DOW[dt.getDay()]+', '+MONF[c.m]+' '+c.d+', '+c.y;
@@ -6820,7 +7446,13 @@ async function renderPlanCal(){
     </div>
     ${body}
     ${calLegend()}
+    ${(!planIsAth() && (planState.calView==='month'||planState.calView==='week'))
+      ? (planState.athleteId
+          ? '<div class="cx-lassohint">🖱 Drag across days to lasso sessions, then bulk-delete — deletes only this athlete’s sessions.</div>'
+          : '<div class="cx-lassohint">Pick an <b style="color:var(--text)">Athlete</b> (top-right) to see their sessions on the calendar — then drag across days to lasso &amp; bulk-delete.</div>')
+      : ''}
   </div>`;
+  planCalWireDrag();
 }
 window.planOpenInCoach=(athId,dStr)=>{ if(!athId) return; coachState.subject='athlete'; coachState.selected=athId; cw=null; ed=null; coachState.screen='coach'; paintCoach();
   setTimeout(()=>{ if(window.cw){ cw.selDate=dStr; cw.selSess=null; cw.modalOpen=true; cwOpenDayModal(); } },450); };
@@ -6881,6 +7513,11 @@ window.planEditPhase=(id,level)=>{
   const meta = PLAN_LEVELS[lvl]||PLAN_LEVELS.meso;
   const teams=conState._teams||[];
   const isMeso = lvl==='meso';
+  if(planState.athleteId && !ATHPLAN_READY){ toast('Run migration 38 to build a custom plan for an athlete.'); return; }
+  const athWho=(coachState.athletes||[]).find(a=>a.id===planState.athleteId);
+  const scopeField = planState.athleteId
+    ? `<span class="bf-wk"><label>For athlete</label><div class="cw-sel ap-forwho">${esc(athWho?athWho.full_name:'Athlete')}</div></span>`
+    : `<span class="bf-wk"><label>Team</label><select id="phTeam" class="cw-sel"><option value="">Whole gym</option>${teams.map(t=>`<option value="${t.id}"${(p&&p.team_id===t.id)||(!p&&planState.teamId===t.id)?' selected':''}>${esc(t.name)}</option>`).join('')}</select></span>`;
   ovModal('phaseModal', `
     <div class="ov-hd"><h2 style="margin:0">${p?'Edit':'＋ Add'} ${esc(meta.label.toLowerCase())}</h2><span class="vid-x" onclick="document.getElementById('phaseModal').style.display='none'">✕</span></div>
     <div class="sub" style="margin:4px 0 10px">${isMeso?'A named training block (its loading pattern drives the wave below).':'A '+esc(meta.label.toLowerCase())+' band across the year — pick the type, set the weeks. Leave the name blank to use the type name.'}</div>
@@ -6889,7 +7526,7 @@ window.planEditPhase=(id,level)=>{
     <div class="bf-row" style="margin-top:10px">
       <span class="bf-wk"><label>Start</label><input id="phStart" type="date" style="width:150px;text-align:left" value="${p?p.start_date:iso(new Date(planState.year,planState.month,1))}"></span>
       <span class="bf-wk"><label>End</label><input id="phEnd" type="date" style="width:150px;text-align:left" value="${p?p.end_date:iso(new Date(planState.year,planState.month,28))}"></span>
-      <span class="bf-wk"><label>Team</label><select id="phTeam" class="cw-sel"><option value="">Whole gym</option>${teams.map(t=>`<option value="${t.id}"${(p&&p.team_id===t.id)||(!p&&planState.teamId===t.id)?' selected':''}>${esc(t.name)}</option>`).join('')}</select></span>
+      ${scopeField}
       ${isMeso?`<span class="bf-wk"><label>Loading pattern</label><select id="phPattern" class="cw-sel">${LOAD_PATTERNS.map(pt=>`<option${(p&&p.pattern===pt)?' selected':''}>${pt}</option>`).join('')}</select></span>`:''}
     </div>
     <div class="bf-row" style="margin-top:12px"><button class="btn" onclick="planSavePhase('${id||''}','${lvl}')">Save</button>${p?`<span class="extool del" style="margin-left:10px" onclick="planDelPhase('${id}')">✕ delete</span>`:''}<span class="saved" id="phMsg"></span></div>`);
@@ -6902,9 +7539,11 @@ window.planSavePhase=async(id,level)=>{
   const start=document.getElementById('phStart').value, end=document.getElementById('phEnd').value;
   if(!start||!end){ if(msg){msg.style.color='var(--warn)';msg.textContent='Pick start & end dates.';} return; }
   if(end<start){ if(msg){msg.style.color='var(--warn)';msg.textContent='End must be after start.';} return; }
-  const patEl=document.getElementById('phPattern');
-  const payload={ name, kind, level:lvl, start_date:start, end_date:end, team_id:document.getElementById('phTeam').value||null, pattern: patEl?patEl.value:(id?undefined:'Linear Ascending') };
+  const patEl=document.getElementById('phPattern'), teamEl=document.getElementById('phTeam');
+  const A=(ATHPLAN_READY&&planState.athleteId)?planState.athleteId:'';
+  const payload={ name, kind, level:lvl, start_date:start, end_date:end, team_id: A?null:(teamEl?teamEl.value||null:null), pattern: patEl?patEl.value:(id?undefined:'Linear Ascending') };
   if(payload.pattern===undefined) delete payload.pattern;
+  if(ATHPLAN_READY) payload.athlete_id = A||null;   // athlete scope → this block belongs to the athlete (overrides team); team/gym scope → null
   let res; if(id) res=await sb.from('plan_phases').update(payload).eq('id',id).select(); else res=await sb.from('plan_phases').insert(Object.assign({gym_id:me_.gym_id},payload)).select();
   if(res.error||!res.data||!res.data.length){ if(msg){msg.style.color='var(--bad)';msg.textContent='Save failed — '+(res.error?res.error.message:'try again');} return; }
   document.getElementById('phaseModal').style.display='none'; await loadPlan(); paintPlan();
@@ -6913,13 +7552,18 @@ window.planDelPhase=async(id)=>{ const res=await sb.from('plan_phases').delete()
 window.planEditComp=(id)=>{
   const c = id ? planState.comps.find(x=>x.id===id) : null;
   const teams=conState._teams||[];
+  if(planState.athleteId && !ATHPLAN_READY){ toast('Run migration 38 to add a competition for an athlete.'); return; }
+  const athWho=(coachState.athletes||[]).find(a=>a.id===planState.athleteId);
+  const scopeField = planState.athleteId
+    ? `<span class="bf-wk"><label>For athlete</label><div class="cw-sel ap-forwho">${esc(athWho?athWho.full_name:'Athlete')}</div></span>`
+    : `<span class="bf-wk"><label>Team</label><select id="cpTeam" class="cw-sel"><option value="">Whole gym</option>${teams.map(t=>`<option value="${t.id}"${(c&&c.team_id===t.id)||(!c&&planState.teamId===t.id)?' selected':''}>${esc(t.name)}</option>`).join('')}</select></span>`;
   ovModal('compModal', `
     <div class="ov-hd"><h2 style="margin:0">${c?'Edit competition':'＋ Add competition'}</h2><span class="vid-x" onclick="document.getElementById('compModal').style.display='none'">✕</span></div>
     <div class="bf-row"><input id="cpName" placeholder="Name (e.g. Nationals)" value="${c?esc(c.name):''}" style="flex:1;min-width:200px">
       <select id="cpKind" class="cw-sel">${COMP_KINDS.map(k=>`<option value="${k[0]}"${c&&c.kind===k[0]?' selected':''}>${k[1]}</option>`).join('')}</select></div>
     <div class="bf-row" style="margin-top:10px">
       <span class="bf-wk"><label>Date</label><input id="cpDate" type="date" value="${c?c.comp_date:iso(new Date(planState.year,planState.month,15))}"></span>
-      <span class="bf-wk"><label>Team</label><select id="cpTeam" class="cw-sel"><option value="">Whole gym</option>${teams.map(t=>`<option value="${t.id}"${(c&&c.team_id===t.id)||(!c&&planState.teamId===t.id)?' selected':''}>${esc(t.name)}</option>`).join('')}</select></span>
+      ${scopeField}
     </div>
     <div class="bf-row" style="margin-top:12px"><button class="btn" onclick="planSaveComp('${id||''}')">Save</button>${c?`<span class="extool del" style="margin-left:10px" onclick="planDelComp('${id}')">✕ delete</span>`:''}<span class="saved" id="cpMsg"></span></div>`);
 };
@@ -6927,7 +7571,9 @@ window.planSaveComp=async(id)=>{
   const name=(document.getElementById('cpName').value||'').trim(); const msg=document.getElementById('cpMsg');
   if(!name){ document.getElementById('cpName').focus(); return; }
   const date=document.getElementById('cpDate').value; if(!date){ if(msg){msg.style.color='var(--warn)';msg.textContent='Pick a date.';} return; }
-  const payload={ name, kind:document.getElementById('cpKind').value, comp_date:date, team_id:document.getElementById('cpTeam').value||null };
+  const teamEl=document.getElementById('cpTeam'); const A=(ATHPLAN_READY&&planState.athleteId)?planState.athleteId:'';
+  const payload={ name, kind:document.getElementById('cpKind').value, comp_date:date, team_id: A?null:(teamEl?teamEl.value||null:null) };
+  if(ATHPLAN_READY) payload.athlete_id = A||null;
   let res; if(id) res=await sb.from('competitions').update(payload).eq('id',id).select(); else res=await sb.from('competitions').insert(Object.assign({gym_id:me_.gym_id},payload)).select();
   if(res.error||!res.data||!res.data.length){ if(msg){msg.style.color='var(--bad)';msg.textContent='Save failed — '+(res.error?res.error.message:'try again');} return; }
   document.getElementById('compModal').style.display='none'; await loadPlan(); paintPlan();
@@ -6936,12 +7582,17 @@ window.planDelComp=async(id)=>{ const res=await sb.from('competitions').delete()
 /* ---- track groups + segments ---- */
 window.planAddTrack=(grp)=>{
   const teams=conState._teams||[];
+  if(planState.athleteId && !ATHPLAN_READY){ toast('Run migration 38 to add a custom track for an athlete.'); return; }
+  const athWho=(coachState.athletes||[]).find(a=>a.id===planState.athleteId);
+  const scopeField = planState.athleteId
+    ? `<span class="bf-wk"><label>For athlete</label><div class="cw-sel ap-forwho">${esc(athWho?athWho.full_name:'Athlete')}</div></span>`
+    : `<span class="bf-wk"><label>Team</label><select id="tkTeam" class="cw-sel"><option value="">Whole gym</option>${teams.map(t=>`<option value="${t.id}"${planState.teamId===t.id?' selected':''}>${esc(t.name)}</option>`).join('')}</select></span>`;
   ovModal('trackModal', `
     <div class="ov-hd"><h2 style="margin:0">＋ Add track</h2><span class="vid-x" onclick="document.getElementById('trackModal').style.display='none'">✕</span></div>
     <div class="sub" style="margin:6px 0 12px">A track is one row of the macrocycle (e.g. group <b>Physical Preparation</b> → track <b>Strength</b>). Reuse a group name to add the track under it.</div>
     <div class="bf-row"><input id="tkGrp" placeholder="Group (e.g. Physical Preparation)" value="${grp?esc(grp):''}" style="flex:1;min-width:200px" list="tkGrpList"><datalist id="tkGrpList">${[...new Set(planState.tracks.map(t=>t.grp))].map(g=>`<option value="${esc(g)}">`).join('')}</datalist></div>
     <div class="bf-row" style="margin-top:10px"><input id="tkName" placeholder="Track name (e.g. Strength)" style="flex:1;min-width:180px">
-      <span class="bf-wk"><label>Team</label><select id="tkTeam" class="cw-sel"><option value="">Whole gym</option>${teams.map(t=>`<option value="${t.id}"${planState.teamId===t.id?' selected':''}>${esc(t.name)}</option>`).join('')}</select></span></div>
+      ${scopeField}</div>
     <div class="bf-row" style="margin-top:12px"><button class="btn" onclick="planSaveTrack()">Add track</button><span class="saved" id="tkMsg"></span></div>`);
   setTimeout(()=>{ const el=document.getElementById(grp?'tkName':'tkGrp'); if(el) el.focus(); },30);
 };
@@ -6949,7 +7600,10 @@ window.planSaveTrack=async()=>{
   const grp=(document.getElementById('tkGrp').value||'').trim(), name=(document.getElementById('tkName').value||'').trim(); const msg=document.getElementById('tkMsg');
   if(!grp||!name){ if(msg){msg.style.color='var(--warn)';msg.textContent='Group and track name are required.';} return; }
   const sort=planState.tracks.filter(t=>t.grp===grp).length;
-  const res=await sb.from('plan_tracks').insert({ gym_id:me_.gym_id, grp, name, sort_order:sort, team_id:document.getElementById('tkTeam').value||null }).select();
+  const A=(ATHPLAN_READY&&planState.athleteId)?planState.athleteId:''; const teamEl=document.getElementById('tkTeam');
+  const trkRow={ gym_id:me_.gym_id, grp, name, sort_order:sort, team_id: A?null:(teamEl?teamEl.value||null:null) };
+  if(ATHPLAN_READY) trkRow.athlete_id = A||null;
+  const res=await sb.from('plan_tracks').insert(trkRow).select();
   if(res.error||!res.data||!res.data.length){ if(msg){msg.style.color='var(--bad)';msg.textContent='Save failed — '+(res.error?res.error.message:'try again');} return; }
   planState.openGroups[grp]=true;
   document.getElementById('trackModal').style.display='none'; await loadPlan(); paintPlan();
@@ -7684,6 +8338,158 @@ window.cwSelDelete=async()=>{
   }catch(e){
     console.error('bulk delete failed:', e);
     if(bar) bar.innerHTML=`<span class="cw-delc" style="color:var(--bad)">Delete failed — ${esc(e.message||String(e))}</span><button class="cw-del-x" onclick="cwClearDelBar()">Close</button>`;
+  }
+};
+/* ---- Annual Plan calendar: lasso-select + bulk delete (coach only; athlete-scoped because the overlay is one athlete's sessions) ---- */
+let _plDrag=null;
+function plLassoActive(){ return !planIsAth() && !!planState.athleteId && (planState.calView==='month'||planState.calView==='week'); }
+function planCalWireDrag(){
+  if(window._plDragWired) return; window._plDragWired=true;
+  document.addEventListener('pointerdown', plDragDown, true);
+  document.addEventListener('pointermove', plDragMove, true);
+  document.addEventListener('pointerup', plDragUp, true);
+  document.addEventListener('click', (e)=>{ if(window._plJustDragged){ e.stopPropagation(); e.preventDefault(); window._plJustDragged=false; } }, true);
+}
+function plDragDown(e){
+  window._plJustDragged=false;
+  if(!plLassoActive() || e.button!==0) return;
+  const body=document.getElementById('planBody'); if(!body || !body.contains(e.target)) return;
+  const grid=e.target.closest('.cx-grid, .cx-week'); if(!grid) return;   // only start inside the day grid, not on header buttons
+  _plDrag={ x0:e.clientX, y0:e.clientY, started:false };
+}
+function plDragMove(e){
+  if(!_plDrag) return;
+  const dx=e.clientX-_plDrag.x0, dy=e.clientY-_plDrag.y0;
+  if(!_plDrag.started){
+    if(Math.hypot(dx,dy)<6) return;                    // tiny moves = a click, let it through
+    _plDrag.started=true; plClearSel();
+    const r=document.createElement('div'); r.id='plRubber'; r.className='cw-rubber'; document.body.appendChild(r);
+  }
+  e.preventDefault();
+  const L=Math.min(_plDrag.x0,e.clientX), R=Math.max(_plDrag.x0,e.clientX);
+  const T=Math.min(_plDrag.y0,e.clientY), B=Math.max(_plDrag.y0,e.clientY);
+  const rub=document.getElementById('plRubber');
+  if(rub){ rub.style.left=L+'px'; rub.style.top=T+'px'; rub.style.width=(R-L)+'px'; rub.style.height=(B-T)+'px'; }
+  document.querySelectorAll('#planBody .cx-sess[data-psid]').forEach(chip=>{
+    const c=chip.getBoundingClientRect();
+    const hit = !(c.right<L || c.left>R || c.bottom<T || c.top>B);
+    chip.classList.toggle('cx-sel', hit);
+  });
+}
+function plDragUp(){
+  if(!_plDrag) return;
+  const wasDrag=_plDrag.started; _plDrag=null;
+  const rub=document.getElementById('plRubber'); if(rub) rub.remove();
+  if(wasDrag){ window._plJustDragged=true; plShowDelBar(); }
+}
+function plClearSel(){ document.querySelectorAll('#planBody .cx-sess.cx-sel').forEach(c=>c.classList.remove('cx-sel')); }
+window.plClearDelBar=()=>{ plClearSel(); const b=document.getElementById('plDelBar'); if(b) b.remove(); };
+function plShowDelBar(){
+  const sel=[...document.querySelectorAll('#planBody .cx-sess.cx-sel[data-psid]')];
+  if(!sel.length){ plClearDelBar(); return; }
+  const athWho=(coachState.athletes||[]).find(a=>a.id===planState.athleteId);
+  const first=(athWho&&athWho.full_name)?athWho.full_name.split(' ')[0]:'this athlete';
+  const logged=sel.filter(c=>c.dataset.plogged==='1').length;
+  let bar=document.getElementById('plDelBar');
+  if(!bar){ bar=document.createElement('div'); bar.id='plDelBar'; bar.className='cw-delbar'; document.body.appendChild(bar); }
+  const warn = logged ? `<small>⚠ ${logged} already logged by ${esc(first)}</small>` : `<small>${esc(first)}’s sessions only</small>`;
+  bar.innerHTML=`<span class="cw-delc">${sel.length} session${sel.length===1?'':'s'} selected${warn}</span>
+    <button class="cw-del-go" onclick="plSelDelete()">🗑 Delete</button>
+    <button class="cw-del-x" onclick="plClearDelBar()">Cancel</button>`;
+}
+window.plSelDelete=async()=>{
+  const sel=[...document.querySelectorAll('#planBody .cx-sess.cx-sel[data-psid]')];
+  if(!sel.length){ plClearDelBar(); return; }
+  const bar=document.getElementById('plDelBar');
+  if(bar) bar.innerHTML=`<span class="cw-delc">Deleting…</span>`;
+  try{
+    const ids=[...new Set(sel.map(c=>c.dataset.psid).filter(Boolean))];
+    if(ids.length){ const r=await sb.from('sessions').delete().in('id', ids); if(r.error) throw r.error; }   // FK cascade removes prescribed_exercises/sets + logged_sets
+    plClearDelBar();
+    await renderPlanCal();
+  }catch(e){
+    console.error('plan lasso delete failed:', e);
+    if(bar) bar.innerHTML=`<span class="cw-delc" style="color:var(--bad)">Delete failed — ${esc(e.message||String(e))}</span><button class="cw-del-x" onclick="plClearDelBar()">Close</button>`;
+  }
+};
+/* ---- Macrocycle: lasso-select + bulk delete of plan blocks (coach only; own-only scope in athlete view; disabled on touch so the 52-wk timeline can still swipe-scroll) ---- */
+let _mclDrag=null;
+function mclActive(){ return coachState.screen==='plan' && !planIsAth() && planState.tab==='macro'; }
+function mclWireDrag(){
+  if(window._mclDragWired) return; window._mclDragWired=true;
+  document.addEventListener('pointerdown', mclDown, true);
+  document.addEventListener('pointermove', mclMove, true);
+  document.addEventListener('pointerup', mclUp, true);
+  document.addEventListener('click', (e)=>{ if(window._mclJustDragged){ e.stopPropagation(); e.preventDefault(); window._mclJustDragged=false; } }, true);
+}
+function mclDown(e){
+  window._mclJustDragged=false;
+  if(!mclActive() || e.button!==0 || e.pointerType==='touch') return;   // touch = let the timeline scroll
+  if(!e.target.closest('.mc2')) return;
+  if(e.target.closest('select,option,button,input,.mc2-lbl,.grp-add,.tdel,.cbtn,.mc2-pcell')) return;  // don't hijack the interactive controls
+  _mclDrag={ x0:e.clientX, y0:e.clientY, started:false };
+}
+function mclMove(e){
+  if(!_mclDrag) return;
+  const dx=e.clientX-_mclDrag.x0, dy=e.clientY-_mclDrag.y0;
+  if(!_mclDrag.started){
+    if(Math.hypot(dx,dy)<6) return;
+    _mclDrag.started=true; mclClearSel();
+    const r=document.createElement('div'); r.id='mclRubber'; r.className='cw-rubber'; document.body.appendChild(r);
+  }
+  e.preventDefault();
+  const L=Math.min(_mclDrag.x0,e.clientX), R=Math.max(_mclDrag.x0,e.clientX);
+  const T=Math.min(_mclDrag.y0,e.clientY), B=Math.max(_mclDrag.y0,e.clientY);
+  const rub=document.getElementById('mclRubber');
+  if(rub){ rub.style.left=L+'px'; rub.style.top=T+'px'; rub.style.width=(R-L)+'px'; rub.style.height=(B-T)+'px'; }
+  document.querySelectorAll('#planBody [data-mlasso]').forEach(el=>{
+    const c=el.getBoundingClientRect();
+    const hit = !(c.right<L || c.left>R || c.bottom<T || c.top>B);
+    el.classList.toggle('mc2-sel', hit);
+  });
+}
+function mclUp(){
+  if(!_mclDrag) return;
+  const wasDrag=_mclDrag.started; _mclDrag=null;
+  const rub=document.getElementById('mclRubber'); if(rub) rub.remove();
+  if(wasDrag){ window._mclJustDragged=true; mclShowDelBar(); }
+}
+function mclClearSel(){ document.querySelectorAll('#planBody [data-mlasso].mc2-sel').forEach(el=>el.classList.remove('mc2-sel')); }
+window.mclClearDelBar=()=>{ mclClearSel(); const b=document.getElementById('mclDelBar'); if(b) b.remove(); };
+function mclShowDelBar(){
+  const sel=[...document.querySelectorAll('#planBody [data-mlasso].mc2-sel')];
+  if(!sel.length){ mclClearDelBar(); return; }
+  const cnt={phase:0,seg:0,comp:0}; sel.forEach(el=>{ cnt[el.dataset.mkind]=(cnt[el.dataset.mkind]||0)+1; });
+  const parts=[];
+  if(cnt.phase) parts.push(cnt.phase+' plan block'+(cnt.phase>1?'s':''));
+  if(cnt.comp)  parts.push(cnt.comp+' comp'+(cnt.comp>1?'s':''));
+  if(cnt.seg)   parts.push(cnt.seg+' track block'+(cnt.seg>1?'s':''));
+  let bar=document.getElementById('mclDelBar');
+  if(!bar){ bar=document.createElement('div'); bar.id='mclDelBar'; bar.className='cw-delbar'; document.body.appendChild(bar); }
+  bar.innerHTML=`<span class="cw-delc">${sel.length} block${sel.length===1?'':'s'} selected<small>${parts.join(' · ')} · removes plan structure only (not logged sessions)</small></span>
+    <button class="cw-del-go" onclick="mclSelDelete()">🗑 Delete</button>
+    <button class="cw-del-x" onclick="mclClearDelBar()">Cancel</button>`;
+}
+window.mclSelDelete=async()=>{
+  const sel=[...document.querySelectorAll('#planBody [data-mlasso].mc2-sel')];
+  if(!sel.length){ mclClearDelBar(); return; }
+  const bar=document.getElementById('mclDelBar');
+  if(bar) bar.innerHTML=`<span class="cw-delc">Deleting…</span>`;
+  const byTable={ plan_phases:[], plan_segments:[], competitions:[] };
+  sel.forEach(el=>{ const id=el.dataset.mid; if(!id) return;
+    if(el.dataset.mkind==='phase') byTable.plan_phases.push(id);
+    else if(el.dataset.mkind==='seg') byTable.plan_segments.push(id);
+    else if(el.dataset.mkind==='comp') byTable.competitions.push(id); });
+  try{
+    for(const tbl of Object.keys(byTable)){
+      const ids=[...new Set(byTable[tbl])];
+      if(ids.length){ const r=await sb.from(tbl).delete().in('id', ids); if(r.error) throw r.error; }
+    }
+    mclClearDelBar();
+    await loadPlan(); paintPlan();
+  }catch(e){
+    console.error('macro lasso delete failed:', e);
+    if(bar) bar.innerHTML=`<span class="cw-delc" style="color:var(--bad)">Delete failed — ${esc(e.message||String(e))}</span><button class="cw-del-x" onclick="mclClearDelBar()">Close</button>`;
   }
 };
 window.cwToggleCopy=(off)=>{ const u=document.getElementById('cwCopyUI'+off); if(u) u.style.display=u.style.display==='none'?'inline-flex':'none'; };
