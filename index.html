@@ -244,6 +244,22 @@
   .rev-seen[open]>summary::before{content:'▾ '}
   .rev-seen[open]{display:flex;flex-direction:column;gap:8px}
   .rev-seen[open] .rev-row{margin-top:0}
+  /* glitch/bug tickets */
+  .tk-btn{padding:6px 10px}
+  .tk-body{display:flex;flex-direction:column;gap:8px;padding:4px 2px 2px}
+  .tk-lbl{font-size:13px;color:var(--muted)}
+  .tk-ta{width:100%;box-sizing:border-box;min-height:96px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px 12px;color:var(--text);font-size:14px;font-family:inherit;resize:vertical}
+  .tk-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px}
+  .tk-status{flex:1;font-size:12px}
+  .tk-listwrap{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+  .tk-hd{font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+  .tk-list{display:flex;flex-direction:column;gap:8px;max-height:44vh;overflow-y:auto}
+  .tk-row{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 11px}
+  .tk-row.tk-done{opacity:.5}
+  .tk-main{flex:1;min-width:0}
+  .tk-msg{font-size:13px;color:var(--text);white-space:pre-wrap;word-break:break-word}
+  .tk-meta{color:var(--muted);font-size:11px;margin-top:3px}
+  .tk-tag{flex:none;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--good);background:rgba(52,211,153,.16);border-radius:999px;padding:3px 8px}
   #rvNav .rv-pos{font-size:11px;color:var(--accent2);text-transform:uppercase;letter-spacing:.04em}
   #rvNav .rv-ex{font-size:15px;font-weight:700;color:var(--text);margin-top:3px}
   #rvNav .rv-set{font-size:12px;color:var(--muted);margin-top:2px}
@@ -1669,6 +1685,7 @@ async function boot(){
   await probeSrpe();
   await probeBodyPain();
   await probeAthPlan();
+  await probeTickets();
   if(profile.role === 'coach') renderCoach(); else athGo(athState.screen||'athlete');
 }
 async function renderJoin(token){
@@ -1772,9 +1789,52 @@ function topbar(roleLabel){
     <div class="brand">SoCal <span class="o">WLC</span></div>
     <div style="display:flex;align-items:center;gap:12px">
       <div class="who"><b>${esc((me_&&me_.full_name)||'')}</b><br>${roleLabel}</div>
+      <button class="btn ghost tk-btn" onclick="openTicketModal()" title="Report a glitch or problem">🐞 Report</button>
       <button class="btn ghost" onclick="logout()">Sign out</button>
     </div></div>`;
 }
+// ---------- in-app glitch/bug tickets ----------
+window.openTicketModal=async()=>{
+  const coach = !!(me_ && me_.role==='coach');
+  let listHtml='';
+  if(coach && TICKETS_READY){
+    const { data } = await sb.from('tickets').select('*').order('created_at',{ascending:false}).limit(50);
+    const open=(data||[]).filter(t=>t.status!=='resolved');
+    const rows=(data||[]).map(t=>{ const c=t.context||{}; const d=new Date(t.created_at); const ds=MONS[d.getMonth()]+' '+d.getDate();
+      const path=(c.url||'').replace(/^https?:\/\/[^/]+/,'')||'app'; const done=t.status==='resolved';
+      return `<div class="tk-row${done?' tk-done':''}"><div class="tk-main"><div class="tk-msg">${esc(t.message)}</div>
+        <div class="tk-meta">${esc(c.name||'Someone')} · ${esc(t.role||'')} · ${ds} · <span title="${esc(c.url||'')}">${esc(path)}</span></div></div>
+        ${done?'<span class="tk-tag">resolved</span>':`<button class="cbtn alt" onclick="ticketResolve('${t.id}')">✓ Resolve</button>`}</div>`; }).join('');
+    listHtml=`<div class="tk-listwrap"><div class="tk-hd">Submitted reports ${open.length?`<span class="rev-count">${open.length}</span>`:''}</div><div class="tk-list">${rows||'<div class="note sub">No reports yet.</div>'}</div></div>`;
+  }
+  const dis = TICKETS_READY?'':'disabled';
+  const gate = TICKETS_READY?'':`<div class="note sub" style="color:var(--bad);margin-top:6px">Almost ready — run migration 39 in Supabase to switch reports on.</div>`;
+  ovModal('ticketModal', `<div class="ov-hd"><h2 style="margin:0">🐞 Report a problem</h2><span class="vid-x" onclick="document.getElementById('ticketModal').style.display='none'">✕</span></div>
+    <div class="tk-body">
+      <label class="tk-lbl">Found a glitch? Tell us what happened and what you were doing — we’ll fix it.</label>
+      <textarea id="ticketMsg" class="tk-ta" placeholder="e.g. The charts didn’t load when I opened my last coach review…" ${dis}></textarea>
+      ${gate}
+      <div class="tk-actions"><span class="tk-status" id="ticketStatus"></span><button class="btn" onclick="submitTicket()" ${dis}>Send report</button></div>
+      ${listHtml}
+    </div>`);
+};
+window.submitTicket=async()=>{
+  const ta=document.getElementById('ticketMsg'); const msg=(ta&&ta.value||'').trim(); const st=document.getElementById('ticketStatus');
+  const say=(t,bad)=>{ if(st){ st.style.color=bad?'var(--bad)':'var(--good)'; st.textContent=t; } };
+  if(!msg){ say('Please describe the problem first.', true); return; }
+  if(!TICKETS_READY){ say('Not switched on yet — run migration 39.', true); return; }
+  // user_id defaults to auth.uid() server-side; context carries who/where for the coach's list
+  const row={ gym_id:me_.gym_id, role:me_.role||null, message:msg, context:{ name:me_.full_name||'', url:location.href, ua:navigator.userAgent } };
+  const res=await sb.from('tickets').insert(row).select();
+  if(res.error){ say('Couldn’t send — '+res.error.message, true); return; }
+  if(ta) ta.value=''; say('✓ Sent — thanks! Your coach will see it.'); toast('Report sent — thank you!');
+  if(me_&&me_.role==='coach') setTimeout(openTicketModal, 500);   // refresh the coach's list
+};
+window.ticketResolve=async(id)=>{
+  const res=await sb.from('tickets').update({ status:'resolved', resolved_at:new Date().toISOString() }).eq('id',id).select();
+  if(res.error){ toast('Couldn’t resolve — '+res.error.message, 'err'); return; }
+  openTicketModal();
+};
 
 /* ---------------- athlete ---------------- */
 function sortByPos(a,b){ return (a.position||0)-(b.position||0); }
@@ -3234,6 +3294,8 @@ let PAIN_READY=false;   // body_pain_reports (migration 37) → injury heat-map
 async function probeBodyPain(){ const { error } = await sb.from('body_pain_reports').select('id').limit(1); PAIN_READY = !error; }
 let ATHPLAN_READY=false;   // plan_phases/competitions/plan_tracks.athlete_id (migration 38) → per-athlete override plans
 async function probeAthPlan(){ const { error } = await sb.from('plan_phases').select('athlete_id').limit(1); ATHPLAN_READY = !error; }
+let TICKETS_READY=false;   // tickets (migration 39) → in-app glitch reports
+async function probeTickets(){ const { error } = await sb.from('tickets').select('id').limit(1); TICKETS_READY = !error; }
 const DOW=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], MONS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function iso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function weekDates(offset){ // Mon..Sun of the current week, shifted by `offset` weeks
