@@ -126,6 +126,10 @@
   .vst-body{flex:1;display:flex;gap:14px;min-height:0}
   .vst-stage{flex:1.2 1 0;display:flex;flex-direction:column;min-width:0;min-height:0}
   .vst-canvaswrap{position:relative;flex:1;display:flex;align-items:center;justify-content:center;background:#000;border:1px solid var(--line);border-radius:10px;overflow:hidden;min-height:0}
+  .vst-countdown{position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;pointer-events:none;font:800 128px/1 var(--font,system-ui);color:#fff;text-shadow:0 3px 24px rgba(0,0,0,.7);background:rgba(0,0,0,.32)}
+  .vst-countdown.pop{animation:vstCdPop .7s ease-out}
+  .vst-countdown.go{font-size:64px;color:#ff5a5a;background:rgba(0,0,0,.18)}
+  @keyframes vstCdPop{0%{transform:scale(.4);opacity:0}25%{transform:scale(1.05);opacity:1}100%{transform:scale(1);opacity:.9}}
   .vst-zoom{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;transform-origin:center center}
   .vst-canvaswrap video{max-width:100%;max-height:100%;display:block;background:#000}
   .vst-canvaswrap canvas{position:absolute;cursor:crosshair;touch-action:none}
@@ -2157,12 +2161,32 @@ function vstRecCleanup(){
   if(annS._revRAF){ cancelAnimationFrame(annS._revRAF); annS._revRAF=null; }
   if(annS._revMic){ try{ annS._revMic.getTracks().forEach(t=>t.stop()); }catch(e){} annS._revMic=null; }
   if(annS._recTimer){ clearInterval(annS._recTimer); annS._recTimer=null; }
+  if(annS._cdEl){ try{ annS._cdEl.remove(); }catch(e){} annS._cdEl=null; }   // cancel any in-flight 3·2·1 countdown
   annS._revRec=null;
 }
 // record the review itself: composite the playing clip + the drawing overlay + the coach's voice into one synced video
+// big "3 · 2 · 1 · REC" overlay on the video stage before recording actually starts, so the coach
+// knows exactly when they're live (previously recording began silently — easy to talk over dead air)
+function vstCountdown(){
+  return new Promise(resolve=>{
+    const v=document.getElementById('vstVid');
+    const stage=v?(v.closest('.vst-canvaswrap')||v.parentElement):null;
+    if(!stage){ resolve(); return; }
+    const ov=document.createElement('div'); ov.className='vst-countdown'; ov.id='vstCountdown'; stage.appendChild(ov);
+    annS._cdEl=ov;
+    let n=3;
+    const step=()=>{
+      if(!annS||annS._cdEl!==ov){ ov.remove(); resolve(); return; }   // cancelled (studio closed / re-clicked)
+      if(n>0){ ov.textContent=String(n); ov.classList.remove('pop'); void ov.offsetWidth; ov.classList.add('pop'); n--; setTimeout(step,750); }
+      else { ov.textContent='● REC'; ov.classList.add('go'); setTimeout(()=>{ if(annS) annS._cdEl=null; ov.remove(); resolve(); }, 550); }
+    };
+    step();
+  });
+}
 async function vstToggleRec(){
   if(!annS) return;
   const btn=document.getElementById('vstRec'), tl=document.getElementById('vstRecTime');
+  if(annS._cdEl){ return; }   // ignore clicks while the 3·2·1 countdown is running
   if(annS._revRec && annS._revRec.state==='recording'){ vstStopRec(); return; }
   if(!navigator.mediaDevices||!window.MediaRecorder){ vstMsg('Recording not supported on this device'); return; }
   const v=document.getElementById('vstVid'); if(!v){ vstMsg('Video not ready'); return; }
@@ -2198,6 +2222,9 @@ async function vstToggleRec(){
     if(btn){ btn.textContent='🔴 Re-record review'; btn.classList.remove('pri'); } if(tl) tl.textContent='';
     annS._revRec=null; vstReviewUI();
   };
+  if(btn){ btn.textContent='Starting…'; btn.classList.add('pri'); }
+  await vstCountdown();                       // 3 · 2 · 1 · REC so the coach knows when they're live
+  if(!annS||annS._revRec!==rec){ return; }    // studio closed or re-clicked during the countdown
   draw();                       // begin compositing video+overlay
   try{ rec.start(); }catch(e){ vstMsg('Recording failed to start'); vstRecCleanup(); return; }
   annS._revStart=performance.now(); annS._revTimeline=[{rt:0, lt:Math.round(v.currentTime*1000)/1000}];   // start the review-time→lift-time map
@@ -2829,6 +2856,10 @@ const BPG_VONLY={force:1,power:1};   // force & power are vertical-only
 function bpgUnit(m){ return {velocity:'m/s',displacement:'m',acceleration:'m/s²',force:'N',power:'W'}[m]||''; }
 function bpgFmt(m,v){ if(v==null||!isFinite(v)) return '—'; return (m==='force'||m==='power')?Math.round(v).toString():v.toFixed(2); }
 function bpgBuild(){
+  // athlete read-only: use the coach's already-computed series verbatim. The recompute below needs the
+  // exact frame pixel dims + calibration the track was built with; the athlete never tracked, so
+  // recomputing there collapses everything to ~0. Displaying the saved series is dimension-independent.
+  if(annS.readOnly && annS._savedGraph && annS._savedGraph.velV && annS._savedGraph.velV.length){ annS.graph=annS._savedGraph; return; }
   annS.graph=null;
   const pts=bpWinPts(); if(!pts||pts.length<3) return;
   const mpp=annS.scale; if(!mpp) return;            // need calibration for real units
@@ -2932,22 +2963,41 @@ function bpgReviewLift(rt){ const tl=annS&&annS._revTimeline; if(!tl||!tl.length
   let lo=0,hi=tl.length-1; while(hi-lo>1){ const mid=(lo+hi)>>1; if(tl[mid].rt<=rt) lo=mid; else hi=mid; }
   const a=tl[lo],b=tl[hi], f=(rt-a.rt)/((b.rt-a.rt)||1); return a.lt+(b.lt-a.lt)*f; }
 function bpgHasCursor(){ return !annS._bakedReview || (annS._revTimeline&&annS._revTimeline.length); }
-async function bpSaveTrack(){
-  if(!annS||annS.readOnly) return;
-  if(!annS.track||annS.track.length<2){ bpHint('Track the bar first.', true); return; }
-  if(annS.metrics){ annS.metrics._load=(annS._load!=null?annS._load:null); annS.metrics.facing=annS.facing||'left'; annS.metrics.win=annS.win||null; annS.metrics._kf=annS.kf||null; annS.metrics._src=annS.trackSource||'auto'; }   // remember load + forward-direction + trim + manual keyframes so it's reproducible
+// Persist the bar-path track (points + calibration + derived metrics) to video_tracks so the
+// athlete's read-only view can render the charts/metrics. Shared by the "Save bar path" button
+// AND by "Save & send to athlete" (saveAnnNotes) — the latter is the coach's normal action, so
+// wiring the track in here is what actually delivers the analysis to the athlete (previously the
+// track was ONLY saved by the separate button, so a coach who just hit "Save & send" sent notes
+// but no numbers). Returns the sb result, {local:true} if offline-only, or null if nothing to save.
+async function bpPersistTrack(){
+  if(!annS||annS.readOnly||!annS.track||annS.track.length<2) return null;
+  if(annS.metrics){ annS.metrics._load=(annS._load!=null?annS._load:null); annS.metrics.facing=annS.facing||'left'; annS.metrics.win=annS.win||null; annS.metrics._kf=annS.kf||null; annS.metrics._src=annS.trackSource||'auto';
+    annS.metrics._gA=annS.gA||null; annS.metrics._gB=annS.gB||null;
+    annS.metrics._trackW=annS._trackW||null; annS.metrics._trackH=annS._trackH||null;   // frame dims (belt-and-suspenders)
+    // ⭐ save the coach's already-computed chart series so the athlete renders it verbatim (no recompute).
+    // This is what actually makes the athlete's velocity/displacement charts + VMAX show real numbers.
+    if(!annS.graph){ try{ bpgBuild(); }catch(e){} }
+    if(annS.graph){ const g=annS.graph; annS.metrics._graph={ t:g.t, dispV:g.dispV, dispH:g.dispH, velV:g.velV, velH:g.velH, accV:g.accV, accH:g.accH, forceV:g.forceV||null, powerV:g.powerV||null, load:(g.load!=null?g.load:null) }; }
+  }
   const payload={ points:annS.track, fps:annS.fps, scale_m_per_px:annS.scale||null, metrics:annS.metrics||{} };
   try{ localStorage.setItem('vtrk:'+annS.path, JSON.stringify(payload)); }catch(e){}
-  if(!VTRACKS_READY){ bpHint('Saved locally (run migration 30 for cloud).'); return; }
-  const btn=document.getElementById('bpSave'); if(btn){ btn.style.pointerEvents='none'; btn.textContent='Saving…'; }
+  if(!VTRACKS_READY) return {local:true};
   const row={ gym_id:me_.gym_id, video_path:annS.path, athlete_id:annS.athleteId||null, exercise:annS.exercise||null, points:annS.track, fps:annS.fps, scale_m_per_px:annS.scale||null, metrics:annS.metrics||{} };
   if(!annS.trackId){ const ex=await sb.from('video_tracks').select('id').eq('video_path',annS.path).order('updated_at',{ascending:false}).limit(1); if(ex.data&&ex.data[0]) annS.trackId=ex.data[0].id; }
   let res;
   if(annS.trackId) res=await sb.from('video_tracks').update({ points:row.points, fps:row.fps, scale_m_per_px:row.scale_m_per_px, metrics:row.metrics, athlete_id:row.athlete_id, updated_at:new Date().toISOString() }).eq('id',annS.trackId).select();
   else res=await sb.from('video_tracks').insert(row).select();
+  if(res&&res.data&&res.data[0]) annS.trackId=res.data[0].id;
+  return res;
+}
+async function bpSaveTrack(){
+  if(!annS||annS.readOnly) return;
+  if(!annS.track||annS.track.length<2){ bpHint('Track the bar first.', true); return; }
+  if(!VTRACKS_READY){ await bpPersistTrack(); bpHint('Saved locally (run migration 30 for cloud).'); return; }
+  const btn=document.getElementById('bpSave'); if(btn){ btn.style.pointerEvents='none'; btn.textContent='Saving…'; }
+  const res=await bpPersistTrack();
   if(btn){ btn.style.pointerEvents=''; btn.textContent='Save bar path'; }
-  if(res.error){ bpHint('Save failed — kept locally.', true); return; }
-  if(res.data&&res.data[0]) annS.trackId=res.data[0].id;
+  if(res&&res.error){ bpHint('Save failed — kept locally.', true); return; }
   bpHint('✓ Bar path saved & sent to athlete.');
 }
 async function bpLoadTrack(path){
@@ -2964,6 +3014,11 @@ async function bpLoadTrack(path){
     if(annS.metrics&&annS.metrics._load!=null) annS._load=annS.metrics._load;   // load the coach used for force/power
     if(annS.metrics&&annS.metrics.facing) annS.facing=annS.metrics.facing;
     if(annS.metrics&&annS.metrics.win) annS.win=annS.metrics.win;   // coach's trim window
+    if(annS.readOnly&&annS.metrics&&annS.metrics._gA) annS.gA=annS.metrics._gA;   // open the athlete on the coach's chosen charts
+    if(annS.readOnly&&annS.metrics&&annS.metrics._gB) annS.gB=annS.metrics._gB;
+    if(annS.metrics&&annS.metrics._trackW) annS._trackW=annS.metrics._trackW;   // restore the calibration frame size so velocity/displacement compute in real units (not ~0)
+    if(annS.metrics&&annS.metrics._trackH) annS._trackH=annS.metrics._trackH;
+    if(annS.readOnly&&annS.metrics&&annS.metrics._graph) annS._savedGraph=annS.metrics._graph;   // ⭐ the coach's computed chart series — displayed verbatim, no recompute
     vstTrimUI();
     if(payload.fps){ annS.fps=payload.fps; const f=document.getElementById('vstFps'); if(f) f.value=payload.fps; }
     if(annS._bakedReview){ annS.showTrace=false; annS.showDrift=false; const sh=document.getElementById('bpShow'); if(sh) sh.checked=false; const dr=document.getElementById('bpDrift'); if(dr) dr.checked=false; }  // trace is already baked into the review video
@@ -3025,7 +3080,11 @@ async function saveAnnNotes(){
   if(btn){ btn.style.pointerEvents=''; btn.textContent='Save & send to athlete'; }
   if(res.error){ vstMsg('Save failed — kept locally'); return; }
   if(res.data&&res.data[0]) annS.noteId=res.data[0].id;
-  vstMsg('✓ Saved & sent');
+  // also persist the bar-path track so ONE "Save & send" delivers the full analysis (charts + metrics),
+  // not just the notes — otherwise the athlete gets the review video/notes but blank bar-path numbers.
+  let trackSent=false;
+  if(annS.track && annS.track.length>1){ try{ const tr=await bpPersistTrack(); trackSent=!!(tr&&!tr.error); }catch(e){} }
+  vstMsg(trackSent?'✓ Saved & sent (review + bar-path analysis)':'✓ Saved & sent');
 }
 function rowHtml(key,i){
   const st=logState[key];
