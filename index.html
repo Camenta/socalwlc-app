@@ -236,6 +236,14 @@
   .rev-meta .rev-date{display:block;color:var(--muted);font-size:12px;margin-top:1px}
   .rev-meta .rev-note{color:var(--muted);font-size:12px;margin-top:3px;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .rev-row .cbtn{flex:none}
+  .rev-row.rev-watched{opacity:.5;transition:opacity .45s ease}
+  .rev-seen{margin-top:8px}
+  .rev-seen>summary{cursor:pointer;list-style:none;color:var(--muted);font-size:12px;font-weight:700;padding:5px 2px;user-select:none}
+  .rev-seen>summary::-webkit-details-marker{display:none}
+  .rev-seen>summary::before{content:'▸ ';color:var(--accent)}
+  .rev-seen[open]>summary::before{content:'▾ '}
+  .rev-seen[open]{display:flex;flex-direction:column;gap:8px}
+  .rev-seen[open] .rev-row{margin-top:0}
   #rvNav .rv-pos{font-size:11px;color:var(--accent2);text-transform:uppercase;letter-spacing:.04em}
   #rvNav .rv-ex{font-size:15px;font-weight:700;color:var(--text);margin-top:3px}
   #rvNav .rv-set{font-size:12px;color:var(--muted);margin-top:2px}
@@ -3750,19 +3758,30 @@ async function renderAthHome(){
   renderMyReview();
 }
 // Home notification: the athlete's most recent coach video reviews
+// watched-review tracking (per athlete, in the browser — no migration). Watching a review declutters
+// it off the main Home feed: it fades and collapses under a "Show N watched" section. Keyed by
+// clip + updated_at so a NEW review on the same clip re-appears as unwatched.
+function athWatchedKey(r){ return (r.video_path||'')+'|'+(r.updated_at||''); }
+function athWatchedSet(){ try{ return new Set(JSON.parse(localStorage.getItem('wlc:watched:'+(me_&&me_.id))||'[]')); }catch(e){ return new Set(); } }
+function athWatchedMark(key){ try{ const s=athWatchedSet(); if(!s.has(key)){ s.add(key); localStorage.setItem('wlc:watched:'+(me_&&me_.id), JSON.stringify([...s])); } }catch(e){} }
+window.athViewReview=(path,upd,el)=>{ athWatchedMark((path||'')+'|'+(upd||'')); if(el){ const row=el.closest('.rev-row'); if(row) row.classList.add('rev-watched'); } openAnnStudio(path,{readOnly:true,title:'Coach review',athleteId:me_.id}); };
 async function loadAthReviews(){
   if(!VNOTES_READY) return;
   const host=document.getElementById('athReviews'); if(!host) return;
-  const { data, error } = await sb.from('video_notes').select('video_path,payload,updated_at').eq('athlete_id', me_.id).order('updated_at',{ascending:false}).limit(6);
+  const { data, error } = await sb.from('video_notes').select('video_path,payload,updated_at').eq('athlete_id', me_.id).order('updated_at',{ascending:false}).limit(12);
   if(error||!data||!data.length) return;
-  const rows=data.map(r=>{ const pl=r.payload||{}; const d=new Date(r.updated_at); const ds=MONS[d.getMonth()]+' '+d.getDate();
-    const dl=pl.reviewVideoPath||r.video_path;
-    return `<div class="rev-row">
-      <div class="rev-meta"><b>Coach reviewed your lift</b><span class="rev-date">${ds}${pl.voicePath?' · 🎙 voice note':''}</span>${pl.note?`<div class="rev-note">“${esc(pl.note)}”</div>`:''}</div>
-      <span class="cbtn" onclick="openAnnStudio('${esc(r.video_path)}',{readOnly:true,title:'Coach review',athleteId:'${me_.id}'})">▶ View</span>
+  const watched=athWatchedSet();
+  const rowHtml=(r,isW)=>{ const pl=r.payload||{}; const d=new Date(r.updated_at); const ds=MONS[d.getMonth()]+' '+d.getDate(); const dl=pl.reviewVideoPath||r.video_path;
+    return `<div class="rev-row${isW?' rev-watched':''}">
+      <div class="rev-meta"><b>Coach reviewed your lift</b><span class="rev-date">${ds}${isW?' · ✓ watched':''}${pl.voicePath?' · 🎙 voice note':''}</span>${pl.note?`<div class="rev-note">“${esc(pl.note)}”</div>`:''}</div>
+      <span class="cbtn" onclick="athViewReview('${esc(r.video_path)}','${esc(r.updated_at)}',this)">▶ ${isW?'Re-watch':'View'}</span>
       <span class="cbtn alt" onclick="athDownloadReview('${esc(dl)}')" title="Save this review to your device before it auto-clears">⬇ Save</span>
-    </div>`; }).join('');
-  host.innerHTML=`<div class="card revcard"><h2>🎬 Coach feedback <span class="rev-count">${data.length}</span></h2><div class="rev-list">${rows}</div><div class="note sub" style="margin-top:8px;font-size:11px">Coach reviews auto-clear after 2 weeks to save space — tap ⬇ Save to keep one.</div></div>`;
+    </div>`; };
+  const fresh=data.filter(r=>!watched.has(athWatchedKey(r)));
+  const seen=data.filter(r=>watched.has(athWatchedKey(r)));
+  const freshHtml = fresh.length ? fresh.map(r=>rowHtml(r,false)).join('') : `<div class="note sub" style="padding:6px 0">You’re all caught up — no new coach feedback. 🎉</div>`;
+  const seenHtml = seen.length ? `<details class="rev-seen"><summary>Show ${seen.length} watched</summary>${seen.map(r=>rowHtml(r,true)).join('')}</details>` : '';
+  host.innerHTML=`<div class="card revcard"><h2>🎬 Coach feedback ${fresh.length?`<span class="rev-count">${fresh.length}</span>`:''}</h2><div class="rev-list">${freshHtml}</div>${seenHtml}<div class="note sub" style="margin-top:8px;font-size:11px">Watched reviews collapse below · everything auto-clears after 2 weeks — tap ⬇ Save to keep one.</div></div>`;
 }
 // download a coach review video to the athlete's device (read-only signed URL with an attachment disposition)
 window.athDownloadReview=async(path)=>{
