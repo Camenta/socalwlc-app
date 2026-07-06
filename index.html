@@ -368,6 +368,7 @@
   .pn-row{display:flex;align-items:center;gap:9px;padding:7px 0;border-top:1px solid var(--line);font-size:13px}
   .pn-row:first-child{border-top:none}
   .pn-dot{width:10px;height:10px;border-radius:50%;flex:none}
+  .pn-row.pn-arch{opacity:.55}
   .pn-reg{font-weight:700;min-width:120px}
   .pn-sev{font-weight:800}
   .pn-meta{color:var(--muted);font-size:12px;margin-left:auto;white-space:nowrap}
@@ -3568,14 +3569,20 @@ async function loadPainRange(athleteId, startStr, endStr){
   const r=await q.order('report_date',{ascending:false}); return r.error?[]:(r.data||[]);
 }
 // roll raw rows into per-region/side summaries (latest severity + weeks-reported persistence)
+// Auto-archive: a twinge with no report in the last PAIN_ACTIVE_DAYS is treated as DISSIPATED —
+// it drops off the active list, the persistent watch-flags and the heat-map (moves to `archived`).
+const PAIN_ACTIVE_DAYS=14;
 function painAggregate(rows){
   const by={}; (rows||[]).forEach(x=>{ const k=x.region+'|'+x.side; if(!by[k]) by[k]={ region:x.region, label:x.region_label||x.region, side:x.side, view:x.view||'front', latest:0, latestDate:null, peak:0, note:'', weeks:new Set(), count:0 };
     const e=by[k]; e.count++; e.weeks.add(painMonKey(x.report_date)); if(x.severity>e.peak) e.peak=x.severity;
     if(!e.latestDate || x.report_date>e.latestDate){ e.latestDate=x.report_date; e.latest=x.severity; e.note=x.note||''; } });
-  const list=Object.values(by).map(e=>({ ...e, weeksN:e.weeks.size })).sort((a,b)=> (b.latest-a.latest)||(b.weeksN-a.weeksN));
-  const sevMap={}; list.forEach(e=>{ sevMap[e.region+'|'+e.side]=e.latest; });
-  const persistent=list.filter(e=>e.weeksN>=2 || e.peak>=7);
-  return { list, sevMap, persistent };
+  const today=new Date(); const D=s=>new Date(s+'T00:00:00');
+  const list=Object.values(by).map(e=>{ const daysSince=e.latestDate?Math.floor((today-D(e.latestDate))/864e5):9999; return { ...e, weeksN:e.weeks.size, daysSince, active:daysSince<=PAIN_ACTIVE_DAYS }; })
+    .sort((a,b)=> (b.latest-a.latest)||(b.weeksN-a.weeksN));
+  const active=list.filter(e=>e.active), archived=list.filter(e=>!e.active);
+  const sevMap={}; active.forEach(e=>{ sevMap[e.region+'|'+e.side]=e.latest; });   // heat-map + watch-flags = ACTIVE twinges only
+  const persistent=active.filter(e=>e.weeksN>=2 || e.peak>=7);
+  return { list, active, archived, sevMap, persistent };
 }
 // the read-only panel: front+back mini-maps + a list of recent pain
 function painPanelHTML(agg, opts){
@@ -3585,13 +3592,17 @@ function painPanelHTML(agg, opts){
     <div class="pn-map">${bodyHeatSVG('front',agg.sevMap,{readOnly:true})}<div class="bm-cap">Front</div></div>
     <div class="pn-map">${bodyHeatSVG('back',agg.sevMap,{readOnly:true})}<div class="bm-cap">Back</div></div></div>`;
   const D=s=>new Date(s+'T00:00:00');
-  const rows=agg.list.slice(0,opts.limit||8).map(e=>{ const col=painColor(e.latest)||'var(--muted)';
+  const rowHTML=(e,arch)=>{ const col=arch?'var(--muted)':(painColor(e.latest)||'var(--muted)');
     const sd=e.side!=='center'?' '+SIDE_FULL[e.side]:''; const dl=e.latestDate?MONS[D(e.latestDate).getMonth()]+' '+D(e.latestDate).getDate():'';
-    const persist=e.weeksN>=2?` · ${e.weeksN} wks`:''; const pk=e.peak>e.latest?` · peak ${e.peak}`:'';
-    return `<div class="pn-row"><span class="pn-dot" style="background:${col}"></span><span class="pn-reg">${esc(e.label)}${sd}</span><span class="pn-sev" style="color:${col}">${e.latest}/10</span><span class="pn-meta">${esc(dl)}${persist}${pk}</span>${e.note?`<div class="pn-note">“${esc(e.note)}”</div>`:''}</div>`;
-  }).join('');
+    const persist=e.weeksN>=2?` · ${e.weeksN} wks`:''; const pk=e.peak>e.latest?` · peak ${e.peak}`:''; const resolved=arch?` · resolved ${e.daysSince}d ago`:'';
+    return `<div class="pn-row${arch?' pn-arch':''}"><span class="pn-dot" style="background:${col}"></span><span class="pn-reg">${esc(e.label)}${sd}</span><span class="pn-sev" style="color:${col}">${e.latest}/10</span><span class="pn-meta">${esc(dl)}${persist}${pk}${resolved}</span>${e.note?`<div class="pn-note">“${esc(e.note)}”</div>`:''}</div>`;
+  };
+  const active=agg.active||agg.list, archived=agg.archived||[];
+  const activeRows = active.length ? active.slice(0,opts.limit||8).map(e=>rowHTML(e,false)).join('')
+    : `<div class="note sub" style="padding:4px 0">No active twinges — all clear right now. 🎉</div>`;
+  const archRows = archived.length ? `<details class="rev-seen"><summary>Resolved / past (${archived.length})</summary>${archived.slice(0,12).map(e=>rowHTML(e,true)).join('')}</details>` : '';
   const legend=`<div class="pn-legend"><span><i style="background:var(--good)"></i>1–3 twinge</span><span><i style="background:var(--warn)"></i>4–6 sore</span><span><i style="background:var(--accent)"></i>7–10 sharp</span></div>`;
-  return `<div class="pn-wrap">${maps}<div class="pn-list">${rows}${legend}</div></div>`;
+  return `<div class="pn-wrap">${maps}<div class="pn-list">${activeRows}${archRows}${legend}</div></div>`;
 }
 // a one-line persistence summary for focus drafts ("Watch: right knee pain 3 wks running")
 function painFocusLine(agg, first){
