@@ -1965,6 +1965,7 @@ async function openAnnStudio(path, meta){
           <span class="vst-btn" id="vstBack" title="Back one frame">⟨ frame</span>
           <span class="vst-btn" id="vstFwd" title="Forward one frame">frame ⟩</span>
           <span class="vst-btn" id="vstLoop" title="Loop — plays over and over (within the trim if one is set) so you can talk through it">🔁 Loop</span>
+          <span class="vst-btn" id="vstMute" title="Mute the clip's audio (background music / gym noise)">🔊</span>
           <input type="range" class="vst-scrub" id="vstScrub" min="0" max="1000" value="0">
           <span class="vst-time" id="vstTime">0.00 / 0.00</span>
           <select class="vst-fps" id="vstRate" title="Playback speed" style="width:auto">
@@ -2258,6 +2259,8 @@ function wireAnnStudio(){
   scrub.oninput=()=>{ const r=vstRange(); v.currentTime=r[0]+scrub.value/1000*((r[1]-r[0])||0); };
   document.getElementById('vstRate').onchange=e=>{ v.playbackRate=parseFloat(e.target.value); };
   const loopBtn=document.getElementById('vstLoop'); if(loopBtn) loopBtn.onclick=()=>{ annS._looping=!annS._looping; loopBtn.classList.toggle('pri',annS._looping); if(annS._looping){ const w=annS.win; if(w&&(v.currentTime<w.a||v.currentTime>=w.b)) v.currentTime=w.a; if(v.paused) v.play(); } };
+  // mute the clip's own audio (gym music / background noise) so it doesn't distract the coach or bleed into a recorded review
+  const muteBtn=document.getElementById('vstMute'); if(muteBtn) muteBtn.onclick=()=>{ v.muted=!v.muted; muteBtn.textContent=v.muted?'🔇':'🔊'; muteBtn.classList.toggle('pri',v.muted); muteBtn.title=v.muted?'Un-mute the clip’s audio':'Mute the clip’s audio (background music / gym noise)'; };
   // trim / in-out points — isolate the working part of the lift (and re-zero displacement to the in-point)
   const tIn=document.getElementById('vstTrimIn'), tOut=document.getElementById('vstTrimOut'), tClr=document.getElementById('vstTrimClr');
   if(tIn) tIn.onclick=()=>vstSetTrim('a',v.currentTime);
@@ -7179,7 +7182,9 @@ function _hx(h){ h=(h||'#000').replace('#',''); return [parseInt(h.slice(0,2),16
 function tintText(hex){ const [r,g,b]=_hx(hex); const m=(c)=>Math.round(c+(255-c)*0.42); return `rgb(${m(r)},${m(g)},${m(b)})`; }
 function tintStyle(hex){ return `background:${hexA(hex,0.16)};border:1px solid ${hexA(hex,0.5)};color:${tintText(hex)}`; }
 function segColor(c){ return SEG_COLORS[c]||SEG_COLORS.blue; }
-const LOAD_PATTERNS=['Linear Ascending','Linear Descending','Peak on W2','Peak on W3','Undulating','Flat','Deload'];
+const LOAD_PATTERNS=['Linear Ascending','Linear Descending','Peak on W2','Peak on W3','Undulating Up/Down','Undulating Down/Up','Flat','Deload'];
+// legacy plans stored a single 'Undulating' (= Down/Up = starts moderate); map it so the dropdown still highlights right
+const normPattern=x=>x==='Undulating'?'Undulating Down/Up':(x||'Linear Ascending');
 const WAVE_LVL={ light:['#5a6b7a',9], moderate:['#3c9ee8',15], heavy:['#e8b13c',21], peak:['#e8643c',27], comp:['#e85c5c',30] };
 function waveLevels(pattern,n){ const L=['light','moderate','heavy','peak']; const out=[];
   for(let i=0;i<n;i++){ let lv;
@@ -7187,7 +7192,8 @@ function waveLevels(pattern,n){ const L=['light','moderate','heavy','peak']; con
     else if(pattern==='Linear Descending') lv=L[Math.min(3,Math.floor((n-1-i)/Math.max(1,n-1)*3.99))];
     else if(pattern==='Peak on W2') lv = i===1?'peak':(i===0?'moderate':'light');
     else if(pattern==='Peak on W3') lv = i===2?'peak':(i<2?L[Math.min(2,i+1)]:'light');
-    else if(pattern==='Undulating') lv = (i%2===0)?'moderate':'heavy';
+    else if(pattern==='Undulating Up/Down') lv = (i%2===0)?'heavy':'moderate';        // starts heavy, alternates down
+    else if(pattern==='Undulating Down/Up'||pattern==='Undulating') lv = (i%2===0)?'moderate':'heavy';   // starts moderate, alternates up (legacy 'Undulating')
     else if(pattern==='Deload') lv='light';
     else lv='moderate';
     out.push(lv); }
@@ -7333,7 +7339,7 @@ function renderMacro(){
     const W=WAVE_LVL[lvl]; waveCells+=`<div class="mc2-bcell"><div class="mc2-bar" style="height:${W[1]}px;background:${W[0]}" title="${lvl}"></div></div>`; }
   // loading pattern
   const patCells=planBandSegments('meso').map(seg=> segEditable(seg)
-    ? `<div class="mc2-pcell" style="grid-column:${seg.c0+1}/${seg.c1+2}"><select onchange="planSetPattern('${seg.id}',this.value)">${LOAD_PATTERNS.map(pt=>`<option${(seg.pattern||'Linear Ascending')===pt?' selected':''}>${pt}</option>`).join('')}</select></div>`
+    ? `<div class="mc2-pcell" style="grid-column:${seg.c0+1}/${seg.c1+2}"><select onchange="planSetPattern('${seg.id}',this.value)">${LOAD_PATTERNS.map(pt=>`<option${normPattern(seg.pattern)===pt?' selected':''}>${pt}</option>`).join('')}</select></div>`
     : `<div class="mc2-pcell" style="grid-column:${seg.c0+1}/${seg.c1+2}"><span class="mc2-pstatic">${esc(seg.pattern||'Linear Ascending')}</span></div>`).join('');
   // upcoming peaks
   const todStr=iso(td);
@@ -7597,7 +7603,7 @@ window.planEditPhase=(id,level)=>{
       <span class="bf-wk"><label>Start</label><input id="phStart" type="date" style="width:150px;text-align:left" value="${p?p.start_date:iso(new Date(planState.year,planState.month,1))}"></span>
       <span class="bf-wk"><label>End</label><input id="phEnd" type="date" style="width:150px;text-align:left" value="${p?p.end_date:iso(new Date(planState.year,planState.month,28))}"></span>
       ${scopeField}
-      ${isMeso?`<span class="bf-wk"><label>Loading pattern</label><select id="phPattern" class="cw-sel">${LOAD_PATTERNS.map(pt=>`<option${(p&&p.pattern===pt)?' selected':''}>${pt}</option>`).join('')}</select></span>`:''}
+      ${isMeso?`<span class="bf-wk"><label>Loading pattern</label><select id="phPattern" class="cw-sel">${LOAD_PATTERNS.map(pt=>`<option${(p&&normPattern(p.pattern)===pt)?' selected':''}>${pt}</option>`).join('')}</select></span>`:''}
     </div>
     <div class="bf-row" style="margin-top:12px"><button class="btn" onclick="planSavePhase('${id||''}','${lvl}')">Save</button>${p?`<span class="extool del" style="margin-left:10px" onclick="planDelPhase('${id}')">✕ delete</span>`:''}<span class="saved" id="phMsg"></span></div>`);
 };
