@@ -5830,23 +5830,33 @@ async function renderAthlete(selDate){
   athState.screen='athlete';
   app.innerHTML = topbar('Athlete') + athNav('athlete') + `<div class="spin">Loading your week…</div>`;
   if(!(await requireSession())) return;
-  const wk=weekDates(), wkIso=wk.map(iso), todayStr=iso(new Date());
-  // all of this week's sessions
+  const todayStr=iso(new Date());
+  // Anchor the week on what the athlete should see NEXT: a passed-in date, else today if it has a session,
+  // else the NEXT upcoming session (a program that starts later this/next week), else the most recent past
+  // session. Previously this hardcoded the CURRENT week and, when it was empty, fell back to the LATEST
+  // session ever — so a program written for next week jumped to its LAST day (Sat) instead of its start (Mon),
+  // and a date passed from the Home preview / calendar was ignored because it wasn't in the current week.
+  let anchor = (selDate && /^\d{4}-\d\d-\d\d$/.test(selDate)) ? selDate : null;
+  if(!anchor){
+    const { data: sdRows } = await sb.from('sessions').select('session_date')
+      .eq('athlete_id', me_.id).neq('status','draft').order('session_date',{ascending:true});
+    const dates=[...new Set((sdRows||[]).map(s=>s.session_date))];
+    if(dates.includes(todayStr)) anchor=todayStr;
+    else { const up=dates.filter(d=>d>todayStr), past=dates.filter(d=>d<todayStr);
+      anchor = up[0] || (past.length?past[past.length-1]:todayStr); }
+  }
+  const mon=planMonday(new Date(anchor+'T00:00:00'));
+  const wk=Array.from({length:7},(_,i)=>{ const d=new Date(mon); d.setDate(mon.getDate()+i); return d; });
+  const wkIso=wk.map(iso);
+  // the anchor week's sessions
   const { data: weekSess, error: wkErr } = await sb.from('sessions').select(SESSION_SELECT)
     .eq('athlete_id', me_.id).neq('status','draft').gte('session_date', wkIso[0]).lte('session_date', wkIso[6])
     .order('session_date',{ascending:true}).order('created_at',{ascending:true});
   if(wkErr){ app.innerHTML = topbar('Athlete') + athNav('athlete') + `<div class="card"><div class="empty" style="color:var(--bad)">⚠ Couldn't load your training — ${esc(wkErr.message)}. Pull to refresh or sign out and back in.</div></div>`; return; }
   const byDate={}; (weekSess||[]).forEach(s=>{ (byDate[s.session_date]=byDate[s.session_date]||[]).push(s); });
-  // fallback: latest session ever, if nothing this week
-  let fallback=null;
-  if(!Object.keys(byDate).length){
-    const { data: latest } = await sb.from('sessions').select(SESSION_SELECT)
-      .eq('athlete_id', me_.id).neq('status','draft').order('session_date',{ascending:false}).order('created_at',{ascending:false}).limit(1);
-    fallback = latest && latest[0];
-    if(!fallback){ app.innerHTML = topbar('Athlete') + athNav('athlete') + `<div class="card"><div class="empty">No session assigned yet — your coach will publish your training here.</div></div>`; return; }
-  }
+  if(!Object.keys(byDate).length){ app.innerHTML = topbar('Athlete') + athNav('athlete') + `<div class="card"><div class="empty">No session assigned yet — your coach will publish your training here.</div></div>`; return; }
   // logs for everything in view (prefill + status dots)
-  const ids=[]; Object.values(byDate).forEach(list=>list.forEach(s=>ids.push(s.id))); if(fallback) ids.push(fallback.id);
+  const ids=[]; Object.values(byDate).forEach(list=>list.forEach(s=>ids.push(s.id)));
   // today's readiness check-in (independent of which day is being viewed).
   // Gated: if the readiness table doesn't exist yet (migration not run), hide the card entirely.
   if(!rkState || rkState.date!==todayStr){
@@ -5867,11 +5877,12 @@ async function renderAthlete(selDate){
     if(wIdx>=0 && wIdx<totW) athBlockLbl=` · ${esc(b.name)} · <b>Wk ${wIdx+1}/${totW}</b>`;
   }
   const isLogged = s => (logsBySession[s.id]||[]).some(l=>l.done);
-  // which day is selected
+  // which day is selected — prefer the passed/anchor day, then today, then the week's first session
   let sel = (selDate && byDate[selDate]) ? selDate : null;
+  if(!sel && byDate[anchor]) sel=anchor;
   if(!sel && byDate[todayStr]) sel=todayStr;
-  if(!sel){ const ds=Object.keys(byDate).sort(), past=ds.filter(d=>d<=todayStr); sel = past[past.length-1] || ds[0] || null; }
-  const dayList = sel ? byDate[sel] : (fallback?[fallback]:[]);
+  if(!sel){ const ds=Object.keys(byDate).sort(); sel = ds[0] || null; }
+  const dayList = sel ? byDate[sel] : [];
   if(sel!==athSelDate){ athSelSess=null; athSelDate=sel; }
   const session = dayList.find(x=>x.id===athSelSess) || dayList[0];
   athSelSess = session.id;
