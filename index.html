@@ -275,6 +275,7 @@
   .lg-del:hover{color:var(--bad);opacity:1}
   .addedtag{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--warn);background:rgba(232,177,60,.13);border-radius:9px;padding:2px 8px}
   .av-note{display:flex;gap:10px;align-items:flex-start;padding:10px 14px;background:#1c2530;border-top:1px solid var(--line);font-size:12.5px}
+  .av-note.av-note-top{border-top:none;border-bottom:1px solid var(--line)}
   .av-note .tag{color:var(--accent2);font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;white-space:nowrap;padding-top:2px}
   /* morning readiness check-in */
   .rk-hd{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
@@ -5945,9 +5946,9 @@ async function renderAthlete(selDate){
     curExercises.push({name:ex.name, exId:ex.id, setIds});
     body += `<div class="ex">
       <div class="av-head"><span class="pill ${isAcc?'accessory':'primary'}">${esc(cat)}</span><span class="name">${esc(ex.name)}</span></div>
+      ${(ex.coach_note || (ex.cues&&ex.cues.length)) ? `<div class="av-note av-note-top"><span class="tag">Coach<br>notes</span><span>${(ex.cues&&ex.cues.length)?`<span class="cues" style="margin-bottom:5px;display:inline-flex">${ex.cues.map(c=>{const ix=c.indexOf('|');return `<span class="cuechip">${ix>-1?esc(c.slice(0,ix))+' ':''}<b>${esc(ix>-1?c.slice(ix+1):c)}</b></span>`;}).join('')}</span><br>`:''}${esc(ex.coach_note||'')}</span></div>` : ''}
       <div class="logwrap"><table class="logtable" data-ex="${ex.id}"><thead><tr><th>Set</th><th>Target</th><th>Reps</th><th>Weight</th><th>Miss</th><th>Lights</th><th>Effort</th><th>Video</th><th>Done</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
       ${addSetReady?`<span class="lg-add" onclick="addSetRow('${ex.id}')">＋ Add set</span>`:''}
-      ${(ex.coach_note || (ex.cues&&ex.cues.length)) ? `<div class="av-note"><span class="tag">Coach<br>notes</span><span>${(ex.cues&&ex.cues.length)?`<span class="cues" style="margin-bottom:5px;display:inline-flex">${ex.cues.map(c=>{const ix=c.indexOf('|');return `<span class="cuechip">${ix>-1?esc(c.slice(0,ix))+' ':''}<b>${esc(ix>-1?c.slice(ix+1):c)}</b></span>`;}).join('')}</span><br>`:''}${esc(ex.coach_note||'')}</span></div>` : ''}
     </div>`;
   });
 
