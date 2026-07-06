@@ -893,6 +893,12 @@
   .ap-forwho{display:inline-flex;align-items:center;min-height:34px;color:var(--accent);font-weight:800;border-style:dashed}
   .ap-scope{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:9px 12px;margin:0 0 12px;font-size:13px;color:#aebccd}
   .ap-scope.warn{border-left-color:var(--warn);color:#e0b06a} .ap-scope b{color:var(--text)}
+  .ap-planact{display:inline-flex;align-items:flex-end;gap:8px}
+  .ap-fork{display:inline-block;margin-left:12px;color:var(--accent2);font-weight:800;cursor:pointer;white-space:nowrap}.ap-fork:hover{text-decoration:underline}
+  .asn-h{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:800;margin-bottom:6px}
+  .asn-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px 12px}
+  .asn-chk{display:flex;align-items:center;gap:7px;font-size:13.5px;color:var(--text);cursor:pointer;padding:3px 0}
+  .asn-chk input{width:16px;height:16px;accent-color:var(--accent)}
   .mc2-comp{display:flex;flex-direction:column;align-items:center;font-size:8.5px;font-weight:700;cursor:pointer;padding-top:4px;text-align:center;line-height:1.2;overflow:hidden}
   .mc2-comp .dot{width:9px;height:9px;border-radius:50%;margin-bottom:2px;flex:0 0 9px}
   .mc2-comp.star .dot{border-radius:2px;transform:rotate(45deg)}
@@ -1691,6 +1697,7 @@ async function boot(){
   await probeSrpe();
   await probeBodyPain();
   await probeAthPlan();
+  await probePlans();
   await probeTickets();
   if(profile.role === 'coach') renderCoach(); else athGo(athState.screen||'athlete');
 }
@@ -3300,6 +3307,8 @@ let PAIN_READY=false;   // body_pain_reports (migration 37) → injury heat-map
 async function probeBodyPain(){ const { error } = await sb.from('body_pain_reports').select('id').limit(1); PAIN_READY = !error; }
 let ATHPLAN_READY=false;   // plan_phases/competitions/plan_tracks.athlete_id (migration 38) → per-athlete override plans
 async function probeAthPlan(){ const { error } = await sb.from('plan_phases').select('athlete_id').limit(1); ATHPLAN_READY = !error; }
+let PLANS_READY=false;     // plans/plan_assignments/plan_overrides + plan_id (migration 41) → named assignable plans, fork & override
+async function probePlans(){ const { error } = await sb.from('plans').select('id').limit(1); PLANS_READY = !error; }
 let TICKETS_READY=false;   // tickets (migration 39) → in-app glitch reports
 async function probeTickets(){ const { error } = await sb.from('tickets').select('id').limit(1); TICKETS_READY = !error; }
 const DOW=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], MONS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -7293,8 +7302,8 @@ const CAL_KINDS={ competition:['#e8643c','Competition'], team:['#2fb6a8','Team e
 function calColor(k){ return (CAL_KINDS[k]||CAL_KINDS.other)[0]; }
 function calLbl(k){ return (CAL_KINDS[k]||CAL_KINDS.other)[1]; }
 const _td=new Date();
-let planState={ mode:'coach', tab:'macro', teamId:'', athleteId:'', year:_td.getFullYear(), calView:'month', month:_td.getMonth(),
-  cur:{y:_td.getFullYear(), m:_td.getMonth(), d:_td.getDate()}, selWk:null, openGroups:{}, phases:[], comps:[], events:[], tracks:[], segments:[], calSess:{} };
+let planState={ mode:'coach', tab:'macro', teamId:'', athleteId:'', planId:'', year:_td.getFullYear(), calView:'month', month:_td.getMonth(),
+  cur:{y:_td.getFullYear(), m:_td.getMonth(), d:_td.getDate()}, selWk:null, openGroups:{}, phases:[], comps:[], events:[], tracks:[], segments:[], plans:[], assignments:[], overrides:[], calSess:{} };
 function planIsAth(){ return planState.mode==='athlete'; }
 // kinds an athlete can add to their OWN calendar (personal life around training)
 const ATH_EVENT_KINDS=['travel','work','life','unavail','other'];
@@ -7317,8 +7326,40 @@ async function loadPlan(){
   planState.events = ev.error?[]:(ev.data||[]);
   planState.tracks = tr.error?[]:(tr.data||[]);
   planState.segments = sg.error?[]:(sg.data||[]);
+  if(PLANS_READY){
+    const pl=await sb.from('plans').select('*').is('archived_at',null).order('created_at');
+    const pa=await sb.from('plan_assignments').select('*');
+    const po=await sb.from('plan_overrides').select('*');
+    planState.plans = pl.error?[]:(pl.data||[]);
+    planState.assignments = pa.error?[]:(pa.data||[]);
+    planState.overrides = po.error?[]:(po.data||[]);
+  } else { planState.plans=[]; planState.assignments=[]; planState.overrides=[]; }
   planState._evVer = (planState._evVer||0)+1;   // invalidate the calendar-event expansion memo
 }
+// ---- named-plan resolution (migration 41) ----
+// Split the plans an athlete is on into OWN (assigned to them individually — e.g. a fork) and TEAM
+// (assigned via their team). A plan muted for the athlete is dropped (set when a team plan is forked
+// into their own copy, so the team original stops showing). OWN plans + personal athlete_id blocks are
+// the "override" layer; TEAM plans + legacy team/gym rows are the "base" the overrides punch through.
+function planPidSets(athId){
+  const T=planTeamOf(athId), asn=planState.assignments||[];
+  const live=new Set((planState.plans||[]).map(p=>p.id));   // archived plans are not loaded → their assignments stop resolving
+  const muted=new Set(asn.filter(a=>a.athlete_id===athId && a.muted).map(a=>a.plan_id));
+  const own=new Set(), team=new Set();
+  asn.forEach(a=>{ if(a.muted || !live.has(a.plan_id)) return;
+    if(a.athlete_id===athId) own.add(a.plan_id);
+    else if(a.team_id && a.team_id===T && !muted.has(a.plan_id)) team.add(a.plan_id); });
+  return { own, team };
+}
+function activePlanIds(athId){ const s=planPidSets(athId); return new Set([...s.own, ...s.team]); }
+// Item ids the coach has hidden for this athlete (the "stay-linked, hide one block" override path).
+function hiddenSet(athId, itemType){
+  return new Set((planState.overrides||[]).filter(o=>o.athlete_id===athId && o.item_type===itemType && o.action==='hide').map(o=>o.item_id));
+}
+// A row belongs to the athlete's merged plan if it's their own (athlete_id) or in an active plan.
+function inAthletePlan(row, athId, pids){ return row.athlete_id===athId || (row.plan_id && pids.has(row.plan_id)); }
+// A legacy (pre-plan) row: no plan_id and no athlete_id — the old team/gym-tagged model.
+function isLegacyShared(row){ return !row.plan_id && !row.athlete_id; }
 /* macrocycle: subtle-tint colors + 52-week grid math + loading wave */
 const SEG_COLORS={ blue:'#3c9ee8', green:'#3ec97a', amber:'#e8b13c', orange:'#e8643c', red:'#e85c5c', purple:'#9b6dd1', teal:'#2fb6a8', slate:'#5a6b7a' };
 const SEG_LIST=[['blue','Blue'],['green','Green'],['amber','Amber'],['orange','Orange'],['red','Red'],['purple','Purple'],['teal','Teal'],['slate','Slate']];
@@ -7357,23 +7398,34 @@ function planTeamOf(athId){ if(me_ && athId===me_.id) return me_.team_id||null; 
 // only for the weeks it spans. TEAM/GYM scope: team + gym rows, exactly as before. `own.concat(inh)` puts own first so
 // a `.find()` by date resolves to the override.
 function planScopedPhases(){ const A=planState.athleteId;
-  if(A){ const T=planTeamOf(A); const own=planState.phases.filter(p=>p.athlete_id===A); const inh=planState.phases.filter(p=>!p.athlete_id&&(!p.team_id||p.team_id===T)); return own.concat(inh); }
-  return planState.phases.filter(p=> !p.athlete_id && (!planState.teamId || p.team_id===planState.teamId || !p.team_id)); }
+  if(planState.planId) return planState.phases.filter(p=>p.plan_id===planState.planId);
+  if(A){ const T=planTeamOf(A), P=planPidSets(A), hid=hiddenSet(A,'phase');
+    const own=planState.phases.filter(p=>p.athlete_id===A || (p.plan_id&&P.own.has(p.plan_id)));
+    const inh=planState.phases.filter(p=>(p.plan_id&&P.team.has(p.plan_id)) || (isLegacyShared(p)&&(!p.team_id||p.team_id===T)));
+    return own.concat(inh).filter(p=>!hid.has(p.id)); }
+  return planState.phases.filter(p=> isLegacyShared(p) && (!planState.teamId || p.team_id===planState.teamId || !p.team_id)); }
 function planScopedComps(){ const A=planState.athleteId;
-  if(A){ const T=planTeamOf(A); return planState.comps.filter(c=> c.athlete_id===A || (!c.athlete_id&&(!c.team_id||c.team_id===T))); }
-  return planState.comps.filter(c=> !c.athlete_id && (!planState.teamId || c.team_id===planState.teamId || !c.team_id)); }
+  if(planState.planId) return planState.comps.filter(c=>c.plan_id===planState.planId);
+  if(A){ const T=planTeamOf(A), pids=activePlanIds(A), hid=hiddenSet(A,'comp');
+    return planState.comps.filter(c=> (c.athlete_id===A || (c.plan_id&&pids.has(c.plan_id)) || (isLegacyShared(c)&&(!c.team_id||c.team_id===T))) && !hid.has(c.id)); }
+  return planState.comps.filter(c=> isLegacyShared(c) && (!planState.teamId || c.team_id===planState.teamId || !c.team_id)); }
 function planScopedTracks(){ const A=planState.athleteId;
-  if(A){ const T=planTeamOf(A); return planState.tracks.filter(t=> t.athlete_id===A || (!t.athlete_id&&(!t.team_id||t.team_id===T))); }
-  return planState.tracks.filter(t=> !t.athlete_id && (!planState.teamId || !t.team_id || t.team_id===planState.teamId)); }
+  if(planState.planId) return planState.tracks.filter(t=>t.plan_id===planState.planId);
+  if(A){ const T=planTeamOf(A), pids=activePlanIds(A), hid=hiddenSet(A,'track');
+    return planState.tracks.filter(t=> (t.athlete_id===A || (t.plan_id&&pids.has(t.plan_id)) || (isLegacyShared(t)&&(!t.team_id||t.team_id===T))) && !hid.has(t.id)); }
+  return planState.tracks.filter(t=> isLegacyShared(t) && (!planState.teamId || !t.team_id || t.team_id===planState.teamId)); }
 function planColOf(dateStr){ const N=planWeeksInYear(); return Math.max(0,Math.min(N-1,planWeekIdx(dateStr))); }
 // Split one band-level (meso/phase/subphase) into render segments: the athlete's OWN bands, plus the inherited
 // team/gym bands with the weeks covered by an own band removed — so own visually overrides the team for its span.
 // Returns [{c0,c1,name,kind,pattern,src:'own'|'inherit',id}]. In team/gym scope there are no own bands → inherited whole.
 function planBandSegments(level){
   const A=planState.athleteId, at=p=>(p.level||'meso')===level;
-  const own=A?planState.phases.filter(p=>p.athlete_id===A&&at(p)):[];
-  const inh=A? planState.phases.filter(p=>!p.athlete_id&&at(p)&&(!p.team_id||p.team_id===planTeamOf(A)))
-            : planState.phases.filter(p=>!p.athlete_id&&at(p)&&(!planState.teamId||!p.team_id||p.team_id===planState.teamId));
+  let own, inh;
+  if(planState.planId){ own=[]; inh=planState.phases.filter(p=>p.plan_id===planState.planId&&at(p)); }
+  else if(A){ const T=planTeamOf(A), P=planPidSets(A), hid=hiddenSet(A,'phase');
+    own=planState.phases.filter(p=>at(p)&&!hid.has(p.id)&&(p.athlete_id===A||(p.plan_id&&P.own.has(p.plan_id))));
+    inh=planState.phases.filter(p=>at(p)&&!hid.has(p.id)&&((p.plan_id&&P.team.has(p.plan_id))||(isLegacyShared(p)&&(!p.team_id||p.team_id===T)))); }
+  else { own=[]; inh=planState.phases.filter(p=>isLegacyShared(p)&&at(p)&&(!planState.teamId||!p.team_id||p.team_id===planState.teamId)); }
   const ownR=own.map(p=>[planColOf(p.start_date),planColOf(p.end_date)]);
   const covered=i=>ownR.some(r=>r[0]<=i&&i<=r[1]);
   const segs=[];
@@ -7383,7 +7435,107 @@ function planBandSegments(level){
   return segs.sort((a,b)=>a.c0-b.c0);
 }
 window.planInheritNote=()=>toast('That block is part of the team plan. Set the Athlete selector to “— none —” and pick the Team to edit it.');
-window.planSetAthlete=(id)=>{ planState.athleteId=id||''; planState.selWk=null; paintPlan(); };
+window.planSetAthlete=(id)=>{ planState.athleteId=id||''; planState.planId=''; planState.selWk=null; paintPlan(); };
+/* ---------- named plans: pick / create / manage / assign / fork (migration 41) ---------- */
+window.planPickPlan=(v)=>{ if(v==='__new'){ planNewPlan(); return; }
+  planState.planId=v||''; planState.athleteId=''; planState.teamId=''; planState.selWk=null; paintPlan(); };
+function planScopeLabel(){ const p=(planState.plans||[]).find(x=>x.id===planState.planId); return `<span class="bf-wk"><label>Plan</label><div class="cw-sel ap-forwho">${esc(p?p.name:'Plan')}</div></span>`; }
+window.planNewPlan=()=>{
+  ovModal('planNewModal', `<div class="ov-hd"><h2 style="margin:0">＋ New plan</h2><span class="vid-x" onclick="document.getElementById('planNewModal').style.display='none'">✕</span></div>
+    <div class="sub" style="margin:6px 0 12px">A reusable annual plan you build once, then assign to a team or hand-picked athletes.</div>
+    <div class="bf-row"><input id="pnName" placeholder="Plan name (e.g. National Team 2026)" style="flex:1;min-width:240px"></div>
+    <div class="bf-row" style="margin-top:12px"><button class="btn" onclick="planCreatePlan()">Create plan</button><span class="saved" id="pnMsg"></span></div>`);
+  setTimeout(()=>{ const el=document.getElementById('pnName'); if(el) el.focus(); },30);
+};
+window.planCreatePlan=async()=>{
+  const name=(document.getElementById('pnName').value||'').trim(); const msg=document.getElementById('pnMsg');
+  if(!name){ document.getElementById('pnName').focus(); return; }
+  const res=await sb.from('plans').insert({gym_id:me_.gym_id, name}).select();
+  if(res.error||!res.data||!res.data.length){ if(msg){msg.style.color='var(--bad)';msg.textContent='Failed — '+(res.error?res.error.message:'try again');} return; }
+  document.getElementById('planNewModal').style.display='none';
+  await loadPlan(); planState.planId=res.data[0].id; planState.athleteId=''; planState.teamId=''; paintPlan();
+  toast('Plan created — add blocks, comps &amp; events, then hit Assign.');
+};
+window.planManagePlan=()=>{
+  const p=(planState.plans||[]).find(x=>x.id===planState.planId); if(!p) return;
+  ovModal('planMngModal', `<div class="ov-hd"><h2 style="margin:0">Manage plan</h2><span class="vid-x" onclick="document.getElementById('planMngModal').style.display='none'">✕</span></div>
+    <div class="bf-row" style="margin-top:6px"><span class="bf-wk" style="flex:1"><label>Plan name</label><input id="pmName" value="${esc(p.name)}" style="width:100%"></span></div>
+    <div class="bf-row" style="margin-top:14px;align-items:center"><button class="btn" onclick="planRenamePlan()">Save name</button>
+      <span class="extool del" style="margin-left:auto" onclick="planArchivePlan(this)" title="Archive this plan — it leaves the list and anyone on it stops seeing it. Its blocks are kept, not deleted.">🗄 Archive plan</span>
+      <span class="saved" id="pmMsg"></span></div>`);
+};
+window.planRenamePlan=async()=>{ const name=(document.getElementById('pmName').value||'').trim(); if(!name) return;
+  const res=await sb.from('plans').update({name}).eq('id',planState.planId).select();
+  if(res.error){ toast('Rename failed — '+res.error.message); return; }
+  document.getElementById('planMngModal').style.display='none'; await loadPlan(); paintPlan(); };
+window.planArchivePlan=async(btn)=>{
+  if(btn && !btn.classList.contains('arm')){ btn.classList.add('arm'); btn.textContent='Archive — sure?';
+    setTimeout(()=>{ if(btn.isConnected){ btn.classList.remove('arm'); btn.textContent='🗄 Archive plan'; } },3500); return; }
+  const res=await sb.from('plans').update({archived_at:new Date().toISOString()}).eq('id',planState.planId).select();
+  if(res.error){ toast('Archive failed — '+res.error.message); return; }
+  const m=document.getElementById('planMngModal'); if(m) m.style.display='none';
+  planState.planId=''; await loadPlan(); paintPlan(); toast('Plan archived.');
+};
+window.planAssignModal=()=>{
+  const p=(planState.plans||[]).find(x=>x.id===planState.planId); if(!p) return;
+  const teams=conState._teams||[]; const aths=(coachState.athletes||[]);
+  const asn=(planState.assignments||[]).filter(a=>a.plan_id===p.id);
+  const teamOn=new Set(asn.filter(a=>a.team_id&&!a.athlete_id).map(a=>a.team_id));
+  const athOn=new Set(asn.filter(a=>a.athlete_id&&!a.muted).map(a=>a.athlete_id));
+  ovModal('planAsnModal', `<div class="ov-hd"><h2 style="margin:0">Assign “${esc(p.name)}”</h2><span class="vid-x" onclick="document.getElementById('planAsnModal').style.display='none'">✕</span></div>
+    <div class="sub" style="margin:6px 0 10px">Everyone you check follows this plan. Assign whole teams and/or hand-pick individual athletes.</div>
+    <div class="asn-h">Teams</div>
+    <div class="asn-grid">${teams.length?teams.map(t=>`<label class="asn-chk"><input type="checkbox" data-team="${t.id}"${teamOn.has(t.id)?' checked':''}> ${esc(t.name)}</label>`).join(''):'<span class="sub">No teams yet.</span>'}</div>
+    <div class="asn-h" style="margin-top:10px">Individual athletes</div>
+    <div class="asn-grid">${aths.length?aths.map(a=>`<label class="asn-chk"><input type="checkbox" data-ath="${a.id}"${athOn.has(a.id)?' checked':''}> ${esc(a.full_name)}</label>`).join(''):'<span class="sub">No athletes yet.</span>'}</div>
+    <div class="bf-row" style="margin-top:14px"><button class="btn" onclick="planSaveAssign()">Save assignment</button><span class="saved" id="asnMsg"></span></div>`);
+};
+window.planSaveAssign=async()=>{
+  const pid=planState.planId, root=document.getElementById('planAsnModal'); if(!root) return;
+  const teamIds=[...root.querySelectorAll('[data-team]:checked')].map(el=>el.dataset.team);
+  const athIds=[...root.querySelectorAll('[data-ath]:checked')].map(el=>el.dataset.ath);
+  const del=await sb.from('plan_assignments').delete().eq('plan_id',pid).eq('muted',false);   // keep muted fork opt-outs
+  if(del.error){ toast('Assign failed — '+del.error.message); return; }
+  const rows=[]; teamIds.forEach(t=>rows.push({gym_id:me_.gym_id,plan_id:pid,team_id:t})); athIds.forEach(a=>rows.push({gym_id:me_.gym_id,plan_id:pid,athlete_id:a}));
+  if(rows.length){ const res=await sb.from('plan_assignments').insert(rows); if(res.error){ toast('Assign failed — '+res.error.message); return; } }
+  const m=document.getElementById('planAsnModal'); if(m) m.style.display='none';
+  await loadPlan(); paintPlan(); toast('Assignment saved.');
+};
+window.planForkOpen=(athId)=>{
+  const a=(coachState.athletes||[]).find(x=>x.id===athId); if(!a) return;
+  const plans=(planState.plans||[]);
+  if(!plans.length){ toast('Build a plan first, then copy it into an athlete.'); return; }
+  const first=a.full_name.split(' ')[0];
+  ovModal('forkModal', `<div class="ov-hd"><h2 style="margin:0">Copy a plan into ${esc(a.full_name)}</h2><span class="vid-x" onclick="document.getElementById('forkModal').style.display='none'">✕</span></div>
+    <div class="sub" style="margin:6px 0 12px">Clones the whole plan — blocks, comps, events &amp; loading tracks — into ${esc(first)}'s own plan. From then on it's independent: edit or delete anything, and later changes to the source plan won't touch ${esc(first)}'s copy.</div>
+    <div class="bf-row"><span class="bf-wk" style="flex:1"><label>Plan to copy</label><select id="fkPlan" class="cw-sel" style="width:100%">${plans.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></span></div>
+    <div class="bf-row" style="margin-top:14px"><button class="btn" onclick="planDoFork('${athId}')">Copy into ${esc(first)}'s plan</button><span class="saved" id="fkMsg"></span></div>`);
+};
+window.planDoFork=async(athId)=>{
+  const pid=(document.getElementById('fkPlan')||{}).value; const msg=document.getElementById('fkMsg');
+  const src=(planState.plans||[]).find(p=>p.id===pid); const a=(coachState.athletes||[]).find(x=>x.id===athId);
+  if(!src||!a){ return; }
+  const first=a.full_name.split(' ')[0];
+  if(msg){ msg.style.color='var(--muted)'; msg.textContent='Copying…'; }
+  const np=await sb.from('plans').insert({gym_id:me_.gym_id, name:first+' — '+src.name}).select();
+  if(np.error||!np.data||!np.data.length){ if(msg){ msg.style.color='var(--bad)'; msg.textContent='Failed — '+(np.error?np.error.message:'try again'); } return; }
+  const newId=np.data[0].id;
+  const phRows=planState.phases.filter(p=>p.plan_id===pid).map(p=>({gym_id:me_.gym_id,plan_id:newId,name:p.name,kind:p.kind,level:p.level,pattern:p.pattern,start_date:p.start_date,end_date:p.end_date}));
+  if(phRows.length){ const r=await sb.from('plan_phases').insert(phRows); if(r.error){ if(msg){msg.style.color='var(--bad)';msg.textContent='Failed on blocks — '+r.error.message;} return; } }
+  const cpRows=planState.comps.filter(c=>c.plan_id===pid).map(c=>({gym_id:me_.gym_id,plan_id:newId,name:c.name,kind:c.kind,comp_date:c.comp_date}));
+  if(cpRows.length) await sb.from('competitions').insert(cpRows);
+  const evRows=planState.events.filter(e=>e.plan_id===pid).map(e=>({gym_id:me_.gym_id,plan_id:newId,title:e.title,kind:e.kind,start_date:e.start_date,days:e.days,recur_unit:e.recur_unit,recur_interval:e.recur_interval,recur_until:e.recur_until}));
+  if(evRows.length) await sb.from('calendar_events').insert(evRows);
+  for(const t of planState.tracks.filter(t=>t.plan_id===pid)){
+    const nt=await sb.from('plan_tracks').insert({gym_id:me_.gym_id,plan_id:newId,grp:t.grp,name:t.name,sort_order:t.sort_order}).select();
+    if(!nt.error&&nt.data&&nt.data.length){ const segs=planState.segments.filter(s=>s.track_id===t.id).map(s=>({gym_id:me_.gym_id,track_id:nt.data[0].id,label:s.label,color:s.color,start_date:s.start_date,end_date:s.end_date})); if(segs.length) await sb.from('plan_segments').insert(segs); }
+  }
+  await sb.from('plan_assignments').insert({gym_id:me_.gym_id,plan_id:newId,athlete_id:athId});                 // put her on the copy
+  await sb.from('plan_assignments').insert({gym_id:me_.gym_id,plan_id:pid,athlete_id:athId,muted:true});        // and off the source (no double-up)
+  const m=document.getElementById('forkModal'); if(m) m.style.display='none';
+  await loadPlan(); planState.athleteId=athId; planState.planId=''; paintPlan();
+  toast('Copied “'+src.name+'” into '+first+'’s plan — now edit or delete anything you don’t need.');
+};
 async function renderPlan(){
   coachState.screen='plan';
   planState.mode='coach';
@@ -7409,8 +7561,11 @@ function paintPlan(){
     : `<div class="console-head">
         <div><h1>Annual Plan</h1><div class="sub">Map the season — phases, comps, events &amp; sessions across the year.</div></div>
         <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
-          <label class="ap-sel"><span>Team plan</span><select class="cw-sel" onchange="planState.athleteId='';planState.teamId=this.value;planState.selWk=null;paintPlan()" title="View a team's plan"><option value="">Whole gym</option>${teams.map(t=>`<option value="${t.id}"${!planState.athleteId&&planState.teamId===t.id?' selected':''}>${esc(t.name)}</option>`).join('')}</select></label>
-          <label class="ap-sel"><span>Athlete</span><select class="cw-sel" onchange="planSetAthlete(this.value)" title="View an individual athlete's plan"><option value="">— none —</option>${aths.map(a=>`<option value="${a.id}"${planState.athleteId===a.id?' selected':''}>${esc(a.full_name)}</option>`).join('')}</select></label>
+          ${PLANS_READY?`<label class="ap-sel"><span>Plan</span><select class="cw-sel" onchange="planPickPlan(this.value)" title="Build or view a named, assignable plan"><option value="">— Team / gym view —</option>${planState.plans.map(p=>`<option value="${p.id}"${planState.planId===p.id?' selected':''}>${esc(p.name)}</option>`).join('')}<option value="__new">＋ New plan…</option></select></label>`:''}
+          ${planState.planId
+            ? `<span class="ap-planact"><span class="cbtn" onclick="planAssignModal()">👥 Assign</span><span class="cbtn alt" onclick="planManagePlan()">⚙ Manage</span></span>`
+            : `<label class="ap-sel"><span>Team plan</span><select class="cw-sel" onchange="planState.athleteId='';planState.planId='';planState.teamId=this.value;planState.selWk=null;paintPlan()" title="View a team's plan"><option value="">Whole gym</option>${teams.map(t=>`<option value="${t.id}"${!planState.athleteId&&planState.teamId===t.id?' selected':''}>${esc(t.name)}</option>`).join('')}</select></label>
+               <label class="ap-sel"><span>Athlete</span><select class="cw-sel" onchange="planSetAthlete(this.value)" title="View an individual athlete's plan"><option value="">— none —</option>${aths.map(a=>`<option value="${a.id}"${planState.athleteId===a.id?' selected':''}>${esc(a.full_name)}</option>`).join('')}</select></label>`}
         </div>
       </div>`;
   app.innerHTML = chrome + head + `
@@ -7424,13 +7579,24 @@ function paintPlan(){
 }
 function planScopeBanner(){
   if(planIsAth()) return '';
+  if(planState.planId){ const p=(planState.plans||[]).find(x=>x.id===planState.planId); if(!p) return '';
+    const asn=(planState.assignments||[]).filter(a=>a.plan_id===p.id&&!a.muted);
+    const nt=asn.filter(a=>a.team_id&&!a.athlete_id).length, na=asn.filter(a=>a.athlete_id).length;
+    const who=(nt||na)?`${nt?nt+' team'+(nt>1?'s':''):''}${nt&&na?' + ':''}${na?na+' athlete'+(na>1?'s':''):''}`:'nobody yet';
+    return `<div class="ap-scope"><b>Building plan:</b> ${esc(p.name)} — assigned to <b>${who}</b>${(nt||na)?'':' <span onclick="planAssignModal()" style="color:var(--accent2);cursor:pointer;text-decoration:underline">assign it</span>'}. Blocks, comps &amp; events you add here belong to this plan.</div>`;
+  }
   const A=planState.athleteId; if(!A) return '';
   const a=(coachState.athletes||[]).find(x=>x.id===A); const name=a?esc(a.full_name):'Athlete';
   const T=planTeamOf(A); const team=(conState._teams||[]).find(t=>t.id===T);
   const teamTxt=team?(esc(team.name)+' plan'):'whole-gym plan';
   const hasOwn=planState.phases.some(p=>p.athlete_id===A);
-  if(!ATHPLAN_READY) return `<div class="ap-scope warn">Viewing <b>${name}</b> — following the ${teamTxt} + their own sessions. Run <b>migration 38</b> to build custom blocks that override the team plan.</div>`;
-  return `<div class="ap-scope"><b>${name}</b> ${hasOwn?`— <b>custom blocks</b> (◆) override the ${teamTxt} where they overlap; the rest follows the ${teamTxt}.`:`— following the ${teamTxt}. Use the ＋ buttons to add a custom block (e.g. a comp peak) that overrides the team plan for those weeks.`}</div>`;
+  const P=planPidSets(A); const forked=P.own.size>0;
+  const forkBtn=PLANS_READY?`<span class="ap-fork" onclick="planForkOpen('${A}')" title="Copy a whole plan into this athlete, then edit or delete freely">⑂ Copy a plan into ${name.split(' ')[0]}</span>`:'';
+  if(!ATHPLAN_READY) return `<div class="ap-scope warn">Viewing <b>${name}</b> — following the ${teamTxt} + their own sessions. Run <b>migration 38</b> to build custom blocks that override the team plan.${forkBtn}</div>`;
+  const body = forked
+    ? `<b>${name}</b> — on their <b>own copied plan</b> (independent of the team plan). Edit or delete any block; add more with the ＋ buttons.`
+    : (hasOwn?`<b>${name}</b> — <b>custom blocks</b> (◆) override the ${teamTxt} where they overlap; the rest follows the ${teamTxt}.`:`<b>${name}</b> — following the ${teamTxt}. Add a custom block with ＋, or copy a whole plan in.`);
+  return `<div class="ap-scope">${body}${forkBtn}</div>`;
 }
 function macBounds(){ const y=planState.year; const a=new Date(y,0,1); const b=new Date(y,11,31); return { a, days:Math.round((b-a)/864e5)+1 }; }
 function macPct(dateStr){ const {a,days}=macBounds(); const d=new Date(dateStr+'T00:00:00'); return Math.max(0,Math.min(100,((d-a)/864e5)/days*100)); }
@@ -7452,9 +7618,12 @@ function renderMacro(){
   const phaseAt=(i)=>mesoScoped.find(p=> col(p.start_date)<=i && i<=col(p.end_date));
   const T_=planState.athleteId?planTeamOf(planState.athleteId):null;
   const comps=planScopedComps().map(c=>({id:c.id,name:c.name,kind:c.kind,comp_date:c.comp_date,own:(!!planState.athleteId && c.athlete_id===planState.athleteId)}));
-  const compEv=planState.events.filter(e=>e.kind==='competition' && (planState.athleteId
-      ? (e.athlete_id===planState.athleteId || (!e.athlete_id&&(!e.team_id||e.team_id===T_)))
-      : (!e.athlete_id&&(!planState.teamId||!e.team_id||e.team_id===planState.teamId)))).map(e=>({id:null,name:e.title,kind:'comp',comp_date:e.start_date}));
+  const _cpPids=planState.athleteId?activePlanIds(planState.athleteId):null, _cpHid=planState.athleteId?hiddenSet(planState.athleteId,'event'):null;
+  const compEv=planState.events.filter(e=>e.kind==='competition' && (
+      planState.planId ? e.plan_id===planState.planId
+    : planState.athleteId ? (!_cpHid.has(e.id) && (e.athlete_id===planState.athleteId || (e.plan_id&&_cpPids.has(e.plan_id)) || (isLegacyShared(e)&&(!e.team_id||e.team_id===T_))))
+    : (isLegacyShared(e)&&(!planState.teamId||!e.team_id||e.team_id===planState.teamId))
+    )).map(e=>({id:null,name:e.title,kind:'comp',comp_date:e.start_date}));
   const allComps=comps.concat(compEv).filter(c=>{const i=planWeekIdx(c.comp_date);return i>=0&&i<N;});
   // bands render from override-split segments: own = editable + ◆ marker; inherited = read-only when scoped to an athlete
   const segEditable=(seg)=> !ath && (seg.src==='own' || !planState.athleteId);
@@ -7606,22 +7775,25 @@ function expandOccurrences(startISO, unit, interval, untilISO){
 }
 let _calEvMemo={key:null,val:null};
 function calEventsList(){
-  const key=(planState.athleteId||'')+'|'+(planState.teamId||'')+'|'+planState.events.length+'|'+planState.comps.length+'|'+(planState._evVer||0);
+  const key=(planState.athleteId||'')+'|'+(planState.teamId||'')+'|'+(planState.planId||'')+'|'+planState.events.length+'|'+planState.comps.length+'|'+(planState._evVer||0);
   if(_calEvMemo.key===key) return _calEvMemo.val;
   const out=[];
   const myId=(me_&&me_.id);
-  const A=planState.athleteId, T=A?planTeamOf(A):null;
+  const A=planState.athleteId, T=A?planTeamOf(A):null, PID=planState.planId;
+  const pids=A?activePlanIds(A):null, hidEv=A?hiddenSet(A,'event'):null, hidCp=A?hiddenSet(A,'comp'):null;
   planState.events.forEach(e=>{
-    if(A){ if(!(e.athlete_id===A || (!e.athlete_id&&(!e.team_id||e.team_id===T)))) return; }   // athlete scope: their own + their team + gym
-    else { if(e.athlete_id) return; if(planState.teamId && e.team_id && e.team_id!==planState.teamId) return; }
+    if(PID){ if(e.plan_id!==PID) return; }
+    else if(A){ if(hidEv.has(e.id)) return; if(!(e.athlete_id===A || (e.plan_id&&pids.has(e.plan_id)) || (isLegacyShared(e)&&(!e.team_id||e.team_id===T)))) return; }   // athlete scope: own + their plans + legacy team/gym
+    else { if(!isLegacyShared(e)) return; if(planState.teamId && e.team_id && e.team_id!==planState.teamId) return; }
     const mine=(e.athlete_id&&e.athlete_id===myId), rec=!!e.recur_unit;
     expandOccurrences(e.start_date, e.recur_unit, e.recur_interval, e.recur_until).forEach(sd=>{
       out.push({ id:e.id, src:'ev', title:e.title, kind:e.kind, mine, recur:rec, y:+sd.slice(0,4), m:+sd.slice(5,7)-1, d:+sd.slice(8,10), days:e.days||1 });
     });
   });
   planState.comps.forEach(c=>{
-    if(A){ if(!(c.athlete_id===A || (!c.athlete_id&&(!c.team_id||c.team_id===T)))) return; }
-    else { if(c.athlete_id) return; if(planState.teamId && c.team_id && c.team_id!==planState.teamId) return; }
+    if(PID){ if(c.plan_id!==PID) return; }
+    else if(A){ if(hidCp.has(c.id)) return; if(!(c.athlete_id===A || (c.plan_id&&pids.has(c.plan_id)) || (isLegacyShared(c)&&(!c.team_id||c.team_id===T)))) return; }
+    else { if(!isLegacyShared(c)) return; if(planState.teamId && c.team_id && c.team_id!==planState.teamId) return; }
     out.push({ id:c.id, src:'comp', title:c.name, kind:(c.kind==='test'?'testing':'competition'), mine:false, y:+c.comp_date.slice(0,4), m:+c.comp_date.slice(5,7)-1, d:+c.comp_date.slice(8,10), days:1 });
   });
   _calEvMemo={key,val:out};
@@ -7729,7 +7901,7 @@ window.planAddEvent=(presetDate)=>{
   const teams=conState._teams||[], c=planState.cur;
   const d = presetDate || iso(new Date(c.y, c.m, planState.calView==='year'||planState.calView==='month'?15:c.d));
   const kinds = ath ? ATH_EVENT_KINDS : Object.keys(CAL_KINDS);
-  const teamRow = ath ? '' : `<div class="bf-row" style="margin-top:8px"><span class="bf-wk"><label>Team (optional)</label><select id="ceTeam" class="cw-sel"><option value="">Whole gym</option>${teams.map(t=>`<option value="${t.id}"${planState.teamId===t.id?' selected':''}>${esc(t.name)}</option>`).join('')}</select></span></div>`;
+  const teamRow = ath ? '' : (planState.planId ? `<div class="bf-row" style="margin-top:8px">${planScopeLabel()}</div>` : `<div class="bf-row" style="margin-top:8px"><span class="bf-wk"><label>Team (optional)</label><select id="ceTeam" class="cw-sel"><option value="">Whole gym</option>${teams.map(t=>`<option value="${t.id}"${planState.teamId===t.id?' selected':''}>${esc(t.name)}</option>`).join('')}</select></span></div>`);
   ovModal('calEvtModal', `
     <div class="ov-hd"><h2 style="margin:0">${ath?'＋ Add to your calendar':'＋ Add to calendar'}</h2><span class="vid-x" onclick="document.getElementById('calEvtModal').style.display='none'">✕</span></div>
     <div class="sub" style="margin:6px 0 12px">${ath?'Add a personal block your coach should know about — travel, work, life, or days you’re unavailable.':'Pick a start date and how many days it runs.'}</div>
@@ -7751,7 +7923,7 @@ window.planEditEvent=(src,id)=>{
   if(ath && !(e.athlete_id && e.athlete_id===me_.id)) return; // athletes edit only their own events
   const teams=conState._teams||[];
   const kinds = ath ? ATH_EVENT_KINDS : Object.keys(CAL_KINDS);
-  const teamRow = ath ? '' : `<div class="bf-row" style="margin-top:8px"><span class="bf-wk"><label>Team (optional)</label><select id="ceTeam" class="cw-sel"><option value="">Whole gym</option>${teams.map(t=>`<option value="${t.id}"${e.team_id===t.id?' selected':''}>${esc(t.name)}</option>`).join('')}</select></span></div>`;
+  const teamRow = ath ? '' : (planState.planId ? `<div class="bf-row" style="margin-top:8px">${planScopeLabel()}</div>` : `<div class="bf-row" style="margin-top:8px"><span class="bf-wk"><label>Team (optional)</label><select id="ceTeam" class="cw-sel"><option value="">Whole gym</option>${teams.map(t=>`<option value="${t.id}"${e.team_id===t.id?' selected':''}>${esc(t.name)}</option>`).join('')}</select></span></div>`);
   ovModal('calEvtModal', `
     <div class="ov-hd"><h2 style="margin:0">Edit event</h2><span class="vid-x" onclick="document.getElementById('calEvtModal').style.display='none'">✕</span></div>
     <div class="bf-row"><input id="ceTitle" value="${esc(e.title)}" style="flex:1;min-width:220px"></div>
@@ -7783,6 +7955,7 @@ window.planSaveEvent=async(id)=>{
   }
   payload.recur_unit=recur_unit; payload.recur_interval=recur_interval; payload.recur_until=recur_until;
   if(ath) payload.athlete_id=me_.id;   // athlete events belong to them (RLS: athlete write own events)
+  if(!id && !ath && planState.planId){ payload.plan_id=planState.planId; payload.team_id=null; }   // building into a named plan
   let res; if(id) res=await sb.from('calendar_events').update(payload).eq('id',id).select(); else res=await sb.from('calendar_events').insert(Object.assign({gym_id:me_.gym_id},payload)).select();
   if(res.error||!res.data||!res.data.length){ if(msg){msg.style.color='var(--bad)';msg.textContent='Save failed — '+(res.error?res.error.message:'try again');} return; }
   const p=date.split('-'); planState.cur={y:+p[0],m:+p[1]-1,d:+p[2]}; if(planState.calView==='year') planState.calView='month';
@@ -7797,7 +7970,7 @@ window.planEditPhase=(id,level)=>{
   const isMeso = lvl==='meso';
   if(planState.athleteId && !ATHPLAN_READY){ toast('Run migration 38 to build a custom plan for an athlete.'); return; }
   const athWho=(coachState.athletes||[]).find(a=>a.id===planState.athleteId);
-  const scopeField = planState.athleteId
+  const scopeField = planState.planId ? planScopeLabel() : planState.athleteId
     ? `<span class="bf-wk"><label>For athlete</label><div class="cw-sel ap-forwho">${esc(athWho?athWho.full_name:'Athlete')}</div></span>`
     : `<span class="bf-wk"><label>Team</label><select id="phTeam" class="cw-sel"><option value="">Whole gym</option>${teams.map(t=>`<option value="${t.id}"${(p&&p.team_id===t.id)||(!p&&planState.teamId===t.id)?' selected':''}>${esc(t.name)}</option>`).join('')}</select></span>`;
   ovModal('phaseModal', `
@@ -7826,6 +7999,7 @@ window.planSavePhase=async(id,level)=>{
   const payload={ name, kind, level:lvl, start_date:start, end_date:end, team_id: A?null:(teamEl?teamEl.value||null:null), pattern: patEl?patEl.value:(id?undefined:'Linear Ascending') };
   if(payload.pattern===undefined) delete payload.pattern;
   if(ATHPLAN_READY) payload.athlete_id = A||null;   // athlete scope → this block belongs to the athlete (overrides team); team/gym scope → null
+  if(!id && planState.planId){ payload.plan_id=planState.planId; payload.team_id=null; payload.athlete_id=null; }   // building into a named plan
   let res; if(id) res=await sb.from('plan_phases').update(payload).eq('id',id).select(); else res=await sb.from('plan_phases').insert(Object.assign({gym_id:me_.gym_id},payload)).select();
   if(res.error||!res.data||!res.data.length){ if(msg){msg.style.color='var(--bad)';msg.textContent='Save failed — '+(res.error?res.error.message:'try again');} return; }
   document.getElementById('phaseModal').style.display='none'; await loadPlan(); paintPlan();
@@ -7836,7 +8010,7 @@ window.planEditComp=(id)=>{
   const teams=conState._teams||[];
   if(planState.athleteId && !ATHPLAN_READY){ toast('Run migration 38 to add a competition for an athlete.'); return; }
   const athWho=(coachState.athletes||[]).find(a=>a.id===planState.athleteId);
-  const scopeField = planState.athleteId
+  const scopeField = planState.planId ? planScopeLabel() : planState.athleteId
     ? `<span class="bf-wk"><label>For athlete</label><div class="cw-sel ap-forwho">${esc(athWho?athWho.full_name:'Athlete')}</div></span>`
     : `<span class="bf-wk"><label>Team</label><select id="cpTeam" class="cw-sel"><option value="">Whole gym</option>${teams.map(t=>`<option value="${t.id}"${(c&&c.team_id===t.id)||(!c&&planState.teamId===t.id)?' selected':''}>${esc(t.name)}</option>`).join('')}</select></span>`;
   ovModal('compModal', `
@@ -7856,6 +8030,7 @@ window.planSaveComp=async(id)=>{
   const teamEl=document.getElementById('cpTeam'); const A=(ATHPLAN_READY&&planState.athleteId)?planState.athleteId:'';
   const payload={ name, kind:document.getElementById('cpKind').value, comp_date:date, team_id: A?null:(teamEl?teamEl.value||null:null) };
   if(ATHPLAN_READY) payload.athlete_id = A||null;
+  if(!id && planState.planId){ payload.plan_id=planState.planId; payload.team_id=null; payload.athlete_id=null; }
   let res; if(id) res=await sb.from('competitions').update(payload).eq('id',id).select(); else res=await sb.from('competitions').insert(Object.assign({gym_id:me_.gym_id},payload)).select();
   if(res.error||!res.data||!res.data.length){ if(msg){msg.style.color='var(--bad)';msg.textContent='Save failed — '+(res.error?res.error.message:'try again');} return; }
   document.getElementById('compModal').style.display='none'; await loadPlan(); paintPlan();
@@ -7866,7 +8041,7 @@ window.planAddTrack=(grp)=>{
   const teams=conState._teams||[];
   if(planState.athleteId && !ATHPLAN_READY){ toast('Run migration 38 to add a custom track for an athlete.'); return; }
   const athWho=(coachState.athletes||[]).find(a=>a.id===planState.athleteId);
-  const scopeField = planState.athleteId
+  const scopeField = planState.planId ? planScopeLabel() : planState.athleteId
     ? `<span class="bf-wk"><label>For athlete</label><div class="cw-sel ap-forwho">${esc(athWho?athWho.full_name:'Athlete')}</div></span>`
     : `<span class="bf-wk"><label>Team</label><select id="tkTeam" class="cw-sel"><option value="">Whole gym</option>${teams.map(t=>`<option value="${t.id}"${planState.teamId===t.id?' selected':''}>${esc(t.name)}</option>`).join('')}</select></span>`;
   ovModal('trackModal', `
@@ -7885,6 +8060,7 @@ window.planSaveTrack=async()=>{
   const A=(ATHPLAN_READY&&planState.athleteId)?planState.athleteId:''; const teamEl=document.getElementById('tkTeam');
   const trkRow={ gym_id:me_.gym_id, grp, name, sort_order:sort, team_id: A?null:(teamEl?teamEl.value||null:null) };
   if(ATHPLAN_READY) trkRow.athlete_id = A||null;
+  if(planState.planId){ trkRow.plan_id=planState.planId; trkRow.team_id=null; trkRow.athlete_id=null; }
   const res=await sb.from('plan_tracks').insert(trkRow).select();
   if(res.error||!res.data||!res.data.length){ if(msg){msg.style.color='var(--bad)';msg.textContent='Save failed — '+(res.error?res.error.message:'try again');} return; }
   planState.openGroups[grp]=true;
