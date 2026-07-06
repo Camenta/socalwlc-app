@@ -7317,6 +7317,7 @@ async function loadPlan(){
   planState.events = ev.error?[]:(ev.data||[]);
   planState.tracks = tr.error?[]:(tr.data||[]);
   planState.segments = sg.error?[]:(sg.data||[]);
+  planState._evVer = (planState._evVer||0)+1;   // invalidate the calendar-event expansion memo
 }
 /* macrocycle: subtle-tint colors + 52-week grid math + loading wave */
 const SEG_COLORS={ blue:'#3c9ee8', green:'#3ec97a', amber:'#e8b13c', orange:'#e8643c', red:'#e85c5c', purple:'#9b6dd1', teal:'#2fb6a8', slate:'#5a6b7a' };
@@ -7563,24 +7564,71 @@ function compsForDay(dStr){ return planScopedComps().filter(c=> c.comp_date===dS
 /* ---- full calendar: events (calendar_events + competitions) + session overlay ---- */
 const CAL_DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], CAL_DOWm=['S','M','T','W','T','F','S'], MONF=['January','February','March','April','May','June','July','August','September','October','November','December'];
 function dIdx(y,m,d){ return Math.round(new Date(y,m,d).getTime()/864e5); }
+// ---- recurring events: build the modal's "Repeat" row, toggle it, and expand a rule into occurrence start-dates ----
+function recurRowHtml(e){
+  e=e||{};
+  const unit=e.recur_unit||null, iv=e.recur_interval||1, until=e.recur_until||'';
+  let sel='none';
+  if(unit) sel = (iv===1&&unit==='day')?'daily' : (iv===1&&unit==='week')?'weekly' : (iv===1&&unit==='month')?'monthly' : 'custom';
+  const opt=(v,l)=>`<option value="${v}"${sel===v?' selected':''}>${l}</option>`;
+  const uopt=(v,l)=>`<option value="${v}"${unit===v?' selected':''}>${l}</option>`;
+  return `<div class="bf-row" style="margin-top:10px">
+    <span class="bf-wk"><label>Repeat</label>
+      <select id="ceRecur" class="cw-sel" onchange="ceRecurToggle()">${opt('none','Does not repeat')}${opt('daily','Daily')}${opt('weekly','Weekly')}${opt('monthly','Monthly')}${opt('custom','Custom…')}</select></span>
+    <span class="bf-wk" id="ceCustomWrap" style="${sel==='custom'?'':'display:none'}"><label>Every</label>
+      <span style="display:inline-flex;gap:6px;align-items:center">
+        <input id="ceEvery" type="number" min="1" value="${iv}" style="width:58px;text-align:center">
+        <select id="ceUnit" class="cw-sel">${uopt('day','days')}${uopt('week','weeks')}${uopt('month','months')}</select></span></span>
+    <span class="bf-wk" id="ceUntilWrap" style="${sel==='none'?'display:none':''}"><label>Until</label>
+      <input id="ceUntil" type="date" style="width:150px;text-align:left" value="${until}"></span>
+  </div>`;
+}
+window.ceRecurToggle=()=>{ const v=document.getElementById('ceRecur').value;
+  const cw2=document.getElementById('ceCustomWrap'), uw=document.getElementById('ceUntilWrap');
+  if(cw2) cw2.style.display = v==='custom'?'':'none';
+  if(uw)  uw.style.display  = v==='none'?'none':'';
+};
+function expandOccurrences(startISO, unit, interval, untilISO){
+  if(!unit) return [startISO];
+  interval=Math.max(1, interval||1);
+  const Y=+startISO.slice(0,4), M=+startISO.slice(5,7), D=+startISO.slice(8,10);
+  const untilIdx = untilISO ? dIdx(+untilISO.slice(0,4),+untilISO.slice(5,7)-1,+untilISO.slice(8,10)) : dIdx(Y+2,M-1,D); // cap +2yr when open-ended
+  const out=[]; const CAP=800;
+  for(let k=0;k<CAP;k++){
+    let dt;
+    if(unit==='day')       dt=new Date(Y,M-1,D+interval*k);
+    else if(unit==='week') dt=new Date(Y,M-1,D+7*interval*k);
+    else { const mm=M-1+interval*k, yy=Y+Math.floor(mm/12), mo=((mm%12)+12)%12, last=new Date(yy,mo+1,0).getDate(); dt=new Date(yy,mo,Math.min(D,last)); }  // clamp day to month length (no Feb-31 rollover)
+    if(dIdx(dt.getFullYear(),dt.getMonth(),dt.getDate())>untilIdx) break;
+    out.push(iso(dt));
+  }
+  return out.length?out:[startISO];
+}
+let _calEvMemo={key:null,val:null};
 function calEventsList(){
+  const key=(planState.athleteId||'')+'|'+(planState.teamId||'')+'|'+planState.events.length+'|'+planState.comps.length+'|'+(planState._evVer||0);
+  if(_calEvMemo.key===key) return _calEvMemo.val;
   const out=[];
   const myId=(me_&&me_.id);
   const A=planState.athleteId, T=A?planTeamOf(A):null;
   planState.events.forEach(e=>{
     if(A){ if(!(e.athlete_id===A || (!e.athlete_id&&(!e.team_id||e.team_id===T)))) return; }   // athlete scope: their own + their team + gym
     else { if(e.athlete_id) return; if(planState.teamId && e.team_id && e.team_id!==planState.teamId) return; }
-    out.push({ id:e.id, src:'ev', title:e.title, kind:e.kind, mine:(e.athlete_id&&e.athlete_id===myId), y:+e.start_date.slice(0,4), m:+e.start_date.slice(5,7)-1, d:+e.start_date.slice(8,10), days:e.days||1 });
+    const mine=(e.athlete_id&&e.athlete_id===myId), rec=!!e.recur_unit;
+    expandOccurrences(e.start_date, e.recur_unit, e.recur_interval, e.recur_until).forEach(sd=>{
+      out.push({ id:e.id, src:'ev', title:e.title, kind:e.kind, mine, recur:rec, y:+sd.slice(0,4), m:+sd.slice(5,7)-1, d:+sd.slice(8,10), days:e.days||1 });
+    });
   });
   planState.comps.forEach(c=>{
     if(A){ if(!(c.athlete_id===A || (!c.athlete_id&&(!c.team_id||c.team_id===T)))) return; }
     else { if(c.athlete_id) return; if(planState.teamId && c.team_id && c.team_id!==planState.teamId) return; }
     out.push({ id:c.id, src:'comp', title:c.name, kind:(c.kind==='test'?'testing':'competition'), mine:false, y:+c.comp_date.slice(0,4), m:+c.comp_date.slice(5,7)-1, d:+c.comp_date.slice(8,10), days:1 });
   });
+  _calEvMemo={key,val:out};
   return out;
 }
 function evOn(y,m,d){ const idx=dIdx(y,m,d); return calEventsList().filter(e=>{ const s=dIdx(e.y,e.m,e.d); return idx>=s && idx<=s+(e.days||1)-1; }).map(e=>{ const s=dIdx(e.y,e.m,e.d); return Object.assign({}, e, { cont: idx>s, start: idx===s }); }); }
-function evChip(e){ const lbl=e.cont?('↳ '+e.title):(e.title+(e.days>1?' · '+e.days+'d':'')); const ro=e.cont||(planIsAth()&&!e.mine); const click=ro?'':`onclick="event.stopPropagation();planEditEvent('${e.src}','${e.id}')"`; return `<div class="cx-ev${e.cont?' cont':''}" style="background:${calColor(e.kind)}${ro?';cursor:default':''}" title="${esc(e.title)}" ${click}>${esc(lbl)}</div>`; }
+function evChip(e){ const lbl=e.cont?('↳ '+e.title):((e.recur?'↻ ':'')+e.title+(e.days>1?' · '+e.days+'d':'')); const ro=e.cont||(planIsAth()&&!e.mine); const click=ro?'':`onclick="event.stopPropagation();planEditEvent('${e.src}','${e.id}')"`; return `<div class="cx-ev${e.cont?' cont':''}" style="background:${calColor(e.kind)}${ro?';cursor:default':''}" title="${esc(e.title)}" ${click}>${esc(lbl)}</div>`; }
 async function loadCalSessions(){
   planState.calSess={};
   if(!planState.athleteId || planState.calView==='year') return;
@@ -7691,6 +7739,7 @@ window.planAddEvent=(presetDate)=>{
       <span class="bf-wk"><label>Length</label><select id="ceDays" class="cw-sel">${[1,2,3,4,5,6,7,10,14].map(n=>`<option value="${n}">${n} day${n===1?'':'s'}</option>`).join('')}</select></span>
       <span class="bf-wk"><label>Type</label><select id="ceType" class="cw-sel">${kinds.map(k=>`<option value="${k}">${CAL_KINDS[k][1]}</option>`).join('')}</select></span>
     </div>
+    ${recurRowHtml()}
     ${teamRow}
     <div class="bf-row" style="margin-top:12px"><button class="btn" onclick="planSaveEvent()">Add event</button><span class="saved" id="ceMsg"></span></div>`);
   setTimeout(()=>{ const t=document.getElementById('ceTitle'); if(t) t.focus(); },30);
@@ -7711,6 +7760,7 @@ window.planEditEvent=(src,id)=>{
       <span class="bf-wk"><label>Length</label><select id="ceDays" class="cw-sel">${[1,2,3,4,5,6,7,10,14].map(n=>`<option value="${n}"${(e.days||1)===n?' selected':''}>${n} day${n===1?'':'s'}</option>`).join('')}</select></span>
       <span class="bf-wk"><label>Type</label><select id="ceType" class="cw-sel">${kinds.map(k=>`<option value="${k}"${e.kind===k?' selected':''}>${CAL_KINDS[k][1]}</option>`).join('')}</select></span>
     </div>
+    ${recurRowHtml(e)}
     ${teamRow}
     <div class="bf-row" style="margin-top:12px"><button class="btn" onclick="planSaveEvent('${id}')">Save</button><span class="extool del" style="margin-left:10px" onclick="planDelEvent('${id}')">✕ delete</span><span class="saved" id="ceMsg"></span></div>`);
 };
@@ -7720,6 +7770,18 @@ window.planSaveEvent=async(id)=>{
   const date=document.getElementById('ceDate').value; if(!date){ if(msg){msg.style.color='var(--warn)';msg.textContent='Pick a start date.';} return; }
   const ath=planIsAth(); const teamEl=document.getElementById('ceTeam');
   const payload={ title, kind:document.getElementById('ceType').value, start_date:date, days:+document.getElementById('ceDays').value||1, team_id: ath ? null : (teamEl?teamEl.value||null:null) };
+  // recurrence rule
+  const rv=(document.getElementById('ceRecur')||{}).value||'none';
+  let recur_unit=null, recur_interval=1, recur_until=null;
+  if(rv!=='none'){
+    if(rv==='daily') recur_unit='day';
+    else if(rv==='weekly') recur_unit='week';
+    else if(rv==='monthly') recur_unit='month';
+    else { recur_unit=document.getElementById('ceUnit').value; recur_interval=Math.max(1,+document.getElementById('ceEvery').value||1); }
+    recur_until=document.getElementById('ceUntil').value||null;
+    if(recur_until && recur_until<date){ if(msg){msg.style.color='var(--warn)';msg.textContent='“Until” must be on or after the start date.';} return; }
+  }
+  payload.recur_unit=recur_unit; payload.recur_interval=recur_interval; payload.recur_until=recur_until;
   if(ath) payload.athlete_id=me_.id;   // athlete events belong to them (RLS: athlete write own events)
   let res; if(id) res=await sb.from('calendar_events').update(payload).eq('id',id).select(); else res=await sb.from('calendar_events').insert(Object.assign({gym_id:me_.gym_id},payload)).select();
   if(res.error||!res.data||!res.data.length){ if(msg){msg.style.color='var(--bad)';msg.textContent='Save failed — '+(res.error?res.error.message:'try again');} return; }
