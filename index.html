@@ -3756,12 +3756,24 @@ async function loadAthReviews(){
   const { data, error } = await sb.from('video_notes').select('video_path,payload,updated_at').eq('athlete_id', me_.id).order('updated_at',{ascending:false}).limit(6);
   if(error||!data||!data.length) return;
   const rows=data.map(r=>{ const pl=r.payload||{}; const d=new Date(r.updated_at); const ds=MONS[d.getMonth()]+' '+d.getDate();
+    const dl=pl.reviewVideoPath||r.video_path;
     return `<div class="rev-row">
       <div class="rev-meta"><b>Coach reviewed your lift</b><span class="rev-date">${ds}${pl.voicePath?' · 🎙 voice note':''}</span>${pl.note?`<div class="rev-note">“${esc(pl.note)}”</div>`:''}</div>
       <span class="cbtn" onclick="openAnnStudio('${esc(r.video_path)}',{readOnly:true,title:'Coach review',athleteId:'${me_.id}'})">▶ View</span>
+      <span class="cbtn alt" onclick="athDownloadReview('${esc(dl)}')" title="Save this review to your device before it auto-clears">⬇ Save</span>
     </div>`; }).join('');
-  host.innerHTML=`<div class="card revcard"><h2>🎬 Coach feedback <span class="rev-count">${data.length}</span></h2><div class="rev-list">${rows}</div></div>`;
+  host.innerHTML=`<div class="card revcard"><h2>🎬 Coach feedback <span class="rev-count">${data.length}</span></h2><div class="rev-list">${rows}</div><div class="note sub" style="margin-top:8px;font-size:11px">Coach reviews auto-clear after 2 weeks to save space — tap ⬇ Save to keep one.</div></div>`;
 }
+// download a coach review video to the athlete's device (read-only signed URL with an attachment disposition)
+window.athDownloadReview=async(path)=>{
+  if(!path){ toast('Nothing to download for this review.', 'err'); return; }
+  try{
+    const { data, error }=await sb.storage.from('lift-videos').createSignedUrl(path, 600, { download:true });
+    if(error||!data){ toast('Couldn’t prepare the download — try again.', 'err'); return; }
+    const a=document.createElement('a'); a.href=data.signedUrl; a.download=(path.split('/').pop()||'coach-review'); document.body.appendChild(a); a.click(); a.remove();
+    toast('Saving your coach review…');
+  }catch(e){ toast('Download failed — '+(e.message||e), 'err'); }
+};
 
 /* ====================== Athlete "My Review" panel ======================
    One panel on Home, three zoom levels. Week = auto-generated from the
@@ -5980,10 +5992,34 @@ window.selectAthlete = (id)=>{ ed=null; cw=null; coachState.subject='athlete'; c
 window.selectTeam = (id)=>{ ed=null; cw=null; coachState.subject='team'; coachState.teamId=id; paintCoach(); };
 /* ============ COACHING CONSOLE ============ */
 let conState={tab:'athletes', libTab:'programs', rosterQ:'', exQ:'', exGroup:'All', exForm:false, schemeMgrQ:'', progView:'grid', progFilter:'all', progQ:'', rosterProg:null, rosterSort:{col:'name',dir:1}, teamView:'grid'};
+// 2-week auto-clear: coaches have delete rights, so a background sweep on the coach's console removes
+// review artifacts older than 14 days (the coach's recording + voice note + drawings/notes + bar-path
+// track). REVIEW-ONLY — the athlete's original lift clip (in the athlete's own folder) is left untouched.
+// Runs once per session; fully guarded so a failure never breaks the console.
+async function sweepOldReviews(){
+  try{
+    if(!VNOTES_READY || coachState._sweptReviews) return; coachState._sweptReviews=true;
+    const cutoff=new Date(Date.now()-14*864e5).toISOString();
+    const { data, error }=await sb.from('video_notes').select('id,video_path,payload,updated_at').lt('updated_at', cutoff).limit(100);
+    if(error||!data||!data.length) return;
+    const files=[], noteIds=[], clipPaths=[];
+    for(const r of data){ const pl=r.payload||{};
+      if(pl.reviewVideoPath) files.push(pl.reviewVideoPath);   // the coach's recorded review (big webm)
+      if(pl.voicePath) files.push(pl.voicePath);
+      noteIds.push(r.id); if(r.video_path) clipPaths.push(r.video_path); }
+    // remove the review recording/voice files (coach-folder files); the athlete's original clip is NOT in this list
+    if(files.length){ try{ await sb.storage.from('lift-videos').remove(files); }catch(e){} }
+    if(clipPaths.length){ try{ await sb.from('video_tracks').delete().in('video_path', clipPaths); }catch(e){} }   // bar-path analysis = part of the review
+    const del=await sb.from('video_notes').delete().in('id', noteIds).select('id');   // this is what drops them off each athlete's Home feed
+    const n=(del&&del.data)?del.data.length:0;
+    if(n>0) toast('Cleared '+n+' coach review'+(n>1?'s':'')+' older than 2 weeks to save space.');
+  }catch(e){}
+}
 async function renderConsole(){
   coachState.screen='console';
   app.innerHTML = topbar('Coach') + coachNav('console') + `<div class="spin">Loading console…</div>`;
   if(!(await requireSession())) return;
+  sweepOldReviews();   // fire-and-forget background storage cleanup
   loadExLib();
   const athletes=coachState.athletes||[];
   const athIds=athletes.map(a=>a.id);
