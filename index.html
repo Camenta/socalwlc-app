@@ -1224,6 +1224,10 @@
   .cv-hdstats b{font-size:16px}
   .lt-wrap{display:inline-flex;align-items:center;gap:7px}
   .lt-wrap label{font-size:11px;color:var(--muted);font-weight:600}
+  .cvx-mv{display:inline-flex;flex-direction:column;gap:2px;margin-right:2px}
+  .mv-btn{font-size:10px;line-height:1;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:2px 6px;cursor:pointer}
+  .mv-btn:hover:not(:disabled){color:var(--text);border-color:var(--accent2)}
+  .mv-btn:disabled{opacity:.22;cursor:default}
   .scheme-btn{font-size:12px;font-weight:700;color:var(--good);border:1px dashed rgba(62,201,122,.5);border-radius:8px;padding:7px 11px;cursor:pointer;white-space:nowrap}
   .scheme-btn:hover{background:rgba(62,201,122,.08)}
   .rm-ex{font-size:12px;font-weight:700;color:var(--bad);background:rgba(232,92,92,.08);border:1px solid rgba(232,92,92,.3);border-radius:8px;padding:7px 11px;cursor:pointer;white-space:nowrap}
@@ -9262,6 +9266,10 @@ function paintEditor(){
     const ltSel=`<span class="lt-wrap"><label>Load type</label><select class="cw-sel lt-sel">${LOAD_TYPES.map(t=>`<option value="${t[0]}"${type===t[0]?' selected':''}>${t[1]}</option>`).join('')}</select></span>`;
     return `<div class="b-ex cvx" data-ei="${ei}">
       <div class="cvx-hd">
+        <span class="cvx-mv">
+          <button class="mv-btn" data-mv="up" title="Move exercise up"${ei===0?' disabled':''}>▲</button>
+          <button class="mv-btn" data-mv="dn" title="Move exercise down"${ei===ed.exercises.length-1?' disabled':''}>▼</button>
+        </span>
         <span class="pill ${ex.category==='accessory'?'accessory':'primary'}">${esc(ex.category||'primary')}</span>
         <input class="cvx-name" data-f="name" value="${esc(ex.name)}" placeholder="Exercise name">
         <span class="cvx-orm">${(orm&&type==='percentage')?`1RM <b>${orm}</b> · ${esc((bi&&bi.lift)||'maxes')}${bi&&bi.override?' <span style="color:var(--warn)">override</span>':''}`:(type==='percentage'&&cw.maxes?(bi&&bi.missing?'<span class="cv-nolog" style="color:var(--warn)">override “'+esc(bi.lift)+'” has no max</span>':'<span class="cv-nolog">no 1RM link</span>'):'')}</span>
@@ -9451,6 +9459,10 @@ function wireEditor(){
     ex.loadType=sel.value; ed.dirty=true; paintEditor();
   });
   card.addEventListener('click', e=>{
+    const mv=e.target.closest('[data-mv]');
+    if(mv){ const cvx=mv.closest('.cvx'); const ei=+cvx.dataset.ei; const ni=ei+(mv.dataset.mv==='up'?-1:1);
+      if(ni<0||ni>=ed.exercises.length) return;
+      const a=ed.exercises; [a[ei],a[ni]]=[a[ni],a[ei]]; ed.dirty=true; paintEditor(); return; }
     const add=e.target.closest('[data-addrow]');
     if(add){ const cvx=add.closest('.cvx'); const ex=ed.exercises[+cvx.dataset.ei];
       ex.sets.push({id:null, reps:'', pct:'', kg:'', vel:'', eff:''}); ed.dirty=true; paintEditor(); return; }
