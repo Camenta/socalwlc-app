@@ -1751,11 +1751,21 @@ async function renderJoin(token){
   document.getElementById('jPw').addEventListener('keydown', e=>{ if(e.key==='Enter') doJoin(); });
 }
 // if the login expires or dies mid-use, say so plainly instead of showing empty screens
-sb.auth.onAuthStateChange((event)=>{
+sb.auth.onAuthStateChange(async (event)=>{
   if(event==='SIGNED_OUT' && me_ && !leavingOnPurpose){
+    // A token can lapse mid-session (esp. a phone locked between heavy singles). Try one silent refresh
+    // before dumping the athlete to the login screen — losing their place mid-log is exactly what we're fixing.
+    try{ const { data } = await sb.auth.refreshSession(); if(data && data.session){ return; } }catch(e){}
     me_=null; if(coachChan){ sb.removeChannel(coachChan); coachChan=null; }
     renderLogin('Your session expired — please sign in again.');
   }
+});
+// Returning to the app after a rest period: re-validate the login (so the next request doesn't 401) and
+// push any edits that were waiting locally while we were backgrounded.
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState!=='visible' || !me_ || leavingOnPurpose) return;
+  sb.auth.getSession().then(r=>{ if(!r.data.session){ try{ sb.auth.refreshSession(); }catch(e){} } });
+  if(_alogPending && _alogPending.size) alogFlush();
 });
 // guard before any data render: a live login must exist
 async function requireSession(){
@@ -1912,6 +1922,63 @@ async function saveOneSet(id){
   const res = st.logId ? await sb.from('logged_sets').update(payload).eq('id',st.logId).select()
                        : await sb.from('logged_sets').insert(payload).select();
   if(res.data && res.data[0]) st.logId=res.data[0].id;
+}
+/* ---------------- athlete session autosave ----------------
+   Two layers so a mid-session timeout / phone-lock / crash never loses typed data:
+   (1) LOCAL DRAFT — every edit is mirrored to localStorage instantly; restored on reopen.
+   (2) DB AUTOSAVE — each edited set is upserted to logged_sets a beat after you touch it,
+       so it reaches the coach live. A dead token is handled by KEEPING the local draft and
+       retrying — never by dumping the athlete to the login screen. */
+let _alogTimer=null, _alogDbTimer=null, _alogPending=new Set(), _alogDraft=null, _alogRestored=false;
+function alogDraftKey(){ return (me_&&curSession)?('wlc_alog_'+me_.id+'_'+curSession.id):null; }
+function alogWriteDraft(){
+  const k=alogDraftKey(); if(!k) return;
+  try{ const snap={}; for(const id in logState){ const s=logState[id];
+      snap[id]={reps:s.reps,kg:s.kg,lights:s.lights,effort:s.effort,miss:s.miss,done:s.done}; }
+    localStorage.setItem(k, JSON.stringify({t:Date.now(), sets:snap})); }catch(e){}
+}
+function alogClearDraft(){ const k=alogDraftKey(); if(k){ try{ localStorage.removeItem(k); }catch(e){} } }
+function alogLoadDraft(){   // call once at the top of a render, before rows are built
+  const k=alogDraftKey(); if(!k){ _alogDraft=null; return; }
+  try{ const raw=localStorage.getItem(k); _alogDraft = raw?JSON.parse(raw):null; }catch(e){ _alogDraft=null; }
+}
+function alogOverlay(id){   // overlay any drafted edits onto a freshly-built logState row; flags a real restore
+  if(!_alogDraft||!_alogDraft.sets) return; const d=_alogDraft.sets[id], st=logState[id]; if(!d||!st) return;
+  ['reps','kg','lights','effort','miss','done'].forEach(f=>{
+    if(d[f]!==undefined && d[f]!==st[f]){ st[f]=d[f]; _alogRestored=true; } });
+}
+function alogSetStatus(kind){
+  const el=document.getElementById('alogStatus'); if(!el) return;
+  if(kind==='saving'){ el.style.color='var(--muted)'; el.textContent='Saving…'; }
+  else if(kind==='saved'){ el.style.color='var(--good)'; el.textContent='✓ Saved — your coach has it'; }
+  else if(kind==='offline'){ el.style.color='var(--warn)'; el.textContent='✓ Saved on your phone — will sync when you reconnect'; }
+  else el.textContent='';
+}
+function alogTouch(id){   // called on every edit to a set row
+  if(id) _alogPending.add(id);
+  if(_alogTimer) clearTimeout(_alogTimer);
+  _alogTimer=setTimeout(alogWriteDraft, 250);   // local safety-net first, always
+  alogSetStatus('saving');
+  if(_alogDbTimer) clearTimeout(_alogDbTimer);
+  _alogDbTimer=setTimeout(alogFlush, 1400);
+}
+async function alogFlush(){
+  if(_alogDbTimer){ clearTimeout(_alogDbTimer); _alogDbTimer=null; }
+  alogWriteDraft();                       // make sure the latest keystroke is on disk before we try the network
+  if(!_alogPending.size) return;
+  let sess=null; try{ sess=(await sb.auth.getSession()).data.session; }catch(e){}
+  if(!sess){ alogSetStatus('offline'); return; }   // token lapsed — draft holds it; don't boot to login
+  const ids=[..._alogPending];
+  for(const id of ids){ const st=logState[id];
+    if(!st){ _alogPending.delete(id); continue; }
+    try{ const payload=setPayload(st);
+      const res = st.logId ? await sb.from('logged_sets').update(payload).eq('id',st.logId).select()
+                           : await sb.from('logged_sets').insert(payload).select();
+      if(res.error || !res.data || !res.data.length){ alogSetStatus('offline'); return; }
+      st.logId=res.data[0].id; _alogPending.delete(id);
+    }catch(e){ alogSetStatus('offline'); return; }
+  }
+  alogSetStatus(_alogPending.size?'offline':'saved');
 }
 async function playVideo(path){
   const { data, error } = await sb.storage.from('lift-videos').createSignedUrl(path, 3600);
@@ -3218,6 +3285,7 @@ async function removeSetRow(key){
   const ex=curExercises.find(e=>e.exId===st.exId);
   if(ex) ex.setIds=ex.setIds.filter(k=>k!==key);
   delete logState[key];
+  _alogPending.delete(key); alogWriteDraft();   // keep the local draft in sync so a removed set isn't restored
   const tr=document.querySelector(`tr[data-set="${key}"]`); if(tr) tr.remove();
   recompute();
 }
@@ -3263,12 +3331,12 @@ window.athSrpeSave=async()=>{
 };
 function wireLogging(){
   const root=document.getElementById('logRoot'); if(!root) return;
-  root.addEventListener('input', e=>{ const inp=e.target.closest('.cell'); if(!inp) return; logState[inp.closest('tr').dataset.set][inp.dataset.f]=inp.value; recompute(); });
-  root.addEventListener('change', e=>{ const c=e.target.closest('.chk'); if(!c) return; logState[c.closest('tr').dataset.set].done=c.checked; recompute(); });
+  root.addEventListener('input', e=>{ const inp=e.target.closest('.cell'); if(!inp) return; const id=inp.closest('tr').dataset.set; logState[id][inp.dataset.f]=inp.value; recompute(); alogTouch(id); });
+  root.addEventListener('change', e=>{ const c=e.target.closest('.chk'); if(!c) return; const id=c.closest('tr').dataset.set; logState[id].done=c.checked; recompute(); alogTouch(id); });
   root.addEventListener('click', e=>{
     const tr=e.target.closest('tr[data-set]'); if(!tr) return; const id=tr.dataset.set; const st=logState[id];
-    if(e.target.closest('.lg-lts')){ st.lights = st.lights===0?3:st.lights-1; refreshRow(id); recompute(); return; }
-    const eff=e.target.closest('.lg-light'); if(eff){ st.effort=(st.effort===eff.dataset.eff?null:eff.dataset.eff); refreshRow(id); recompute(); return; }
+    if(e.target.closest('.lg-lts')){ st.lights = st.lights===0?3:st.lights-1; refreshRow(id); recompute(); alogTouch(id); return; }
+    const eff=e.target.closest('.lg-light'); if(eff){ st.effort=(st.effort===eff.dataset.eff?null:eff.dataset.eff); refreshRow(id); recompute(); alogTouch(id); return; }
     const rb=e.target.closest('.revbadge'); if(rb){ openAnnStudio(rb.dataset.path,{readOnly:true,title:'Coach review',athleteId:me_.id}); return; }
     const v=e.target.closest('.upvid'); if(v){ if(st.video_path) playVideo(st.video_path); else { uploadTargetSet=id; document.getElementById('vidInput').click(); } return; }
     const vr=e.target.closest('.vidrm'); if(vr){
@@ -5842,6 +5910,8 @@ window.processUpload=async(id)=>{
 
 async function renderAthlete(selDate){
   athState.screen='athlete';
+  if(_alogPending && _alogPending.size) await alogFlush();   // persist any pending edits from the session we're leaving (curSession still points at it)
+  _alogPending.clear(); if(_alogDbTimer){clearTimeout(_alogDbTimer);_alogDbTimer=null;} if(_alogTimer){clearTimeout(_alogTimer);_alogTimer=null;} _alogRestored=false;
   app.innerHTML = topbar('Athlete') + athNav('athlete') + `<div class="spin">Loading your week…</div>`;
   if(!(await requireSession())) return;
   const todayStr=iso(new Date());
@@ -5923,6 +5993,7 @@ async function renderAthlete(selDate){
   addSetReady = !probe.error;
   const exs = (session.prescribed_exercises||[]).slice().sort(sortByPos);
   logState = {}; curExercises = [];
+  alogLoadDraft();   // pull any locally-saved unsynced edits for this session, overlaid per-row below
   let body = '';
   exs.forEach(ex=>{
     const sets = (ex.prescribed_sets||[]).slice().sort(sortByPos);
@@ -5942,6 +6013,7 @@ async function renderAthlete(selDate){
         logId: lg ? lg.id : null, gym_id: session.gym_id,
         psId: s.id, exId: ex.id, added: false
       };
+      alogOverlay(s.id);
       setIds.push(s.id); rows += rowHtml(s.id,i);
     });
     // athlete-added sets already saved for this exercise
@@ -5954,6 +6026,7 @@ async function renderAthlete(selDate){
           lights:l.lights!=null?l.lights:3, effort:l.effort||null, miss:l.miss!=null?l.miss:0,
           done:!!l.done, video_path:l.video_path||null, uploading:false,
           logId:l.id, gym_id:session.gym_id, psId:null, exId:ex.id, added:true };
+        alogOverlay(key);
         setIds.push(key); rows += rowHtml(key, setIds.length-1);
       });
     curExercises.push({name:ex.name, exId:ex.id, setIds});
@@ -5972,7 +6045,7 @@ async function renderAthlete(selDate){
         <span>Your program · <b>${esc(fmtDate(session.session_date))}</b> · ${esc(session.title||'Training')}</span>
         <span class="pill" style="margin-left:auto">${dayPill}</span>
       </div>
-      <div class="sub" style="margin-top:6px">Log what you did · tap the lights (white = good lift, red = miss) · rate effort E/M/H/X · tick each set off. Saves straight to your coach.</div>
+      <div class="sub" style="margin-top:6px">Log what you did · tap the lights (white = good lift, red = miss) · rate effort E/M/H/X · tick each set off. <b>Everything saves automatically as you go</b> — you won't lose it.</div>
     </div>
     <div class="card av-weekcard">
       <div class="av-weekhd"><span class="av-weeklbl">Training week · <b>${weekLabel}</b>${athBlockLbl}</span><span class="av-weekprog">${doneN} / ${totN} sessions done</span></div>
@@ -5992,11 +6065,12 @@ async function renderAthlete(selDate){
         <span class="ss-rpe-load">Session load <b id="ssLoad">${athSrpeLoad(curSession)}</b></span>
         <span class="saved" id="ssRpeMsg"></span>
       </div>`:''}
-      <div class="savebar"><button class="btn" id="save" onclick="saveSession()">Submit session</button><span class="saved" id="savedmsg"></span></div>
+      <div class="savebar"><button class="btn" id="save" onclick="saveSession()">Submit session</button><span class="saved" id="savedmsg"></span><span class="saved alog-status" id="alogStatus"></span></div>
     </div>`;
   wireLogging();
   wireCheckin();
   recompute();
+  if(_alogRestored){ alogSetStatus('offline'); toast('Restored the entries you’d typed — nothing was lost.'); _alogRestored=false; }
   markAthReviews();
   loadPainToday().then(repaintPain);
 }
@@ -6014,6 +6088,7 @@ async function markAthReviews(){
 
 async function saveSession(){
   const btn=document.getElementById('save'), msg=document.getElementById('savedmsg');
+  if(_alogDbTimer){ clearTimeout(_alogDbTimer); _alogDbTimer=null; }   // fold any pending autosave into this explicit submit
   btn.disabled=true; btn.textContent='Saving…'; msg.style.color=''; msg.textContent='';
   const { data:{ user } } = await sb.auth.getUser();
   if(!user || user.id !== me_.id){
@@ -6034,6 +6109,7 @@ async function saveSession(){
       st.logId = res.data[0].id;
       saved++;
     }
+    _alogPending.clear(); alogClearDraft(); alogSetStatus('');   // everything is durable in the DB now
     btn.disabled=false; btn.textContent='Submit session';
     msg.style.color='var(--good)'; msg.textContent='✓ Submitted — your coach has it'; setTimeout(()=>{ msg.textContent=''; },3500);
   }catch(e){
