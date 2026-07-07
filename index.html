@@ -3162,8 +3162,9 @@ async function bpSaveTrack(){
   bpHint('✓ Bar path saved & sent to athlete.');
 }
 async function bpLoadTrack(path){
-  // coach editor opens clean (matches loadAnnNotes); the athlete read-only view still loads the saved trace
-  if(annS && !annS.readOnly){ bpRender(); return; }
+  // Reopen a clip you already analyzed with the saved bar path + metrics restored, instead of forcing a
+  // re-detect — for the coach editor as well as the athlete read-only view. (Drawings/notes still open
+  // clean per loadAnnNotes so recording a fresh review starts blank; the read-only-only bits below are guarded.)
   let payload=null, id=null;
   if(VTRACKS_READY){
     const { data }=await sb.from('video_tracks').select('id,points,fps,scale_m_per_px,metrics').eq('video_path',path).order('updated_at',{ascending:false}).limit(1);
