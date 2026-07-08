@@ -76,6 +76,7 @@
   .pill.phase{background:#2a3a2c;color:var(--good)}
   .pill.primary{background:#2a3340;color:var(--accent2)}
   .pill.accessory{background:#332d22;color:var(--warn)}
+  .cvx-cat{cursor:pointer;user-select:none}.cvx-cat:hover{filter:brightness(1.3)}
   .ex{border:1px solid var(--line);border-radius:11px;margin-bottom:14px;overflow:hidden}
   .av-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--panel2);border-bottom:1px solid var(--line);padding:12px 14px;cursor:pointer}
   .av-head .name{font-weight:800;font-size:15px}
@@ -3358,7 +3359,8 @@ function recompute(){
   });
   const completion=planSets?Math.round(doneSets/planSets*100):0, avgEff=effN?EFFL[Math.round(effSum/effN)]:'—';
   const tile=(l,a,p)=>`<div class="ss-tile"><div class="ss-v">${a}${p!=null?`<span class="ss-p"> / ${p}</span>`:''}</div><div class="ss-l">${l}</div></div>`;
-  const volTile=`<div class="ss-tile"><div class="ss-v">${aNL}<span class="ss-p"> / ${pNL}</span>${(accANL||accPNL)?`<span class="ss-acc" title="accessory reps — tracked separately from your primary volume">+${accANL} acc</span>`:''}</div><div class="ss-l">Volume (NL)${(accANL||accPNL)?' · primary':''}</div></div>`;
+  const hasAcc=(accANL||accPNL);
+  const volTile=`<div class="ss-tile"><div class="ss-v">${aNL}<span class="ss-p"> / ${pNL}</span>${hasAcc?`<span class="ss-acc" title="main lifts ${aNL}/${pNL} · accessory ${accANL}/${accPNL} · total ${aNL+accANL}/${pNL+accPNL}">+${accANL} acc · ${aNL+accANL} tot</span>`:''}</div><div class="ss-l">Volume (NL)${hasAcc?' · main lifts':''}</div></div>`;
   const tiles=`<div class="ss-tiles">${volTile}${tile('Tonnage',(aTon/1000).toFixed(1)+'t')}${tile('Set completion',completion+'%')}${tile('Good lifts',good+'/'+planSets)}${tile('Misses',miss)}${tile('Avg effort',avgEff)}</div>`;
   const lines=`<table class="ss-ex"><tbody>${per.map(e=>`<tr><td>${esc(e.name)}${e.acc?' <span class="acc-tag">acc</span>':''}</td><td>${e.done}/${e.sets} sets</td><td><b style="color:var(--text)">${e.aNL}</b> NL / ${e.pNL}</td><td>${(e.aTon/1000).toFixed(1)}t</td><td>${e.miss?`<span style="color:var(--bad)">${e.miss} miss</span>`:'<span style="color:var(--good)">clean</span>'}</td></tr>`).join('')}</tbody></table>`;
   const box=document.getElementById('ssBody'); if(box) box.innerHTML=tiles+lines;
@@ -4341,7 +4343,7 @@ function trAgg(sList, logsBySess, rdAll, win){
   const fam={}; TR_FAMS.forEach(f=>fam[f]=0); const sids=new Set();
   sList.forEach(s=>{ sids.add(s.id); if(s.session_minutes) minutes+=parseFloat(s.session_minutes)||0;
     const sm=parseFloat(s.session_minutes), sr=parseFloat(s.session_rpe); if(sm>0&&sr>0){ loadSum+=sm*sr; loadN++; }   // athlete session-RPE load
-    (s.prescribed_exercises||[]).forEach(ex=>{ const acc=(ex.category||'primary').toLowerCase()==='accessory'; const f=trFamily(ex.name); const ps=ex.prescribed_sets||[]; presSets+=ps.length;
+    (s.prescribed_exercises||[]).forEach(ex=>{ const acc=exIsAcc(ex); const f=trFamily(ex.name); const ps=ex.prescribed_sets||[]; presSets+=ps.length;
       ps.forEach(p=>{ const r=p.target_reps||0, pc=p.target_pct!=null?parseFloat(p.target_pct):0; if(!r) return;
         if(acc){ volAcc+=r; return; }   // accessories: separate — out of primary vol / family / intensity
         vol+=r; fam[f]+=r;
@@ -5388,7 +5390,7 @@ async function reportLoadData(viewId){
   // methodology (planned, over range) via liftMetrics
   const flatSets=[]; let l90=0; const weeks=new Set();
   const mon=ds=>{ const d=new Date(ds+'T00:00:00'); d.setDate(d.getDate()-((d.getDay()+6)%7)); return iso(d); };
-  sess.forEach(s=>{ weeks.add(mon(s.session_date)); (s.prescribed_exercises||[]).forEach(ex=>{ const acc=(ex.category||'primary').toLowerCase()==='accessory'; (ex.prescribed_sets||[]).forEach(ps=>{ const reps=ps.target_reps||0, pct=ps.target_pct!=null?parseFloat(ps.target_pct):0; if(reps){ flatSets.push({reps,pct,acc}); if(!acc&&pct>=90&&pct<=100) l90+=reps; } }); }); });
+  sess.forEach(s=>{ weeks.add(mon(s.session_date)); (s.prescribed_exercises||[]).forEach(ex=>{ const acc=exIsAcc(ex); (ex.prescribed_sets||[]).forEach(ps=>{ const reps=ps.target_reps||0, pct=ps.target_pct!=null?parseFloat(ps.target_pct):0; if(reps){ flatSets.push({reps,pct,acc}); if(!acc&&pct>=90&&pct<=100) l90+=reps; } }); }); });
   const mm=liftMetrics(flatSets); const nWk=Math.max(1,weeks.size);
   const method={ vol:mm.vol, volPri:mm.volPri, volAcc:mm.volAcc, ari:mm.ari, ri:mm.ri, inol:mm.inol, peak:mm.peak, l90, weekly:Math.round(mm.volPri/nWk), nWk, sessLogged, tonnage, compPct, rdAvg, cleanPct };
   // trend buckets
@@ -6058,7 +6060,7 @@ async function renderAthlete(selDate){
   let body = '';
   exs.forEach((ex,exIdx)=>{
     const sets = (ex.prescribed_sets||[]).slice().sort(sortByPos);
-    const cat = (ex.category||'primary').toLowerCase(), isAcc = cat==='accessory';
+    const isAcc = exIsAcc(ex), cat = isAcc?'accessory':'main';   // main = snatch/clean/jerk/squat/pull (auto by name, coach can override)
     const setIds=[]; let rows='';
     sets.forEach((s,i)=>{
       const lg = logBySet[s.id];
@@ -8809,7 +8811,7 @@ function cwCalHeaderHtml(cal, ath){
   return `<div class="cw-calhd"><span class="cw-wktitle" style="font-size:15px">${name}'s training</span>${tog}${nav}${dens}
     <span class="pv-legend" style="margin-left:auto"><span><i style="background:var(--warn)"></i>draft</span><span><i style="background:var(--accent2)"></i>published</span><span><i style="background:var(--accent)"></i>today</span></span></div>`;
 }
-function cwBadge(v,lbl){ return `<div class="cwd-badge"><b>${v}</b><span>${lbl}</span></div>`; }
+function cwBadge(v,lbl,title){ return `<div class="cwd-badge"${title?` title="${esc(title)}"`:''}><b>${v}</b><span>${lbl}</span></div>`; }
 // format an exercise's prescribed sets the TrainHeroic way: "4 × 3 @ 70, 70, 72.5, 72.5%" / "3 × 5" / "5, 3, 2 @ 8, 9, 9RPE"
 function cwNum(n){ const f=parseFloat(n); if(isNaN(f)) return ''; return String(Math.round(f*100)/100); }
 function cwLoadUnit(lt){ return lt==='rpe'?' RPE':lt==='rir'?' RIR':lt==='velocity'?' m/s':lt==='weight'?'kg':lt==='open'?'':'%'; }
@@ -8852,7 +8854,9 @@ function cwWeekRowHtml(off, todayStr){
       const rdy=(cw.rdyByDate||{})[dIso];                                   // morning readiness /5 (per day; team avg in team mode)
       const srpe = tm ? (s._teamSrpe!=null?s._teamSrpe:null)                // team-average session-RPE load
                       : ((s.session_minutes>0 && s.session_rpe>0)?Math.round(s.session_minutes*s.session_rpe):null);
-      const badges=`<div class="cwd-badges">${cwBadge(st.vol||'—','vol')}${cwBadge(st.ari?Math.round(st.ari):'—','ari')}${cwBadge(rdy!=null?rdy.toFixed(1):'—','rdy')}${cwBadge(srpe!=null?srpe:'—','sRPE')}</div>`;
+      const volMain=st.volPri!=null?st.volPri:st.vol;   // little day box shows MAIN-lift volume; full breakdown on hover
+      const volTitle=st.volAcc?`Main lifts ${volMain} · accessory ${st.volAcc} · total ${st.vol}`:`${volMain} NL`;
+      const badges=`<div class="cwd-badges">${cwBadge(volMain||'—','main vol',volTitle)}${cwBadge(st.ari?Math.round(st.ari):'—','ari')}${cwBadge(rdy!=null?rdy.toFixed(1):'—','rdy')}${cwBadge(srpe!=null?srpe:'—','sRPE')}</div>`;
       let body;
       if(detailed){
         const L='ABCDEFGHIJKLMN';
@@ -9262,7 +9266,7 @@ function riDisplay(ri){ return ri? (ri*10).toFixed(1) : '—'; }   // RI on a 0�
 function statsFor(sessRows, logs){
   let vol=0, volPri=0, volAcc=0, vw=0, pv=0, peak=0, totalSets=0;
   (sessRows||[]).forEach(s=>(s.prescribed_exercises||[]).forEach(ex=>{
-    const acc=(ex.category||'primary').toLowerCase()==='accessory';
+    const acc=exIsAcc(ex);
     (ex.prescribed_sets||[]).forEach(ps=>{
       const r=ps.target_reps||0, p=ps.target_pct!=null?parseFloat(ps.target_pct):0;
       vol+=r; totalSets++;
@@ -9300,6 +9304,17 @@ function classifyLift(seg){
   if(jk) return 'Jerk';
   return null;
 }
+// "main lift" = the competition lifts + squats + pulls/DLs (snatch/clean/jerk, squats, pulls & deadlifts).
+// Everything else (presses, KB work, curls, extensions, GHR, …) is accessory. Coach can override per-exercise:
+//   category==='accessory' → force accessory · category==='main' → force main · else auto by name.
+function mainLiftName(name){ const s=(name||'').toLowerCase(); if(!s.trim()) return false;
+  if(/snatch|clean|jerk|\bsn\b|\bcj\b|\bc&j\b/.test(s)) return true;         // O-lifts + variations
+  if(/squat/.test(s)) return true;                                          // squats (front/back/OH/pause…)
+  if(/\b(pull|deadlift|dead\s*lift|dl|rdl|sldl)\b/.test(s)) return true;     // pulls & deadlifts
+  return false; }
+function exIsMain(ex){ const c=((ex&&ex.category)||'').toLowerCase();
+  if(c==='accessory') return false; if(c==='main') return true; return mainLiftName(ex&&ex.name); }
+function exIsAcc(ex){ return !exIsMain(ex); }
 // resolve a movement name -> {kg, lift}. For a complex (A + B [+ C]), the LAST movement drives the load.
 function ormResolveName(name, maxes){
   if(!maxes||!name) return null;
@@ -9561,14 +9576,15 @@ function exTiles(ex){
 function sessionTiles(){
   if(!ed) return '';
   let vol=0,volAcc=0,vw=0,pv=0,riw=0;          // primary volume headline + volume-weighted ARI/RI (§3d); accessories tracked apart
-  ed.exercises.forEach(ex=>{ const acc=(ex.category||'primary').toLowerCase()==='accessory';
+  ed.exercises.forEach(ex=>{ const acc=exIsAcc(ex);
     ex.sets.forEach(st=>{ const r=parseInt(st.reps)||0,p=parseFloat(st.pct)||0;
       if(acc){ volAcc+=r; return; }                // accessory reps don't inflate primary vol / ARI / RI
       vol+=r; if(p&&r){ vw+=p*r; pv+=r; riw+=r*(p/repMaxPct(r)); } }); });
   const ari=pv?vw/pv:0, ri=pv?riw/pv:0;
   let miss=0; ed.logs.forEach(l=>{ miss+=(l.miss||0); });
-  const volB=`${vol||'—'}${volAcc?`<span class="ss-acc" title="accessory reps — not counted in the primary volume/ARI">+${volAcc} acc</span>`:''}`;
-  return `<span><label>vol</label><b>${volB}</b></span><span><label>ari</label><b>${ari?ari.toFixed(1)+'%':'—'}</b></span><span><label>RI</label><b>${riDisplay(ri)}</b></span><span><label>misses</label><b${miss?' style="color:var(--bad)"':''}>${miss}</b></span>`;
+  const volLbl = volAcc?'main vol':'vol';
+  const volB=`${vol||'—'}${volAcc?`<span class="ss-acc" title="main lifts ${vol} · accessory ${volAcc} · total ${vol+volAcc}">+${volAcc} acc · ${vol+volAcc} tot</span>`:''}`;
+  return `<span><label>${volLbl}</label><b>${volB}</b></span><span><label>ari</label><b>${ari?ari.toFixed(1)+'%':'—'}</b></span><span><label>RI</label><b>${riDisplay(ri)}</b></span><span><label>misses</label><b${miss?' style="color:var(--bad)"':''}>${miss}</b></span>`;
 }
 function copyDateOptions(){
   const out=[]; const base=new Date(ed.session.session_date+'T00:00:00');
@@ -9755,6 +9771,9 @@ function showCopyMenu(fromEi, anchor){
   menu.style.width='280px'; menu.style.display='block'; menu.scrollTop=0;
 }
 function hideCopyMenu(){ const m=document.getElementById('copyMenu'); if(m) m.style.display='none'; copyFromEi=null; }
+// coach override: flip an exercise between main lift and accessory (explicit, stored on category)
+window.cvxToggleCat=(ei)=>{ const ex=ed&&ed.exercises[ei]; if(!ex) return;
+  ex.category = exIsMain(ex) ? 'accessory' : 'main'; ed.dirty=true; paintEditor(); };
 function copySchemeTo(fromEi, toEi){
   if(!ed) return; const src=ed.exercises[fromEi], dst=ed.exercises[toEi]; if(!src||!dst) return;
   dst.delSets=dst.delSets||[];
@@ -9799,7 +9818,7 @@ function paintEditor(){
           <button class="mv-btn" data-mv="up" title="Move exercise up"${ei===0?' disabled':''}>▲</button>
           <button class="mv-btn" data-mv="dn" title="Move exercise down"${ei===ed.exercises.length-1?' disabled':''}>▼</button>
         </span>
-        <span class="pill ${ex.category==='accessory'?'accessory':'primary'}">${esc(ex.category||'primary')}</span>
+        <span class="pill ${exIsAcc(ex)?'accessory':'primary'} cvx-cat" onclick="event.stopPropagation();cvxToggleCat(${ei})" title="Main lift or accessory? Drives the volume/ARI split. Auto by name (snatch/clean/jerk/squat/pull = main) — click to override.">${exIsMain(ex)?'main':'accessory'} ⇄</span>
         <input class="cvx-name" data-f="name" value="${esc(ex.name)}" placeholder="Exercise name">
         <span class="cvx-orm">${(orm&&type==='percentage')?`1RM <b>${orm}</b> · ${esc((bi&&bi.lift)||'maxes')}${bi&&bi.override?' <span style="color:var(--warn)">override</span>':''}`:(type==='percentage'&&cw.maxes?(bi&&bi.missing?'<span class="cv-nolog" style="color:var(--warn)">override “'+esc(bi.lift)+'” has no max</span>':'<span class="cv-nolog">no 1RM link</span>'):'')}</span>
         ${OVR_READY?`<input class="cvx-ovr" data-f="baseovr" value="${esc(ex.baseOverride||'')}" placeholder="⚖ base" title="Price % off a specific number (e.g. 180) or a named lift (e.g. Snatch DL) instead of the auto 1RM. Blank = auto.">`:''}
@@ -9949,6 +9968,7 @@ function wireEditor(){
     const ex=ed.exercises[+cvx.dataset.ei]; if(!ex) return;
     if(t.dataset.f==='name'){ ex.name=t.value; ed.dirty=true;
       cvxRefreshBase(cvx, ex);
+      const cat=cvx.querySelector('.cvx-cat'); if(cat && (ex.category!=='accessory'&&ex.category!=='main')){ const main=exIsMain(ex); cat.textContent=(main?'main':'accessory')+' ⇄'; cat.classList.toggle('accessory',!main); cat.classList.toggle('primary',main); }   // live re-classify by name (unless coach forced it)
       cvx.querySelectorAll('[data-f="tgt"]').forEach(p=>{ p.disabled=false; });   // % always editable — it records + drives metrics even w/o a 1RM
       showExDrop(t, +cvx.dataset.ei);
       scheduleDraftSave(); return; }
@@ -10025,7 +10045,10 @@ function wireEditor(){
     const sc=e.target.closest('[data-scheme]');
     if(sc){ const cvx=sc.closest('.cvx'); openSchemeModal(+cvx.dataset.ei); return; }
     const cs=e.target.closest('[data-copysets]');
-    if(cs){ const cvx=cs.closest('.cvx'); showCopyMenu(+cvx.dataset.ei, cs); return; }
+    if(cs){ const ei=+cs.closest('.cvx').dataset.ei;
+      if(document.activeElement && document.activeElement.blur) document.activeElement.blur();   // commit a pending Sets-count edit (which repaints) before anchoring the menu
+      const btn=document.querySelector(`.cvx[data-ei="${ei}"] [data-copysets]`)||cs;             // re-find the button after any repaint so the menu anchors correctly
+      showCopyMenu(ei, btn); return; }
     const dx=e.target.closest('[data-delex]');
     if(dx){ if(!dx.classList.contains('arm')){ dx.classList.add('arm'); dx.textContent='remove?';
         setTimeout(()=>{ if(dx.isConnected){ dx.classList.remove('arm'); dx.textContent='✕ remove'; } },3500); return; }
