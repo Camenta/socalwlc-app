@@ -279,6 +279,9 @@
   .rv-pip.cur{outline:2px solid var(--accent);outline-offset:1px;color:var(--text)}
   .vst-btn.disabled{opacity:.4;pointer-events:none}
   .lg-add{display:inline-block;margin:9px 14px;color:var(--accent2);font-weight:700;font-size:12px;cursor:pointer;user-select:none}
+  .ex-foot{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .lg-tickall{color:var(--good);border:1px solid rgba(52,211,153,.4);border-radius:8px;padding:5px 11px;margin:9px 14px}
+  .lg-tickall:hover{background:rgba(52,211,153,.12)}
   .lg-add:hover{color:#7bc0f5}
   .lg-del{color:var(--muted);cursor:pointer;font-weight:700;opacity:.45;padding:0 4px}
   .lg-del:hover{color:var(--bad);opacity:1}
@@ -1192,6 +1195,8 @@
   .msg.me .msg-bub{background:rgba(60,158,232,.16);border-color:#2c4a63}
   .msg-who{font-size:10px;color:var(--muted);font-weight:700;margin-bottom:2px}
   .msg.me .msg-who{text-align:right}
+  .msg-del{margin-left:7px;color:var(--muted);cursor:pointer;font-weight:800;opacity:.6}.msg-del:hover{opacity:1;color:var(--bad)}
+  .ann-del:hover{color:var(--bad)}
   .msg-txt{font-size:13px;color:#dbe5ee;line-height:1.4;white-space:pre-wrap;word-break:break-word}
   .chat-compose{display:flex;gap:8px;margin-top:10px}
   .chat-compose input{flex:1;background:#0e151c;border:1px solid var(--line);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px}
@@ -1326,6 +1331,15 @@
   .cv-delsess{font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;white-space:nowrap}
   .cv-delsess:hover,.cv-delsess.arm{color:var(--bad)}
   .cvx{padding:0;overflow:hidden}
+  .cvx-ss{border-left:3px solid var(--accent2)}
+  .cvx-ssband{background:rgba(60,158,232,.14);color:var(--accent2);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;padding:5px 13px}
+  .cvx-sslink{font-size:11px;font-weight:800;color:var(--muted);background:#0e151c;border:1px solid var(--line);border-radius:8px;padding:4px 9px;cursor:pointer;user-select:none;white-space:nowrap}
+  .cvx-sslink.on{color:var(--accent2);border-color:var(--accent2);background:rgba(60,158,232,.12)}
+  .cvx-sslink:hover{border-color:var(--accent2)}
+  .av-ss{border:1px solid var(--accent2);border-radius:14px;overflow:hidden;margin-bottom:14px}
+  .av-ss-hd{background:rgba(60,158,232,.14);color:var(--accent2);font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;padding:8px 14px;display:flex;align-items:center;gap:8px}
+  .av-ss .ex{margin-bottom:0;border:none;border-radius:0;border-top:1px solid var(--line)}
+  .av-ss .ex:first-of-type{border-top:none}
   .cvx-hd{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--panel2);border-bottom:1px solid var(--line);padding:11px 13px}
   .cvx-name{flex:1;min-width:140px;font-weight:800;font-size:14px;background:#0e151c;border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--text)}
   .cvx-name:focus{outline:none;border-color:var(--accent2)}
@@ -3390,6 +3404,19 @@ window.athSrpeSave=async()=>{
   curSession.session_minutes=m; curSession.session_rpe=r;
   if(msg){ msg.style.color='var(--good)'; msg.textContent='✓ saved'; setTimeout(()=>{ if(msg.isConnected && msg.textContent==='✓ saved') msg.textContent=''; },2500); }
 };
+// tick every set done at once — per exercise (exId given) or the whole session. Toggles: if all are already done, clears them.
+window.athMarkAllDone=(exId)=>{
+  let ids;
+  if(exId){ const ex=(curExercises||[]).find(e=>e.exId===exId); ids=ex?ex.setIds.slice():[]; }
+  else { ids=Object.keys(logState); }
+  ids=ids.filter(id=>logState[id]);
+  if(!ids.length) return;
+  const target=!ids.every(id=>logState[id].done);   // not all done → mark all; all done → clear
+  ids.forEach(id=>{ const st=logState[id]; if(st.done===target) return; st.done=target;
+    const cb=document.querySelector(`tr[data-set="${id}"] .chk`); if(cb) cb.checked=target;
+    alogTouch(id); });                                // per-set autosave, same as a manual tick
+  recompute();
+};
 function wireLogging(){
   const root=document.getElementById('logRoot'); if(!root) return;
   root.addEventListener('input', e=>{ const inp=e.target.closest('.cell'); if(!inp) return; const id=inp.closest('tr').dataset.set; logState[id][inp.dataset.f]=inp.value; recompute(); alogTouch(id); });
@@ -3408,14 +3435,15 @@ function wireLogging(){
     const del=e.target.closest('.lg-del'); if(del){ removeSetRow(id); return; }
   });
 }
-let LT_READY=false, OVR_READY=false;
+let LT_READY=false, OVR_READY=false, SS_READY=false;   // SS_READY = prescribed_exercises.superset_group (migration 42)
 let SESSION_SELECT='id,gym_id,title,session_date,status,prescribed_exercises(id,name,position,category,coach_note,prescribed_sets(id,position,target_text,target_reps,target_kg,target_pct))';
 async function probeLoadTypes(){
   const { error } = await sb.from('prescribed_exercises').select('load_type').limit(1);
   if(!error){
     LT_READY=true;
     const ovr = await sb.from('prescribed_exercises').select('base_override').limit(1); OVR_READY = !ovr.error;
-    SESSION_SELECT='id,gym_id,title,session_date,status,prescribed_exercises(id,name,position,category,coach_note,load_type,cues'+(OVR_READY?',base_override':'')+',prescribed_sets(id,position,target_text,target_reps,target_kg,target_pct,target_vel,target_eff))';
+    const ss = await sb.from('prescribed_exercises').select('superset_group').limit(1); SS_READY = !ss.error;
+    SESSION_SELECT='id,gym_id,title,session_date,status,prescribed_exercises(id,name,position,category,coach_note,load_type,cues'+(OVR_READY?',base_override':'')+(SS_READY?',superset_group':'')+',prescribed_sets(id,position,target_text,target_reps,target_kg,target_pct,target_vel,target_eff))';
   }
 }
 let PROG_ID_READY=false, PROG_META_READY=false, TEAM_META_READY=false;
@@ -6058,7 +6086,12 @@ async function renderAthlete(selDate){
   logState = {}; curExercises = [];
   alogLoadDraft();   // pull any locally-saved unsynced edits for this session, overlaid per-row below
   let body = '';
+  // supersets: consecutive exercises sharing a superset_group are shown bracketed so the athlete alternates them
+  const athRuns=[]; { let i=0; while(i<exs.length){ const g=exs[i].superset_group; if(g==null){ i++; continue; } let j=i; while(j+1<exs.length && exs[j+1].superset_group===g) j++; if(j>i) athRuns.push({s:i,e:j}); i=j+1; } }
+  const athRunAt=(k)=>athRuns.find(r=>k>=r.s&&k<=r.e)||null;
   exs.forEach((ex,exIdx)=>{
+    const _run=athRunAt(exIdx);
+    if(_run && exIdx===_run.s) body += `<div class="av-ss"><div class="av-ss-hd">⛓ Superset — do these back-to-back, alternating</div>`;
     const sets = (ex.prescribed_sets||[]).slice().sort(sortByPos);
     const isAcc = exIsAcc(ex), cat = isAcc?'accessory':'main';   // main = snatch/clean/jerk/squat/pull (auto by name, coach can override)
     const setIds=[]; let rows='';
@@ -6099,9 +6132,10 @@ async function renderAthlete(selDate){
       <div class="ex-body">
       ${(ex.coach_note || (ex.cues&&ex.cues.length)) ? `<div class="av-note av-note-top"><span class="tag">Coach<br>notes</span><span>${(ex.cues&&ex.cues.length)?`<span class="cues" style="margin-bottom:5px;display:inline-flex">${ex.cues.map(c=>{const ix=c.indexOf('|');return `<span class="cuechip">${ix>-1?esc(c.slice(0,ix))+' ':''}<b>${esc(ix>-1?c.slice(ix+1):c)}</b></span>`;}).join('')}</span><br>`:''}${esc(ex.coach_note||'')}</span></div>` : ''}
       <div class="logwrap"><table class="logtable" data-ex="${ex.id}"><thead><tr><th>Set</th><th>Target</th><th>Reps</th><th>Weight</th><th>Miss</th><th>Lights</th><th>Effort</th><th>Video</th><th>Done</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
-      ${addSetReady?`<span class="lg-add" onclick="addSetRow('${ex.id}')">＋ Add set</span>`:''}
+      <div class="ex-foot">${addSetReady?`<span class="lg-add" onclick="addSetRow('${ex.id}')">＋ Add set</span>`:''}<span class="lg-add lg-tickall" onclick="athMarkAllDone('${ex.id}')" title="Tick every set of this exercise done — tap again to clear">✓ Tick all done</span></div>
       </div>
     </div>`;
+    if(_run && exIdx===_run.e) body += `</div>`;   // close the .av-ss superset bracket
   });
 
   app.innerHTML = topbar('Athlete') + athNav('athlete') + `
@@ -6112,6 +6146,7 @@ async function renderAthlete(selDate){
         <span class="pill" style="margin-left:auto">${dayPill}</span>
       </div>
       <div class="sub" style="margin-top:6px">Log what you did · tap the lights (white = good lift, red = miss) · rate effort E/M/H/X · tick each set off. <b>Everything saves automatically as you go</b> — you won't lose it.</div>
+      <div style="margin-top:9px"><span class="lg-add lg-tickall" onclick="athMarkAllDone()" title="Tick every set in this session done — tap again to clear">✓ Tick all sets done</span></div>
     </div>
     <div class="card av-weekcard">
       <div class="av-weekhd"><span class="av-weeklbl">Training week · <b>${weekLabel}</b>${athBlockLbl}</span><span class="av-weekprog">${doneN} / ${totN} sessions done</span></div>
@@ -6791,14 +6826,15 @@ async function hubReloadAnn(){
   annList.innerHTML=(anns||[]).map(a=>`<div class="ann-item">
     <span class="ann-av" style="background:${avColor(hubName(a.author_id))}">${esc(initials(hubName(a.author_id)))}</span>
     <div class="ann-bd"><div class="ann-top"><span class="ann-who">${esc(hubName(a.author_id))}</span>${a.author_id===(me_&&me_.id)?'<span class="ann-role">coach</span>':''}<span class="ann-time">${relTime(a.created_at)}</span></div>
-      <div class="ann-txt">${esc(a.body)}</div>${a.author_id===(me_&&me_.id)?`<span class="ann-del" onclick="hubDelAnn('${a.id}')">remove</span>`:''}</div></div>`).join('')||'<div class="con-empty" style="padding:18px">No announcements yet — post the first one.</div>';
+      <div class="ann-txt">${esc(a.body)}</div>${(me_&&(me_.role==='coach'||a.author_id===me_.id))?`<span class="ann-del" onclick="hubDelAnn('${a.id}')">remove</span>`:''}</div></div>`).join('')||'<div class="con-empty" style="padding:18px">No announcements yet — post the first one.</div>';
 }
 async function hubReloadFeed(){
   const feed=document.getElementById('cChatFeed'); if(!feed||!hubState.convId) return;
   const { data: msgs } = await sb.from('messages').select('*').eq('conversation_id', hubState.convId).order('created_at',{ascending:true}).limit(150);
+  const canDelMsg = !!(me_ && me_.role==='coach');   // coaches can delete any message in their gym (RLS: "coach delete messages")
   feed.innerHTML=(msgs||[]).map(m=>{ const mine=m.author_id===(me_&&me_.id);
     return `<div class="msg ${mine?'me':''}"><span class="msg-av" style="background:${avColor(hubName(m.author_id))}">${esc(initials(hubName(m.author_id)))}</span>
-      <div class="msg-bub"><div class="msg-who">${esc(hubName(m.author_id))}</div><div class="msg-txt">${esc(m.body)}</div></div></div>`;
+      <div class="msg-bub"><div class="msg-who">${esc(hubName(m.author_id))}${canDelMsg?`<span class="msg-del" onclick="hubDelMsg('${m.id}')" title="Delete this message">✕</span>`:''}</div><div class="msg-txt">${esc(m.body)}</div></div></div>`;
   }).join('')||'<div class="con-empty" style="padding:20px">No messages yet — say hi 👋</div>';
   feed.scrollTop=feed.scrollHeight;
 }
@@ -6810,6 +6846,7 @@ window.hubPostAnn=async()=>{
   ta.value=''; hubReloadAnn();
 };
 window.hubDelAnn=async(id)=>{ const res=await sb.from('announcements').delete().eq('id', id).select(); if(res.error){ toast('Remove failed — '+res.error.message); return; } hubReloadAnn(); };
+window.hubDelMsg=async(id)=>{ const res=await sb.from('messages').delete().eq('id', id).select(); if(res.error){ toast('Delete failed — '+res.error.message); return; } hubReloadFeed(); };
 window.hubSendMsg=async()=>{
   const inp=document.getElementById('cChatInput'); const body=(inp.value||'').trim(); if(!body||!hubState.convId) return;
   const res=await sb.from('messages').insert({ gym_id:me_.gym_id, author_id:me_.id, body, conversation_id:hubState.convId }).select();
@@ -9457,6 +9494,7 @@ async function renderCoachDay(){
   ed = { session: full, logs: logs||[], dirty:false,
     exercises: (full.prescribed_exercises||[]).slice().sort(sortByPos).map(ex=>({
       id:ex.id, name:ex.name, note:ex.coach_note||'', category:ex.category||'primary', baseOverride: ex.base_override||'',
+      ssGroup: ex.superset_group!=null?ex.superset_group:null,
       loadType: ex.load_type||'percentage', cues: Array.isArray(ex.cues)?ex.cues.slice():[],
       sets:(ex.prescribed_sets||[]).slice().sort(sortByPos).map(ps=>({
         id:ps.id, reps:ps.target_reps!=null?ps.target_reps:'',
@@ -9774,6 +9812,21 @@ function hideCopyMenu(){ const m=document.getElementById('copyMenu'); if(m) m.st
 // coach override: flip an exercise between main lift and accessory (explicit, stored on category)
 window.cvxToggleCat=(ei)=>{ const ex=ed&&ed.exercises[ei]; if(!ex) return;
   ex.category = exIsMain(ex) ? 'accessory' : 'main'; ed.dirty=true; paintEditor(); };
+/* ---- supersets / giant sets: link consecutive exercises so the athlete alternates them (migration 42) ---- */
+// consecutive runs of exercises sharing a non-null superset_group (length ≥2 = a real superset)
+function ssRuns(list){ const runs=[]; let i=0; const a=list||[];
+  while(i<a.length){ const g=a[i].ssGroup; if(g==null){ i++; continue; }
+    let j=i; while(j+1<a.length && a[j+1].ssGroup===g) j++;
+    if(j>i) runs.push({s:i,e:j,g}); i=j+1; }
+  return runs; }
+function ssInRun(ei){ return ssRuns(ed.exercises).find(r=>ei>=r.s&&ei<=r.e)||null; }   // which superset (if any) exercise ei is in
+function ssNextGroup(){ let m=0; ed.exercises.forEach(x=>{ if(x.ssGroup!=null&&x.ssGroup>m) m=x.ssGroup; }); return m+1; }
+window.ssToggleLink=(ei)=>{ if(!ed||ei<1) return; const above=ed.exercises[ei-1], cur=ed.exercises[ei];
+  const linked = cur.ssGroup!=null && cur.ssGroup===above.ssGroup;
+  if(linked){ cur.ssGroup=null; }                                    // unlink from the run above
+  else { let g=above.ssGroup; if(g==null){ g=ssNextGroup(); above.ssGroup=g; } cur.ssGroup=g; }
+  ssCleanup(); ed.dirty=true; paintEditor(); };
+function ssCleanup(){ const runG=new Set(ssRuns(ed.exercises).map(r=>r.g)); ed.exercises.forEach(x=>{ if(x.ssGroup!=null && !runG.has(x.ssGroup)) x.ssGroup=null; }); }   // drop groups that no longer form a run of ≥2
 function copySchemeTo(fromEi, toEi){
   if(!ed) return; const src=ed.exercises[fromEi], dst=ed.exercises[toEi]; if(!src||!dst) return;
   dst.delSets=dst.delSets||[];
@@ -9812,12 +9865,16 @@ function paintEditor(){
     const addedRows = ed.logs.filter(l=>!l.prescribed_set_id && l.exercise_id===ex.id)
       .map((l,j)=>`<tr class="addedr"><td class="setn">+${j+1}</td><td colspan="3"><span class="addedtag">added by athlete</span></td>${actualCells(l, type)}<td></td></tr>`).join('');
     const ltSel=`<span class="lt-wrap"><label>Load type</label><select class="cw-sel lt-sel">${LOAD_TYPES.map(t=>`<option value="${t[0]}"${type===t[0]?' selected':''}>${t[1]}</option>`).join('')}</select></span>`;
-    return `<div class="b-ex cvx" data-ei="${ei}">
+    const ssR = SS_READY ? ssInRun(ei) : null;                 // the superset run this exercise belongs to (or null)
+    const ssLinkedAbove = !!(ssR && ei>ssR.s);                 // joined to the exercise above
+    return `<div class="b-ex cvx${ssR?' cvx-ss':''}" data-ei="${ei}">
+      ${(ssR && ei===ssR.s)?`<div class="cvx-ssband">⛓ Superset — ${ssR.e-ssR.s+1} exercises, alternate them</div>`:''}
       <div class="cvx-hd">
         <span class="cvx-mv">
           <button class="mv-btn" data-mv="up" title="Move exercise up"${ei===0?' disabled':''}>▲</button>
           <button class="mv-btn" data-mv="dn" title="Move exercise down"${ei===ed.exercises.length-1?' disabled':''}>▼</button>
         </span>
+        ${(SS_READY && ei>0)?`<span class="cvx-sslink${ssLinkedAbove?' on':''}" onclick="event.stopPropagation();ssToggleLink(${ei})" title="${ssLinkedAbove?'Supersetted with the exercise above — click to separate':'Link into a superset with the exercise above (the athlete alternates them)'}">⛓${ssLinkedAbove?' superset':' link ↑'}</span>`:''}
         <span class="pill ${exIsAcc(ex)?'accessory':'primary'} cvx-cat" onclick="event.stopPropagation();cvxToggleCat(${ei})" title="Main lift or accessory? Drives the volume/ARI split. Auto by name (snatch/clean/jerk/squat/pull = main) — click to override.">${exIsMain(ex)?'main':'accessory'} ⇄</span>
         <input class="cvx-name" data-f="name" value="${esc(ex.name)}" placeholder="Exercise name">
         <span class="cvx-orm">${(orm&&type==='percentage')?`1RM <b>${orm}</b> · ${esc((bi&&bi.lift)||'maxes')}${bi&&bi.override?' <span style="color:var(--warn)">override</span>':''}`:(type==='percentage'&&cw.maxes?(bi&&bi.missing?'<span class="cv-nolog" style="color:var(--warn)">override “'+esc(bi.lift)+'” has no max</span>':'<span class="cv-nolog">no 1RM link</span>'):'')}</span>
@@ -10563,15 +10620,17 @@ async function saveEditor(publishAfter, opts){
       const ex=ed.exercises[ei];
       if(!ex.name.trim()){ continue; }
       if(ex.id){
-        const exPatch={ name:ex.name.trim(), coach_note:ex.note.trim()||null, position:ei };
+        const exPatch={ name:ex.name.trim(), coach_note:ex.note.trim()||null, position:ei, category:ex.category||'primary' };
         if(LT_READY){ exPatch.load_type=ex.loadType||'percentage'; exPatch.cues=(ex.cues&&ex.cues.length)?ex.cues:null; }
         if(OVR_READY){ exPatch.base_override=(ex.baseOverride||'').trim()||null; }
+        if(SS_READY){ exPatch.superset_group=ex.ssGroup!=null?ex.ssGroup:null; }
         const r=await sb.from('prescribed_exercises').update(exPatch).eq('id', ex.id).select();
         if(r.error) throw r.error;
       } else {
         const exIns={ gym_id:me_.gym_id, session_id:s.id, position:ei, name:ex.name.trim(), category:ex.category||'primary', coach_note:ex.note.trim()||null };
         if(LT_READY){ exIns.load_type=ex.loadType||'percentage'; exIns.cues=(ex.cues&&ex.cues.length)?ex.cues:null; }
         if(OVR_READY){ exIns.base_override=(ex.baseOverride||'').trim()||null; }
+        if(SS_READY){ exIns.superset_group=ex.ssGroup!=null?ex.ssGroup:null; }
         const r=await sb.from('prescribed_exercises').insert(exIns).select().single();
         if(r.error) throw r.error; ex.id=r.data.id;
       }
