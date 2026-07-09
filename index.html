@@ -3559,7 +3559,7 @@ async function probeChatSocial(){
 }
 const REACT_EMOJIS=['👍','❤️','🔥','💪','👏','😂'];
 let GIPHY_KEY='IQc7j3fypWmojsGTs0KJxVg01t9qUyoR';   // #6 GIF picker — GIPHY API key (client key, safe to expose). Empty = GIF button hidden.
-const GIPHY_RATING='pg-13';   // content filter for the GIF library (g | pg | pg-13 | r)
+const GIPHY_RATING='r';   // content filter for the GIF library (g | pg | pg-13 | r) — 'r' is Giphy's loosest (no explicit content served via API)
 const DOW=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], MONS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function iso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function weekDates(offset){ // Mon..Sun of the current week, shifted by `offset` weeks
