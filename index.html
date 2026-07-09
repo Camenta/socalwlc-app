@@ -2137,7 +2137,7 @@ async function openAnnStudio(path, meta){
             <span class="vst-btn pri bp-btn" id="bpDetect">🎯 Detect bar</span>
             <span class="vst-btn bp-btn" id="bpManual">✋ Tap plate</span>
             <span class="vst-btn pri bp-btn" id="bpTrack">▶ Track bar</span>
-            <span class="vst-btn bp-btn" id="bpPlot" title="Manually plot the bar path — tap the bar centre on key frames (start, through the pull, peak, catch) and the app fills the smooth curve between. The guaranteed-accurate fallback when auto-tracking is off. Use with 📏 scale.">✍️ Plot path</span>
+            <span class="vst-btn bp-btn" id="bpPlot" title="Manually plot the bar path — each tap drops a dot and auto-advances through the lift (pull → turnover → catch → recovery); the app fills the smooth curve between your dots. The guaranteed-accurate fallback when auto-tracking is off. Use with 📏 scale.">✍️ Plot path</span>
           </div>
           <div id="bpDetectBar" style="display:none;margin-top:8px;font-size:12px;color:var(--accent2)">Plate found (green box) — <span class="vst-btn pri" id="bpDetOk">✓ Looks right</span> <span class="vst-btn" id="bpDetNo">✋ I&rsquo;ll tap it</span></div>
           <div class="vst-row" id="bpKfRow" style="display:none;margin-top:6px;align-items:center;gap:8px"><span class="vst-btn" id="bpKfUndo">⤺ Undo point</span><span class="vst-btn" id="bpKfClear">Clear points</span><span class="bp-hint" id="bpKfInfo" style="margin:0"></span></div>
@@ -2695,6 +2695,24 @@ function bpKfBuildTrack(){
   if(!out.length||Math.abs(out[out.length-1].t-t1)>dt*0.5) out.push({ t:+t1.toFixed(4), x:xs[xs.length-1], y:ys[ys.length-1] });
   annS.track=out; annS.trackSource='manual';
 }
+// --- guided plotting (#3): after each tap, auto-advance the video to the next EVENLY-SPACED stop
+// across the plotting range (or trim window), so the coach walks the whole lift — pull → turnover →
+// catch → recovery — with taps alone, no manual scrubbing. Re-tapping a frame stays put for nudging. ---
+const BP_PLOT_STOPS=10;   // target number of evenly-spaced dots across the range
+function bpPlotSetup(){ const r=vstRange(); const a=r[0], b=r[1]; const n=BP_PLOT_STOPS;
+  annS._plotStops = (b>a) ? Array.from({length:n},(_,i)=>+(a+(b-a)*i/(n-1)).toFixed(4)) : [a||0];
+  annS._plotIdx=0;
+}
+function bpPlotSeek(i){ const v=document.getElementById('vstVid'), st=annS._plotStops; if(!v||!st||!st.length) return;
+  const idx=Math.max(0,Math.min(st.length-1,i)); annS._plotIdx=idx; v.pause();
+  try{ v.currentTime=st[idx]; }catch(e){} vstSyncScrub();
+}
+function bpPlotAdvance(fromT){ const st=annS._plotStops; if(!st||!st.length) return;
+  let ni=st.findIndex(s=>s>fromT+1e-4); if(ni<0) ni=st.length-1;   // already at/after the last stop → stay
+  bpPlotSeek(ni);
+}
+function bpPlotPhase(t){ const r=vstRange(); const a=r[0],b=r[1]; if(b<=a) return ''; const f=(t-a)/(b-a);
+  return f<0.40?'pull':f<0.60?'turnover':f<0.78?'catch':'recovery'; }
 // enter/exit manual plotting mode
 function bpPlotMode(){
   if(!annS||annS.readOnly) return;
@@ -2702,7 +2720,8 @@ function bpPlotMode(){
   annS._detect=null; const bar=document.getElementById('bpDetectBar'); if(bar) bar.style.display='none';
   const on=annS.trackMode!=='manual';
   bpSetMode(on?'manual':null);
-  if(on){ annS.kf=annS.kf||[]; if(annS.track&&annS.trackSource!=='manual'){ /* keep any auto track visible underneath */ } bpHint('Scrub to a frame, tap the bar centre. Add points through the lift (start, mid-pull, peak, catch). 📏 set scale for cm & m/s. Zoom 🔍 for precision.'); }
+  if(on){ annS.kf=annS.kf||[]; bpPlotSetup(); bpPlotSeek(0);
+    bpHint('Tap the bar centre — each tap drops a dot and jumps forward. Walk the lift: pull → turnover → catch → recovery. Scrub back to nudge any dot; Undo/Clear below. Zoom 🔍 for precision.'); }
   else bpHint(annS.kf&&annS.kf.length?'Manual path set.':'');
   bpKfUI(); vstRedraw();
 }
@@ -2710,10 +2729,15 @@ function bpKfAddAt(p){
   const v=document.getElementById('vstVid'); const t=v?+v.currentTime:0;
   annS.kf=annS.kf||[];
   const dt=1/(annS.fps||30), near=annS.kf.findIndex(k=>Math.abs(k.t-t)<dt*0.5);
+  const isNew = near<0;
   if(near>=0) annS.kf[near]={t,x:p.x,y:p.y}; else annS.kf.push({t,x:p.x,y:p.y});   // one point per frame; re-tap replaces it
-  bpKfBuildTrack(); bpComputeMetrics(); bpRender(); bpSteps(); bpKfUI(); vstRedraw();
-  const n=annS.kf.length;
-  bpHint(n<2?'1 point — scrub to another frame and tap the bar again.':n+' points'+(annS.scale?'':' · tap 📏 to set scale for cm & m/s'));
+  bpKfBuildTrack(); bpComputeMetrics(); bpRender(); bpSteps(); bpKfUI();
+  if(isNew) bpPlotAdvance(t);   // fresh dot → walk to the next evenly-spaced stop; re-taps stay put for nudging
+  vstRedraw();
+  const n=annS.kf.length, st=annS._plotStops||[], atEnd=(annS._plotIdx>=st.length-1);
+  bpHint(n<2 ? '1 dot — keep tapping the bar; it walks forward for you.'
+    : (atEnd ? n+' dots — end of the lift. Scrub back to nudge any dot'+(annS.scale?'':' · 📏 set scale for cm & m/s')
+             : n+' dots · next ≈ '+bpPlotPhase(st[annS._plotIdx]!=null?st[annS._plotIdx]:t)+(annS.scale?'':' · 📏 scale for m/s')));
 }
 function bpKfUndo(){ if(!annS.kf||!annS.kf.length) return; annS.kf.pop(); bpKfBuildTrack(); bpComputeMetrics(); bpRender(); bpSteps(); bpKfUI(); vstRedraw(); }
 function bpKfClear(){ annS.kf=[]; annS.track=null; annS.metrics=null; annS.trackSource=null; bpRender(); bpSteps(); bpKfUI(); vstRedraw(); }
@@ -2722,7 +2746,7 @@ function bpKfUI(){
   const manual=annS.trackMode==='manual'||(annS.kf&&annS.kf.length);
   if(row) row.style.display=manual?'flex':'none';
   if(plot) plot.classList.toggle('pri',annS.trackMode==='manual');
-  if(info) info.textContent=(annS.kf&&annS.kf.length)?(annS.kf.length+' point'+(annS.kf.length>1?'s':'')):'tap the bar centre';
+  if(info) info.textContent=(annS.kf&&annS.kf.length)?(annS.kf.length+' dot'+(annS.kf.length>1?'s':'')):'tap the bar centre';
 }
 // ===================== PLATE-CIRCLE DETECTION (gradient Hough) =====================
 // We track the barbell PLATE as a CIRCLE, not a brightness patch. A circle's centre
