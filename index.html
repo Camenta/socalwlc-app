@@ -1230,6 +1230,22 @@
   .chat-compose input:focus{outline:none;border-color:var(--accent2)}
   .chat-send{background:var(--accent2);color:#06121d;font-weight:800;font-size:13px;padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap}
   .chat-send:hover{filter:brightness(1.08)}
+  /* ---- social chat (#6): media + reactions ---- */
+  .chat-attach{cursor:pointer;font-size:18px;display:flex;align-items:center;padding:0 4px;user-select:none;opacity:.8}
+  .chat-attach:hover{opacity:1}
+  .msg-media{max-width:230px;max-height:280px;border-radius:10px;margin-top:6px;display:block;border:1px solid var(--line)}
+  img.msg-media{cursor:pointer;object-fit:cover}
+  .msg-media-load{font-size:11px;color:var(--muted);margin-top:6px;font-style:italic}
+  .rx-bar{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;align-items:center}
+  .msg.me .rx-bar{justify-content:flex-end}
+  .rx-chip{font-size:12px;padding:1px 7px;border-radius:999px;background:var(--panel);border:1px solid var(--line);cursor:pointer;user-select:none;line-height:1.5}
+  .rx-chip.mine{background:rgba(60,158,232,.18);border-color:#2c4a63}
+  .rx-chip:hover{border-color:var(--accent2)}
+  .rx-add{font-size:12px;color:var(--muted);cursor:pointer;padding:0 5px;border-radius:999px;opacity:.6;line-height:1.6}
+  .rx-add:hover{opacity:1;color:var(--accent2)}
+  .rx-pop{position:fixed;z-index:99999;display:flex;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:5px 8px;box-shadow:0 8px 22px rgba(0,0,0,.45)}
+  .rx-pop span{font-size:20px;cursor:pointer;line-height:1;padding:2px 3px;border-radius:7px;transition:transform .1s}
+  .rx-pop span:hover{background:var(--panel2);transform:scale(1.2)}
   .schlib{display:grid;grid-template-columns:330px 1fr;gap:18px;margin-top:10px}
   @media(max-width:860px){.schlib{grid-template-columns:1fr}}
   .sl-left{display:flex;flex-direction:column;gap:9px;min-width:0}
@@ -1771,6 +1787,7 @@ async function boot(){
   await probeAthPlan();
   await probePlans();
   await probeTickets();
+  await probeChatSocial();
   if(profile.role === 'coach') renderCoach(); else athGo(athState.screen||'athlete');
 }
 async function renderJoin(token){
@@ -3522,6 +3539,12 @@ let PLANS_READY=false;     // plans/plan_assignments/plan_overrides + plan_id (m
 async function probePlans(){ const { error } = await sb.from('plans').select('id').limit(1); PLANS_READY = !error; }
 let TICKETS_READY=false;   // tickets (migration 39) → in-app glitch reports
 async function probeTickets(){ const { error } = await sb.from('tickets').select('id').limit(1); TICKETS_READY = !error; }
+let CHAT_MEDIA_READY=false, CHAT_REACT_READY=false;   // migration 44 — chat media attachments + emoji reactions
+async function probeChatSocial(){
+  const m=await sb.from('messages').select('media_path').limit(1); CHAT_MEDIA_READY=!m.error;
+  const r=await sb.from('message_reactions').select('message_id').limit(1); CHAT_REACT_READY=!r.error;
+}
+const REACT_EMOJIS=['👍','❤️','🔥','💪','👏','😂'];
 const DOW=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], MONS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function iso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function weekDates(offset){ // Mon..Sun of the current week, shifted by `offset` weeks
@@ -3859,6 +3882,69 @@ window.athGo=(s)=>{ athState.screen=s;
 function athSoon(title, what){
   return topbar('Athlete')+athNav(athState.screen)+`<div class="card con-empty"><h2 style="margin:0 0 6px;color:var(--text)">${esc(title)}</h2><div>${esc(what)}</div><div class="sub" style="margin-top:8px">Building this next — it mirrors the coach side, scoped to you.</div></div>`;
 }
+/* ===== Social chat (#6): media attachments + emoji reactions — shared by athlete & coach feeds ===== */
+let _chatActive=null;   // which feed is on screen, so a reaction toggle reloads the right one
+function chatReloadActive(){ if(_chatActive==='coach') hubReloadFeed(); else if(_chatActive==='ath') athChatFeed(); }
+// signed media URLs + grouped reactions for the visible messages
+async function chatFeedExtras(msgs){
+  const signed={}, re={};
+  const media=(msgs||[]).filter(m=>m.media_path).map(m=>m.media_path);
+  if(media.length){ try{ const s=await sb.storage.from('chat-media').createSignedUrls(media,3600); (s.data||[]).forEach(o=>{ if(o&&o.signedUrl) signed[o.path]=o.signedUrl; }); }catch(e){} }
+  if(CHAT_REACT_READY && msgs && msgs.length){ try{ const ids=msgs.map(m=>m.id);
+    const r=await sb.from('message_reactions').select('message_id,emoji,user_id').in('message_id',ids);
+    (r.data||[]).forEach(x=>{ const g=(re[x.message_id]=re[x.message_id]||{}); const e=(g[x.emoji]=g[x.emoji]||{c:0,mine:false}); e.c++; if(x.user_id===(me_&&me_.id)) e.mine=true; }); }catch(e){} }
+  return {signed, re};
+}
+function chatMediaHTML(m, signed){
+  if(!m.media_path) return ''; const url=signed[m.media_path]; const t=(m.media_type||'');
+  if(!url) return '<div class="msg-media-load">media unavailable</div>';
+  if(t.indexOf('video')===0) return `<video class="msg-media" src="${esc(url)}" controls preload="metadata" playsinline></video>`;
+  return `<img class="msg-media" src="${esc(url)}" alt="shared image" loading="lazy" onclick="window.open('${esc(url)}','_blank')">`;
+}
+function chatReactHTML(m, re){
+  if(!CHAT_REACT_READY) return '';
+  const g=re[m.id]||{};
+  const chips=REACT_EMOJIS.filter(e=>g[e]).map(e=>`<span class="rx-chip${g[e].mine?' mine':''}" onclick="chatReact('${m.id}','${e}')">${e} ${g[e].c}</span>`).join('');
+  return `<div class="rx-bar">${chips}<span class="rx-add" onclick="chatReactPick(event,'${m.id}')" title="React">☺</span></div>`;
+}
+window.chatReact=async(mid,emoji)=>{ const uid=me_&&me_.id; if(!uid||!CHAT_REACT_READY) return; chatReactClosePop();
+  const ex=await sb.from('message_reactions').select('emoji').eq('message_id',mid).eq('user_id',uid).eq('emoji',emoji).maybeSingle();
+  if(ex.data){ await sb.from('message_reactions').delete().eq('message_id',mid).eq('user_id',uid).eq('emoji',emoji); }
+  else { const r=await sb.from('message_reactions').insert({message_id:mid,user_id:uid,emoji,gym_id:me_.gym_id}); if(r.error){ toast('Reaction failed — '+r.error.message); return; } }
+  chatReloadActive();
+};
+window.chatReactPick=(ev,mid)=>{ ev.stopPropagation(); chatReactClosePop();
+  const pop=document.createElement('div'); pop.className='rx-pop'; pop.id='rxPop';
+  pop.innerHTML=REACT_EMOJIS.map(e=>`<span onclick="chatReact('${mid}','${e}')">${e}</span>`).join('');
+  document.body.appendChild(pop);
+  const r=ev.target.getBoundingClientRect(); pop.style.left=Math.max(8,Math.min(window.innerWidth-pop.offsetWidth-8, r.left-8))+'px'; pop.style.top=Math.max(8,r.top-46)+'px';
+  setTimeout(()=>document.addEventListener('click',chatReactClosePop,{once:true}),0);
+};
+function chatReactClosePop(){ const p=document.getElementById('rxPop'); if(p) p.remove(); }
+// attach button → upload to chat-media → post a message carrying the media
+window.chatAttachPick=(which,inp)=>{ const f=inp.files&&inp.files[0]; inp.value=''; if(!f) return;
+  const convId = which==='ath'?athChat.convId:hubState.convId;
+  const textInput=document.getElementById(which==='ath'?'athChatInput':'cChatInput');
+  chatUploadAndSend(convId, f, textInput, which==='ath'?athChatFeed:hubReloadFeed);
+};
+async function chatUploadAndSend(convId, file, inputEl, reloadFn){
+  if(!convId||!file) return;
+  const isImg=/^image\//.test(file.type), isVid=/^video\//.test(file.type);
+  if(!isImg&&!isVid){ toast('Only images, GIFs, or videos can be attached.'); return; }
+  if(file.size > 100*1024*1024){ toast('That file is over 100 MB — trim it or film at 1080p, not 4K.'); return; }
+  toast('Uploading…');
+  const ext=((file.name.split('.').pop()||'').toLowerCase().replace(/[^a-z0-9]/g,''))||(isVid?'mp4':'jpg');
+  const uid=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():('x'+Math.abs((file.size||0)+file.name.length).toString(36)+file.lastModified);
+  const path=`${me_.gym_id}/${me_.id}/${uid}.${ext}`;
+  const up=await sb.storage.from('chat-media').upload(path, file, { contentType:file.type||'application/octet-stream', upsert:false });
+  if(up.error){ toast('Upload failed — '+up.error.message); return; }
+  const body=inputEl&&inputEl.value?inputEl.value.trim():'';
+  const ins=await sb.from('messages').insert({ gym_id:me_.gym_id, author_id:me_.id, conversation_id:convId, body, media_path:path, media_type:file.type||null }).select();
+  if(ins.error||!ins.data||!ins.data.length){ toast('Send failed — '+(ins.error?ins.error.message:'try again')); return; }
+  if(inputEl) inputEl.value='';
+  reloadFn();
+}
+function chatComposeAttach(which){ return CHAT_MEDIA_READY?`<label class="chat-attach" title="Attach a photo, GIF, or video">📎<input type="file" accept="image/*,video/*" style="display:none" onchange="chatAttachPick('${which}',this)"></label>`:''; }
 let athChat={ convId:null, convs:[], prof:{} };
 function convNameAth(c){ return c.kind==='team' ? 'Whole gym' : (c.name || (c.kind==='dm'?'Direct message':'Group')); }
 function athClockT(ts){ const d=new Date(ts); let h=d.getHours(); const m=d.getMinutes(); const ap=h<12?'a':'p'; h=h%12||12; return h+':'+String(m).padStart(2,'0')+ap; }
@@ -3867,9 +3953,11 @@ async function athChatFeed(){
   const feed=document.getElementById('athChatFeed'); if(!feed) return;
   if(!athChat.convId){ feed.innerHTML='<div class="con-empty" style="padding:20px">No team chat yet.</div>'; return; }
   const { data: msgs } = await sb.from('messages').select('*').eq('conversation_id', athChat.convId).order('created_at',{ascending:true}).limit(150);
+  const ex=await chatFeedExtras(msgs||[]); _chatActive='ath';
   feed.innerHTML=(msgs||[]).map(m=>{ const mine=m.author_id===(me_&&me_.id); const p=athChat.prof[m.author_id]; const nm=p?p.full_name:(mine?'You':'Someone');
     return '<div class="msg '+(mine?'me':'')+'"><span class="msg-av" style="background:'+avColor(nm)+'">'+esc(initials(nm))+'</span>'+
-      '<div class="msg-bub"><div class="msg-who">'+esc(mine?'You':nm)+' · '+athClockT(m.created_at)+'</div><div class="msg-txt">'+esc(m.body)+'</div></div></div>';
+      '<div class="msg-bub"><div class="msg-who">'+esc(mine?'You':nm)+' · '+athClockT(m.created_at)+'</div>'+
+      (m.body?'<div class="msg-txt">'+esc(m.body)+'</div>':'')+chatMediaHTML(m,ex.signed)+chatReactHTML(m,ex.re)+'</div></div>';
   }).join('') || '<div class="con-empty" style="padding:20px">No messages yet — say hi 👋</div>';
   feed.scrollTop=feed.scrollHeight;
 }
@@ -4027,7 +4115,7 @@ async function renderAthHome(){
       <div class="card chatcard"><h2>💬 Team chat</h2>
         <div class="chat-threads" id="athChatThreads">${threadChips}</div>
         <div class="chat-feed" id="athChatFeed"><div class="con-empty" style="padding:20px">Loading…</div></div>
-        <div class="chat-compose"><input id="athChatInput" placeholder="Message your team…"><span class="chat-send" onclick="athChatSend()">Send</span></div>
+        <div class="chat-compose">${chatComposeAttach('ath')}<input id="athChatInput" placeholder="Message your team…"><span class="chat-send" onclick="athChatSend()">Send</span></div>
       </div>
     </div>
 
@@ -6879,7 +6967,7 @@ async function renderHub(host){
       <div class="chat-threads" id="cChatThreads"></div>
       <div id="cChatActive"></div>
       <div class="chat-feed" id="cChatFeed"><div class="spin" style="padding:10px">Loading…</div></div>
-      <div class="chat-compose"><input id="cChatInput" placeholder="Type a message…" onkeydown="if(event.key==='Enter')hubSendMsg()"><span class="chat-send" onclick="hubSendMsg()">Send</span></div>
+      <div class="chat-compose">${chatComposeAttach('coach')}<input id="cChatInput" placeholder="Type a message…" onkeydown="if(event.key==='Enter')hubSendMsg()"><span class="chat-send" onclick="hubSendMsg()">Send</span></div>
     </div>
   </div>`;
   await loadConvs();
@@ -6979,9 +7067,10 @@ async function hubReloadFeed(){
   const feed=document.getElementById('cChatFeed'); if(!feed||!hubState.convId) return;
   const { data: msgs } = await sb.from('messages').select('*').eq('conversation_id', hubState.convId).order('created_at',{ascending:true}).limit(150);
   const canDelMsg = !!(me_ && me_.role==='coach');   // coaches can delete any message in their gym (RLS: "coach delete messages")
+  const ex=await chatFeedExtras(msgs||[]); _chatActive='coach';
   feed.innerHTML=(msgs||[]).map(m=>{ const mine=m.author_id===(me_&&me_.id);
     return `<div class="msg ${mine?'me':''}"><span class="msg-av" style="background:${avColor(hubName(m.author_id))}">${esc(initials(hubName(m.author_id)))}</span>
-      <div class="msg-bub"><div class="msg-who">${esc(hubName(m.author_id))}${canDelMsg?`<span class="msg-del" onclick="hubDelMsg('${m.id}')" title="Delete this message">✕</span>`:''}</div><div class="msg-txt">${esc(m.body)}</div></div></div>`;
+      <div class="msg-bub"><div class="msg-who">${esc(hubName(m.author_id))}${canDelMsg?`<span class="msg-del" onclick="hubDelMsg('${m.id}')" title="Delete this message">✕</span>`:''}</div>${m.body?`<div class="msg-txt">${esc(m.body)}</div>`:''}${chatMediaHTML(m,ex.signed)}${chatReactHTML(m,ex.re)}</div></div>`;
   }).join('')||'<div class="con-empty" style="padding:20px">No messages yet — say hi 👋</div>';
   feed.scrollTop=feed.scrollHeight;
 }
