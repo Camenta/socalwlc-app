@@ -209,6 +209,10 @@
   .bp-step.done .bp-num{background:var(--good);border-color:var(--good);color:#0a0d11}
   .bp-step.active .bp-num{background:var(--accent);border-color:var(--accent);color:#0a0d11}
   .bp-btn{width:100%;box-sizing:border-box;text-align:center;margin-top:4px}
+  .bp-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0 2px}
+  .bp-btns>.bp-btn{margin-top:0;min-height:46px;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 10px;line-height:1.15}
+  .bp-calib{width:100%;box-sizing:border-box;display:flex;align-items:center;justify-content:center;min-height:38px;margin-top:8px}
+  @media(max-width:420px){ .bp-btns{gap:7px} .bp-btns>.bp-btn{min-height:50px;font-size:12.5px} }
   .bp-tiles{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
   .bp-tile{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
   .bp-tile .bp-v{font-size:15px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums}
@@ -395,6 +399,9 @@
   .av-weeklbl b{color:var(--text)}
   .av-weekprog{font-size:12px;font-weight:700;color:var(--accent2)}
   .av-daystrip{display:flex;gap:7px;overflow-x:auto;padding-bottom:2px}
+  .av-arrow{flex:none;width:38px;height:38px;border-radius:9px;background:var(--panel2);border:1px solid var(--line);color:var(--text);font-size:20px;line-height:1;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:border-color .12s,color .12s}
+  .av-arrow:hover:not(:disabled){border-color:var(--accent2);color:var(--accent2)}
+  .av-arrow:disabled{opacity:.28;cursor:default}
   .av-day{flex:1;min-width:70px;display:flex;flex-direction:column;align-items:center;gap:3px;background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:10px 5px 8px;cursor:pointer;transition:border-color .12s}
   .av-day:hover{border-color:var(--accent2)}
   .av-day.on{border-color:var(--accent);background:rgba(232,100,60,.08)}
@@ -2126,13 +2133,15 @@ async function openAnnStudio(path, meta){
             <div class="bp-step" id="bpS1"><span class="bp-num">1</span><div>Find the plate — on the start frame tap <b>Detect bar</b>; it auto-finds &amp; sizes the plate. <span id="bpSeedLbl" style="color:var(--good)"></span></div></div>
             <div class="bp-step" id="bpS2"><span class="bp-num">2</span><div>Track — runs from that frame to the end of the clip.</div></div>
           </div>
-          <span class="vst-btn pri bp-btn" id="bpDetect">🎯 Detect bar</span>
-          <span class="vst-btn bp-btn" id="bpManual">✋ Tap plate</span>
-          <span class="vst-btn pri bp-btn" id="bpTrack">▶ Track bar</span>
-          <span class="vst-btn bp-btn" id="bpPlot" title="Manually plot the bar path — tap the bar centre on key frames (start, through the pull, peak, catch) and the app fills the smooth curve between. The guaranteed-accurate fallback when auto-tracking is off. Use with 📏 scale.">✍️ Plot path</span>
+          <div class="bp-btns">
+            <span class="vst-btn pri bp-btn" id="bpDetect">🎯 Detect bar</span>
+            <span class="vst-btn bp-btn" id="bpManual">✋ Tap plate</span>
+            <span class="vst-btn pri bp-btn" id="bpTrack">▶ Track bar</span>
+            <span class="vst-btn bp-btn" id="bpPlot" title="Manually plot the bar path — tap the bar centre on key frames (start, through the pull, peak, catch) and the app fills the smooth curve between. The guaranteed-accurate fallback when auto-tracking is off. Use with 📏 scale.">✍️ Plot path</span>
+          </div>
           <div id="bpDetectBar" style="display:none;margin-top:8px;font-size:12px;color:var(--accent2)">Plate found (green box) — <span class="vst-btn pri" id="bpDetOk">✓ Looks right</span> <span class="vst-btn" id="bpDetNo">✋ I&rsquo;ll tap it</span></div>
           <div class="vst-row" id="bpKfRow" style="display:none;margin-top:6px;align-items:center;gap:8px"><span class="vst-btn" id="bpKfUndo">⤺ Undo point</span><span class="vst-btn" id="bpKfClear">Clear points</span><span class="bp-hint" id="bpKfInfo" style="margin:0"></span></div>
-          <span class="vst-btn bp-btn" id="bpCalib" style="opacity:.7;font-size:11px">📏 Adjust scale (optional)</span>
+          <span class="vst-btn bp-btn bp-calib" id="bpCalib" style="opacity:.7;font-size:11px">📏 Adjust scale (optional)</span>
           <div class="bp-prog" id="bpProgWrap" style="display:none"><i id="bpProg"></i></div>
           <div class="bp-hint" id="bpHint">Auto-finds the plate &amp; calibrates from its 45&nbsp;cm size. Films best side-on; trend-grade, not lab-grade.</div>
           <div class="bp-tiles" id="bpTiles" style="display:none"></div>
@@ -3399,8 +3408,9 @@ window.athSrpeSave=async()=>{
   const m=(mEl&&mEl.value!=='')?parseInt(mEl.value):null;
   let r=(rEl&&rEl.value!=='')?parseFloat(rEl.value):null; if(r!=null) r=Math.max(1,Math.min(10,r));
   const msg=document.getElementById('ssRpeMsg'); if(msg){ msg.style.color=''; msg.textContent='saving…'; }
-  const res=await sb.from('sessions').update({ session_minutes:m, session_rpe:r }).eq('id',curSession.id);
+  const res=await sb.from('sessions').update({ session_minutes:m, session_rpe:r }).eq('id',curSession.id).select('id');
   if(res.error){ if(msg){ msg.style.color='var(--bad)'; msg.textContent='save failed — '+res.error.message; } return; }
+  if(!res.data || !res.data.length){ if(msg){ msg.style.color='var(--bad)'; msg.textContent='save didn’t stick — reload &amp; sign back in'; } return; }   // 0 rows = RLS blocked the write (see migration 43)
   curSession.session_minutes=m; curSession.session_rpe=r;
   if(msg){ msg.style.color='var(--good)'; msg.textContent='✓ saved'; setTimeout(()=>{ if(msg.isConnected && msg.textContent==='✓ saved') msg.textContent=''; },2500); }
 };
@@ -6058,6 +6068,16 @@ async function renderAthlete(selDate){
   if(!sel && byDate[todayStr]) sel=todayStr;
   if(!sel){ const ds=Object.keys(byDate).sort(); sel = ds[0] || null; }
   const dayList = sel ? byDate[sel] : [];
+  // #1 — prev/next TRAINING-day arrows: jump straight to the adjacent day that has a session
+  // (skips rest days, crosses week boundaries) without backing out. renderAthlete re-anchors on any date.
+  let prevDate=null, nextDate=null;
+  { const { data: adRows } = await sb.from('sessions').select('session_date')
+      .eq('athlete_id', me_.id).neq('status','draft').order('session_date',{ascending:true});
+    const allDates=[...new Set((adRows||[]).map(r=>r.session_date))];
+    const si=allDates.indexOf(sel);
+    if(si>0) prevDate=allDates[si-1];
+    if(si>=0 && si<allDates.length-1) nextDate=allDates[si+1];
+  }
   if(sel!==athSelDate){ athSelSess=null; athSelDate=sel; }
   const session = dayList.find(x=>x.id===athSelSess) || dayList[0];
   athSelSess = session.id;
@@ -6141,9 +6161,11 @@ async function renderAthlete(selDate){
   app.innerHTML = topbar('Athlete') + athNav('athlete') + `
     <div class="card">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <button class="av-arrow" ${prevDate?`onclick="renderAthlete('${prevDate}')"`:'disabled'} title="${prevDate?'Previous training day — '+esc(fmtDate(prevDate)):'No earlier training day'}" aria-label="Previous training day">‹</button>
         <span class="pill phase">${esc((session.status||'training').toUpperCase())}</span>
         <span>Your program · <b>${esc(fmtDate(session.session_date))}</b> · ${esc(session.title||'Training')}</span>
-        <span class="pill" style="margin-left:auto">${dayPill}</span>
+        <button class="av-arrow" style="margin-left:auto" ${nextDate?`onclick="renderAthlete('${nextDate}')"`:'disabled'} title="${nextDate?'Next training day — '+esc(fmtDate(nextDate)):'No later training day'}" aria-label="Next training day">›</button>
+        <span class="pill">${dayPill}</span>
       </div>
       <div class="sub" style="margin-top:6px">Log what you did · tap the lights (white = good lift, red = miss) · rate effort E/M/H/X · tick each set off. <b>Everything saves automatically as you go</b> — you won't lose it.</div>
       <div style="margin-top:9px"><span class="lg-add lg-tickall" onclick="athMarkAllDone()" title="Tick every set in this session done — tap again to clear">✓ Tick all sets done</span></div>
@@ -6250,15 +6272,16 @@ window.athFinishSession=async()=>{
   if(m>0) payload.session_minutes=Math.round(m);
   if(r>0) payload.session_rpe=r;
   if(Object.keys(payload).length){
-    const res=await sb.from('sessions').update(payload).eq('id',curSession.id);
+    const res=await sb.from('sessions').update(payload).eq('id',curSession.id).select('id');
     if(res.error){ if(msg){msg.style.color='var(--bad)';msg.textContent='Couldn’t save — '+res.error.message;} return; }
+    if(!res.data || !res.data.length){ if(msg){msg.style.color='var(--bad)';msg.textContent='Couldn’t save — reload &amp; sign back in as this athlete.';} return; }   // 0 rows = RLS blocked (see migration 43)
     if(payload.session_minutes!=null) curSession.session_minutes=payload.session_minutes;
     if(payload.session_rpe!=null) curSession.session_rpe=payload.session_rpe;
   }
   const mm=document.getElementById('rateModal'); if(mm) mm.style.display='none';
   alogClearStart(curSession.id);   // fresh timer if the session is reopened
-  const sum=document.getElementById('ssRpeSummary'); if(sum) sum.outerHTML=ssRpeSummaryHtml();
   toast('Session finished — nice work 💪');
+  athGo('home');   // #5 — route the athlete back to their Home, not stranded on the finished session
 };
 function ssRpeSummaryHtml(){
   if(!SRPE_READY || (curSession.session_minutes==null && curSession.session_rpe==null)) return `<span id="ssRpeSummary"></span>`;
