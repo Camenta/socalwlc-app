@@ -514,6 +514,26 @@
   .ctabs button{background:none;border:none;color:var(--muted);padding:11px 18px;cursor:pointer;font-size:14px;font-weight:700;border-bottom:2px solid transparent}
   .ctabs button.on{color:var(--text);border-bottom-color:var(--accent)}
   .ctabs button:hover{color:var(--text)}
+  /* ---- Coach Home command-center band (#4) ---- */
+  .home-band{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px;margin:2px 0 16px}
+  .home-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 15px;display:flex;flex-direction:column;min-height:96px}
+  .home-card h3{margin:0 0 9px;font-size:13px;font-weight:800;letter-spacing:.3px;display:flex;align-items:center;gap:7px;color:var(--text)}
+  .home-card h3 .hc-count{margin-left:auto;font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);color:var(--muted)}
+  .home-card h3 .hc-count.alert{background:rgba(232,100,60,.16);border-color:rgba(232,100,60,.5);color:var(--accent)}
+  .home-row{display:flex;align-items:center;gap:9px;padding:7px 0;border-top:1px solid var(--line);font-size:13px;cursor:pointer}
+  .home-row:first-of-type{border-top:none}
+  .home-row:hover{color:var(--accent2)}
+  .home-row .hr-main{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .home-row .hr-main b{font-weight:700}
+  .home-row .hr-sub{color:var(--muted);font-size:11.5px}
+  .home-row .hr-when{color:var(--muted);font-size:11px;flex:none;white-space:nowrap}
+  .home-new{flex:none;font-size:10px;font-weight:800;padding:1px 6px;border-radius:999px;background:rgba(232,100,60,.18);border:1px solid rgba(232,100,60,.55);color:var(--accent)}
+  .home-dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--muted)}
+  .home-dot.good{background:var(--good)}.home-dot.warn{background:var(--warn)}.home-dot.bad{background:var(--accent)}
+  .home-empty{color:var(--muted);font-size:12.5px;padding:6px 0}
+  .home-more{margin-top:8px;font-size:11.5px;font-weight:700;color:var(--accent2);cursor:pointer;align-self:flex-start}
+  .home-days{flex:none;font-weight:800;font-size:13px}
+  .home-days.soon{color:var(--accent)}
   .ctoolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
   .csearch{flex:1 1 220px;min-width:180px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px}
   .csearch::placeholder{color:var(--muted)}
@@ -6335,7 +6355,7 @@ async function renderCoach(){
 }
 function coachNav(active){
   return `<div class="cnav">
-    <button class="${active==='console'?'on':''}" onclick="coachGo('console')">⌂ Console</button>
+    <button class="${active==='console'?'on':''}" onclick="coachGo('console')">⌂ Home</button>
     <button class="${active==='coach'?'on':''}" onclick="coachGo('coach')">Coach View</button>
     <button class="${active==='plan'?'on':''}" onclick="coachGo('plan')">🗓 Annual Plan</button>
     <button class="${active==='dash'?'on':''}" onclick="coachGo('dash')">📊 Athlete Dashboard</button>
@@ -6402,6 +6422,84 @@ async function sweepOldReviews(){
     if(n>0) toast('Cleared '+n+' coach review'+(n>1?'s':'')+' older than 2 weeks to save space.');
   }catch(e){}
 }
+/* ---- Coach Home command-center band (#4): video inbox · training status · meets · hub · check-ins ---- */
+function homeAgo(ts){ if(!ts) return ''; const d=new Date(ts), s=Math.floor((Date.now()-d.getTime())/1000);
+  if(s<60) return 'just now'; const m=Math.floor(s/60); if(m<60) return m+'m ago';
+  const h=Math.floor(m/60); if(h<24) return h+'h ago'; const dd=Math.floor(h/24); if(dd<7) return dd+'d ago'; return fmtShort(iso(d)); }
+function homeDaysTo(dateStr){ const t=new Date(dateStr+'T00:00:00'), n=new Date(); const nd=new Date(n.getFullYear(),n.getMonth(),n.getDate()); return Math.round((t-nd)/864e5); }
+async function renderHomeBand(){
+  const host=document.getElementById('homeHost'); if(!host) return;
+  const aths=coachState.athletes||[]; const athIds=aths.map(a=>a.id);
+  if(!athIds.length){ host.innerHTML='<div class="home-card"><div class="home-empty">Add athletes from the roster below to light up your Home.</div></div>'; return; }
+  const fn=nm=>((nm||'').split(/\s+/)[0]||''); const nameById={}; aths.forEach(a=>nameById[a.id]=a.full_name); nameById[me_.id]=me_.full_name;
+  const todayStr=iso(new Date()); const teams=conState._teams||[]; const stats=conState._stats||{};
+  // fetch every card's data at once; each card degrades to empty on error
+  const [clipR, compR, annR, rkR] = await Promise.all([
+    sb.from('logged_sets').select('id,athlete_id,session_id,video_path,logged_at').in('athlete_id',athIds).not('video_path','is',null).order('logged_at',{ascending:false}).limit(14).then(r=>r,e=>({error:e})),
+    sb.from('competitions').select('name,comp_date,kind,athlete_id').gte('comp_date',todayStr).order('comp_date',{ascending:true}).limit(6).then(r=>r,e=>({error:e})),
+    sb.from('announcements').select('*').order('created_at',{ascending:false}).limit(5).then(r=>r,e=>({error:e})),
+    sb.from('readiness').select('athlete_id,sleep,energy,motivation,soreness,mood,stress,appetite').in('athlete_id',athIds).eq('check_date',todayStr).then(r=>r,e=>({error:e}))
+  ]);
+  // video inbox: reviewed set + session titles
+  let clips=(clipR&&clipR.data)||[]; const reviewed=new Set(); const sessTitle={};
+  if(clips.length){ const paths=clips.map(c=>c.video_path);
+    try{ const rv=await sb.from('video_notes').select('video_path').in('video_path',paths); (rv.data||[]).forEach(r=>reviewed.add(r.video_path)); }catch(e){}
+    const sids=[...new Set(clips.map(c=>c.session_id).filter(Boolean))];
+    if(sids.length){ try{ const ss=await sb.from('sessions').select('id,title').in('id',sids); (ss.data||[]).forEach(s=>sessTitle[s.id]=s.title); }catch(e){} } }
+  let painToday=[]; if(PAIN_READY){ try{ const pr=await sb.from('body_pain_reports').select('athlete_id,region_label,side,severity').in('athlete_id',athIds).eq('report_date',todayStr); painToday=pr.data||[]; }catch(e){} }
+
+  // ---- Card 1: Video inbox (unreviewed first) ----
+  clips.sort((a,b)=> (reviewed.has(a.video_path)?1:0)-(reviewed.has(b.video_path)?1:0) || (new Date(b.logged_at)-new Date(a.logged_at)) );
+  const waiting=clips.filter(c=>!reviewed.has(c.video_path)).length;
+  const vRows=clips.slice(0,6).map(c=>{ const nw=!reviewed.has(c.video_path);
+    return `<div class="home-row" onclick="openAnnStudio('${esc(c.video_path)}',{athleteId:'${c.athlete_id}'})">
+      <span class="home-dot ${nw?'bad':'good'}"></span>
+      <span class="hr-main"><b>${esc(fn(nameById[c.athlete_id]||'Athlete'))}</b> <span class="hr-sub">· ${esc(shortTitle(sessTitle[c.session_id]||'clip'))}</span></span>
+      ${nw?'<span class="home-new">NEW</span>':''}<span class="hr-when">${homeAgo(c.logged_at)}</span></div>`; }).join('');
+  const card1=`<div class="home-card"><h3>📹 Video inbox <span class="hc-count ${waiting?'alert':''}">${waiting?waiting+' to review':(clips.length?'all reviewed':'0')}</span></h3>
+    ${vRows||'<div class="home-empty">No lift videos submitted yet.</div>'}${clips.length>6?'<div class="home-more" onclick="coachGo(\'uploads\')">All clips →</div>':''}</div>`;
+
+  // ---- Card 2: Training status by team ----
+  const tRows=teams.map(t=>{ const mem=aths.filter(a=>a.team_id===t.id); if(!mem.length) return '';
+    const lg=mem.filter(a=>stats.loggedToday&&stats.loggedToday.has&&stats.loggedToday.has(a.id)).length;
+    const act=mem.filter(a=>stats.upcomingByAth&&stats.upcomingByAth[a.id]).length; const need=mem.length-act;
+    return `<div class="home-row" onclick="selectTeam('${t.id}')"><span class="home-dot ${need>0?'warn':'good'}"></span>
+      <span class="hr-main"><b>${esc(t.name)}</b> <span class="hr-sub">· ${mem.length} athlete${mem.length!==1?'s':''}</span></span>
+      <span class="hr-when">${lg}/${mem.length} today${need>0?' · '+need+' to program':''}</span></div>`; }).filter(Boolean).join('');
+  const card2=`<div class="home-card"><h3>📈 Training status <span class="hc-count">${teams.length} team${teams.length!==1?'s':''}</span></h3>
+    ${tRows||'<div class="home-empty">No teams yet — create one in the Teams tab.</div>'}</div>`;
+
+  // ---- Card 3: Meet countdown ----
+  const comps=(compR&&compR.data)||[];
+  const mRows=comps.map(c=>{ const dd=homeDaysTo(c.comp_date), who=c.athlete_id?fn(nameById[c.athlete_id]||''):'';
+    return `<div class="home-row" onclick="coachGo('plan')"><span class="home-dot ${dd<=21?'bad':''}"></span>
+      <span class="hr-main">${c.kind==='peak'?'⭐ ':''}<b>${esc(c.name)}</b>${who?' <span class="hr-sub">· '+esc(who)+'</span>':''}<br><span class="hr-sub">${fmtShort(c.comp_date)}</span></span>
+      <span class="home-days ${dd<=21?'soon':''}">${dd===0?'today':dd+'d'}</span></div>`; }).join('');
+  const card3=`<div class="home-card"><h3>🏁 Meet countdown</h3>${mRows||'<div class="home-empty">No upcoming meets on the calendar.</div>'}</div>`;
+
+  // ---- Card 4: Team hub activity ----
+  const anns=(annR&&annR.data)||[];
+  const hRows=anns.slice(0,5).map(a=>{ const body=(a.body||'').toString();
+    return `<div class="home-row" onclick="conTab('hub')"><span class="home-dot"></span>
+      <span class="hr-main"><b>${esc(fn(nameById[a.author_id]||'Coach'))}</b> <span class="hr-sub">${esc(body.slice(0,64))}</span></span>
+      <span class="hr-when">${homeAgo(a.created_at)}</span></div>`; }).join('');
+  const card4=`<div class="home-card"><h3>💬 Team hub</h3>${hRows||'<div class="home-empty">No announcements yet.</div>'}<div class="home-more" onclick="conTab('hub')">Open Team Hub →</div></div>`;
+
+  // ---- Card 5: Today's check-ins / readiness + pain flags ----
+  const rk=(rkR&&rkR.data)||[];
+  const avg=r=>{ const vs=[r.sleep,r.energy,r.motivation,r.soreness,r.mood,r.stress,r.appetite].filter(v=>v!=null); return vs.length?vs.reduce((a,b)=>a+b,0)/vs.length:null; };
+  const low=rk.map(r=>({id:r.athlete_id,s:avg(r)})).filter(x=>x.s!=null&&x.s<3);
+  const painByAth={}; painToday.forEach(p=>{ (painByAth[p.athlete_id]=painByAth[p.athlete_id]||[]).push(p); });
+  const cRows=[];
+  low.forEach(x=>cRows.push(`<div class="home-row" onclick="attnOpen('${x.id}')"><span class="home-dot warn"></span><span class="hr-main"><b>${esc(fn(nameById[x.id]||''))}</b> <span class="hr-sub">low readiness ${x.s.toFixed(1)}/5</span></span></div>`));
+  Object.keys(painByAth).forEach(id=>{ const ps=painByAth[id], worst=Math.max.apply(null,ps.map(p=>p.severity||0));
+    cRows.push(`<div class="home-row" onclick="attnOpen('${id}')"><span class="home-dot bad"></span><span class="hr-main"><b>${esc(fn(nameById[id]||''))}</b> <span class="hr-sub">pain ${worst}/10 · ${esc(ps[0].region_label||'reported')}</span></span></div>`); });
+  const flagged=low.length+Object.keys(painByAth).length;
+  const card5=`<div class="home-card"><h3>🩺 Today's check-ins <span class="hc-count ${flagged?'alert':''}">${rk.length}/${athIds.length} in</span></h3>
+    ${cRows.join('')||'<div class="home-empty">'+(rk.length?'Everyone who checked in looks good today.':'No check-ins yet today.')+'</div>'}</div>`;
+
+  host.innerHTML = card1+card2+card3+card4+card5;
+}
 async function renderConsole(){
   coachState.screen='console';
   app.innerHTML = topbar('Coach') + coachNav('console') + `<div class="spin">Loading console…</div>`;
@@ -6435,7 +6533,7 @@ async function renderConsole(){
   try{ const { data: g } = await sb.from('gyms').select('name').eq('id', me_.gym_id).single(); if(g&&g.name) gymName=g.name; }catch(e){}
   app.innerHTML = topbar('Coach') + coachNav('console') + `
     <div class="console-head">
-      <div><h1>Coaching Console</h1><div class="sub">${esc(gymName)} · ${esc(me_.full_name)}</div></div>
+      <div><h1>Coach Home</h1><div class="sub">${esc(gymName)} · ${esc(me_.full_name)}</div></div>
       <div class="cstat-row">
         <div class="cstat"><div class="n">${athletes.length}</div><div class="l">Athletes</div></div>
         <div class="cstat"><div class="n accent">${activePrograms}</div><div class="l">Active programs</div></div>
@@ -6443,12 +6541,14 @@ async function renderConsole(){
         <div class="cstat"><div class="n warn">${needsAttn}</div><div class="l">Needs programming</div></div>
       </div>
     </div>
+    <div class="home-band" id="homeHost"></div>
     <div id="attnHost"></div>
     <div class="ctabs">
       ${[['athletes','Athletes'],['programs','Active Programs'],['templates','Template Library'],['teams','Teams'],['hub','Team Hub']].map(t=>`<button data-tab="${t[0]}" class="${conState.tab===t[0]?'on':''}" onclick="conTab('${t[0]}')">${t[1]}</button>`).join('')}
     </div>
     <div id="conBody"></div>`;
   renderConBody();
+  renderHomeBand();   // #4 — coach Home command-center cards (video inbox, training status, meets, hub, check-ins)
   conState._attnCache=null;   // fresh scan on each console load; toggling collapse reuses the cache
   renderAttnOverview();
 }
