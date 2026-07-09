@@ -3928,24 +3928,31 @@ window.chatAttachPick=(which,inp)=>{ const f=inp.files&&inp.files[0]; inp.value=
   const textInput=document.getElementById(which==='ath'?'athChatInput':'cChatInput');
   chatUploadAndSend(convId, f, textInput, which==='ath'?athChatFeed:hubReloadFeed);
 };
+const CHAT_EXT_MIME={jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',gif:'image/gif',webp:'image/webp',heic:'image/heic',heif:'image/heic',bmp:'image/bmp',
+  mp4:'video/mp4',mov:'video/quicktime',m4v:'video/x-m4v','3gp':'video/3gpp','3gpp':'video/3gpp',webm:'video/webm'};
 async function chatUploadAndSend(convId, file, inputEl, reloadFn){
   if(!convId||!file) return;
-  const isImg=/^image\//.test(file.type), isVid=/^video\//.test(file.type);
-  if(!isImg&&!isVid){ toast('Only images, GIFs, or videos can be attached.'); return; }
+  const nm=(file.name||'').toLowerCase(); const ext=(nm.split('.').pop()||'').replace(/[^a-z0-9]/g,'');
+  // iOS often hands a picked photo/GIF with an EMPTY file.type — fall back to the extension so we don't wrongly reject it
+  const ctype=file.type||CHAT_EXT_MIME[ext]||'';
+  const isImg=/^image\//.test(ctype)||/^(jpg|jpeg|png|gif|webp|heic|heif|bmp)$/.test(ext);
+  const isVid=/^video\//.test(ctype)||/^(mp4|mov|m4v|3gp|3gpp|webm)$/.test(ext);
+  if(!isImg&&!isVid){ toast('Please pick an image, GIF, or video.'); return; }
   if(file.size > 100*1024*1024){ toast('That file is over 100 MB — trim it or film at 1080p, not 4K.'); return; }
   toast('Uploading…');
-  const ext=((file.name.split('.').pop()||'').toLowerCase().replace(/[^a-z0-9]/g,''))||(isVid?'mp4':'jpg');
-  const uid=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():('x'+Math.abs((file.size||0)+file.name.length).toString(36)+file.lastModified);
-  const path=`${me_.gym_id}/${me_.id}/${uid}.${ext}`;
-  const up=await sb.storage.from('chat-media').upload(path, file, { contentType:file.type||'application/octet-stream', upsert:false });
-  if(up.error){ toast('Upload failed — '+up.error.message); return; }
+  const contentType = ctype || (isVid?'video/mp4':'image/jpeg');
+  const safeExt = ext || (isVid?'mp4':'jpg');
+  const uid=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():('x'+Math.abs((file.size||0)+(file.name||'').length+(file.lastModified||0)).toString(36));
+  const path=`${me_.gym_id}/${me_.id}/${uid}.${safeExt}`;
+  const up=await sb.storage.from('chat-media').upload(path, file, { contentType, upsert:false });
+  if(up.error){ toast('Upload failed — '+(up.error.message||up.error)); return; }
   const body=inputEl&&inputEl.value?inputEl.value.trim():'';
-  const ins=await sb.from('messages').insert({ gym_id:me_.gym_id, author_id:me_.id, conversation_id:convId, body, media_path:path, media_type:file.type||null }).select();
+  const ins=await sb.from('messages').insert({ gym_id:me_.gym_id, author_id:me_.id, conversation_id:convId, body, media_path:path, media_type:contentType }).select();
   if(ins.error||!ins.data||!ins.data.length){ toast('Send failed — '+(ins.error?ins.error.message:'try again')); return; }
   if(inputEl) inputEl.value='';
   reloadFn();
 }
-function chatComposeAttach(which){ return CHAT_MEDIA_READY?`<label class="chat-attach" title="Attach a photo, GIF, or video">📎<input type="file" accept="image/*,video/*" style="display:none" onchange="chatAttachPick('${which}',this)"></label>`:''; }
+function chatComposeAttach(which){ return CHAT_MEDIA_READY?`<label class="chat-attach" title="Attach a photo, GIF, or video">📎<input type="file" accept="image/*,video/*" onchange="chatAttachPick('${which}',this)" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none"></label>`:''; }
 let athChat={ convId:null, convs:[], prof:{} };
 function convNameAth(c){ return c.kind==='team' ? 'Whole gym' : (c.name || (c.kind==='dm'?'Direct message':'Group')); }
 function athClockT(ts){ const d=new Date(ts); let h=d.getHours(); const m=d.getMinutes(); const ap=h<12?'a':'p'; h=h%12||12; return h+':'+String(m).padStart(2,'0')+ap; }
