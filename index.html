@@ -1754,6 +1754,7 @@ const initials = n => (n||'?').split(' ').map(p=>p[0]).slice(0,2).join('').toUpp
 
 let me_ = null;        // current profile
 let coachChan = null;  // realtime channel
+let athChan = null;    // athlete realtime channel (chat messages + reactions)
 let leavingOnPurpose = false; // set by logout() so the auth listener doesn't double-fire
 
 /* ---------------- boot ---------------- */
@@ -3984,6 +3985,12 @@ async function renderAthHome(){
   athState.screen='home';
   app.innerHTML = topbar('Athlete') + athNav('home') + `<div class="spin">Loading your home…</div>`;
   if(!(await requireSession())) return;
+  if(!athChan){   // #6 live chat: reload the team feed when a message or reaction lands (once per session)
+    athChan = sb.channel('chat-ath')
+      .on('postgres_changes', { event:'*', schema:'public', table:'message_reactions' }, ()=>{ if(document.getElementById('athChatFeed')) athChatFeed(); })
+      .on('postgres_changes', { event:'INSERT', schema:'public', table:'messages' }, (p)=>{ if(document.getElementById('athChatFeed') && athChat.convId && p && p.new && p.new.conversation_id===athChat.convId) athChatFeed(); })
+      .subscribe();
+  }
   const today=new Date(), todayStr=iso(today);
   const first=((me_&&me_.full_name)||'there').split(/\s+/)[0];
   const D=s=>new Date(s+'T00:00:00');
@@ -6437,6 +6444,7 @@ async function renderCoach(){
     .on('postgres_changes', { event:'*', schema:'public', table:'readiness' }, ()=>{ if(coachState.screen==='coach' && !ed) renderCoachPanel(); })
     .on('postgres_changes', { event:'INSERT', schema:'public', table:'announcements' }, ()=>{ if(coachState.screen==='console' && conState.tab==='hub') hubReloadAnn(); })
     .on('postgres_changes', { event:'INSERT', schema:'public', table:'messages' }, (payload)=>{ if(coachState.screen==='console' && conState.tab==='hub' && payload && payload.new && payload.new.conversation_id===hubState.convId) hubReloadFeed(); })
+    .on('postgres_changes', { event:'*', schema:'public', table:'message_reactions' }, ()=>{ if(coachState.screen==='console' && conState.tab==='hub' && document.getElementById('cChatFeed')) hubReloadFeed(); })   // #6 live reactions
     .subscribe();
   if(!coachState.screen) coachState.screen='console';
   if(coachState.screen==='coach') paintCoach(); else renderConsole();
