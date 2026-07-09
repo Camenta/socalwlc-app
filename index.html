@@ -1246,6 +1246,18 @@
   .rx-pop{position:fixed;z-index:99999;display:flex;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:5px 8px;box-shadow:0 8px 22px rgba(0,0,0,.45)}
   .rx-pop span{font-size:20px;cursor:pointer;line-height:1;padding:2px 3px;border-radius:7px;transition:transform .1s}
   .rx-pop span:hover{background:var(--panel2);transform:scale(1.2)}
+  .chat-gif{cursor:pointer;font-weight:800;font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:0 8px;display:flex;align-items:center;user-select:none}
+  .chat-gif:hover{color:var(--accent2);border-color:var(--accent2)}
+  .gif-panel{position:fixed;left:50%;bottom:0;transform:translateX(-50%);width:min(440px,100vw);max-height:72vh;background:var(--panel);border:1px solid var(--line);border-radius:14px 14px 0 0;z-index:99998;display:flex;flex-direction:column;box-shadow:0 -8px 30px rgba(0,0,0,.5)}
+  .gif-hd{display:flex;gap:8px;padding:10px;border-bottom:1px solid var(--line);align-items:center}
+  .gif-q{flex:1;background:#0e151c;border:1px solid var(--line);border-radius:8px;padding:9px 12px;color:var(--text);font-size:14px}
+  .gif-q:focus{outline:none;border-color:var(--accent2)}
+  .gif-x{cursor:pointer;font-size:18px;color:var(--muted);padding:0 6px}
+  .gif-grid{overflow-y:auto;padding:8px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;flex:1}
+  .gif-item{width:100%;border-radius:8px;cursor:pointer;background:var(--panel2);min-height:70px;object-fit:cover}
+  .gif-item:hover{outline:2px solid var(--accent2)}
+  .gif-load{grid-column:1/-1;text-align:center;color:var(--muted);padding:22px;font-size:13px}
+  .gif-ftr{text-align:center;font-size:10px;color:var(--muted);padding:5px;letter-spacing:.5px}
   .schlib{display:grid;grid-template-columns:330px 1fr;gap:18px;margin-top:10px}
   @media(max-width:860px){.schlib{grid-template-columns:1fr}}
   .sl-left{display:flex;flex-direction:column;gap:9px;min-width:0}
@@ -3546,6 +3558,8 @@ async function probeChatSocial(){
   const r=await sb.from('message_reactions').select('message_id').limit(1); CHAT_REACT_READY=!r.error;
 }
 const REACT_EMOJIS=['👍','❤️','🔥','💪','👏','😂'];
+let GIPHY_KEY='IQc7j3fypWmojsGTs0KJxVg01t9qUyoR';   // #6 GIF picker — GIPHY API key (client key, safe to expose). Empty = GIF button hidden.
+const GIPHY_RATING='pg-13';   // content filter for the GIF library (g | pg | pg-13 | r)
 const DOW=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], MONS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function iso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function weekDates(offset){ // Mon..Sun of the current week, shifted by `offset` weeks
@@ -3889,7 +3903,7 @@ function chatReloadActive(){ if(_chatActive==='coach') hubReloadFeed(); else if(
 // signed media URLs + grouped reactions for the visible messages
 async function chatFeedExtras(msgs){
   const signed={}, re={};
-  const media=(msgs||[]).filter(m=>m.media_path).map(m=>m.media_path);
+  const media=(msgs||[]).filter(m=>m.media_path && !/^https?:\/\//.test(m.media_path)).map(m=>m.media_path);   // remote (Giphy) URLs render as-is; only bucket paths need signing
   if(media.length){ try{ const s=await sb.storage.from('chat-media').createSignedUrls(media,3600); (s.data||[]).forEach(o=>{ if(o&&o.signedUrl) signed[o.path]=o.signedUrl; }); }catch(e){} }
   if(CHAT_REACT_READY && msgs && msgs.length){ try{ const ids=msgs.map(m=>m.id);
     const r=await sb.from('message_reactions').select('message_id,emoji,user_id').in('message_id',ids);
@@ -3897,7 +3911,8 @@ async function chatFeedExtras(msgs){
   return {signed, re};
 }
 function chatMediaHTML(m, signed){
-  if(!m.media_path) return ''; const url=signed[m.media_path]; const t=(m.media_type||'');
+  if(!m.media_path) return ''; const t=(m.media_type||'');
+  const url = /^https?:\/\//.test(m.media_path) ? m.media_path : signed[m.media_path];   // remote GIF (Giphy) vs signed bucket path
   if(!url) return '<div class="msg-media-load">media unavailable</div>';
   if(t.indexOf('video')===0) return `<video class="msg-media" src="${esc(url)}" controls preload="metadata" playsinline></video>`;
   return `<img class="msg-media" src="${esc(url)}" alt="shared image" loading="lazy" onclick="window.open('${esc(url)}','_blank')">`;
@@ -3953,6 +3968,53 @@ async function chatUploadAndSend(convId, file, inputEl, reloadFn){
   reloadFn();
 }
 function chatComposeAttach(which){ return CHAT_MEDIA_READY?`<label class="chat-attach" title="Attach a photo, GIF, or video">📎<input type="file" accept="image/*,video/*" onchange="chatAttachPick('${which}',this)" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none"></label>`:''; }
+// ---- GIF picker (Giphy) — search a library and send the GIF as a remote-URL message ----
+function chatComposeGif(which){ return (CHAT_MEDIA_READY && GIPHY_KEY)?`<span class="chat-gif" title="Send a GIF" onclick="chatGifOpen('${which}')">GIF</span>`:''; }
+let _gifTimer=null;
+window.chatGifOpen=(which)=>{
+  if(!GIPHY_KEY){ toast('GIF search isn’t set up yet.'); return; }
+  chatReactClosePop(); chatGifClose();
+  const p=document.createElement('div'); p.id='gifPanel'; p.className='gif-panel'; p.dataset.which=which;
+  p.innerHTML=`<div class="gif-hd"><input id="gifQ" class="gif-q" placeholder="Search GIFs…" oninput="chatGifDebounced(this.value)"><span class="gif-x" onclick="chatGifClose()">✕</span></div>
+    <div class="gif-grid" id="gifGrid"><div class="gif-load">Loading…</div></div>
+    <div class="gif-ftr">Powered by GIPHY</div>`;
+  document.body.appendChild(p);
+  const q=document.getElementById('gifQ'); if(q) q.focus();
+  chatGifSearch('');
+};
+window.chatGifClose=()=>{ const p=document.getElementById('gifPanel'); if(p) p.remove(); if(_gifTimer){ clearTimeout(_gifTimer); _gifTimer=null; } };
+window.chatGifDebounced=(q)=>{ if(_gifTimer) clearTimeout(_gifTimer); _gifTimer=setTimeout(()=>chatGifSearch(q),350); };
+async function chatGifSearch(q){
+  const grid=document.getElementById('gifGrid'); if(!grid) return;
+  grid.innerHTML='<div class="gif-load">Loading…</div>';
+  const base='https://api.giphy.com/v1/gifs/';
+  const url = (q&&q.trim())
+    ? `${base}search?api_key=${GIPHY_KEY}&q=${encodeURIComponent(q.trim())}&limit=24&rating=${GIPHY_RATING}`
+    : `${base}trending?api_key=${GIPHY_KEY}&limit=24&rating=${GIPHY_RATING}`;
+  try{
+    const r=await fetch(url); const j=await r.json();
+    if(j&&j.meta&&j.meta.status&&j.meta.status>=400){ grid.innerHTML='<div class="gif-load">GIF search error ('+j.meta.status+') — check the API key.</div>'; return; }
+    const items=(j&&j.data)||[];
+    if(!items.length){ grid.innerHTML='<div class="gif-load">No GIFs found.</div>'; return; }
+    grid.innerHTML=items.map(g=>{ const im=g.images||{};
+      const thumb=((im.fixed_width_small||im.fixed_width)||{}).url||'';
+      const full=(((im.fixed_width||im.downsized_medium)||{}).url||thumb||'').split('?')[0];
+      return thumb?`<img class="gif-item" src="${esc(thumb)}" data-full="${esc(full)}" loading="lazy">`:''; }).join('');
+    grid.querySelectorAll('.gif-item').forEach(im=>{ im.onclick=()=>chatGifPick(im.dataset.full); });
+  }catch(e){ grid.innerHTML='<div class="gif-load">Couldn’t reach GIPHY — check your connection.</div>'; }
+}
+function chatGifPick(url){
+  const p=document.getElementById('gifPanel'); const which=p?p.dataset.which:'ath';
+  const convId = which==='ath'?athChat.convId:hubState.convId;
+  chatGifClose();
+  if(!url||!convId) return;
+  chatSendMediaUrl(convId, url, which==='ath'?athChatFeed:hubReloadFeed);
+}
+async function chatSendMediaUrl(convId, url, reloadFn){
+  const ins=await sb.from('messages').insert({ gym_id:me_.gym_id, author_id:me_.id, conversation_id:convId, body:'', media_path:url, media_type:'image/gif' }).select();
+  if(ins.error||!ins.data||!ins.data.length){ toast('Send failed — '+(ins.error?ins.error.message:'try again')); return; }
+  reloadFn();
+}
 let athChat={ convId:null, convs:[], prof:{} };
 function convNameAth(c){ return c.kind==='team' ? 'Whole gym' : (c.name || (c.kind==='dm'?'Direct message':'Group')); }
 function athClockT(ts){ const d=new Date(ts); let h=d.getHours(); const m=d.getMinutes(); const ap=h<12?'a':'p'; h=h%12||12; return h+':'+String(m).padStart(2,'0')+ap; }
@@ -4129,7 +4191,7 @@ async function renderAthHome(){
       <div class="card chatcard"><h2>💬 Team chat</h2>
         <div class="chat-threads" id="athChatThreads">${threadChips}</div>
         <div class="chat-feed" id="athChatFeed"><div class="con-empty" style="padding:20px">Loading…</div></div>
-        <div class="chat-compose">${chatComposeAttach('ath')}<input id="athChatInput" placeholder="Message your team…"><span class="chat-send" onclick="athChatSend()">Send</span></div>
+        <div class="chat-compose">${chatComposeAttach('ath')}${chatComposeGif('ath')}<input id="athChatInput" placeholder="Message your team…"><span class="chat-send" onclick="athChatSend()">Send</span></div>
       </div>
     </div>
 
@@ -6982,7 +7044,7 @@ async function renderHub(host){
       <div class="chat-threads" id="cChatThreads"></div>
       <div id="cChatActive"></div>
       <div class="chat-feed" id="cChatFeed"><div class="spin" style="padding:10px">Loading…</div></div>
-      <div class="chat-compose">${chatComposeAttach('coach')}<input id="cChatInput" placeholder="Type a message…" onkeydown="if(event.key==='Enter')hubSendMsg()"><span class="chat-send" onclick="hubSendMsg()">Send</span></div>
+      <div class="chat-compose">${chatComposeAttach('coach')}${chatComposeGif('coach')}<input id="cChatInput" placeholder="Type a message…" onkeydown="if(event.key==='Enter')hubSendMsg()"><span class="chat-send" onclick="hubSendMsg()">Send</span></div>
     </div>
   </div>`;
   await loadConvs();
