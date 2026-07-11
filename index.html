@@ -85,6 +85,15 @@
   .ex-collapsed .ex-caret{transform:rotate(-90deg)}
   .ex-collapsed .ex-body{display:none}
   .ex-collapsed .av-head{border-bottom:none}
+  .av-exnote{display:flex;align-items:center;gap:7px;padding:8px 14px 12px}
+  .av-exnote-ic{font-size:13px;opacity:.7}
+  .av-exnote input{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:8px;color:var(--text);font-size:13px;padding:7px 10px}
+  .av-exnote input::placeholder{color:var(--muted)}
+  .anotes-card{border-left:3px solid var(--accent2)}
+  .anotes-lbl{display:block;font-weight:700;font-size:14px;margin-bottom:7px}
+  .anotes-lbl .sub{font-weight:400}
+  .anotes-ta{width:100%;box-sizing:border-box;background:var(--panel2);border:1px solid var(--line);border-radius:10px;color:var(--text);font-size:14px;line-height:1.45;padding:10px 12px;resize:vertical;font-family:inherit}
+  .anotes-ta::placeholder{color:var(--muted)}
   .ex-prog{font-size:11px;font-weight:800;color:var(--muted);background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:2px 9px;white-space:nowrap}
   .ex-prog.done{color:var(--good);border-color:rgba(52,211,153,.45)}
   .ex-next{margin-left:auto;background:var(--bg);border:1px solid var(--line);color:var(--accent2);font-weight:700;font-size:12px;border-radius:8px;padding:5px 11px;cursor:pointer;white-space:nowrap}
@@ -1421,6 +1430,8 @@
   .cvx-ovr::placeholder{color:var(--muted);font-weight:600}
   .cvx-note{display:block;width:calc(100% - 26px);margin:9px 13px;background:#0e151c;border:1px solid var(--line);border-radius:8px;padding:8px 11px;color:var(--text);font-size:12.5px}
   .cvx-note:focus{outline:none;border-color:var(--accent2)}
+  .cvx-anote{margin:2px 13px 6px;font-size:12.5px;color:var(--text);background:rgba(60,158,232,.10);border-left:2px solid var(--accent2);border-radius:0 8px 8px 0;padding:7px 11px}
+  .cvx-snote{margin:10px 0 4px;font-size:13.5px;color:var(--text);background:rgba(60,158,232,.10);border-left:3px solid var(--accent2);border-radius:0 8px 8px 0;padding:10px 13px}
   .cvt th.plh{background:rgba(60,158,232,.10);color:var(--accent2);text-align:center}
   .cvt th.ach{background:rgba(232,100,60,.10);color:var(--accent)}
   .cvt td.cva{background:rgba(232,100,60,.05);text-align:center;font-size:12.5px}
@@ -1613,6 +1624,11 @@
   .rptx .rx-note{font-size:11px;color:var(--rx-muted);margin-top:9px;line-height:1.5}
   .rptx .rx-dim{color:var(--rx-muted2)}
   .rptx .rx-modsub{font-weight:600;font-size:11px;color:var(--rx-muted);letter-spacing:0;text-transform:none}
+  .rptx .rx-anrow{border-left:2px solid var(--rx-accent,#3c9ee8);padding:2px 0 2px 11px;margin:0 0 11px}
+  .rptx .rx-andate{font:800 10.5px/1 var(--rx-sans);letter-spacing:.04em;text-transform:uppercase;color:var(--rx-muted);margin-bottom:3px}
+  .rptx .rx-ans{font-size:13px;color:var(--rx-ink);line-height:1.5}
+  .rptx .rx-anx{font-size:12px;color:var(--rx-ink);line-height:1.55;margin-top:4px}
+  .rptx .rx-anx b{font-weight:700}
   /* masthead */
   .rptx .rx-mast{background:var(--rx-navy);color:#fff;padding:24px 30px 20px;display:flex;justify-content:space-between;gap:18px;position:relative}
   .rptx .rx-mast::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:linear-gradient(90deg,var(--rx-accent) 0 34%,rgba(255,255,255,.12) 34%)}
@@ -1817,6 +1833,7 @@ async function boot(){
   await probePlans();
   await probeTickets();
   await probeFederation();
+  await probeANotes();
   await probeChatSocial();
   if(profile.role === 'coach') renderCoach(); else athGo(athState.screen||'athlete');
 }
@@ -1884,6 +1901,7 @@ sb.auth.onAuthStateChange(async (event)=>{
 document.addEventListener('visibilitychange', ()=>{
   if(document.visibilityState!=='visible' || !me_ || leavingOnPurpose) return;
   sb.auth.getSession().then(r=>{ if(!r.data.session){ try{ sb.auth.refreshSession(); }catch(e){} } });
+  if(_aNotesTimer) athNotesSave();
   if(_alogPending && _alogPending.size) alogFlush();
 });
 // guard before any data render: a live login must exist
@@ -2057,6 +2075,26 @@ async function saveOneSet(id){
        so it reaches the coach live. A dead token is handled by KEEPING the local draft and
        retrying — never by dumping the athlete to the login screen. */
 let _alogTimer=null, _alogDbTimer=null, _alogPending=new Set(), _alogDraft=null, _alogRestored=false;
+let _aNotesTimer=null;
+// athlete session + per-exercise notes (migration 47) — debounced autosave into sessions.athlete_notes jsonb
+window.athNotesInput=(kind,exId,val)=>{
+  if(!curSession || !ANOTES_READY) return;
+  if(!curSession.athlete_notes || typeof curSession.athlete_notes!=='object') curSession.athlete_notes={};
+  const N=curSession.athlete_notes;
+  if(kind==='s'){ N.s=val; }
+  else { N.ex=N.ex||{}; if(val && val.trim()) N.ex[exId]=val; else delete N.ex[exId]; }
+  const st=document.getElementById('aNotesStatus'); if(st){ st.style.color=''; st.textContent='Saving…'; }
+  clearTimeout(_aNotesTimer); _aNotesTimer=setTimeout(athNotesSave,800);
+};
+async function athNotesSave(){
+  clearTimeout(_aNotesTimer); _aNotesTimer=null;
+  if(!curSession || !ANOTES_READY) return;
+  const N=Object.assign({}, curSession.athlete_notes||{});
+  if(N.s!=null && !String(N.s).trim()) delete N.s;
+  if(N.ex && !Object.keys(N.ex).length) delete N.ex;
+  const r=await sb.from('sessions').update({athlete_notes:N}).eq('id',curSession.id).select('id');
+  const st=document.getElementById('aNotesStatus'); if(st){ st.style.color=r.error?'var(--bad)':''; st.textContent=r.error?'Couldn’t save note':'✓ Saved'; }
+}
 function alogDraftKey(){ return (me_&&curSession)?('wlc_alog_'+me_.id+'_'+curSession.id):null; }
 // session timing — stamp when the athlete logs their FIRST set; elapsed = now − that stamp (auto session_minutes)
 function alogStartKey(sid){ return 'wlc_sstart_'+(me_?me_.id:'a')+'_'+(sid||(curSession&&curSession.id)||''); }
@@ -3569,8 +3607,10 @@ let PLANS_READY=false;     // plans/plan_assignments/plan_overrides + plan_id (m
 async function probePlans(){ const { error } = await sb.from('plans').select('id').limit(1); PLANS_READY = !error; }
 let TICKETS_READY=false;   // tickets (migration 39) → in-app glitch reports
 let FED_READY=false;   // profiles.federation (migration 46) → USAW/WCH classification federation tag
+let ANOTES_READY=false;   // sessions.athlete_notes jsonb (migration 47) → athlete session + per-exercise notes
 async function probeTickets(){ const { error } = await sb.from('tickets').select('id').limit(1); TICKETS_READY = !error; }
 async function probeFederation(){ const { error } = await sb.from('profiles').select('federation').limit(1); FED_READY = !error; }
+async function probeANotes(){ const { error } = await sb.from('sessions').select('athlete_notes').limit(1); ANOTES_READY = !error; if(ANOTES_READY && SESSION_SELECT.indexOf('athlete_notes')<0) SESSION_SELECT += ',athlete_notes'; }
 let CHAT_MEDIA_READY=false, CHAT_REACT_READY=false;   // migration 44 — chat media attachments + emoji reactions
 async function probeChatSocial(){
   const m=await sb.from('messages').select('media_path').limit(1); CHAT_MEDIA_READY=!m.error;
@@ -5691,6 +5731,7 @@ const REPORT_SECTIONS=[
   ['trends','Trends — load / readiness / bodyweight'],
   ['redflags','Training check — class guardrails'],
   ['injury','Injury / pain'],
+  ['anotes','Athlete notes'],
   ['meets','Meet results'],
   ['summary','Coach summary']
 ];
@@ -5700,12 +5741,12 @@ const REPORT_RANGES=[['12w','Last 12 weeks'],['6m','Last 6 months'],['ytd','This
 // Home; the coach SENDS mesocycle + macrocycle reviews (period-anchored to the plan).
 const REPORT_LEVELS=[['week','This week','The athlete’s current week — focus only, no PDF'],['meso','Mesocycle','This training block'],['macro','Macrocycle','The whole annual plan'],['custom','Custom range','A rolling window']];
 const REPORT_LEVEL_SECTIONS={
-  meso:['maxes','climb','methodology','trends','efficiency','redflags','injury','summary'],
+  meso:['maxes','climb','methodology','trends','efficiency','redflags','injury','anotes','summary'],
   macro:['maxes','climb','efficiency','methodology','trends','injury','summary'],
   custom:REPORT_DEFAULT.slice()
 };
 // placeable report modules (the exec summary is always on, not placed here)
-const REPORT_MODULE_KEYS=['maxes','climb','meets','methodology','trends','redflags','efficiency','injury'];
+const REPORT_MODULE_KEYS=['maxes','climb','meets','methodology','trends','redflags','efficiency','injury','anotes'];
 const reportModLabel=k=>{ if(typeof k==='string'&&k.indexOf('note:')===0){ const n=reportState.notes&&reportState.notes[k]; return '📝 '+(((n&&n.title)||'Coach note').slice(0,22)); } return (REPORT_SECTIONS.find(s=>s[0]===k)||[,k])[1]; };
 // default grouping (chapters) per level — the coach can then edit/add/delete/reorder
 function reportDefaultGroups(level){
@@ -5975,8 +6016,13 @@ async function reportLoadData(viewId){
   const meetsR=await sb.from('meet_results').select('*').eq('athlete_id',viewId).order('meet_date',{ascending:true});
   const meets=meetsR.error?[]:(meetsR.data||[]);
   // range sessions + logs
-  const sR=await sb.from('sessions').select('id,session_date,prescribed_exercises(name,category,prescribed_sets(target_reps,target_pct))').eq('athlete_id',viewId).neq('status','draft').gte('session_date',startStr).lte('session_date',todayStr);
+  const sR=await sb.from('sessions').select('id,session_date,'+(ANOTES_READY?'athlete_notes,':'')+'prescribed_exercises(id,name,category,prescribed_sets(target_reps,target_pct))').eq('athlete_id',viewId).neq('status','draft').gte('session_date',startStr).lte('session_date',todayStr);
   const sess=sR.data||[]; const ids=sess.map(s=>s.id);
+  // athlete session + per-exercise notes across the report window (migration 47)
+  const aNotes=[];
+  if(ANOTES_READY){ sess.slice().sort((a,b)=>a.session_date<b.session_date?1:-1).forEach(s=>{ const an=s.athlete_notes; if(!an||typeof an!=='object') return;
+    const exNotes=[]; if(an.ex){ (s.prescribed_exercises||[]).forEach(ex=>{ if(an.ex[ex.id] && an.ex[ex.id].trim()) exNotes.push({name:ex.name, note:an.ex[ex.id]}); }); }
+    if((an.s && an.s.trim()) || exNotes.length) aNotes.push({date:s.session_date, s:(an.s||'').trim(), exNotes}); }); }
   let logs=[]; if(ids.length){ for(let i=0;i<ids.length;i+=200){ const r=await sb.from('logged_sets').select('session_id,done,miss,prescribed_set_id,actual_kg,actual_reps,lights').in('session_id',ids.slice(i,i+200)); if(r.data) logs=logs.concat(r.data); } }
   // KPIs
   const trainedSess=new Set(logs.filter(l=>l.done).map(l=>l.session_id)); const sessLogged=trainedSess.size;
@@ -6026,7 +6072,7 @@ async function reportLoadData(viewId){
   let tr=null; try{ tr=await trainingResponse(viewId,{basis:'block'}); if(tr&&!tr.ok) tr=null; }catch(e){}
   const levelLbl = reportState.level==='meso'?'Mesocycle review':(reportState.level==='macro'?'Macrocycle review':'Progress report');
   const suggestedTitle = reportState.level==='meso'&&win.block ? (win.block.name+' — review') : levelLbl;
-  return { prof, viewName, sex, age, teamName, gymName, maxesRows, maxMap, totM, cls, meets, eff:{groups:effRows(maxMap)}, method, buckets, bwPts, hasTrend, redflags, pain, tr, rangeLabel:win.label, startStr, endStr, level:reportState.level, block:win.block||null, levelLbl, suggestedTitle };
+  return { prof, viewName, sex, age, teamName, gymName, maxesRows, maxMap, totM, cls, meets, eff:{groups:effRows(maxMap)}, method, buckets, bwPts, hasTrend, redflags, pain, tr, aNotes, rangeLabel:win.label, startStr, endStr, level:reportState.level, block:win.block||null, levelLbl, suggestedTitle };
 }
 
 // ---- report HTML (the #reportDoc node that becomes the PDF) — grouped executive layout, themed ----
@@ -6135,7 +6181,12 @@ function reportHTML(d){
     return `<h4 class="rx-mod">Injury / pain</h4><div class="rx-note">No pain reported over ${esc(d.rangeLabel).toLowerCase()} — nothing flagged on the body map.</div>`; };
 
   // module registry — the coach's group structure (reportState.groups) decides order/placement
-  const MOD={ maxes:mMaxes, climb:mClimb, meets:mMeets, methodology:mMethod, trends:mTrends, redflags:mGuard, efficiency:mEff, injury:mInjury };
+  const mANotes=()=>{ const a=d.aNotes||[]; if(!a.length) return `<h4 class="rx-mod">Athlete notes</h4><div class="rx-note">No athlete notes over ${esc(d.rangeLabel).toLowerCase()}.</div>`;
+    const rows=a.slice(0,20).map(n=>{
+      const ex=n.exNotes.length?`<div class="rx-anx">${n.exNotes.map(e=>`<div><b>${esc(e.name)}:</b> ${esc(e.note)}</div>`).join('')}</div>`:'';
+      return `<div class="rx-anrow"><div class="rx-andate">${esc(fmtShort(n.date))}</div>${n.s?`<div class="rx-ans">“${esc(n.s)}”</div>`:''}${ex}</div>`; }).join('');
+    return `<h4 class="rx-mod">Athlete notes <span class="rx-modsub">${a.length} session${a.length>1?'s':''}</span></h4>${rows}<div class="rx-note">The athlete’s own notes — cues and how sessions felt — over ${esc(d.rangeLabel).toLowerCase()}.</div>`; };
+  const MOD={ maxes:mMaxes, climb:mClimb, meets:mMeets, methodology:mMethod, trends:mTrends, redflags:mGuard, efficiency:mEff, injury:mInjury, anotes:mANotes };
   const isNote=k=>typeof k==='string'&&k.indexOf('note:')===0;
   let chNo=0, body='';
   (reportState.groups||[]).forEach(g=>{ const active=(g.mods||[]).filter(k=>MOD[k]||isNote(k)); if(!active.length) return; chNo++;
@@ -6571,6 +6622,7 @@ window.processUpload=async(id)=>{
 
 async function renderAthlete(selDate){
   athState.screen='athlete';
+  if(_aNotesTimer) await athNotesSave();   // flush any pending note from the session we're leaving (curSession still points at it)
   if(_alogPending && _alogPending.size) await alogFlush();   // persist any pending edits from the session we're leaving (curSession still points at it)
   _alogPending.clear(); if(_alogDbTimer){clearTimeout(_alogDbTimer);_alogDbTimer=null;} if(_alogTimer){clearTimeout(_alogTimer);_alogTimer=null;} _alogRestored=false;
   app.innerHTML = topbar('Athlete') + athNav('athlete') + `<div class="spin">Loading your week…</div>`;
@@ -6642,6 +6694,7 @@ async function renderAthlete(selDate){
   const session = dayList.find(x=>x.id===athSelSess) || dayList[0];
   athSelSess = session.id;
   curSession = session;
+  if(!curSession.athlete_notes || typeof curSession.athlete_notes!=='object') curSession.athlete_notes={};
   const logs = logsBySession[session.id]||[];
   const logBySet = {}; (logs||[]).forEach(l=>{ if(l.prescribed_set_id) logBySet[l.prescribed_set_id]=l; });
   // week strip
@@ -6713,6 +6766,7 @@ async function renderAthlete(selDate){
       ${(ex.coach_note || (ex.cues&&ex.cues.length)) ? `<div class="av-note av-note-top"><span class="tag">Coach<br>notes</span><span>${(ex.cues&&ex.cues.length)?`<span class="cues" style="margin-bottom:5px;display:inline-flex">${ex.cues.map(c=>{const ix=c.indexOf('|');return `<span class="cuechip">${ix>-1?esc(c.slice(0,ix))+' ':''}<b>${esc(ix>-1?c.slice(ix+1):c)}</b></span>`;}).join('')}</span><br>`:''}${esc(ex.coach_note||'')}</span></div>` : ''}
       <div class="logwrap"><table class="logtable" data-ex="${ex.id}"><thead><tr><th>Set</th><th>Target</th><th>Reps</th><th>Weight</th><th>Miss</th><th>Lights</th><th>Effort</th><th>Video</th><th>Done</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
       <div class="ex-foot">${addSetReady?`<span class="lg-add" onclick="addSetRow('${ex.id}')">＋ Add set</span>`:''}<span class="lg-add lg-tickall" onclick="athMarkAllDone('${ex.id}')" title="Tick every set of this exercise done — tap again to clear">✓ Tick all done</span></div>
+      ${ANOTES_READY?`<div class="av-exnote"><span class="av-exnote-ic">📝</span><input type="text" data-exnote="${ex.id}" placeholder="Your note on ${esc(ex.name)} — cue, how it felt…" value="${esc((curSession.athlete_notes.ex&&curSession.athlete_notes.ex[ex.id])||'')}" oninput="athNotesInput('ex','${ex.id}',this.value)"></div>`:''}
       </div>
     </div>`;
     if(_run && exIdx===_run.e) body += `</div>`;   // close the .av-ss superset bracket
@@ -6738,6 +6792,11 @@ async function renderAthlete(selDate){
     <div id="painHost"></div>
     ${dayList.length>1?`<div class="cw-stabs" style="margin:0 0 12px">${dayList.map(x=>`<button class="cw-stab${x.id===session.id?' on':''}" onclick="athSelectSess('${x.id}')">${esc(x.title||'Session')}</button>`).join('')}</div>`:''}
     <div id="logRoot">${body}</div>
+    ${ANOTES_READY?`<div class="card anotes-card">
+      <label class="anotes-lbl" for="aNotesSession">📝 Session notes <span class="sub">— cues, how it felt, anything for your coach</span></label>
+      <textarea id="aNotesSession" class="anotes-ta" rows="3" placeholder="e.g. Snatches felt fast today, low back tight on the cleans — cue was stay over the bar longer…" oninput="athNotesInput('s',null,this.value)">${esc(curSession.athlete_notes.s||'')}</textarea>
+      <span class="saved" id="aNotesStatus"></span>
+    </div>`:''}
     <div class="card">
       <div class="ss-head">✓ This is exactly what your coach sees — live, no copy-paste</div>
       <div id="ssBody"></div>
@@ -10559,6 +10618,7 @@ function paintEditor(){
       <div class="addrow" data-addrow="1"><span class="plus">＋</span> add a set row — type it in</div>
       <div class="cue-row"><span class="cuelbl">Coaching<br>notes</span>${LT_READY?cueChipsHtml(ex,ei):''}</div>
       <input class="cvx-note" data-f="note" value="${esc(ex.note)}" placeholder="Note for this exercise — the athlete sees it">
+      ${(ANOTES_READY && s.athlete_notes && s.athlete_notes.ex && s.athlete_notes.ex[ex.id] && s.athlete_notes.ex[ex.id].trim())?`<div class="cvx-anote">📝 <b>${esc((cw.ath.full_name||'Athlete').split(' ')[0])}:</b> “${esc(s.athlete_notes.ex[ex.id])}”</div>`:''}
       ${exTiles(ex)}
     </div>`;
   }).join('');
@@ -10583,6 +10643,7 @@ function paintEditor(){
         <button class="btn ghost" id="edCopyGo" style="padding:7px 12px">Copy as draft</button>
       </span>
     </div>
+    ${(ANOTES_READY && s.athlete_notes && s.athlete_notes.s && s.athlete_notes.s.trim())?`<div class="cvx-snote">📝 <b>${esc((cw.ath.full_name||'Athlete').split(' ')[0])}’s session note:</b> “${esc(s.athlete_notes.s)}”</div>`:''}
     <div id="edExs">${exHtml}</div>
     <span class="lg-add" id="edAddEx" style="margin:6px 0 0">＋ Add exercise</span>
     <div class="savebar">
