@@ -4595,7 +4595,7 @@ function abClassify(sex, bw, total, age){
   const toGo=nextTotal!=null?Math.max(0,Math.round((nextTotal-total)*10)/10):0;
   const pctA=Math.round(total/seniorA*1000)/10;
   return { rank:idx>=0?ranks[idx]:null, rankIdx:idx, nextRank:nextIdx>=0?ranks[nextIdx]:null, nextTotal, pct, toGo,
-           rowBw:row[0], thresholds, ranks, seniorA, pctA, guardKey:idx>=0?AB_GUARD_MAP[ranks[idx]]:null,
+           rowBw:row[0], thresholds, ranks, seniorA, pctA, guardKey:(idx>=0?AB_GUARD_MAP[ranks[idx]]:null)||'Class III',
            version:'usaw-ab-2026', label:AB_STANDARDS.label };
 }
 // extra card block: the athlete's own-division A/B target + their % of Senior A
@@ -5615,7 +5615,7 @@ async function renderAthDash(){
 
   // ---- red-flag engine: 52-week programmed numbers vs class guardrail bands ----
   let checkCard='';
-  if(cls){
+  if(cls && CLASS_GUARDRAILS[cls.guardKey||cls.rank]){
     const g=CLASS_GUARDRAILS[cls.guardKey||cls.rank]; const yStart=new Date(today); yStart.setDate(yStart.getDate()-364);
     const ysR=await sb.from('sessions').select('session_date,prescribed_exercises(name,prescribed_sets(target_reps,target_pct))').eq('athlete_id',viewId).neq('status','draft').gte('session_date',iso(yStart)).lte('session_date',todayStr);
     const ysess=ysR.error?[]:(ysR.data||[]);
@@ -6001,7 +6001,7 @@ async function reportLoadData(viewId){
   const hasTrend=buckets.some(b=>b.vol>0||b.rd!=null);
   // red-flag engine (52-week programmed vs guardrails) — only if classified
   let redflags=null;
-  if(cls){
+  if(cls && CLASS_GUARDRAILS[cls.guardKey||cls.rank]){
     const g=CLASS_GUARDRAILS[cls.guardKey||cls.rank]; const yStart=new Date(today); yStart.setDate(yStart.getDate()-364);
     const ysR=await sb.from('sessions').select('session_date,prescribed_exercises(name,prescribed_sets(target_reps,target_pct))').eq('athlete_id',viewId).neq('status','draft').gte('session_date',iso(yStart)).lte('session_date',todayStr);
     const ysess=ysR.error?[]:(ysR.data||[]);
