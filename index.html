@@ -5595,7 +5595,7 @@ async function renderAthDash(){
     const exReps=vreps.filter(r=>r.exercise===dashState.vbtEx);
     const metric=vbtMetricFor(dashState.vbtEx), mLbl=VBT_METRIC_LBL[metric].toLowerCase(), isPeak=metric==='peak';
     const lv=vbtLVSVG(exReps, dashState.vbtEx, metric); const speed=vbtSpeedSVG(exReps, metric);
-    const sel=`<select class="scopesel" onchange="dashSetVbtEx(this.value)">${exs.map(e=>`<option${e===dashState.vbtEx?' selected':''}>${esc(e)} · ${VBT_METRIC_LBL[vbtMetricFor(e)]}</option>`).join('')}</select>`;
+    const sel=`<select class="scopesel" onchange="dashSetVbtEx(this.value)">${exs.map(e=>`<option value="${esc(e)}"${e===dashState.vbtEx?' selected':''}>${esc(e)} · ${VBT_METRIC_LBL[vbtMetricFor(e)]}</option>`).join('')}</select>`;
     const profTitle = isPeak ? 'Peak velocity by load' : ('Load–velocity profile'+(lv.est?' · <span style="color:var(--accent)">est 1RM ~'+Math.round(lv.est)+'kg</span>':''));
     const profNote = isPeak ? 'Each dot is the fastest <b>peak</b> velocity hit at that load — speed off the floor / out of the bottom, not an est-1RM lift.' : 'Each dot is the fastest <b>average</b> velocity at that load; the dashed line extrapolates to the minimum-velocity threshold for an estimated 1RM.';
     const speedNote = isPeak ? 'Top <b>peak</b> velocity per session — track snap on the competition lifts.' : 'Top-set <b>average</b> velocity per session — when it dips at the same loads, that’s a fatigue / readiness signal.';
