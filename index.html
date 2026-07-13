@@ -820,6 +820,16 @@
   .rm-mv{text-align:left;font-weight:700;color:var(--text);white-space:nowrap;padding-right:14px}
   .rm-cell input{width:58px;background:#0e151c;border:1px dashed #2c3d4d;border-radius:7px;padding:6px 4px;color:var(--text);font-weight:700;text-align:center;font-size:13px}
   .rm-cell input:not(:placeholder-shown){border-style:solid;border-color:var(--line)}
+  .ln-tbl{border-collapse:collapse;font-size:12px}
+  .ln-tbl th{font-size:10px;text-transform:uppercase;color:var(--muted);font-weight:700;padding:8px 8px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap}
+  .ln-tbl th.ln-cur{color:var(--accent)}
+  .ln-tbl td{padding:5px 6px;border-bottom:1px solid var(--line);text-align:center;vertical-align:middle}
+  .ln-p{text-align:left;font-weight:700;color:#aebccd;white-space:nowrap;padding-right:14px;position:sticky;left:0;background:var(--card);z-index:1}
+  th.ln-p{color:var(--muted)}
+  .ln-in{width:96px;background:#0e151c;border:1px dashed #2c3d4d;border-radius:7px;padding:6px 6px;color:var(--text);font-weight:700;text-align:center;font-size:12.5px}
+  .ln-in:not(:placeholder-shown){border-style:solid;border-color:var(--line)}
+  .ln-in.ln-curc{background:#101a22}
+  .ln-in:focus{outline:none;border-color:var(--accent)}
   .rm-cell.c1 input{border-style:solid;border-color:var(--accent2)}
   .rm-cell input:focus{outline:none;border-color:var(--accent2)}
   .rm-pct{font-size:10px;color:var(--accent2);margin-top:3px;font-weight:700}
@@ -1834,6 +1844,7 @@ async function boot(){
   await probeTickets();
   await probeFederation();
   await probeANotes();
+  await probeLoadNorms();
   await probeChatSocial();
   if(profile.role === 'coach') renderCoach(); else athGo(athState.screen||'athlete');
 }
@@ -3608,6 +3619,13 @@ async function probePlans(){ const { error } = await sb.from('plans').select('id
 let TICKETS_READY=false;   // tickets (migration 39) → in-app glitch reports
 let FED_READY=false;   // profiles.federation (migration 46) → USAW/WCH classification federation tag
 let ANOTES_READY=false;   // sessions.athlete_notes jsonb (migration 47) → athlete session + per-exercise notes
+let LOADNORMS_READY=false; // loading_norms (migration 48) → coach-editable per-tier loading norms (Table B)
+let gymLoadNorms={};       // {version:{tier:{param:value}}} — this gym's saved loading-norm overrides
+async function probeLoadNorms(){
+  const { data, error } = await sb.from('loading_norms').select('version,tier,params');
+  LOADNORMS_READY = !error; gymLoadNorms={};
+  if(!error && data) data.forEach(r=>{ (gymLoadNorms[r.version]=gymLoadNorms[r.version]||{})[r.tier]=r.params||{}; });
+}
 async function probeTickets(){ const { error } = await sb.from('tickets').select('id').limit(1); TICKETS_READY = !error; }
 async function probeFederation(){ const { error } = await sb.from('profiles').select('federation').limit(1); FED_READY = !error; }
 async function probeANotes(){ const { error } = await sb.from('sessions').select('athlete_notes').limit(1); ANOTES_READY = !error; if(ANOTES_READY && SESSION_SELECT.indexOf('athlete_notes')<0) SESSION_SELECT += ',athlete_notes'; }
@@ -4912,6 +4930,67 @@ function guardFam(name){ const k=classifyLift(name); if(!k) return null;
   if(k==='Back Squat'||k==='Front Squat') return 'sqari'; if(k==='Snatch DL'||k==='Clean DL') return 'pullari'; return null; }
 const GUARD_CHECK_KEYS=['yearly','weekly','lifts90','ari','meets','snari','cjari','sqari'];
 
+/* ---- editable loading norms (Table B, migration 48) ----
+   The tier DEFAULTS above (CLASS_GUARDRAILS, keyed to the 6 Soviet-legacy levels) are the
+   built-in scaffold. A coach can now edit loading norms NATIVELY per modern tier (USAW A/B
+   or WCH), per gym, stored in `loading_norms` and cached in `gymLoadNorms`. loadingNormsFor()
+   merges any saved gym values over the legacy-mapped scaffold, so nothing changes until edited. */
+const LOADNORM_VERSIONS={
+  'usaw-ab-2026':{ label:'USAW A/B Standards 2026', tiers:AB_RANKS.slice(), guardMap:AB_GUARD_MAP },   // low→high (U15 … Senior A)
+  'wch-canada-2026':{ label:WCH_STANDARDS.label, tiers:Object.keys(WCH_STANDARDS.tierPct).sort((a,b)=>WCH_STANDARDS.tierPct[a]-WCH_STANDARDS.tierPct[b]), guardMap:WCH_GUARD_MAP }
+};
+// the built-in (legacy-mapped) default params for a given version+tier
+function loadNormTierDefault(version,tier){
+  const meta=LOADNORM_VERSIONS[version];
+  const lvl = meta&&meta.guardMap ? meta.guardMap[tier] : tier;   // legacy versions: the tier IS a level
+  return CLASS_GUARDRAILS[lvl] || CLASS_GUARDRAILS[tier] || null;
+}
+// resolved loading norms for a classified athlete: gym-saved tier values merged over the scaffold default
+function loadingNormsFor(cls){
+  if(!cls) return null;
+  const def = CLASS_GUARDRAILS[cls.guardKey||cls.rank] || null;   // scaffold (always resolves via guardKey)
+  if(!def) return null;
+  const saved = cls.version && cls.rank && gymLoadNorms[cls.version] && gymLoadNorms[cls.version][cls.rank];
+  if(!saved) return def;
+  const out=Object.assign({}, def);
+  Object.keys(saved).forEach(k=>{ const v=saved[k]; if(v!=null && String(v).trim()!=='') out[k]=v; });
+  return out;
+}
+// coach editor: a param × tier grid to edit the gym's loading-norm tier defaults
+window.openLoadNormEditor=(version, curTier)=>{
+  const meta=LOADNORM_VERSIONS[version]; if(!meta){ toast('No editor for this classification system.'); return; }
+  const tiers=meta.tiers, saved=gymLoadNorms[version]||{}, notReady=!LOADNORMS_READY;
+  const head=`<tr><th class="ln-p">Loading norm</th>${tiers.map(t=>`<th class="${t===curTier?'ln-cur':''}">${esc(t)}</th>`).join('')}</tr>`;
+  const rows=GUARD_PARAMS.map(([key,lbl])=>`<tr><td class="ln-p">${lbl}</td>${tiers.map(t=>{
+      const def=(loadNormTierDefault(version,t)||{})[key]||''; const cur=(saved[t]||{})[key]||'';
+      return `<td><input class="ln-in${t===curTier?' ln-curc':''}" data-lnt="${esc(t)}" data-lnk="${key}" value="${esc(cur)}" placeholder="${esc(def)}"${notReady?' disabled':''}></td>`;
+    }).join('')}</tr>`).join('');
+  ovModal('lnModal', `<div class="ov-hd"><h2 style="margin:0">✎ Loading norms — ${esc(meta.label)}</h2><span class="vid-x" onclick="document.getElementById('lnModal').style.display='none'">✕</span></div>
+    ${notReady?`<div class="note" style="color:var(--warn);margin:4px 0 8px">Run <b>migration 48</b> to save edits — you can preview the grid but saving is disabled until then.</div>`:''}
+    <div class="note sub" style="padding:2px 0 8px">These are the tier <b>defaults</b> every athlete on a tier inherits. Blank = the built-in scaffold (grey placeholder); type to set your gym’s own number, clear a cell to fall back. Columns run lightest → most advanced, so each row should climb left→right.</div>
+    <div style="overflow:auto;max-height:58vh"><table class="ln-tbl"><thead>${head}</thead><tbody>${rows}</tbody></table></div>
+    <div class="bf-row" style="margin-top:12px;gap:10px;align-items:center"><button class="btn" onclick="saveLoadNorms('${version}')"${notReady?' disabled':''}>💾 Save changes</button><span class="cbtn alt" onclick="document.getElementById('lnModal').style.display='none'">Cancel</span><span class="saved" id="lnMsg"></span></div>`);
+};
+window.saveLoadNorms=async(version)=>{
+  const meta=LOADNORM_VERSIONS[version]; if(!meta) return;
+  const msg=document.getElementById('lnMsg'); const setMsg=(t,bad)=>{ if(msg){ msg.style.color=bad?'var(--bad)':'var(--good)'; msg.textContent=t; } };
+  setMsg('Saving…',false);
+  const byTier={};
+  document.querySelectorAll('#lnModal .ln-in').forEach(inp=>{ const t=inp.getAttribute('data-lnt'), k=inp.getAttribute('data-lnk'), v=(inp.value||'').trim(); byTier[t]=byTier[t]||{}; if(v) byTier[t][k]=v; });
+  const ups=[], dels=[], now=new Date().toISOString();
+  meta.tiers.forEach(t=>{ const params=byTier[t]||{};
+    if(Object.keys(params).length) ups.push({ gym_id:me_.gym_id, version, tier:t, params, updated_by:me_.id, updated_at:now });
+    else if(gymLoadNorms[version] && gymLoadNorms[version][t]) dels.push(t); });   // was saved, now cleared → remove the row
+  try{
+    if(ups.length){ const r=await sb.from('loading_norms').upsert(ups,{onConflict:'gym_id,version,tier'}); if(r.error) throw r.error; }
+    for(const t of dels){ const r=await sb.from('loading_norms').delete().eq('gym_id',me_.gym_id).eq('version',version).eq('tier',t); if(r.error) throw r.error; }
+  }catch(e){ setMsg('Save failed — '+(e.message||e),true); return; }
+  await probeLoadNorms();
+  setMsg('✓ Saved',false);
+  const m=document.getElementById('lnModal'); if(m) m.style.display='none';
+  renderAthDash();
+};
+
 /* ================= Training Response engine (deterministic, no LLM) =================
    How is an athlete responding to training, and what should change? Compares a
    RECENT window vs a PRIOR window (basis 'block' = current mesocycle vs previous;
@@ -4992,7 +5071,7 @@ async function trainingResponse(athleteId, opts){
     if(rec.sessions===0 && (!pri||pri.sessions===0)) return { ok:false, empty:true, basis:win.basis, fellBack:!!win.fellBack, recLabel:win.rec.label };
     let painAgg=null;
     if(typeof PAIN_READY!=='undefined' && PAIN_READY){ try{ const prs=await loadPainRange(athleteId, win.rec.a, spanB); painAgg=painAggregate(prs); }catch(e){} }
-    const cls=opts.cls||null; const g=cls?CLASS_GUARDRAILS[cls.guardKey||cls.rank]:null;
+    const cls=opts.cls||null; const g=loadingNormsFor(cls);
     const DIR=v=>v==null?'steady':(v>0.07?'up':(v<-0.07?'down':'steady'));
     const lever=(key,label,unit,rv,pv,bandKey,bandRefIsWeekly)=>{ const t=trPctDelta(rv,pv);
       let band=null,flag='na'; if(g&&bandKey){ band=parseBand(g[bandKey]); const cmp=bandRefIsWeekly?rec.weeklyVol:rv; flag=gFlag(cmp,band); }
@@ -5551,14 +5630,16 @@ async function renderAthDash(){
         <div style="overflow-x:auto"><table class="rm-tbl"><thead><tr><th class="rm-mv">Movement</th>${REP_COLS.map(c=>`<th class="${c===1?'rm-1rm':''}">${c}RM</th>`).join('')}</tr></thead><tbody>${rmMoves.map(mv=>`<tr><td class="rm-mv">${esc(mv)}</td>${REP_COLS.map(c=>rmCell(mv,c)).join('')}</tr>`).join('')}</tbody></table></div>
         <div class="note" style="margin-top:10px">Classic lifts (Snatch, C&amp;J, Clean, Jerk) cap at 5RM. A rep-max above <b style="color:var(--good)">100%</b> means the tested 1RM is conservative — flag for a re-test. Editing a 1RM here syncs to maxes &amp; classification above.</div>`,
         `<span class="cbtn alt" onclick="addRepMaxMove()">＋ Add movement</span>`)}
-      ${(()=>{ const rank=cls&&cls.rank; const g=rank?CLASS_GUARDRAILS[cls.guardKey||rank]:null; const ov=(prof&&prof.bio&&prof.bio.guardrails)||{};
+      ${(()=>{ const rank=cls&&cls.rank; const g=loadingNormsFor(cls); const ov=(prof&&prof.bio&&prof.bio.guardrails)||{};
         if(!g) return `<div class="card dlock"><span class="di">🛡️</span><div><b>Class guardrails</b><div class="note sub" style="padding:2px 0 0">Set the athlete's classification (sex + maxes + weight class) to see the loading guardrails for their level.</div></div></div>`;
         const rows=GUARD_PARAMS.map(([key,lbl])=>{ const def=g[key]||'—'; const o=ov[key]; const val=o||def;
           return `<div class="gr-row"><span class="gr-lbl">${lbl}${o?'<span class="gr-ov">override</span>':''}</span>${
             coach ? `<input class="gr-val${o?' ovd':''}" value="${o?esc(o):''}" placeholder="${esc(def)}" onchange="saveGuardrail('${viewId}','${key}',this.value)" title="blank = class default (${esc(def)})">`
                   : `<span class="gr-val${o?' ovd':''}">${esc(val)}</span>`}</div>`; }).join('');
+        const canEdit = coach && cls && LOADNORM_VERSIONS[cls.version];
         return rollup('guard',`Class guardrails — <span style="color:var(--accent)">${esc(rank)} defaults</span>, hybrid`,
-          `<div class="note sub" style="padding:2px 0 8px">Defaults flow from the athlete's class (methodology norms). ${coach?'Type a value to <b style="color:var(--warn)">override</b> for this athlete; clear it to fall back to the class default. Refining the class norms updates everyone else automatically.':'An <b style="color:var(--warn)">amber</b> value is a coach override for you; the rest are your class’s norms.'}</div>${rows}`); })()}
+          `<div class="note sub" style="padding:2px 0 8px">Defaults flow from the athlete's class (methodology norms). ${coach?'Type a value to <b style="color:var(--warn)">override</b> for this athlete; clear it to fall back to the class default. Edit the tier <b>defaults</b> for the whole gym with <b>✎ Edit class norms</b> — that updates everyone on the tier at once.':'An <b style="color:var(--warn)">amber</b> value is a coach override for you; the rest are your class’s norms.'}</div>${rows}`,
+          canEdit ? `<span class="cbtn alt" onclick="openLoadNormEditor('${cls.version}','${esc(rank||'').replace(/'/g,"\\'")}')">✎ Edit class norms</span>` : ''); })()}
       ${(()=>{ const bg=(prof&&prof.bio&&prof.bio.bg)||{};
         const bgRows=BG_FIELDS.map(([k,l])=>`<div class="gr-row"><span class="gr-lbl">${l}</span><span class="gr-val" style="max-width:62%;text-align:right;font-weight:600">${bg[k]?esc(bg[k]):'<span class="sub" style="font-weight:400">—</span>'}</span></div>`).join('');
         return rollup('bg','Background &amp; goals',
@@ -5655,8 +5736,8 @@ async function renderAthDash(){
 
   // ---- red-flag engine: 52-week programmed numbers vs class guardrail bands ----
   let checkCard='';
-  if(cls && CLASS_GUARDRAILS[cls.guardKey||cls.rank]){
-    const g=CLASS_GUARDRAILS[cls.guardKey||cls.rank]; const yStart=new Date(today); yStart.setDate(yStart.getDate()-364);
+  if(cls && loadingNormsFor(cls)){
+    const g=loadingNormsFor(cls); const yStart=new Date(today); yStart.setDate(yStart.getDate()-364);
     const ysR=await sb.from('sessions').select('session_date,prescribed_exercises(name,prescribed_sets(target_reps,target_pct))').eq('athlete_id',viewId).neq('status','draft').gte('session_date',iso(yStart)).lte('session_date',todayStr);
     const ysess=ysR.error?[]:(ysR.data||[]);
     let reps=0,vw=0,pv=0,l90=0; const weeks=new Set(); const fam={snari:[0,0],cjari:[0,0],sqari:[0,0],pullari:[0,0]};
@@ -6047,8 +6128,8 @@ async function reportLoadData(viewId){
   const hasTrend=buckets.some(b=>b.vol>0||b.rd!=null);
   // red-flag engine (52-week programmed vs guardrails) — only if classified
   let redflags=null;
-  if(cls && CLASS_GUARDRAILS[cls.guardKey||cls.rank]){
-    const g=CLASS_GUARDRAILS[cls.guardKey||cls.rank]; const yStart=new Date(today); yStart.setDate(yStart.getDate()-364);
+  if(cls && loadingNormsFor(cls)){
+    const g=loadingNormsFor(cls); const yStart=new Date(today); yStart.setDate(yStart.getDate()-364);
     const ysR=await sb.from('sessions').select('session_date,prescribed_exercises(name,prescribed_sets(target_reps,target_pct))').eq('athlete_id',viewId).neq('status','draft').gte('session_date',iso(yStart)).lte('session_date',todayStr);
     const ysess=ysR.error?[]:(ysR.data||[]);
     let reps=0,vw=0,pv=0,lifts90=0; const wkset=new Set(); const fam={snari:[0,0],cjari:[0,0],sqari:[0,0],pullari:[0,0]};
