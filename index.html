@@ -140,6 +140,12 @@
   .vst-top{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
   .vst-top h3{margin:0;font-size:15px;font-weight:700;color:var(--text)}
   .vst-top .vst-sub{color:var(--muted);font-size:12px}
+  .vst-nav{display:flex;align-items:center;gap:8px;margin-left:6px}
+  .vst-navb{width:30px;height:28px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:13px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center}
+  .vst-navb:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+  .vst-navb:disabled{opacity:.35;cursor:default}
+  .vst-navlbl{font-size:12px;color:var(--text);font-weight:600;white-space:nowrap}
+  .vst-navq{color:var(--muted);font-weight:400}
   .vst-close{margin-left:auto;width:32px;height:32px;border-radius:50%;background:var(--panel2);border:1px solid var(--line);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:700}
   .vst-body{flex:1;display:flex;gap:14px;min-height:0}
   .vst-stage{flex:1.2 1 0;display:flex;flex-direction:column;min-width:0;min-height:0}
@@ -2205,6 +2211,10 @@ function closeVid(){ const m=document.getElementById('vidModal'); if(m){ m.style
 
 /* ===================== Video Annotation Studio (phase 1) ===================== */
 let annS=null;
+// coach review queue (#3): session-grouped video inbox so Prev/Next walks a session's
+// videos first, then rolls into the next athlete's clips. Built in renderHomeBand.
+let annQueue=[], annQIdx=-1;
+window.annStudioNav=(delta)=>{ const ni=annQIdx+delta; if(ni<0||ni>=annQueue.length) return; const c=annQueue[ni]; if(!c) return; openAnnStudio(c.video_path,{athleteId:c.athlete_id, queueIdx:ni}); };
 const VST_COLORS=['#ff5a5a','#ffd23f','#34d399','#5aa9ff','#c77dff','#ffffff'];
 function vstHost(){ let h=document.getElementById('annStudio'); if(!h){ h=document.createElement('div'); h.id='annStudio'; h.className='vstudio'; document.body.appendChild(h); } return h; }
 async function openAnnStudio(path, meta){
@@ -2217,6 +2227,17 @@ async function openAnnStudio(path, meta){
   if(error || !data){ host.querySelector('.spin').textContent='Could not load that clip.'; return; }
   const ro=!!meta.readOnly;
   const title=meta.title||(ro?'Coach review':'Lift review'), sub=meta.sub||'';
+  // review-queue Prev/Next (#3): session videos first, then the rest of the inbox
+  annQIdx = (meta.queueIdx!=null && annQueue.length) ? meta.queueIdx : -1;
+  let navHtml='';
+  if(annQIdx>=0 && annQueue[annQIdx] && annQueue.length>1){ const cur=annQueue[annQIdx];
+    const who=(cur.athName||'Athlete').split(/\s+/)[0];
+    const inSess = cur.sessN>1 ? ` — video ${cur.sessPos} of ${cur.sessN}` : '';
+    const posLbl = `${esc(who)} · ${esc(shortTitle(cur.sessTitle||'clip'))}${inSess}`;
+    navHtml=`<span class="vst-nav"><button class="vst-navb" ${annQIdx>0?'':'disabled'} onclick="annStudioNav(-1)" title="Previous video">◀</button>`
+      +`<span class="vst-navlbl">${posLbl}<span class="vst-navq"> · ${annQIdx+1}/${annQueue.length} in inbox</span></span>`
+      +`<button class="vst-navb" ${annQIdx<annQueue.length-1?'':'disabled'} onclick="annStudioNav(1)" title="Next video">▶</button></span>`;
+  }
   const sidePanel = ro ? `
         <div class="vst-card">
           <h4>Coach's notes</h4>
@@ -2304,6 +2325,7 @@ async function openAnnStudio(path, meta){
   host.innerHTML=`
     <div class="vst-top">
       <h3>✎ ${esc(title)}</h3>${sub?`<span class="vst-sub">${esc(sub)}</span>`:''}
+      ${navHtml}
       <span class="vst-msg" id="vstMsg"></span>
       <span class="vst-close" onclick="closeAnnStudio()">✕</span>
     </div>
@@ -7159,16 +7181,21 @@ async function renderHomeBand(){
     if(sids.length){ try{ const ss=await sb.from('sessions').select('id,title').in('id',sids); (ss.data||[]).forEach(s=>sessTitle[s.id]=s.title); }catch(e){} } }
   let painToday=[]; if(PAIN_READY){ try{ const pr=await sb.from('body_pain_reports').select('athlete_id,region_label,side,severity').in('athlete_id',athIds).eq('report_date',todayStr); painToday=pr.data||[]; }catch(e){} }
 
-  // ---- Card 1: Video inbox (unreviewed first) ----
+  // ---- Card 1: Video inbox (unreviewed first, grouped into a session-contiguous review queue) ----
   clips.sort((a,b)=> (reviewed.has(a.video_path)?1:0)-(reviewed.has(b.video_path)?1:0) || (new Date(b.logged_at)-new Date(a.logged_at)) );
-  const waiting=clips.filter(c=>!reviewed.has(c.video_path)).length;
-  const vRows=clips.slice(0,6).map(c=>{ const nw=!reviewed.has(c.video_path);
-    return `<div class="home-row" onclick="openAnnStudio('${esc(c.video_path)}',{athleteId:'${c.athlete_id}'})">
+  // group clips by session (first-appearance order preserves unreviewed-first priority) so Prev/Next
+  // walks a session's videos first, then rolls into the next athlete's clips (#3, "both")
+  const _order=[], _bySess={};
+  clips.forEach(c=>{ const s=c.session_id||('solo_'+c.video_path); if(!_bySess[s]){ _bySess[s]=[]; _order.push(s); } _bySess[s].push(c); });
+  annQueue=[]; _order.forEach(s=>_bySess[s].forEach((c,i)=>annQueue.push({ video_path:c.video_path, athlete_id:c.athlete_id, session_id:c.session_id, logged_at:c.logged_at, reviewed:reviewed.has(c.video_path), sessPos:i+1, sessN:_bySess[s].length, sessTitle:sessTitle[c.session_id]||'clip', athName:nameById[c.athlete_id]||'Athlete' })));
+  const waiting=annQueue.filter(c=>!c.reviewed).length;
+  const vRows=annQueue.slice(0,6).map((c,idx)=>{ const nw=!c.reviewed;
+    return `<div class="home-row" onclick="openAnnStudio('${esc(c.video_path)}',{athleteId:'${c.athlete_id}',queueIdx:${idx}})">
       <span class="home-dot ${nw?'bad':'good'}"></span>
-      <span class="hr-main"><b>${esc(fn(nameById[c.athlete_id]||'Athlete'))}</b> <span class="hr-sub">· ${esc(shortTitle(sessTitle[c.session_id]||'clip'))}</span></span>
+      <span class="hr-main"><b>${esc(fn(c.athName))}</b> <span class="hr-sub">· ${esc(shortTitle(c.sessTitle))}${c.sessN>1?' ('+c.sessPos+'/'+c.sessN+')':''}</span></span>
       ${nw?'<span class="home-new">NEW</span>':''}<span class="hr-when">${homeAgo(c.logged_at)}</span></div>`; }).join('');
-  const card1=`<div class="home-card"><h3>📹 Video inbox <span class="hc-count ${waiting?'alert':''}">${waiting?waiting+' to review':(clips.length?'all reviewed':'0')}</span></h3>
-    ${vRows||'<div class="home-empty">No lift videos submitted yet.</div>'}${clips.length>6?'<div class="home-more" onclick="coachGo(\'uploads\')">All clips →</div>':''}</div>`;
+  const card1=`<div class="home-card"><h3>📹 Video inbox <span class="hc-count ${waiting?'alert':''}">${waiting?waiting+' to review':(annQueue.length?'all reviewed':'0')}</span></h3>
+    ${vRows||'<div class="home-empty">No lift videos submitted yet.</div>'}${annQueue.length>6?'<div class="home-more" onclick="coachGo(\'uploads\')">All clips →</div>':''}</div>`;
 
   // ---- Card 2: Training status by team ----
   const tRows=teams.map(t=>{ const mem=aths.filter(a=>a.team_id===t.id); if(!mem.length) return '';
