@@ -1504,6 +1504,26 @@
   .ss-ex td:first-child{font-weight:700}
   .ss-ex td:not(:first-child){color:var(--muted);text-align:right}
   @media(max-width:760px){.ss-tiles{grid-template-columns:repeat(3,1fr)}}
+  /* #4 session-summary closing page */
+  .sess-summary{position:fixed;inset:0;z-index:120;background:var(--bg);overflow-y:auto;display:none;padding:26px 16px 40px}
+  .sess-summary.on{display:block}
+  .sscard{max-width:640px;margin:0 auto}
+  .ssh{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+  .ss-check{flex:none;width:46px;height:46px;border-radius:50%;background:rgba(52,211,153,.16);color:var(--good);font-size:24px;font-weight:800;display:flex;align-items:center;justify-content:center}
+  .ssh h2{margin:0;font-size:22px;color:var(--text)}
+  .ssh-sub{color:var(--muted);font-size:13px;margin-top:2px}
+  .ss-hero{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+  .ss-exsum{margin-bottom:16px}
+  .ss-reflect{margin-bottom:16px}
+  .ss-reflect label{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px}
+  .ss-req{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--warn);background:rgba(245,158,11,.14);border-radius:999px;padding:2px 7px}
+  .ss-reflect textarea{width:100%;min-height:84px;background:#0e151c;border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--text);font-size:14px;line-height:1.4;resize:vertical}
+  .ss-reflect textarea:focus{outline:none;border-color:var(--accent)}
+  .ss-rstatus{display:block;margin-top:5px;font-size:12px}
+  .ss-done{width:100%;padding:13px;font-size:15px}
+  .ss-done:disabled{opacity:.45;cursor:default}
+  .ss-donesub{text-align:center;color:var(--muted);font-size:12px;margin-top:8px}
+  @media(max-width:760px){.ss-hero{grid-template-columns:repeat(2,1fr)}}
   .ss-rpe{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:4px 0 2px;padding:11px 13px;background:var(--panel2);border:1px solid var(--line);border-radius:10px}
   .ss-rpe-q{font-weight:800;font-size:13px;color:var(--text)}
   .ss-rpe label{font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:6px}
@@ -3549,12 +3569,12 @@ function refreshRow(id){
   tr.querySelectorAll('.lg-light').forEach(b=>b.classList.toggle('on', b.dataset.eff===st.effort));
   const vc=tr.querySelector('.vidcell'); if(vc) vc.innerHTML=vidCell(id, st);
 }
-function recompute(){
+function computeSessionStats(){
   let pNL=0,aNL=0,accPNL=0,accANL=0,aTon=0,miss=0,planSets=0,doneSets=0,good=0,effSum=0,effN=0;
   const per=curExercises.map(ex=>{
     const acc=!!ex.acc;
     let e={name:ex.name,exId:ex.exId,acc,pNL:0,aNL:0,aTon:0,miss:0,sets:ex.setIds.length,done:0};
-    ex.setIds.forEach(id=>{ const st=logState[id];
+    ex.setIds.forEach(id=>{ const st=logState[id]; if(!st) return;
       const pr=parseInt(st.targetReps)||0, r=parseInt(st.reps)||0, k=num(st.kg), m=parseInt(st.miss)||0;
       planSets++; if(st.done){doneSets++;e.done++;}
       if(st.lights===3)good++;
@@ -3566,6 +3586,11 @@ function recompute(){
     return e;
   });
   const completion=planSets?Math.round(doneSets/planSets*100):0, avgEff=effN?EFFL[Math.round(effSum/effN)]:'—';
+  return {pNL,aNL,accPNL,accANL,aTon,miss,planSets,doneSets,good,completion,avgEff,per};
+}
+function recompute(){
+  const S=computeSessionStats();
+  const {pNL,aNL,accPNL,accANL,aTon,miss,planSets,doneSets,good,completion,avgEff,per}=S;
   const tile=(l,a,p)=>`<div class="ss-tile"><div class="ss-v">${a}${p!=null?`<span class="ss-p"> / ${p}</span>`:''}</div><div class="ss-l">${l}</div></div>`;
   const hasAcc=(accANL||accPNL);
   const volTile=`<div class="ss-tile"><div class="ss-v">${aNL}<span class="ss-p"> / ${pNL}</span>${hasAcc?`<span class="ss-acc" title="main lifts ${aNL}/${pNL} · accessory ${accANL}/${accPNL} · total ${aNL+accANL}/${pNL+accPNL}">+${accANL} acc · ${aNL+accANL} tot</span>`:''}</div><div class="ss-l">Volume (NL)${hasAcc?' · main lifts':''}</div></div>`;
@@ -7056,8 +7081,45 @@ window.athFinishSession=async()=>{
   }
   const mm=document.getElementById('rateModal'); if(mm) mm.style.display='none';
   alogClearStart(curSession.id);   // fresh timer if the session is reopened
-  toast('Session finished — nice work 💪');
-  athGo('home');   // #5 — route the athlete back to their Home, not stranded on the finished session
+  openSessionSummary();   // #4 — land on the session-summary closing page (Done → Home)
+};
+// #4 — session-summary closing page: recap + a required reflection note, then Done → Home
+window.openSessionSummary=()=>{
+  if(!curSession){ athGo('home'); return; }
+  const S=computeSessionStats();
+  const title=curSession.title||'Training';
+  const dateStr=curSession.session_date? new Date(curSession.session_date+'T00:00:00').toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'}) : '';
+  const noteVal=(curSession.athlete_notes&&curSession.athlete_notes.s)||'';
+  const hasAcc=(S.accANL||S.accPNL);
+  const load=athSrpeLoad(curSession);
+  const T=(v,l)=>`<div class="ss-tile"><div class="ss-v">${v}</div><div class="ss-l">${l}</div></div>`;
+  const hero = T(`${S.aNL}<span class="ss-p"> / ${S.pNL}</span>`,'Volume (NL)'+(hasAcc?' · main':''))
+    + T((S.aTon/1000).toFixed(1)+'t','Tonnage')
+    + T(S.completion+'%','Completed')
+    + T(S.good+'<span class="ss-p"> / '+S.planSets+'</span>','Good lifts')
+    + T(curSession.session_minutes!=null?curSession.session_minutes+'<span class="ss-p">m</span>':'—','Time')
+    + T((curSession.session_rpe!=null?curSession.session_rpe:'—'),'RPE')
+    + T(load,'Load');
+  const exRows=S.per.map(e=>`<tr><td>${esc(e.name)}${e.acc?' <span class="acc-tag">acc</span>':''}</td><td>${e.done}/${e.sets} sets</td><td><b style="color:var(--text)">${e.aNL}</b> NL</td><td>${e.miss?`<span style="color:var(--bad)">${e.miss} miss</span>`:'<span style="color:var(--good)">clean</span>'}</td></tr>`).join('');
+  const reqNote=ANOTES_READY;
+  let h=document.getElementById('sessSummary'); if(!h){ h=document.createElement('div'); h.id='sessSummary'; h.className='sess-summary'; document.body.appendChild(h); }
+  h.innerHTML=`<div class="sscard">
+      <div class="ssh"><div class="ss-check">✓</div><div><h2>Session complete</h2><div class="ssh-sub">${esc(title)}${dateStr?' · '+esc(dateStr):''}</div></div></div>
+      <div class="ss-hero">${hero}</div>
+      ${exRows?`<table class="ss-ex ss-exsum"><tbody>${exRows}</tbody></table>`:''}
+      ${reqNote?`<div class="ss-reflect"><label>📝 How did it go?<span class="ss-req">required</span></label>
+        <textarea id="ssReflect" placeholder="A line on how the session felt — energy, technique, anything you want your coach to know…" oninput="ssReflectInput()">${esc(noteVal)}</textarea>
+        <span class="saved ss-rstatus" id="aNotesStatus"></span></div>`:''}
+      <button class="btn blue ss-done" id="ssDoneBtn" onclick="sessSummaryDone()" ${reqNote&&!noteVal.trim()?'disabled':''}>Done →</button>
+      <div class="ss-donesub">Saved &amp; sent to your coach.</div>
+    </div>`;
+  h.classList.add('on'); h.scrollTop=0;
+};
+window.ssReflectInput=()=>{ const ta=document.getElementById('ssReflect'); if(!ta) return; athNotesInput('s',null,ta.value); const b=document.getElementById('ssDoneBtn'); if(b) b.disabled = ANOTES_READY && !ta.value.trim(); };
+window.sessSummaryDone=async()=>{
+  if(ANOTES_READY){ const ta=document.getElementById('ssReflect'); if(ta && !ta.value.trim()){ toast('Add a quick reflection first ✍️'); ta.focus(); return; } await athNotesSave(); }
+  const h=document.getElementById('sessSummary'); if(h){ h.classList.remove('on'); h.innerHTML=''; }
+  athGo('home');
 };
 function ssRpeSummaryHtml(){
   if(!SRPE_READY || (curSession.session_minutes==null && curSession.session_rpe==null)) return `<span id="ssRpeSummary"></span>`;
