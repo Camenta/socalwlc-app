@@ -282,6 +282,10 @@
   .tk-msg{font-size:13px;color:var(--text);white-space:pre-wrap;word-break:break-word}
   .tk-meta{color:var(--muted);font-size:11px;margin-top:3px}
   .tk-tag{flex:none;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--good);background:rgba(52,211,153,.16);border-radius:999px;padding:3px 8px}
+  .tk-rowact{flex:none;display:flex;align-items:center;gap:7px}
+  .tk-del{flex:none;width:26px;height:26px;border-radius:7px;border:1px solid var(--line);background:var(--panel2);color:var(--muted);font-size:12px;cursor:pointer;line-height:1}
+  .tk-del:hover{border-color:var(--accent);color:var(--accent)}
+  .tk-clear{float:right;margin-top:-4px;font-size:11px}
   #rvNav .rv-pos{font-size:11px;color:var(--accent2);text-transform:uppercase;letter-spacing:.04em}
   #rvNav .rv-ex{font-size:15px;font-weight:700;color:var(--text);margin-top:3px}
   #rvNav .rv-set{font-size:12px;color:var(--muted);margin-top:2px}
@@ -399,6 +403,9 @@
   .pn-sev{font-weight:800}
   .pn-meta{color:var(--muted);font-size:12px;margin-left:auto;white-space:nowrap}
   .pn-note{color:var(--muted);font-style:italic;font-size:12px;flex-basis:100%;padding-left:19px}
+  .pn-act{flex:none;margin-left:8px;border:1px solid var(--line);background:var(--panel2);color:var(--muted);border-radius:7px;padding:3px 8px;font-size:11px;font-weight:700;cursor:pointer;line-height:1}
+  .pn-act.pn-res:hover{border-color:var(--good);color:var(--good)}
+  .pn-act:hover{border-color:var(--accent);color:var(--accent)}
   .pn-legend{display:flex;gap:12px;font-size:11px;color:var(--muted);margin-top:6px}
   .pn-legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px;vertical-align:middle}
   /* week day-strip */
@@ -1845,6 +1852,7 @@ async function boot(){
   await probeFederation();
   await probeANotes();
   await probeLoadNorms();
+  await probePainResolve();
   await probeChatSocial();
   if(profile.role === 'coach') renderCoach(); else athGo(athState.screen||'athlete');
 }
@@ -1971,12 +1979,14 @@ window.openTicketModal=async()=>{
   if(coach && TICKETS_READY){
     const { data } = await sb.from('tickets').select('*').order('created_at',{ascending:false}).limit(50);
     const open=(data||[]).filter(t=>t.status!=='resolved');
+    const resolvedN=(data||[]).filter(t=>t.status==='resolved').length;
     const rows=(data||[]).map(t=>{ const c=t.context||{}; const d=new Date(t.created_at); const ds=MONS[d.getMonth()]+' '+d.getDate();
       const path=(c.url||'').replace(/^https?:\/\/[^/]+/,'')||'app'; const done=t.status==='resolved';
       return `<div class="tk-row${done?' tk-done':''}"><div class="tk-main"><div class="tk-msg">${esc(t.message)}</div>
         <div class="tk-meta">${esc(c.name||'Someone')} · ${esc(t.role||'')} · ${ds} · <span title="${esc(c.url||'')}">${esc(path)}</span></div></div>
-        ${done?'<span class="tk-tag">resolved</span>':`<button class="cbtn alt" onclick="ticketResolve('${t.id}')">✓ Resolve</button>`}</div>`; }).join('');
-    listHtml=`<div class="tk-listwrap"><div class="tk-hd">Submitted reports ${open.length?`<span class="rev-count">${open.length}</span>`:''}</div><div class="tk-list">${rows||'<div class="note sub">No reports yet.</div>'}</div></div>`;
+        <div class="tk-rowact">${done?'<span class="tk-tag">resolved</span>':`<button class="cbtn alt" onclick="ticketResolve('${t.id}')">✓ Resolve</button>`}<button class="tk-del" onclick="ticketDelete('${t.id}')" title="Delete this report">✕</button></div></div>`; }).join('');
+    const clearBtn=resolvedN?`<button class="cbtn alt tk-clear" onclick="ticketClearResolved()">🗑 Clear resolved (${resolvedN})</button>`:'';
+    listHtml=`<div class="tk-listwrap"><div class="tk-hd">Submitted reports ${open.length?`<span class="rev-count">${open.length}</span>`:''}${clearBtn}</div><div class="tk-list">${rows||'<div class="note sub">No reports yet.</div>'}</div></div>`;
   }
   const dis = TICKETS_READY?'':'disabled';
   const gate = TICKETS_READY?'':`<div class="note sub" style="color:var(--bad);margin-top:6px">Almost ready — run migration 39 in Supabase to switch reports on.</div>`;
@@ -2004,6 +2014,19 @@ window.submitTicket=async()=>{
 window.ticketResolve=async(id)=>{
   const res=await sb.from('tickets').update({ status:'resolved', resolved_at:new Date().toISOString() }).eq('id',id).select();
   if(res.error){ toast('Couldn’t resolve — '+res.error.message, 'err'); return; }
+  openTicketModal();
+};
+window.ticketDelete=async(id)=>{
+  const res=await sb.from('tickets').delete().eq('id',id).select();
+  if(res.error){ toast('Couldn’t delete — '+res.error.message, 'err'); return; }
+  if(!res.data||!res.data.length){ toast('Run migration 49 to delete reports.', 'err'); return; }   // RLS blocked (pre-migration) = 0 rows, no error
+  openTicketModal();
+};
+window.ticketClearResolved=async()=>{
+  const res=await sb.from('tickets').delete().eq('status','resolved').select();   // RLS scopes to this gym + coach
+  if(res.error){ toast('Couldn’t clear — '+res.error.message, 'err'); return; }
+  if(!res.data||!res.data.length){ toast('Nothing cleared — run migration 49 to enable deleting.', 'err'); return; }
+  toast('Cleared '+res.data.length+' resolved report'+(res.data.length>1?'s':''));
   openTicketModal();
 };
 
@@ -3908,16 +3931,41 @@ async function loadPainRange(athleteId, startStr, endStr){
   if(startStr) q=q.gte('report_date',startStr); if(endStr) q=q.lte('report_date',endStr);
   const r=await q.order('report_date',{ascending:false}); return r.error?[]:(r.data||[]);
 }
+// manual injury resolutions (migration 49): a coach/athlete marks a region+side resolved NOW.
+// Returns { 'region|side': resolvedAtISO }. A later pain report re-activates it (compared in painAggregate).
+let PAINRES_READY=false;
+async function probePainResolve(){ const { error } = await sb.from('pain_resolutions').select('region').limit(1); PAINRES_READY = !error; }
+async function loadPainResolutions(athleteId){
+  if(!PAINRES_READY) return {};
+  const r=await sb.from('pain_resolutions').select('region,side,resolved_at').eq('athlete_id',athleteId);
+  if(r.error||!r.data) return {};
+  const m={}; r.data.forEach(x=>{ m[x.region+'|'+x.side]=x.resolved_at; }); return m;
+}
+window.painResolve=async(athId,region,side)=>{
+  if(!PAINRES_READY){ toast('Run migration 49 to mark injuries resolved.','err'); return; }
+  const r=await sb.from('pain_resolutions').upsert({ gym_id:me_.gym_id, athlete_id:athId, region, side, resolved_at:new Date().toISOString(), resolved_by:me_.id },{onConflict:'gym_id,athlete_id,region,side'}).select();
+  if(r.error){ toast('Couldn’t resolve — '+r.error.message,'err'); return; }
+  toast('Marked resolved'); renderAthDash();
+};
+window.painUnresolve=async(athId,region,side)=>{
+  const r=await sb.from('pain_resolutions').delete().eq('athlete_id',athId).eq('region',region).eq('side',side).select();
+  if(r.error){ toast('Couldn’t reopen — '+r.error.message,'err'); return; }
+  toast('Reopened'); renderAthDash();
+};
 // roll raw rows into per-region/side summaries (latest severity + weeks-reported persistence)
 // Auto-archive: a twinge with no report in the last PAIN_ACTIVE_DAYS is treated as DISSIPATED —
 // it drops off the active list, the persistent watch-flags and the heat-map (moves to `archived`).
 const PAIN_ACTIVE_DAYS=14;
-function painAggregate(rows){
+function painAggregate(rows, resolutions){
+  resolutions=resolutions||{};
   const by={}; (rows||[]).forEach(x=>{ const k=x.region+'|'+x.side; if(!by[k]) by[k]={ region:x.region, label:x.region_label||x.region, side:x.side, view:x.view||'front', latest:0, latestDate:null, peak:0, note:'', weeks:new Set(), count:0 };
     const e=by[k]; e.count++; e.weeks.add(painMonKey(x.report_date)); if(x.severity>e.peak) e.peak=x.severity;
     if(!e.latestDate || x.report_date>e.latestDate){ e.latestDate=x.report_date; e.latest=x.severity; e.note=x.note||''; } });
   const today=new Date(); const D=s=>new Date(s+'T00:00:00');
-  const list=Object.values(by).map(e=>{ const daysSince=e.latestDate?Math.floor((today-D(e.latestDate))/864e5):9999; return { ...e, weeksN:e.weeks.size, daysSince, active:daysSince<=PAIN_ACTIVE_DAYS }; })
+  const list=Object.values(by).map(e=>{ const daysSince=e.latestDate?Math.floor((today-D(e.latestDate))/864e5):9999;
+      const resAt=resolutions[e.region+'|'+e.side];   // manual resolve wins until a NEWER report re-activates it
+      const manualResolved = !!(resAt && e.latestDate && resAt.slice(0,10) >= e.latestDate);
+      return { ...e, weeksN:e.weeks.size, daysSince, manualResolved, active: daysSince<=PAIN_ACTIVE_DAYS && !manualResolved }; })
     .sort((a,b)=> (b.latest-a.latest)||(b.weeksN-a.weeksN));
   const active=list.filter(e=>e.active), archived=list.filter(e=>!e.active);
   const sevMap={}; active.forEach(e=>{ sevMap[e.region+'|'+e.side]=e.latest; });   // heat-map + watch-flags = ACTIVE twinges only
@@ -3932,10 +3980,15 @@ function painPanelHTML(agg, opts){
     <div class="pn-map">${bodyHeatSVG('front',agg.sevMap,{readOnly:true})}<div class="bm-cap">Front</div></div>
     <div class="pn-map">${bodyHeatSVG('back',agg.sevMap,{readOnly:true})}<div class="bm-cap">Back</div></div></div>`;
   const D=s=>new Date(s+'T00:00:00');
+  const canResolve=!!opts.canResolve, athId=opts.athId||'';
+  const eArgs=e=>`'${esc(athId)}','${esc(e.region).replace(/'/g,"\\'")}','${esc(e.side)}'`;
   const rowHTML=(e,arch)=>{ const col=arch?'var(--muted)':(painColor(e.latest)||'var(--muted)');
     const sd=e.side!=='center'?' '+SIDE_FULL[e.side]:''; const dl=e.latestDate?MONS[D(e.latestDate).getMonth()]+' '+D(e.latestDate).getDate():'';
-    const persist=e.weeksN>=2?` · ${e.weeksN} wks`:''; const pk=e.peak>e.latest?` · peak ${e.peak}`:''; const resolved=arch?` · resolved ${e.daysSince}d ago`:'';
-    return `<div class="pn-row${arch?' pn-arch':''}"><span class="pn-dot" style="background:${col}"></span><span class="pn-reg">${esc(e.label)}${sd}</span><span class="pn-sev" style="color:${col}">${e.latest}/10</span><span class="pn-meta">${esc(dl)}${persist}${pk}${resolved}</span>${e.note?`<div class="pn-note">“${esc(e.note)}”</div>`:''}</div>`;
+    const persist=e.weeksN>=2?` · ${e.weeksN} wks`:''; const pk=e.peak>e.latest?` · peak ${e.peak}`:''; const resolved=arch?(e.manualResolved?' · resolved ✓':` · resolved ${e.daysSince}d ago`):'';
+    const act = !canResolve ? '' : arch
+      ? (e.manualResolved?`<button class="pn-act" onclick="painUnresolve(${eArgs(e)})" title="Reopen this injury">↺</button>`:'')
+      : `<button class="pn-act pn-res" onclick="painResolve(${eArgs(e)})" title="Mark this resolved">✓ Resolve</button>`;
+    return `<div class="pn-row${arch?' pn-arch':''}"><span class="pn-dot" style="background:${col}"></span><span class="pn-reg">${esc(e.label)}${sd}</span><span class="pn-sev" style="color:${col}">${e.latest}/10</span><span class="pn-meta">${esc(dl)}${persist}${pk}${resolved}</span>${act}${e.note?`<div class="pn-note">“${esc(e.note)}”</div>`:''}</div>`;
   };
   const active=agg.active||agg.list, archived=agg.archived||[];
   const activeRows = active.length ? active.slice(0,opts.limit||8).map(e=>rowHTML(e,false)).join('')
@@ -4391,9 +4444,10 @@ async function weekReview(athleteId){
   // recent pain (last 4 weeks) — surfaces in the athlete's My Review + the coach's week preview
   let painHtml='';
   if(PAIN_READY){ const pStart=new Date(today); pStart.setDate(pStart.getDate()-27);
-    const pAgg=painAggregate(await loadPainRange(me, iso(pStart), todayStr));
-    if(pAgg.list.length){
-      const top=pAgg.list.slice(0,5).map(e=>`<span class="bm-chip ${painSevClass(e.latest)}"><span class="bm-cdot"></span>${esc(e.label)}${e.side!=='center'?' '+SIDE_LBL[e.side]:''} · ${e.latest}/10${e.weeksN>=2?' · '+e.weeksN+'w':''}</span>`).join('');
+    const pAgg=painAggregate(await loadPainRange(me, iso(pStart), todayStr), await loadPainResolutions(me));
+    const pShow=pAgg.list.filter(e=>!e.manualResolved);
+    if(pShow.length){
+      const top=pShow.slice(0,5).map(e=>`<span class="bm-chip ${painSevClass(e.latest)}"><span class="bm-cdot"></span>${esc(e.label)}${e.side!=='center'?' '+SIDE_LBL[e.side]:''} · ${e.latest}/10${e.weeksN>=2?' · '+e.weeksN+'w':''}</span>`).join('');
       painHtml=`<div class="mrev-pain"><div class="mrev-plbl">🩺 Recent pain · last 4 wks</div><div class="bm-chips">${top}</div></div>`;
       const fl=painFocusLine(pAgg); if(fl) focus += ' '+fl;
     }
@@ -5070,7 +5124,7 @@ async function trainingResponse(athleteId, opts){
     const pri=win.pri? trAgg(inWin(win.pri), logsBySess, rd, win.pri) : null;
     if(rec.sessions===0 && (!pri||pri.sessions===0)) return { ok:false, empty:true, basis:win.basis, fellBack:!!win.fellBack, recLabel:win.rec.label };
     let painAgg=null;
-    if(typeof PAIN_READY!=='undefined' && PAIN_READY){ try{ const prs=await loadPainRange(athleteId, win.rec.a, spanB); painAgg=painAggregate(prs); }catch(e){} }
+    if(typeof PAIN_READY!=='undefined' && PAIN_READY){ try{ const prs=await loadPainRange(athleteId, win.rec.a, spanB); painAgg=painAggregate(prs, await loadPainResolutions(athleteId)); }catch(e){} }
     const cls=opts.cls||null; const g=loadingNormsFor(cls);
     const DIR=v=>v==null?'steady':(v>0.07?'up':(v<-0.07?'down':'steady'));
     const lever=(key,label,unit,rv,pv,bandKey,bandRefIsWeekly)=>{ const t=trPctDelta(rv,pv);
@@ -5769,11 +5823,11 @@ async function renderAthDash(){
 
   // ---- pain / injury heat-map (read-only) ----
   let painCard='';
-  if(PAIN_READY){ const prRows=await loadPainRange(viewId, startStr, todayStr); const pAgg=painAggregate(prRows);
+  if(PAIN_READY){ const prRows=await loadPainRange(viewId, startStr, todayStr); const pAgg=painAggregate(prRows, await loadPainResolutions(viewId));
     if(pAgg.list.length){ painCard=`<div class="card">
       <div style="display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px"><h2 style="margin:0">🩺 Pain &amp; injury</h2>${pAgg.persistent.length?`<span class="eff-read ineff" style="font-size:11px">${pAgg.persistent.length} to watch</span>`:'<span class="eff-read eff" style="font-size:11px">nothing persistent</span>'}</div>
-      <div class="note sub" style="padding:2px 0 8px">Self-reported aches over ${esc(label)}. Colour = most recent severity; “N wks” = reported in that many separate weeks (a persistence signal).</div>
-      ${painPanelHTML(pAgg,{name:viewName,limit:10,rangeLabel:label})}</div>`; } }
+      <div class="note sub" style="padding:2px 0 8px">Self-reported aches over ${esc(label)}. Colour = most recent severity; “N wks” = reported in that many separate weeks (a persistence signal). ${(PAINRES_READY&&(coach||viewId===me_.id))?'Tap <b>✓ Resolve</b> when an injury has cleared — it moves to Resolved / past (a new report on that spot reopens it).':''}</div>
+      ${painPanelHTML(pAgg,{name:viewName,limit:10,rangeLabel:label,canResolve:(PAINRES_READY&&(coach||viewId===me_.id)),athId:viewId})}</div>`; } }
   // ---- training response (coach-side trend-spotting) ----
   let trCard='';
   if(coach){ const tr=await trainingResponse(viewId,{basis:dashState.trBasis||'block', cls}); trCard=trPanelHTML(tr); }
@@ -6148,7 +6202,7 @@ async function reportLoadData(viewId){
     redflags={ rank:cls.rank, rows, flags:flagsN };
   }
   // injury / pain over the range
-  const pain = painAggregate(await loadPainRange(viewId, startStr, endStr));
+  const pain = painAggregate(await loadPainRange(viewId, startStr, endStr), await loadPainResolutions(viewId));
   // vs-previous deltas for the executive KPI band (block basis lines up with a mesocycle review; falls back to rolling)
   let tr=null; try{ tr=await trainingResponse(viewId,{basis:'block'}); if(tr&&!tr.ok) tr=null; }catch(e){}
   const levelLbl = reportState.level==='meso'?'Mesocycle review':(reportState.level==='macro'?'Macrocycle review':'Progress report');
