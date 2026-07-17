@@ -920,6 +920,19 @@
   .up-del{color:var(--muted);cursor:pointer;font-weight:700;padding:0 6px}
   .up-del:hover{color:var(--bad)}
   .up-empty{color:var(--muted);font-size:13px;padding:8px}
+  .up-tag.arch{background:rgba(140,150,160,.16);color:var(--muted)}
+  .up-row.arch{opacity:.55}
+  /* uploads filter bar (coach) */
+  .up-filter{display:flex;flex-direction:column;gap:8px;margin:0 0 12px}
+  .upf-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;width:100%}
+  .upf-search{flex:1;min-width:150px;background:#0e151c;border:1px solid var(--line);border-radius:8px;color:var(--text);padding:8px 12px;font-size:13px}
+  .upf-search:focus{outline:none;border-color:var(--accent2)}
+  .upf-sel{background:#0e151c;border:1px solid var(--line);border-radius:8px;color:var(--text);padding:8px 10px;font-size:13px}
+  .upf-toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;user-select:none;white-space:nowrap}
+  .upf-chips{display:flex;gap:4px;flex-wrap:wrap}
+  .upf-chip{background:var(--panel2);border:1px solid var(--line);color:var(--muted);padding:6px 12px;cursor:pointer;font-size:12px;font-weight:700;border-radius:7px;white-space:nowrap}
+  .upf-chip.on{color:var(--text);border-color:var(--accent2);background:#101a26}
+  .up-count{font-size:11px;color:var(--muted);margin:0 0 8px}
   /* coach-view per-exercise velocity summary */
   .cvx-vbt{font-size:12px;color:var(--muted);padding:6px 2px 2px;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
   .cvx-vbt .vk{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--accent2);background:rgba(60,158,232,.14);padding:2px 6px;border-radius:5px}
@@ -6619,7 +6632,7 @@ window.athReportOpen=async(id, btn)=>{
 };
 
 /* ---------------- uploads (coach inbox + athlete share) ---------------- */
-let upState={ mode:'athlete' };
+let upState={ mode:'athlete', filter:{ q:'', team:'', type:'all', status:'all', days:'all', showArchived:false }, nameById:{} };
 function uploadKind(name){ const n=(name||'').toLowerCase();
   if(/ovr|velocity|vbt|gymaware|flex/.test(n)) return 'ovr';
   if(/hawkin|cmj|force.?plate|forcedeck/.test(n)) return 'hawkin';
@@ -6643,29 +6656,21 @@ async function paintUploads(){
     app.innerHTML = chrome + `<div class="card con-empty"><h2 style="margin:0 0 6px;color:var(--text)">Uploads</h2><div>${ath?'Share your OVR velocity &amp; Hawkin force-plate exports with your coach here.':'Your athletes’ shared files (OVR velocity, Hawkin force plates, docs) land here.'}</div><div class="sub" style="margin-top:8px">Almost ready — run <b>24_uploads.sql</b> in Supabase to switch this on.</div></div>`;
     return;
   }
-  let q = sb.from('uploads').select('*').order('created_at',{ascending:false}).limit(200);
+  // detect archive-column support (migration 50) — features degrade gracefully without it
+  if(upState.archiveOK===undefined){ const ar=await sb.from('uploads').select('archived').limit(1); upState.archiveOK=!ar.error; }
+  const fl=upState.filter;
+  let q = sb.from('uploads').select('*').order('created_at',{ascending:false}).limit(500);
   if(ath) q = q.eq('athlete_id', me_.id);
+  if(upState.archiveOK && !fl.showArchived) q = q.eq('archived', false);
   const { data: files } = await q;
-  // resolve uploader/athlete names (coach view)
-  let nameById={};
-  if(!ath){ const ids=[...new Set((files||[]).flatMap(f=>[f.athlete_id,f.uploader_id]).filter(Boolean))];
-    if(ids.length){ const pr=await sb.from('profiles').select('id,full_name').in('id', ids); (pr.data||[]).forEach(p=>nameById[p.id]=p.full_name); } }
-  const rows=(files||[]).map(f=>{
-    const k=f.kind||uploadKind(f.file_name); const who = ath ? '' : (nameById[f.athlete_id]||nameById[f.uploader_id]||'Gym');
-    const tag = k==='ovr'?'<span class="up-tag ovr">OVR</span>':(k==='hawkin'?'<span class="up-tag hawkin">Hawkin</span>':'');
-    const proc = (k==='ovr'||k==='hawkin') ? (f.processed?'<span class="up-tag proc">✓ processed'+(f.matched_date?' → '+fmtDate(f.matched_date):'')+'</span>':'<span class="up-tag pend">awaiting processing</span>') : '';
-    const mine = f.uploader_id===me_.id || f.athlete_id===me_.id;
-    const canProcess = !f.processed && (k==='ovr'||k==='hawkin'||k==='sheet');
-    return `<div class="up-row">
-      <span class="up-ic">${uploadIcon(k)}</span>
-      <div class="up-meta"><div class="up-name">${esc(f.file_name)}${tag}${proc}</div>
-        <div class="up-sub">${who?esc(who)+' · ':''}${fmtSize(f.size_bytes)} · ${relTime(f.created_at)}${f.note?' · '+esc(f.note):''}</div></div>
-      ${canProcess?`<span class="up-dl" style="color:var(--accent)" onclick="processUpload('${f.id}')">⚡ process</span>`:''}
-      <span class="up-dl" onclick="uploadDownload('${f.id}')">download</span>
-      ${mine?`<span class="up-del" onclick="uploadDelete('${f.id}')" title="Remove">✕</span>`:''}
-    </div>`;
-  }).join('') || `<div class="up-empty">${ath?'No files yet. Drop your first OVR or Hawkin export above.':'No files shared yet. Your athletes’ uploads will show up here.'}</div>`;
-  upState.files=files||[];
+  upState.files = files||[];
+  // resolve uploader/athlete names + roster/teams (coach view)
+  upState.nameById={};
+  if(!ath){
+    await ensureDashRoster();
+    const ids=[...new Set((files||[]).flatMap(f=>[f.athlete_id,f.uploader_id]).filter(Boolean))];
+    if(ids.length){ const pr=await sb.from('profiles').select('id,full_name').in('id', ids); (pr.data||[]).forEach(p=>upState.nameById[p.id]=p.full_name); }
+  }
   app.innerHTML = chrome + `
     <div class="card"><h2 style="margin:0 0 6px">Uploads</h2>
       <div class="note" style="margin:0">${ath
@@ -6680,9 +6685,89 @@ async function paintUploads(){
       </div>
       <div id="upMsg" class="saved" style="margin-top:10px"></div>
     </div>
-    <div class="card"><h2 style="margin:0 0 10px">${ath?'Your files':'Shared with you'}</h2><div class="up-list" id="upList">${rows}</div></div>`;
+    <div class="card"><h2 style="margin:0 0 10px">${ath?'Your files':'Shared with you'}</h2>
+      ${ath?'':`<div id="upFilterWrap">${upFilterBarHTML()}</div>`}
+      <div class="up-count" id="upCount"></div>
+      <div class="up-list" id="upList"></div></div>`;
   wireDropzone();
+  upRenderList();
 }
+function upFilterBarHTML(){
+  const fl=upState.filter; const teams=conState._teams||[];
+  const typeChips=[['all','All'],['ovr','⚡ OVR'],['hawkin','🦘 Hawkin'],['sheet','📊 Sheet'],['doc','📄 Doc'],['image','🖼️ Img'],['video','🎬 Video'],['other','📎 Other']];
+  const statChips=[['all','Any status'],['proc','✓ Processed'],['pend','Unprocessed']];
+  const dayChips=[['all','All time'],['7','7d'],['30','30d'],['90','90d']];
+  const chip=(v,l,key,cur)=>`<span class="upf-chip${cur===v?' on':''}" onclick="upSetFilter('${key}','${v}')">${l}</span>`;
+  return `<div class="up-filter">
+    <div class="upf-row">
+      <input class="upf-search" placeholder="Search athlete or file…" value="${esc(fl.q)}" oninput="upSetFilter('q',this.value)">
+      <select class="upf-sel" onchange="upSetFilter('team',this.value)">
+        <option value="">All teams</option>
+        ${teams.map(t=>`<option value="${t.id}"${fl.team===t.id?' selected':''}>${esc(t.name)}</option>`).join('')}
+      </select>
+      ${upState.archiveOK?`<label class="upf-toggle"><input type="checkbox" ${fl.showArchived?'checked':''} onchange="upSetFilter('showArchived',this.checked)"> Show archived</label>`:''}
+    </div>
+    <div class="upf-chips">${typeChips.map(c=>chip(c[0],c[1],'type',fl.type)).join('')}</div>
+    <div class="upf-row">
+      <div class="upf-chips">${statChips.map(c=>chip(c[0],c[1],'status',fl.status)).join('')}</div>
+      <div class="upf-chips">${dayChips.map(c=>chip(c[0],c[1],'days',fl.days)).join('')}</div>
+    </div>
+  </div>`;
+}
+window.upSetFilter=(key,val)=>{
+  if(key==='showArchived'){ upState.filter.showArchived=val; paintUploads(); return; }   // needs a refetch
+  upState.filter[key]=val;
+  if(key!=='q'){ const w=document.getElementById('upFilterWrap'); if(w) w.innerHTML=upFilterBarHTML(); }   // reflect chip state (skip on search to keep focus)
+  upRenderList();
+};
+function upRowsHTML(files, ath){
+  return (files||[]).map(f=>{
+    const k=f.kind||uploadKind(f.file_name); const who = ath ? '' : (upState.nameById[f.athlete_id]||upState.nameById[f.uploader_id]||'Gym');
+    const tag = k==='ovr'?'<span class="up-tag ovr">OVR</span>':(k==='hawkin'?'<span class="up-tag hawkin">Hawkin</span>':'');
+    const proc = (k==='ovr'||k==='hawkin') ? (f.processed?'<span class="up-tag proc">✓ processed'+(f.matched_date?' → '+fmtDate(f.matched_date):'')+'</span>':'<span class="up-tag pend">awaiting processing</span>') : '';
+    const archTag = f.archived?'<span class="up-tag arch">archived</span>':'';
+    const mine = f.uploader_id===me_.id || f.athlete_id===me_.id;
+    const isCoach = upState.mode==='coach';   // coaches have full write on gym files (migrations 24 + 42)
+    const canDelete = mine || isCoach;
+    const canProcess = !f.processed && (k==='ovr'||k==='hawkin'||k==='sheet');
+    const canArchive = upState.archiveOK && (isCoach || mine);
+    const archBtn = !canArchive ? '' : (f.archived
+      ? `<span class="up-dl" onclick="uploadArchive('${f.id}',false)" title="Restore">↩ restore</span>`
+      : `<span class="up-del" onclick="uploadArchive('${f.id}',true)" title="Archive">🗄</span>`);
+    return `<div class="up-row${f.archived?' arch':''}">
+      <span class="up-ic">${uploadIcon(k)}</span>
+      <div class="up-meta"><div class="up-name">${esc(f.file_name)}${tag}${proc}${archTag}</div>
+        <div class="up-sub">${who?esc(who)+' · ':''}${fmtSize(f.size_bytes)} · ${relTime(f.created_at)}${f.note?' · '+esc(f.note):''}</div></div>
+      ${canProcess?`<span class="up-dl" style="color:var(--accent)" onclick="processUpload('${f.id}')">⚡ process</span>`:''}
+      <span class="up-dl" onclick="uploadDownload('${f.id}')">download</span>
+      ${archBtn}
+      ${canDelete?`<span class="up-del" onclick="uploadDelete('${f.id}')" title="Remove">✕</span>`:''}
+    </div>`;
+  }).join('');
+}
+function upRenderList(){
+  const listEl=document.getElementById('upList'); if(!listEl) return;
+  const ath=upState.mode==='athlete'; const fl=upState.filter;
+  let files=(upState.files||[]).slice();
+  if(!ath){
+    if(fl.q){ const s=fl.q.toLowerCase(); files=files.filter(f=>{ const nm=(upState.nameById[f.athlete_id]||upState.nameById[f.uploader_id]||''); return nm.toLowerCase().includes(s)||(f.file_name||'').toLowerCase().includes(s); }); }
+    if(fl.team){ const teamOf={}; (coachState.athletes||[]).forEach(a=>teamOf[a.id]=a.team_id||null); files=files.filter(f=>teamOf[f.athlete_id]===fl.team); }
+  }
+  if(fl.type!=='all') files=files.filter(f=>(f.kind||uploadKind(f.file_name))===fl.type);
+  if(fl.status!=='all') files=files.filter(f=>{ const k=f.kind||uploadKind(f.file_name); const parseable=(k==='ovr'||k==='hawkin'||k==='sheet'); return fl.status==='proc' ? !!f.processed : (parseable && !f.processed); });
+  if(fl.days!=='all'){ const cut=Date.now()-(+fl.days)*864e5; files=files.filter(f=>new Date(f.created_at).getTime()>=cut); }
+  const cEl=document.getElementById('upCount');
+  if(cEl){ const tot=(upState.files||[]).length; cEl.textContent = (files.length===tot ? `${tot} file${tot===1?'':'s'}` : `${files.length} of ${tot} file${tot===1?'':'s'}`) + (upState.archiveOK && !fl.showArchived ? ' · active' : ''); }
+  const anyFilter = fl.q||fl.team||fl.type!=='all'||fl.status!=='all'||fl.days!=='all';
+  listEl.innerHTML = upRowsHTML(files, ath) || `<div class="up-empty">${ath?'No files yet. Drop your first OVR or Hawkin export above.':(anyFilter?'No files match these filters.':'No files shared yet. Your athletes’ uploads will show up here.')}</div>`;
+}
+window.uploadArchive=async(id,on)=>{
+  const patch = on ? { archived:true, archived_at:new Date().toISOString() } : { archived:false, archived_at:null };
+  const res=await sb.from('uploads').update(patch).eq('id', id).select();
+  if(res.error){ toast('Couldn’t '+(on?'archive':'restore')+' — '+res.error.message, 'bad'); return; }
+  toast(on?'Archived.':'Restored.', 'good');
+  paintUploads();
+};
 function wireDropzone(){
   const dz=document.getElementById('dzone'), fi=document.getElementById('upFile'); if(!dz||!fi) return;
   fi.addEventListener('change', e=>{ if(e.target.files&&e.target.files.length) uploadFiles(e.target.files); });
