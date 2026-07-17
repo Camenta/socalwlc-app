@@ -945,6 +945,13 @@
   .cvp-delta.up{color:var(--good)} .cvp-delta.dn{color:var(--warn)}
   .cvp-est{color:var(--accent)}
   .cvp-sec{color:var(--muted)}
+  .cvp-tbl{width:100%;border-collapse:collapse;margin:6px 0 2px;font-size:12.5px}
+  .cvp-tbl th{text-align:left;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);padding:2px 10px 4px 0;border-bottom:1px solid var(--line)}
+  .cvp-tbl td{padding:4px 10px 4px 0;color:var(--muted);border-bottom:1px solid rgba(255,255,255,.04)}
+  .cvp-tbl tr:last-child td{border-bottom:0}
+  .cvp-tbl b{color:var(--text)}
+  .cvp-sn{color:var(--accent2);font-weight:800;width:34px}
+  .cvp-x{color:var(--muted)} .cvp-u{font-size:10px;color:var(--muted)}
   .cvp-more{margin-top:8px;color:var(--accent2);font-weight:700;font-size:12.5px;cursor:pointer}
   .cvp-date{font-size:13px;font-weight:800;color:var(--text);margin:0 0 4px}
   .cvp-unplanned{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--warn);background:rgba(232,177,60,.14);padding:2px 6px;border-radius:5px;margin-left:6px}
@@ -9780,7 +9787,24 @@ function cvCompileExercise(ex, reps){
   return { name:ex.name, scheme, targVel, topLoad:Math.round(topLoad),
     primV:Math.round(primV*100)/100, primLbl,
     secV:secV!=null?Math.round(secV*100)/100:null, secLbl,
-    delta, est, nReps:valid.length };
+    metric, delta, est, nReps:valid.length, sets:cvSetsFromReps(valid, metric) };
+}
+// per-set breakdown for a lift's reps: [{setNo, load, reps, speed, power}] in set order.
+// speed = the lift's metric (peak for Sn/CJ, avg for squats/pulls) averaged across the set's reps; power = avg (mean) power.
+function cvSetsFromReps(reps, metric){
+  const fld = metric==='peak'?'peak_vel':'mean_vel';
+  const bySet={};
+  (reps||[]).forEach(r=>{ const k = r.set_no!=null ? String(r.set_no) : ('L'+r.load_kg); (bySet[k]=bySet[k]||[]).push(r); });
+  const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
+  return Object.keys(bySet).sort((a,b)=>{ const na=parseFloat(a), nb=parseFloat(b);
+      return (!isNaN(na)&&!isNaN(nb)) ? na-nb : String(a).localeCompare(String(b)); })
+    .map(k=>{ const set=bySet[k];
+      const vv=set.map(r=>r[fld]).filter(v=>v!=null), pw=set.map(r=>r.mean_power).filter(v=>v!=null);
+      const speed=avg(vv); const power=avg(pw);
+      const setNo = isNaN(parseFloat(k)) ? null : parseFloat(k);
+      const loads=set.map(r=>r.load_kg).filter(v=>v!=null);
+      return { setNo, load: loads.length?Math.max(...loads):null, reps:set.length,
+        speed: speed!=null?Math.round(speed*100)/100:null, power: power!=null?Math.round(power):null }; });
 }
 // group a flat vbt_reps array by normalized exercise name
 // exercise name -> significant words (lowercased, punctuation stripped, noise words dropped)
@@ -9805,18 +9829,27 @@ function cvDayBlocks(plannedExs, byEx){
   blocks=Object.keys(byEx).map(k=>cvCompileExercise({ name:byEx[k][0].exercise, loadType:'', sets:[] }, byEx[k])).filter(Boolean);
   return { blocks, matched:false };
 }
-// render one compiled block
+// render one compiled block: header (planned + est + Δ) then a set-by-set table (speed + avg power)
 function cvExBlockHtml(b){
+  const isPeak = b.primLbl==='peak';
   const dl = b.delta==null ? '' :
     `<span class="cvp-delta ${b.delta>=0?'up':'dn'}">${b.delta>=0?'▲':'▼'} ${Math.abs(b.delta).toFixed(2)} vs ${b.targVel.toFixed(2)} target</span>`;
-  const sec = b.secV!=null ? ` <span class="cvp-sec">${b.secLbl} ${b.secV.toFixed(2)}</span>` : '';
-  const est = b.est ? ` · <span class="cvp-est">est 1RM ~${b.est}kg</span>` : '';
+  const est = b.est ? `<span class="cvp-est">est 1RM ~${b.est}kg</span>` : '';
+  const planned = (b.scheme && b.scheme!=='—')
+    ? `<span class="cvp-k">Planned</span>${esc(b.scheme)}` : `<span class="cvp-sec">no matched plan</span>`;
+  const rows = (b.sets||[]).map((s,i)=>`<tr>
+      <td class="cvp-sn">${s.setNo!=null?s.setNo:(i+1)}</td>
+      <td>${s.load!=null?Math.round(s.load)+'kg':'—'}${s.reps>1?' <span class="cvp-x">×'+s.reps+'</span>':''}</td>
+      <td>${s.speed!=null?'<b>'+s.speed.toFixed(2)+'</b> <span class="cvp-u">m/s</span>':'—'}</td>
+      <td>${s.power!=null?s.power+' <span class="cvp-u">W</span>':'—'}</td>
+    </tr>`).join('');
+  const table = rows ? `<table class="cvp-tbl">
+      <thead><tr><th>Set</th><th>Load</th><th>${isPeak?'Peak':'Avg'} speed</th><th>Avg power</th></tr></thead>
+      <tbody>${rows}</tbody></table>` : '';
   return `<div class="cvp-ex">
-    <div class="cvp-h"><b>${esc(b.name)}</b><span class="cvp-metric">${b.primLbl==='peak'?'peak velocity':'avg velocity'}</span></div>
-    <div class="cvp-cols">
-      <div class="cvp-plan"><span class="cvp-k">Planned</span>${esc(b.scheme)}</div>
-      <div class="cvp-act"><span class="cvp-k">Measured</span>top ${b.topLoad}kg · <b>${b.primV.toFixed(2)} m/s</b>${sec} ${dl}${est}</div>
-    </div></div>`;
+    <div class="cvp-h"><b>${esc(b.name)}</b><span class="cvp-metric">${isPeak?'peak velocity':'avg velocity'}</span></div>
+    <div class="cvp-cols">${planned} ${dl} ${est}</div>
+    ${table}</div>`;
 }
 // the inline "velocity vs plan" card for one day's exercises + that day's grouped reps
 function cvVelPlanCard(exercises, vbtByEx, athId){
@@ -9832,7 +9865,7 @@ function cvVelPlanCard(exercises, vbtByEx, athId){
 async function cvInjectVelPlan(full){
   if(!cw || !cw.selDate) return;
   const athId = (cw.ath && cw.ath.id) || coachState.selected; if(!athId) return;
-  const vr=await sb.from('vbt_reps').select('exercise,lift_date,load_kg,mean_vel,peak_vel')
+  const vr=await sb.from('vbt_reps').select('exercise,lift_date,set_no,rep_no,load_kg,mean_vel,peak_vel,mean_power')
     .eq('athlete_id', athId).eq('lift_date', cw.selDate);
   const existing=document.getElementById('cvVelPlan'); if(existing) existing.remove();
   if(vr.error || !vr.data || !vr.data.length) return;
@@ -9852,7 +9885,7 @@ window.cvOpenVelHistory=async(athId)=>{
   const m=ovModal('cvHistModal', `<div class="ov-hd"><h2 style="margin:0">⚡ Velocity vs plan · ${esc(name.split(' ')[0])}</h2><span class="vid-x" onclick="cvCloseHist()">✕</span></div><div id="cvHistBody"><div class="spin">Compiling…</div></div>`);
   const box=m.querySelector('.vid-box'); if(box) box.classList.add('cw-daymodal');
   const today=iso(new Date()), start=iso(new Date(Date.now()-120*864e5));
-  const vr=await sb.from('vbt_reps').select('exercise,lift_date,load_kg,mean_vel,peak_vel')
+  const vr=await sb.from('vbt_reps').select('exercise,lift_date,set_no,rep_no,load_kg,mean_vel,peak_vel,mean_power')
     .eq('athlete_id', athId).gte('lift_date', start).lte('lift_date', today).order('lift_date',{ascending:false}).limit(6000);
   const body=document.getElementById('cvHistBody'); if(!body) return;
   if(vr.error || !vr.data || !vr.data.length){ body.innerHTML=`<div class="card"><div class="empty">No velocity uploads in the last ~17 weeks for ${esc(name.split(' ')[0])}.</div></div>`; return; }
