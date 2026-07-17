@@ -9783,14 +9783,24 @@ function cvCompileExercise(ex, reps){
     delta, est, nReps:valid.length };
 }
 // group a flat vbt_reps array by normalized exercise name
-// canonical exercise key for matching VBT names to program names, order-insensitive:
-// "Squat (Back)" and "Back Squat" both -> "back squat"; "Snatch (Power)" and "Power Snatch" -> "power snatch".
-function cvExKey(name){ return (name||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').split(' ')
-  .filter(w=>w && !['and','the','a','of','with'].includes(w)).sort().join(' '); }
+// exercise name -> significant words (lowercased, punctuation stripped, noise words dropped)
+function cvWords(name){ return (name||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').split(' ')
+  .filter(w=>w && !['and','the','a','of','with'].includes(w)); }
+// canonical (order-insensitive) key: "Squat (Back)" and "Back Squat" both -> "back squat"
+function cvExKey(name){ return cvWords(name).slice().sort().join(' '); }
 function cvGroupReps(rows){ const byEx={}; (rows||[]).forEach(x=>{ const k=cvExKey(x.exercise); (byEx[k]=byEx[k]||[]).push(x); }); return byEx; }
+// find the VBT rep-group for a planned exercise: exact key first, else the most-specific VBT movement whose
+// words are all contained in the program name (VBT logs the base lift; the program adds "pause"/"tempo"/etc.).
+function cvFindReps(name, byEx){
+  const key=cvExKey(name); if(byEx[key]) return byEx[key];              // exact
+  const pw=new Set(cvWords(name)); let best=null, bestScore=-1;
+  Object.keys(byEx).forEach(k=>{ const vw=k.split(' ').filter(Boolean);
+    if(vw.length && vw.every(w=>pw.has(w)) && vw.length>bestScore){ bestScore=vw.length; best=byEx[k]; } });
+  return best;
+}
 // build the compiled blocks for one day: matched planned lifts, or (if none match) measured-only
 function cvDayBlocks(plannedExs, byEx){
-  let blocks=(plannedExs||[]).map(ex=>cvCompileExercise(ex, byEx[cvExKey(ex.name)])).filter(Boolean);
+  let blocks=(plannedExs||[]).map(ex=>cvCompileExercise(ex, cvFindReps(ex.name, byEx))).filter(Boolean);
   if(blocks.length) return { blocks, matched:true };
   blocks=Object.keys(byEx).map(k=>cvCompileExercise({ name:byEx[k][0].exercise, loadType:'', sets:[] }, byEx[k])).filter(Boolean);
   return { blocks, matched:false };
