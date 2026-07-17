@@ -933,6 +933,21 @@
   .upf-chip{background:var(--panel2);border:1px solid var(--line);color:var(--muted);padding:6px 12px;cursor:pointer;font-size:12px;font-weight:700;border-radius:7px;white-space:nowrap}
   .upf-chip.on{color:var(--text);border-color:var(--accent2);background:#101a26}
   .up-count{font-size:11px;color:var(--muted);margin:0 0 8px}
+  /* velocity vs plan (Phase B) */
+  .cvp-card .cvp-ex{border-top:1px solid var(--line);padding:8px 0}
+  .cvp-card .cvp-ex:first-of-type{border-top:0;padding-top:2px}
+  .cvp-h{display:flex;align-items:baseline;gap:8px}
+  .cvp-metric{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--accent2);background:rgba(60,158,232,.14);padding:2px 6px;border-radius:5px}
+  .cvp-cols{display:flex;gap:20px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-top:3px}
+  .cvp-k{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-right:6px}
+  .cvp-act b{color:var(--text)}
+  .cvp-delta{font-weight:700;margin-left:6px}
+  .cvp-delta.up{color:var(--good)} .cvp-delta.dn{color:var(--warn)}
+  .cvp-est{color:var(--accent)}
+  .cvp-sec{color:var(--muted)}
+  .cvp-more{margin-top:8px;color:var(--accent2);font-weight:700;font-size:12.5px;cursor:pointer}
+  .cvp-date{font-size:13px;font-weight:800;color:var(--text);margin:0 0 4px}
+  .cvp-unplanned{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--warn);background:rgba(232,177,60,.14);padding:2px 6px;border-radius:5px;margin-left:6px}
   /* coach-view per-exercise velocity summary */
   .cvx-vbt{font-size:12px;color:var(--muted);padding:6px 2px 2px;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
   .cvx-vbt .vk{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--accent2);background:rgba(60,158,232,.14);padding:2px 6px;border-radius:5px}
@@ -5795,7 +5810,7 @@ async function renderAthDash(){
     const profNote = isPeak ? 'Each dot is the fastest <b>peak</b> velocity hit at that load — speed off the floor / out of the bottom, not an est-1RM lift.' : 'Each dot is the fastest <b>average</b> velocity at that load; the dashed line extrapolates to the minimum-velocity threshold for an estimated 1RM.';
     const speedNote = isPeak ? 'Top <b>peak</b> velocity per session — track snap on the competition lifts.' : 'Top-set <b>average</b> velocity per session — when it dips at the same loads, that’s a fatigue / readiness signal.';
     vbtCard=`<div class="card">
-      <div style="display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px"><h2 style="margin:0">⚡ Velocity (VBT) — ${esc(dashState.vbtEx)}</h2>${sel}</div>
+      <div style="display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px"><h2 style="margin:0">⚡ Velocity (VBT) — ${esc(dashState.vbtEx)}</h2><span style="display:flex;gap:8px;align-items:center">${sel}<span class="cbtn alt" onclick="cvOpenVelHistory('${viewId}')">Velocity vs plan →</span></span></div>
       <div class="note" style="margin:2px 0 8px">${vreps.length} reps across ${exs.length} lift${exs.length>1?'s':''} from velocity uploads · tracking <b style="color:${isPeak?'#c08be8':'var(--accent2)'}">${mLbl}</b> for ${isPeak?'this lift':'squats &amp; pulls'}.</div>
       <div class="grid2">
         <div><div style="font-size:13px;font-weight:700;margin-bottom:4px">${profTitle}</div>${lv.svg}<div class="note">${profNote}</div></div>
@@ -9731,6 +9746,117 @@ async function loadCoachVbt(athId){
   Object.keys(byEx).forEach(k=>{ const sm=coachVbtSummary(byEx[k], byEx[k][0].exercise); if(sm) out[k]=sm; });
   return out;
 }
+/* ---------------- Phase B: velocity vs plan (compile planned sets ↔ measured bar speed by date) ---------------- */
+// one planned exercise ↔ the day's measured VBT reps -> a compiled block ({}) or null if no velocity match
+// Velocity targets are prescribed per-lift: MEAN (MPV) for squats/pulls, PEAK for the competition lifts
+// (Chris's convention). So compare the target against the lift's own metric (vbtMetricFor); show the
+// other metric as a secondary readout. Falls back to whichever metric the export actually carries.
+function cvCompileExercise(ex, reps){
+  const valid=(reps||[]).filter(r=>r.load_kg!=null && (r.mean_vel!=null||r.peak_vel!=null));
+  if(!valid.length) return null;
+  const metric=vbtMetricFor(ex.name);                        // 'peak' for Sn/CJ, 'mean' for squats/pulls
+  const primFld=metric==='peak'?'peak_vel':'mean_vel', otherFld=metric==='peak'?'mean_vel':'peak_vel';
+  const topLoad=Math.max(...valid.map(r=>r.load_kg));
+  const atTop=valid.filter(r=>r.load_kg===topLoad);
+  const primVals=atTop.map(r=>r[primFld]).filter(v=>v!=null);
+  const otherVals=atTop.map(r=>r[otherFld]).filter(v=>v!=null);
+  // primary = the lift's own metric; if the export lacks it, fall back to the other one
+  const usePrim=primVals.length>0;
+  const primV = usePrim?Math.max(...primVals):(otherVals.length?Math.max(...otherVals):null);
+  if(primV==null) return null;
+  const primLbl = (usePrim?metric:(metric==='peak'?'mean':'peak'))==='peak'?'peak':'avg';
+  const secV = (usePrim && otherVals.length)?Math.max(...otherVals):null;
+  const secLbl = metric==='peak'?'avg':'peak';
+  const sets=(ex.sets||[]);
+  const firstReps=sets.length?(sets[0].reps!=null?sets[0].reps:null):null;
+  const tvel=sets.map(s=>s.vel).find(v=>v!=null);
+  const targVel = tvel!=null ? parseFloat(tvel) : null;
+  const firstPct=sets.find(s=>s.pct!=null), firstKg=sets.find(s=>s.kg!=null);
+  const plannedLoad = (ex.loadType==='velocity' && targVel!=null) ? (targVel.toFixed(2)+' m/s')
+    : (firstPct? (parseFloat(firstPct.pct)+'%') : (firstKg? (parseFloat(firstKg.kg)+'kg') : ''));
+  const scheme = sets.length ? (sets.length+'×'+(firstReps!=null?firstReps:'?')+(plannedLoad?' @ '+plannedLoad:'')) : '—';
+  let est=null; const sm=coachVbtSummary(reps, ex.name); if(sm&&sm.est) est=sm.est;   // est-1RM (mean-based; null for comp lifts)
+  const delta = targVel!=null ? Math.round((primV-targVel)*100)/100 : null;
+  return { name:ex.name, scheme, targVel, topLoad:Math.round(topLoad),
+    primV:Math.round(primV*100)/100, primLbl,
+    secV:secV!=null?Math.round(secV*100)/100:null, secLbl,
+    delta, est, nReps:valid.length };
+}
+// group a flat vbt_reps array by normalized exercise name
+function cvGroupReps(rows){ const byEx={}; (rows||[]).forEach(x=>{ const k=normEx(x.exercise); (byEx[k]=byEx[k]||[]).push(x); }); return byEx; }
+// render one compiled block
+function cvExBlockHtml(b){
+  const dl = b.delta==null ? '' :
+    `<span class="cvp-delta ${b.delta>=0?'up':'dn'}">${b.delta>=0?'▲':'▼'} ${Math.abs(b.delta).toFixed(2)} vs ${b.targVel.toFixed(2)} target</span>`;
+  const sec = b.secV!=null ? ` <span class="cvp-sec">${b.secLbl} ${b.secV.toFixed(2)}</span>` : '';
+  const est = b.est ? ` · <span class="cvp-est">est 1RM ~${b.est}kg</span>` : '';
+  return `<div class="cvp-ex">
+    <div class="cvp-h"><b>${esc(b.name)}</b><span class="cvp-metric">${b.primLbl==='peak'?'peak velocity':'avg velocity'}</span></div>
+    <div class="cvp-cols">
+      <div class="cvp-plan"><span class="cvp-k">Planned</span>${esc(b.scheme)}</div>
+      <div class="cvp-act"><span class="cvp-k">Measured</span>top ${b.topLoad}kg · <b>${b.primV.toFixed(2)} m/s</b>${sec} ${dl}${est}</div>
+    </div></div>`;
+}
+// the inline "velocity vs plan" card for one day's exercises + that day's grouped reps
+function cvVelPlanCard(exercises, vbtByEx, athId){
+  const blocks=(exercises||[]).map(ex=>cvCompileExercise(ex, vbtByEx[normEx(ex.name)])).filter(Boolean);
+  if(!blocks.length) return '';
+  const more = athId ? `<div class="cvp-more" onclick="cvOpenVelHistory('${athId}')">📈 Full velocity history →</div>` : '';
+  return `<div class="card cvp-card"><h2 style="margin:0 0 3px">⚡ Velocity vs. plan</h2>
+    <div class="note" style="margin:0 0 6px">Measured bar speed from this day's velocity upload, matched to the planned lifts.</div>
+    ${blocks.map(cvExBlockHtml).join('')}${more}</div>`;
+}
+// fetch this day's VBT reps and inject the compiled card below the session editor
+async function cvInjectVelPlan(full){
+  if(!cw || !cw.selDate) return;
+  const athId = (cw.ath && cw.ath.id) || coachState.selected; if(!athId) return;
+  const vr=await sb.from('vbt_reps').select('exercise,lift_date,load_kg,mean_vel,peak_vel')
+    .eq('athlete_id', athId).eq('lift_date', cw.selDate);
+  const existing=document.getElementById('cvVelPlan'); if(existing) existing.remove();
+  if(vr.error || !vr.data || !vr.data.length) return;
+  const exs=(full.prescribed_exercises||[]).map(ex=>({ name:ex.name, loadType:ex.load_type||'percentage',
+    sets:(ex.prescribed_sets||[]).map(ps=>({ reps:ps.target_reps, pct:ps.target_pct, kg:ps.target_kg, vel:ps.target_vel })) }));
+  const html=cvVelPlanCard(exs, cvGroupReps(vr.data), athId); if(!html) return;
+  const edBox=document.getElementById('cvEd'); if(!edBox||!edBox.parentNode) return;
+  const box=document.createElement('div'); box.id='cvVelPlan'; box.innerHTML=html;
+  edBox.parentNode.insertBefore(box, edBox.nextSibling);
+}
+/* ----- dedicated per-athlete "Velocity vs Plan" history screen (reached from the day-modal card + dashboard) ----- */
+window.cvCloseHist=()=>{ const m=document.getElementById('cvHistModal'); if(m) m.style.display='none'; };
+window.cvOpenVelHistory=async(athId)=>{
+  athId = athId || (cw&&cw.ath&&cw.ath.id) || coachState.selected || (me_&&me_.id); if(!athId) return;
+  const a=(coachState.athletes||[]).find(x=>x.id===athId);
+  const name = (cw&&cw.ath&&cw.ath.id===athId&&cw.ath.full_name) || (a&&a.full_name) || (me_&&me_.id===athId&&me_.full_name) || 'Athlete';
+  const m=ovModal('cvHistModal', `<div class="ov-hd"><h2 style="margin:0">⚡ Velocity vs plan · ${esc(name.split(' ')[0])}</h2><span class="vid-x" onclick="cvCloseHist()">✕</span></div><div id="cvHistBody"><div class="spin">Compiling…</div></div>`);
+  const box=m.querySelector('.vid-box'); if(box) box.classList.add('cw-daymodal');
+  const today=iso(new Date()), start=iso(new Date(Date.now()-120*864e5));
+  const vr=await sb.from('vbt_reps').select('exercise,lift_date,load_kg,mean_vel,peak_vel')
+    .eq('athlete_id', athId).gte('lift_date', start).lte('lift_date', today).order('lift_date',{ascending:false}).limit(6000);
+  const body=document.getElementById('cvHistBody'); if(!body) return;
+  if(vr.error || !vr.data || !vr.data.length){ body.innerHTML=`<div class="card"><div class="empty">No velocity uploads in the last ~17 weeks for ${esc(name.split(' ')[0])}.</div></div>`; return; }
+  const byDate={}; vr.data.forEach(r=>{ (byDate[r.lift_date]=byDate[r.lift_date]||[]).push(r); });
+  const dates=Object.keys(byDate).sort().reverse();
+  const sess=await sb.from('sessions').select('session_date,prescribed_exercises(name,load_type,prescribed_sets(target_reps,target_pct,target_kg,target_vel))')
+    .eq('athlete_id', athId).in('session_date', dates);
+  const plannedByDate={}; (sess.data||[]).forEach(s=>{ (s.prescribed_exercises||[]).forEach(ex=>{
+    (plannedByDate[s.session_date]=plannedByDate[s.session_date]||[]).push({ name:ex.name, loadType:ex.load_type||'percentage',
+      sets:(ex.prescribed_sets||[]).map(ps=>({ reps:ps.target_reps, pct:ps.target_pct, kg:ps.target_kg, vel:ps.target_vel })) });
+  }); });
+  const cards=dates.map(d=>{
+    const byEx=cvGroupReps(byDate[d]);
+    const exs=plannedByDate[d]||[];
+    let blocks=exs.map(ex=>cvCompileExercise(ex, byEx[normEx(ex.name)])).filter(Boolean);
+    let tag='';
+    if(!blocks.length){   // measured but no matched plan that day — still show the speeds
+      blocks=Object.keys(byEx).map(k=>cvCompileExercise({name:byEx[k][0].exercise, loadType:'', sets:[]}, byEx[k])).filter(Boolean);
+      if(!blocks.length) return '';
+      tag=' <span class="cvp-unplanned">measured · no matched plan</span>';
+    }
+    return `<div class="card cvp-card"><div class="cvp-date">${esc(fmtDate(d))}${tag}</div>${blocks.map(cvExBlockHtml).join('')}</div>`;
+  }).filter(Boolean).join('');
+  body.innerHTML = `<div class="note" style="margin:0 0 8px">Every training day with a velocity upload in the last ~17 weeks — planned lifts matched to measured bar speed.</div>` +
+    (cards || `<div class="card"><div class="empty">No compiled velocity days.</div></div>`);
+};
 async function renderCoachPanel(){
   const panel = document.getElementById('coachPanel'); if(!panel) return;
   { const _b=document.getElementById('cwDelBar'); if(_b) _b.remove(); }   // clear any stale bulk-delete bar
@@ -10539,6 +10665,7 @@ async function renderCoachDay(){
     })), delExs:[] };
   if(cw && cw._teamEditCtx && cw._teamEditCtx.repSessId===ed.session.id) ed._teamEdit=cw._teamEditCtx;
   paintEditor();
+  cvInjectVelPlan(full);   // Phase B: compile this day's measured velocity against the plan (no-op if no VBT that day)
 }
 window.cwSelectSess = (id)=>{ ed=null; cw.selSess=id; renderCoachDay(); };
 window.cvCreateSession = async ()=>{
