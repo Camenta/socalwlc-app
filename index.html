@@ -9783,7 +9783,18 @@ function cvCompileExercise(ex, reps){
     delta, est, nReps:valid.length };
 }
 // group a flat vbt_reps array by normalized exercise name
-function cvGroupReps(rows){ const byEx={}; (rows||[]).forEach(x=>{ const k=normEx(x.exercise); (byEx[k]=byEx[k]||[]).push(x); }); return byEx; }
+// canonical exercise key for matching VBT names to program names, order-insensitive:
+// "Squat (Back)" and "Back Squat" both -> "back squat"; "Snatch (Power)" and "Power Snatch" -> "power snatch".
+function cvExKey(name){ return (name||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').split(' ')
+  .filter(w=>w && !['and','the','a','of','with'].includes(w)).sort().join(' '); }
+function cvGroupReps(rows){ const byEx={}; (rows||[]).forEach(x=>{ const k=cvExKey(x.exercise); (byEx[k]=byEx[k]||[]).push(x); }); return byEx; }
+// build the compiled blocks for one day: matched planned lifts, or (if none match) measured-only
+function cvDayBlocks(plannedExs, byEx){
+  let blocks=(plannedExs||[]).map(ex=>cvCompileExercise(ex, byEx[cvExKey(ex.name)])).filter(Boolean);
+  if(blocks.length) return { blocks, matched:true };
+  blocks=Object.keys(byEx).map(k=>cvCompileExercise({ name:byEx[k][0].exercise, loadType:'', sets:[] }, byEx[k])).filter(Boolean);
+  return { blocks, matched:false };
+}
 // render one compiled block
 function cvExBlockHtml(b){
   const dl = b.delta==null ? '' :
@@ -9799,10 +9810,11 @@ function cvExBlockHtml(b){
 }
 // the inline "velocity vs plan" card for one day's exercises + that day's grouped reps
 function cvVelPlanCard(exercises, vbtByEx, athId){
-  const blocks=(exercises||[]).map(ex=>cvCompileExercise(ex, vbtByEx[normEx(ex.name)])).filter(Boolean);
+  const { blocks, matched }=cvDayBlocks(exercises, vbtByEx);
   if(!blocks.length) return '';
   const more = athId ? `<div class="cvp-more" onclick="cvOpenVelHistory('${athId}')">📈 Full velocity history →</div>` : '';
-  return `<div class="card cvp-card"><h2 style="margin:0 0 3px">⚡ Velocity vs. plan</h2>
+  const tag = matched ? '' : ' <span class="cvp-unplanned">measured · no matched plan</span>';
+  return `<div class="card cvp-card"><h2 style="margin:0 0 3px">⚡ Velocity vs. plan${tag}</h2>
     <div class="note" style="margin:0 0 6px">Measured bar speed from this day's velocity upload, matched to the planned lifts.</div>
     ${blocks.map(cvExBlockHtml).join('')}${more}</div>`;
 }
@@ -9843,15 +9855,9 @@ window.cvOpenVelHistory=async(athId)=>{
       sets:(ex.prescribed_sets||[]).map(ps=>({ reps:ps.target_reps, pct:ps.target_pct, kg:ps.target_kg, vel:ps.target_vel })) });
   }); });
   const cards=dates.map(d=>{
-    const byEx=cvGroupReps(byDate[d]);
-    const exs=plannedByDate[d]||[];
-    let blocks=exs.map(ex=>cvCompileExercise(ex, byEx[normEx(ex.name)])).filter(Boolean);
-    let tag='';
-    if(!blocks.length){   // measured but no matched plan that day — still show the speeds
-      blocks=Object.keys(byEx).map(k=>cvCompileExercise({name:byEx[k][0].exercise, loadType:'', sets:[]}, byEx[k])).filter(Boolean);
-      if(!blocks.length) return '';
-      tag=' <span class="cvp-unplanned">measured · no matched plan</span>';
-    }
+    const { blocks, matched }=cvDayBlocks(plannedByDate[d]||[], cvGroupReps(byDate[d]));
+    if(!blocks.length) return '';
+    const tag = matched ? '' : ' <span class="cvp-unplanned">measured · no matched plan</span>';
     return `<div class="card cvp-card"><div class="cvp-date">${esc(fmtDate(d))}${tag}</div>${blocks.map(cvExBlockHtml).join('')}</div>`;
   }).filter(Boolean).join('');
   body.innerHTML = `<div class="note" style="margin:0 0 8px">Every training day with a velocity upload in the last ~17 weeks — planned lifts matched to measured bar speed.</div>` +
