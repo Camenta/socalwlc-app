@@ -49,6 +49,11 @@
   .savebar{position:sticky;bottom:0;background:linear-gradient(180deg,rgba(12,17,22,0),var(--bg) 36%);padding:14px 0 4px;margin-top:8px;display:flex;gap:10px;align-items:center}
   .saved{color:var(--good);font-size:13px;font-weight:700}
   /* coach */
+  .hr-path{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;border-radius:6px;padding:2px 6px;margin-right:6px;white-space:nowrap}
+  .hr-path.ok{color:var(--good);border:1px solid rgba(62,201,122,.4)}
+  .hr-path.eye{color:var(--warn);border:1px solid rgba(232,177,60,.45)}
+  .bppre{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted);margin-bottom:6px}
+  .bppre button{background:transparent;border:1px solid var(--line);color:var(--muted);font-size:10.5px;font-weight:700;border-radius:6px;padding:2px 7px;cursor:pointer}
   .cvbr{background:#0e151c;border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-bottom:12px}
   .cvbr-hd{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
   .cvbr-hd>span:first-child{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)}
@@ -3510,6 +3515,131 @@ async function bpPersistTrack(){
   else res=await sb.from('video_tracks').insert(row).select();
   if(res&&res.data&&res.data[0]) annS.trackId=res.data[0].id;
   return res;
+}
+/* ============ AUTO BAR-PATH PRE-COMPUTE (background, coach's browser) ============
+   Runs the same detect+track the studio runs, but headless, so a clip already has
+   its bar path + metrics by the time the coach opens it. Reuses bpAutoDetect /
+   bpRefineCircle / bpSmoothPath (all pure — they take a frame, not the studio) and
+   borrows the global annS ONLY to run bpComputeMetrics, which reads annS but never
+   touches the DOM. Never runs while the studio is open.
+   Quality is judged by LOCK RATE — the share of frames where a circle was actually
+   found vs coasted on motion — not the first frame's detection score. Low lock rate
+   still saves, flagged `_needsEye`, so the coach is never silently handed a bad path. */
+// ~15-20s of work per clip, so cap the batch: the rest get picked up next time Home
+// loads rather than grinding for minutes. Never silently truncate — say what's left.
+const PRE_MAXW=480, PRE_STEP=2, PRE_MIN_LOCK=0.75, PRE_MAX_FRAMES=200, PRE_BATCH=6;
+let bpPreState={ running:false, cancel:false, done:0, flagged:0, total:0 };
+function bpPreGrab(v,cv,cx,w,h){
+  cx.drawImage(v,0,0,w,h);
+  let d; try{ d=cx.getImageData(0,0,w,h).data; }catch(e){ return {error:'cors'}; }
+  const g=new Float32Array(w*h);
+  for(let i=0,p=0;i<d.length;i+=4,p++) g[p]=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+  return { gray:g, w, h };
+}
+function bpPreSeek(v,t){ return new Promise(res=>{ let done=false;
+  const h=()=>{ if(done) return; done=true; v.removeEventListener('seeked',h); res(); };
+  v.addEventListener('seeked',h); v.currentTime=t; setTimeout(h,1200); }); }
+// track a clip end-to-end from a URL; resolves {points,scale,lockRate,w,h,seedR} or {error}
+async function bpPreTrack(url){
+  const v=document.createElement('video');
+  v.crossOrigin='anonymous'; v.playsInline=true; v.muted=true; v.preload='auto'; v.src=url;
+  const ready=await new Promise(res=>{ let d=false;
+    const ok=()=>{ if(!d){ d=true; res('ok'); } }, bad=()=>{ if(!d){ d=true; res('load'); } };
+    v.addEventListener('loadeddata',ok); v.addEventListener('error',bad); setTimeout(bad,20000); });
+  if(ready!=='ok' || !v.videoWidth) return {error:'load'};
+  const sc=Math.min(1,PRE_MAXW/v.videoWidth), w=Math.round(v.videoWidth*sc), h=Math.round(v.videoHeight*sc);
+  const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+  const cx=cv.getContext('2d',{willReadFrequently:true});
+  const dur=v.duration||0; if(!dur||!isFinite(dur)) return {error:'duration'};
+  const start=Math.min(0.2, dur/10);
+  await bpPreSeek(v,start);
+  let fr=bpPreGrab(v,cv,cx,w,h);
+  if(fr.error) return {error:fr.error};
+  const seed=bpAutoDetect(fr);
+  if(!seed) return {error:'no-plate'};
+  let px=seed.x, py=seed.y, r=seed.r, vx=0, vy=0, locked=0, coasted=0, lostStreak=0;
+  const seedR=r/w;
+  const dt=PRE_STEP/30;
+  const pts=[{t:start,x:px/w,y:py/h}];
+  const steps=Math.min(PRE_MAX_FRAMES, Math.max(1, Math.round((dur-start)/dt)));
+  for(let i=1;i<=steps;i++){
+    if(bpPreState.cancel) return {error:'cancelled'};
+    const t=start+i*dt; if(t>dur-0.02) break;
+    await bpPreSeek(v,t);
+    fr=bpPreGrab(v,cv,cx,w,h); if(fr.error) break;
+    const predX=Math.max(2,Math.min(w-3,px+vx)), predY=Math.max(2,Math.min(h-3,py+vy));
+    const det=bpRefineCircle(fr,predX,predY,r,Math.round(r*0.5)+8);
+    let nx,ny;
+    if(!det || det.score<BP_CIRC_MIN){ nx=predX; ny=predY; coasted++; lostStreak++; }
+    else { nx=det.x; ny=det.y; r=r*0.8+det.r*0.2; locked++; lostStreak=0; }
+    const vmax=Math.max(20,r*0.9); vx=nx-px; vy=ny-py; const sp=Math.hypot(vx,vy);
+    if(sp>vmax){ vx*=vmax/sp; vy*=vmax/sp; nx=px+vx; ny=py+vy; }
+    px=nx; py=ny; pts.push({t,x:px/w,y:py/h});
+    if(lostStreak>=12){ pts.splice(pts.length-lostStreak); break; }   // plate gone — drop the coasted tail
+    if(i%4===0) await new Promise(res=>setTimeout(res,0));            // yield so the UI stays responsive
+  }
+  try{ v.src=''; v.load(); }catch(e){}
+  if(pts.length<6) return {error:'too-short'};
+  const lockRate=(locked+coasted)?locked/(locked+coasted):0;
+  return { points:bpSmoothPath(pts), lockRate, w, h, seedR, fps:30/PRE_STEP };
+}
+// borrow annS to run the (DOM-free) metrics engine on a headless track, then restore it
+function bpPreMetrics(res){
+  const saved=annS;
+  try{
+    annS={ track:res.points, win:null, _trackW:res.w, _trackH:res.h, seedR:res.seedR, calib:null,
+           facing:'left', pinPeakT:null, pinCatchT:null, _load:null, kf:null, metrics:null, scale:null };
+    bpComputeMetrics();
+    const m=annS.metrics||{};
+    m._trackW=res.w; m._trackH=res.h; m._src='auto-pre'; m.facing='left';
+    m._lockRate=+res.lockRate.toFixed(2);
+    m._needsEye=res.lockRate<PRE_MIN_LOCK;
+    return { metrics:m, scale:annS.scale||null };
+  } finally { annS=saved; }
+}
+async function bpPrecomputeClip(path, athleteId){
+  if(annS) return {skipped:'studio-open'};
+  if(!VTRACKS_READY) return {skipped:'no-tracks-table'};
+  const ex=await sb.from('video_tracks').select('id').eq('video_path',path).limit(1);
+  if(ex.data && ex.data[0]) return {skipped:'already-tracked'};
+  const s=await sb.storage.from('lift-videos').createSignedUrl(path,900);
+  if(s.error) return {error:'sign'};
+  const res=await bpPreTrack(s.data.signedUrl);
+  if(res.error) return {error:res.error};
+  if(annS) return {skipped:'studio-opened-mid-run'};   // don't clobber a studio the coach just opened
+  const mm=bpPreMetrics(res);
+  const row={ gym_id:me_.gym_id, video_path:path, athlete_id:athleteId||null,
+    points:res.points, fps:res.fps, scale_m_per_px:mm.scale, metrics:mm.metrics };
+  const ins=await sb.from('video_tracks').insert(row).select('id');
+  if(ins.error) return {error:'save:'+ins.error.message};
+  return { ok:true, lockRate:res.lockRate, needsEye:mm.metrics._needsEye, frames:res.points.length };
+}
+// background pass over the coach's unreviewed clips — one at a time, cancellable
+async function bpPrecomputeQueue(all){
+  if(bpPreState.running || !VTRACKS_READY || !all || !all.length) return;
+  const clips=all.slice(0,PRE_BATCH), left=all.length-clips.length;
+  bpPreState={ running:true, cancel:false, done:0, flagged:0, total:clips.length, left };
+  try{
+    for(const c of clips){
+      if(bpPreState.cancel || annS) break;
+      const r=await bpPrecomputeClip(c.video_path, c.athlete_id);
+      if(r && r.ok){ bpPreState.done++; if(r.needsEye) bpPreState.flagged++; }
+      bpPreRenderStatus();
+      await new Promise(res=>setTimeout(res,250));
+    }
+  } finally {
+    bpPreState.running=false;
+    bpPreRenderStatus();
+    if(bpPreState.done) toast(`Bar path ready on ${bpPreState.done} clip${bpPreState.done===1?'':'s'}`
+      +(bpPreState.flagged?` · ${bpPreState.flagged} need your eye`:'')
+      +(bpPreState.left?` · ${bpPreState.left} more next time you open Home`:''));
+  }
+}
+window.bpPrecomputeCancel=()=>{ bpPreState.cancel=true; bpPreRenderStatus(); };
+function bpPreRenderStatus(){
+  const el=document.getElementById('bpPreStatus'); if(!el) return;
+  if(!bpPreState.running){ el.innerHTML=''; return; }
+  el.innerHTML=`<span class="bppre">⏳ analysing bar paths… ${bpPreState.done}/${bpPreState.total} <button onclick="bpPrecomputeCancel()">stop</button></span>`;
 }
 async function bpSaveTrack(){
   if(!annS||annS.readOnly) return;
@@ -7529,13 +7659,25 @@ async function renderHomeBand(){
   clips.forEach(c=>{ const s=c.session_id||('solo_'+c.video_path); if(!_bySess[s]){ _bySess[s]=[]; _order.push(s); } _bySess[s].push(c); });
   annQueue=[]; _order.forEach(s=>_bySess[s].forEach((c,i)=>annQueue.push({ video_path:c.video_path, athlete_id:c.athlete_id, session_id:c.session_id, logged_at:c.logged_at, reviewed:reviewed.has(c.video_path), sessPos:i+1, sessN:_bySess[s].length, sessTitle:sessTitle[c.session_id]||'clip', athName:nameById[c.athlete_id]||'Athlete' })));
   const waiting=annQueue.filter(c=>!c.reviewed).length;
-  const vRows=annQueue.slice(0,6).map((c,idx)=>{ const nw=!c.reviewed;
+  // which clips already have a bar path, and which came out shaky enough to want a look
+  const trk={};
+  if(VTRACKS_READY && annQueue.length){
+    try{ const tr=await sb.from('video_tracks').select('video_path,metrics').in('video_path', annQueue.map(c=>c.video_path));
+      (tr.data||[]).forEach(r=>{ trk[r.video_path]={ needsEye:!!(r.metrics&&r.metrics._needsEye), auto:!!(r.metrics&&r.metrics._src==='auto-pre') }; }); }catch(e){}
+  }
+  const vRows=annQueue.slice(0,6).map((c,idx)=>{ const nw=!c.reviewed; const tk=trk[c.video_path];
+    const pathTag = tk ? (tk.needsEye?'<span class="hr-path eye" title="Auto-tracking wasn\'t confident — check the path before you review">⚠ check path</span>'
+                                     :'<span class="hr-path ok" title="Bar path already analysed">✓ path</span>') : '';
     return `<div class="home-row" onclick="openAnnStudio('${esc(c.video_path)}',{athleteId:'${c.athlete_id}',queueIdx:${idx}})">
       <span class="home-dot ${nw?'bad':'good'}"></span>
       <span class="hr-main"><b>${esc(fn(c.athName))}</b> <span class="hr-sub">· ${esc(shortTitle(c.sessTitle))}${c.sessN>1?' ('+c.sessPos+'/'+c.sessN+')':''}</span></span>
-      ${nw?'<span class="home-new">NEW</span>':''}<span class="hr-when">${homeAgo(c.logged_at)}</span></div>`; }).join('');
+      ${pathTag}${nw?'<span class="home-new">NEW</span>':''}<span class="hr-when">${homeAgo(c.logged_at)}</span></div>`; }).join('');
   const card1=`<div class="home-card"><h3>📹 Video inbox <span class="hc-count ${waiting?'alert':''}">${waiting?waiting+' to review':(annQueue.length?'all reviewed':'0')}</span></h3>
+    <div id="bpPreStatus"></div>
     ${vRows||'<div class="home-empty">No lift videos submitted yet.</div>'}${annQueue.length>6?'<div class="home-more" onclick="coachGo(\'uploads\')">All clips →</div>':''}</div>`;
+  // kick off background pre-computation for unreviewed clips that have no path yet
+  const toPre=annQueue.filter(c=>!c.reviewed && !trk[c.video_path]);
+  if(toPre.length) setTimeout(()=>bpPrecomputeQueue(toPre), 1200);
 
   // ---- Card 2: Training status by team ----
   const tRows=teams.map(t=>{ const mem=aths.filter(a=>a.team_id===t.id); if(!mem.length) return '';
