@@ -49,6 +49,26 @@
   .savebar{position:sticky;bottom:0;background:linear-gradient(180deg,rgba(12,17,22,0),var(--bg) 36%);padding:14px 0 4px;margin-top:8px;display:flex;gap:10px;align-items:center}
   .saved{color:var(--good);font-size:13px;font-weight:700}
   /* coach */
+  .cvbr{background:#0e151c;border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-bottom:12px}
+  .cvbr-hd{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+  .cvbr-hd>span:first-child{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)}
+  .cvbr-segs{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
+  .cvbr-seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .cvbr-seg button{background:transparent;border:none;color:var(--muted);font-weight:700;font-size:11px;padding:5px 10px;cursor:pointer}
+  .cvbr-seg button.on{background:#13202c;color:var(--text)}
+  .cvbr-seg button:disabled{opacity:.4;cursor:default}
+  .cvbr-ta{width:100%;min-height:64px;resize:vertical;background:var(--panel2);border:1px solid var(--line);border-radius:9px;color:var(--text);font:inherit;font-size:13px;padding:9px 11px}
+  .cvbr-foot{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px}
+  .cvbr-hint{font-size:11.5px;color:var(--muted)}
+  .cvbr-save{padding:7px 14px;font-size:12.5px;margin-left:auto}
+  .cvbr-del{padding:7px 12px;font-size:12px}
+  .cvbr-warn{color:var(--warn);font-size:12px}
+  .athbr{background:#13202c;border:1px solid #27425c;border-radius:10px;padding:10px 12px;margin-top:10px}
+  .athbr-hd{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--accent2);margin-bottom:5px}
+  .athbr-item{margin-top:6px}
+  .athbr-item:first-of-type{margin-top:0}
+  .athbr-tag{display:inline-block;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:1px 6px;margin-bottom:3px}
+  .athbr-body{font-size:14px;line-height:1.45}
   .cvlw{background:#0e151c;border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-bottom:12px;font-size:12px}
   .cvlw.quiet{color:var(--muted);font-style:italic}
   .cvlw-hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:7px}
@@ -1946,6 +1966,7 @@ async function boot(){
   await probeLoadNorms();
   await probePainResolve();
   await probeChatSocial();
+  await probeBriefs();
   if(profile.role === 'coach') renderCoach(); else athGo(athState.screen||'athlete');
 }
 async function renderJoin(token){
@@ -3765,6 +3786,8 @@ async function probeLoadNorms(){
 async function probeTickets(){ const { error } = await sb.from('tickets').select('id').limit(1); TICKETS_READY = !error; }
 async function probeFederation(){ const { error } = await sb.from('profiles').select('federation').limit(1); FED_READY = !error; }
 async function probeANotes(){ const { error } = await sb.from('sessions').select('athlete_notes').limit(1); ANOTES_READY = !error; if(ANOTES_READY && SESSION_SELECT.indexOf('athlete_notes')<0) SESSION_SELECT += ',athlete_notes'; }
+let BRIEFS_READY=false;   // coach_briefs table (migration 51) → coach note at the top of the athlete's day
+async function probeBriefs(){ const { error } = await sb.from('coach_briefs').select('id').limit(1); BRIEFS_READY = !error; }
 let CHAT_MEDIA_READY=false, CHAT_REACT_READY=false;   // migration 44 — chat media attachments + emoji reactions
 async function probeChatSocial(){
   const m=await sb.from('messages').select('media_path').limit(1); CHAT_MEDIA_READY=!m.error;
@@ -7101,6 +7124,7 @@ async function renderAthlete(selDate){
         <button class="av-arrow" style="margin-left:auto" ${nextDate?`onclick="renderAthlete('${nextDate}')"`:'disabled'} title="${nextDate?'Next training day — '+esc(fmtDate(nextDate)):'No later training day'}" aria-label="Next training day">›</button>
         <span class="pill">${dayPill}</span>
       </div>
+      <div id="athBrief"></div>
       <div class="sub" style="margin-top:6px">Log what you did · tap the lights (white = good lift, red = miss) · rate effort E/M/H/X · tick each set off. <b>Everything saves automatically as you go</b> — you won't lose it.</div>
       <div style="margin-top:9px"><span class="lg-add lg-tickall" onclick="athMarkAllDone()" title="Tick every set in this session done — tap again to clear">✓ Tick all sets done</span></div>
     </div>
@@ -7128,7 +7152,44 @@ async function renderAthlete(selDate){
   recompute();
   if(_alogRestored){ alogSetStatus('offline'); toast('Restored the entries you’d typed — nothing was lost.'); _alogRestored=false; }
   markAthReviews();
+  athLoadBrief(session.session_date);
   loadPainToday().then(repaintPain);
+}
+// Which briefs belong to THIS athlete on THIS day. Team briefs are readable
+// gym-wide (see migration 51) so the team filter has to happen here; a personal
+// brief addressed to someone else must never render.
+function athBriefPick(rows, dateStr, monday, myId, myTeam){
+  const keep=(rows||[]).filter(b=>{
+    if(!(b.body||'').trim()) return false;
+    if(b.scope==='day'  && b.target_date!==dateStr) return false;
+    if(b.scope==='week' && b.target_date!==monday)  return false;
+    if(b.athlete_id) return b.athlete_id===myId;
+    if(b.team_id)    return !!myTeam && b.team_id===myTeam;
+    return false;
+  });
+  const rank=(b)=>(b.athlete_id?0:1)+(b.scope==='day'?0:2);   // personal before team, day before week
+  return keep.sort((a,b)=>rank(a)-rank(b));
+}
+// the coach's note for this day (and/or this week) — rendered above the logging blurb
+async function athLoadBrief(dateStr){
+  const host=document.getElementById('athBrief'); if(!host) return;
+  host.innerHTML='';
+  if(!BRIEFS_READY || !me_) return;
+  const p=(n)=>String(n).padStart(2,'0');
+  const m=mondayOfDate(new Date(dateStr+'T00:00:00'));
+  const monday=m.getFullYear()+'-'+p(m.getMonth()+1)+'-'+p(m.getDate());
+  const r=await sb.from('coach_briefs').select('scope,target_date,athlete_id,team_id,body')
+    .in('target_date', monday===dateStr ? [dateStr] : [dateStr, monday]);
+  if(r.error || !r.data || !r.data.length) return;
+  const mine=athBriefPick(r.data, dateStr, monday, me_.id, me_.team_id);
+  if(!mine.length) return;
+  host.innerHTML=`<div class="athbr">
+    <div class="athbr-hd">From your coach</div>
+    ${mine.map(b=>`<div class="athbr-item">
+      ${b.scope==='week'?'<span class="athbr-tag">this week</span>':''}
+      <div class="athbr-body">${esc(b.body).replace(/\n/g,'<br>')}</div>
+    </div>`).join('')}
+  </div>`;
 }
 // flag any sets in this session whose clip the coach has reviewed (badge + tap-to-open)
 async function markAthReviews(){
@@ -10923,9 +10984,102 @@ async function renderCoachDay(){
     })), delExs:[] };
   if(cw && cw._teamEditCtx && cw._teamEditCtx.repSessId===ed.session.id) ed._teamEdit=cw._teamEditCtx;
   paintEditor();
+  cvInjectBrief();         // coach's note to the athlete for this day / week
   cvInjectLastWeek();      // same weekday, 7 days back — what this session is progressing from
   cvInjectVelPlan(full);   // Phase B: compile this day's measured velocity against the plan (no-op if no VBT that day)
 }
+/* ----- coach brief: a written note to the athlete, shown at the top of their day ----- */
+// scope 'day' keys off the session date; scope 'week' keys off that week's Monday.
+function cvBriefMonday(dstr){
+  const m=mondayOfDate(new Date(dstr+'T00:00:00'));
+  const p=(n)=>String(n).padStart(2,'0');
+  return m.getFullYear()+'-'+p(m.getMonth()+1)+'-'+p(m.getDate());
+}
+function cvBriefKeyDate(){ return cvBrief.scope==='week' ? cvBriefMonday(cw.selDate) : cw.selDate; }
+let cvBrief={ scope:'day', aud:'athlete', row:null, loading:false };
+function cvBriefHtml(){
+  if(!BRIEFS_READY) return `<div class="cvbr"><div class="cvbr-hd"><span>Note to athlete</span></div>
+    <div class="cvbr-warn">Run migration 51 (<code>51_coach_briefs.sql</code>) to turn this on.</div></div>`;
+  const first=((cw.ath&&cw.ath.full_name)||'').split(' ')[0]||'this athlete';
+  const team=(conState._teams||[]).find(t=>t.id===(cw.ath&&cw.ath.team_id));
+  const val=(cvBrief.row&&cvBrief.row.body)||'';
+  const when=cvBrief.scope==='week' ? 'all week' : 'on '+fmtDate(cw.selDate);
+  const who=cvBrief.aud==='team' ? (team?esc(team.name):'the team') : esc(first);
+  return `<div class="cvbr">
+    <div class="cvbr-hd"><span>Note to athlete</span>
+      <span class="cvbr-segs">
+        <span class="cvbr-seg"><button class="${cvBrief.scope==='day'?'on':''}" onclick="cvBriefSet('scope','day')">This day</button><button class="${cvBrief.scope==='week'?'on':''}" onclick="cvBriefSet('scope','week')">This week</button></span>
+        <span class="cvbr-seg"><button class="${cvBrief.aud==='athlete'?'on':''}" onclick="cvBriefSet('aud','athlete')">${esc(first)}</button><button class="${cvBrief.aud==='team'?'on':''}" ${team?'':'disabled title="This athlete is not on a team"'} onclick="cvBriefSet('aud','team')">${team?esc(team.name):'No team'}</button></span>
+      </span>
+    </div>
+    <textarea class="cvbr-ta" id="cvBriefTa" placeholder="e.g. Keep the bar close today — we're chasing position, not load." oninput="cvBriefDirty()">${esc(val)}</textarea>
+    <div class="cvbr-foot">
+      <span class="cvbr-hint">${who} will see this ${esc(when)}, at the top of the session.</span>
+      <span class="saved" id="cvBriefMsg"></span>
+      <button class="btn blue cvbr-save" onclick="cvBriefSave()">Save note</button>
+      ${cvBrief.row?`<button class="btn ghost cvbr-del" onclick="cvBriefDelete()">Remove</button>`:''}
+    </div>
+  </div>`;
+}
+async function cvBriefLoad(){
+  cvBrief.row=null;
+  if(!BRIEFS_READY || !cw) return;
+  const q=sb.from('coach_briefs').select('*').eq('scope',cvBrief.scope).eq('target_date',cvBriefKeyDate());
+  const r=await (cvBrief.aud==='team'
+    ? q.eq('team_id', (cw.ath&&cw.ath.team_id)||'00000000-0000-0000-0000-000000000000')
+    : q.eq('athlete_id', (cw.ath&&cw.ath.id)||coachState.selected));
+  if(!r.error && r.data && r.data[0]) cvBrief.row=r.data[0];
+}
+async function cvInjectBrief(){
+  const old=document.getElementById('cvBrief'); if(old) old.remove();
+  if(!cw || !cw.selDate) return;
+  await cvBriefLoad();
+  const edBox=document.getElementById('cvEd'); if(!edBox || !edBox.parentNode) return;
+  const box=document.createElement('div'); box.id='cvBrief'; box.innerHTML=cvBriefHtml();
+  edBox.parentNode.insertBefore(box, edBox);
+}
+window.cvBriefSet=(k,v)=>{
+  if(cvBrief[k]===v) return;
+  // don't silently drop something half-typed when the toggles change
+  const ta=document.getElementById('cvBriefTa');
+  const typed=ta?ta.value.trim():'';
+  const saved=((cvBrief.row&&cvBrief.row.body)||'').trim();
+  if(typed && typed!==saved && !window._cvBriefSwitch){
+    window._cvBriefSwitch=k+':'+v;
+    const msg=document.getElementById('cvBriefMsg');
+    if(msg){ msg.style.color='var(--warn)'; msg.innerHTML=`Unsaved note — <button class="btn ghost" style="padding:2px 8px;font-size:11px" onclick="cvBriefSet('${k}','${v}')">discard</button> <button class="btn ghost" style="padding:2px 8px;font-size:11px" onclick="cvBriefSwitchCancel()">keep editing</button>`; }
+    return;
+  }
+  window._cvBriefSwitch=null;
+  cvBrief[k]=v; cvInjectBrief();
+};
+window.cvBriefSwitchCancel=()=>{ window._cvBriefSwitch=null; const m=document.getElementById('cvBriefMsg'); if(m){ m.innerHTML=''; m.style.color=''; } };
+window.cvBriefDirty=()=>{ const m=document.getElementById('cvBriefMsg'); if(m && !window._cvBriefSwitch){ m.style.color=''; m.textContent=''; } };
+window.cvBriefSave=async()=>{
+  if(!BRIEFS_READY) return;
+  const ta=document.getElementById('cvBriefTa'), msg=document.getElementById('cvBriefMsg'); if(!ta) return;
+  const body=ta.value.trim();
+  if(!body){ if(msg){ msg.style.color='var(--warn)'; msg.textContent='Type a note first (or Remove).'; } return; }
+  if(msg){ msg.style.color=''; msg.textContent='Saving…'; }
+  const row={ gym_id:me_.gym_id, scope:cvBrief.scope, target_date:cvBriefKeyDate(), body,
+    athlete_id: cvBrief.aud==='team' ? null : ((cw.ath&&cw.ath.id)||coachState.selected),
+    team_id:    cvBrief.aud==='team' ? (cw.ath&&cw.ath.team_id) : null,
+    updated_at: new Date().toISOString() };
+  const res = cvBrief.row
+    ? await sb.from('coach_briefs').update({body, updated_at:row.updated_at}).eq('id',cvBrief.row.id).select()
+    : await sb.from('coach_briefs').insert(row).select();
+  if(res.error || !res.data || !res.data.length){ if(msg){ msg.style.color='var(--bad)'; msg.textContent='Save failed — '+(res.error?res.error.message:'try again'); } return; }
+  cvBrief.row=res.data[0];
+  if(msg){ msg.style.color='var(--good)'; msg.textContent='✓ Sent'; }
+  setTimeout(()=>cvInjectBrief(), 900);
+};
+window.cvBriefDelete=async()=>{
+  if(!cvBrief.row) return;
+  const msg=document.getElementById('cvBriefMsg');
+  const res=await sb.from('coach_briefs').delete().eq('id',cvBrief.row.id).select('id');
+  if(res.error){ if(msg){ msg.style.color='var(--bad)'; msg.textContent='Could not remove it.'; } return; }
+  cvBrief.row=null; cvInjectBrief();
+};
 /* ----- "last week" reference in the day editor (same athlete, same weekday, −7 days) ----- */
 function cvPrevWeekDate(dstr){
   const d=new Date(dstr+'T00:00:00'); d.setDate(d.getDate()-7);
