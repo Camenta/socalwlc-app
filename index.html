@@ -3534,7 +3534,7 @@ async function bpPersistTrack(){
    still saves, flagged `_needsEye`, so the coach is never silently handed a bad path. */
 // ~15-20s of work per clip, so cap the batch: the rest get picked up next time Home
 // loads rather than grinding for minutes. Never silently truncate — say what's left.
-const PRE_MAXW=480, PRE_STEP=2, PRE_MIN_LOCK=0.75, PRE_MAX_FRAMES=200, PRE_BATCH=6;
+const PRE_MAXW=480, PRE_STEP=2, PRE_MIN_LOCK=0.75, PRE_MAX_FRAMES=200, PRE_BATCH=6, PRE_MIN_AGREE=0.5;
 let bpPreState={ running:false, cancel:false, done:0, flagged:0, total:0 };
 function bpPreGrab(v,cv,cx,w,h){
   cx.drawImage(v,0,0,w,h);
@@ -3558,14 +3558,41 @@ async function bpPreTrack(url){
   const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
   const cx=cv.getContext('2d',{willReadFrequently:true});
   const dur=v.duration||0; if(!dur||!isFinite(dur)) return {error:'duration'};
-  const start=Math.min(0.2, dur/10);
+  // SEED ELECTION. Detecting on one early frame is unreliable: on a long clip the
+  // lifter is still walking up at 2% in, and a single frame can lock onto noise.
+  // Detect on several frames across the approach and take the biggest cluster that
+  // AGREES on plate radius — the plate doesn't change size, so agreement is the
+  // strongest correctness signal we have. Frames that disagree are evidence of a
+  // bad detector run, and that disagreement is carried out as seedAgree.
+  const cands=[];
+  for(const f of [0.02,0.08,0.15,0.25,0.35,0.45]){
+    const t=Math.min(dur-0.05, Math.max(0.12, dur*f));
+    await bpPreSeek(v,t);
+    const fx=bpPreGrab(v,cv,cx,w,h);
+    if(fx.error) return {error:fx.error};
+    const d=bpAutoDetect(fx);
+    if(d && d.r>0) cands.push({t, x:d.x, y:d.y, r:d.r, score:d.score||0});
+  }
+  if(!cands.length) return {error:'no-plate'};
+  // cluster on radius (±15%), best cluster = most members, tie-break on summed score
+  let best=null;
+  for(const c of cands){
+    const grp=cands.filter(o=>Math.abs(o.r-c.r)/c.r<=0.15);
+    const sum=grp.reduce((a,o)=>a+o.score,0);
+    if(!best || grp.length>best.grp.length || (grp.length===best.grp.length && sum>best.sum)) best={grp,sum,c};
+  }
+  const grp=best.grp;
+  const seedAgree=grp.length/cands.length;
+  // seed from the EARLIEST member of the winning cluster (closest to the bar at rest)
+  const seedPick=grp.slice().sort((a,b)=>a.t-b.t)[0];
+  const rMed=grp.slice().sort((a,b)=>a.r-b.r)[Math.floor(grp.length/2)].r;
+  const start=seedPick.t;
   await bpPreSeek(v,start);
   let fr=bpPreGrab(v,cv,cx,w,h);
   if(fr.error) return {error:fr.error};
-  const seed=bpAutoDetect(fr);
-  if(!seed) return {error:'no-plate'};
-  let px=seed.x, py=seed.y, r=seed.r, vx=0, vy=0, locked=0, coasted=0, lostStreak=0;
-  const seedR=r/w;
+  let px=seedPick.x, py=seedPick.y, r=rMed, vx=0, vy=0, locked=0, coasted=0, lostStreak=0;
+  const r0=rMed, seedR=r/w;
+  let rejectedR=0;
   const dt=PRE_STEP/30;
   const pts=[{t:start,x:px/w,y:py/h}];
   const steps=Math.min(PRE_MAX_FRAMES, Math.max(1, Math.round((dur-start)/dt)));
@@ -3576,9 +3603,17 @@ async function bpPreTrack(url){
     fr=bpPreGrab(v,cv,cx,w,h); if(fr.error) break;
     const predX=Math.max(2,Math.min(w-3,px+vx)), predY=Math.max(2,Math.min(h-3,py+vy));
     const det=bpRefineCircle(fr,predX,predY,r,Math.round(r*0.5)+8);
+    // A plate cannot change size mid-lift. At peak bar speed motion blur wrecks the
+    // circle edge and the detector falls back to a much smaller spurious circle; the
+    // old radius easing then drifted onto it permanently. Reject anything outside
+    // ±20% of the seed radius and coast through instead.
+    const rOk = det && det.r>=r0*0.80 && det.r<=r0*1.20;
     let nx,ny;
-    if(!det || det.score<BP_CIRC_MIN){ nx=predX; ny=predY; coasted++; lostStreak++; }
-    else { nx=det.x; ny=det.y; r=r*0.8+det.r*0.2; locked++; lostStreak=0; }
+    if(!det || det.score<BP_CIRC_MIN || !rOk){
+      nx=predX; ny=predY; coasted++; lostStreak++;
+      if(det && !rOk) rejectedR++;
+    }
+    else { nx=det.x; ny=det.y; r=Math.max(r0*0.85, Math.min(r0*1.15, r*0.85+det.r*0.15)); locked++; lostStreak=0; }
     const vmax=Math.max(20,r*0.9); vx=nx-px; vy=ny-py; const sp=Math.hypot(vx,vy);
     if(sp>vmax){ vx*=vmax/sp; vy*=vmax/sp; nx=px+vx; ny=py+vy; }
     px=nx; py=ny; pts.push({t,x:px/w,y:py/h});
@@ -3588,7 +3623,21 @@ async function bpPreTrack(url){
   try{ v.src=''; v.load(); }catch(e){}
   if(pts.length<6) return {error:'too-short'};
   const lockRate=(locked+coasted)?locked/(locked+coasted):0;
-  return { points:bpSmoothPath(pts), lockRate, w, h, seedR, fps:30/PRE_STEP };
+  // PLAUSIBILITY. Lock rate only says a circle was found consistently — a tracker
+  // stuck on a background plate scores ~1.0 while producing a flat, useless path.
+  // So also ask whether what we traced looks like a lift at all: real vertical
+  // travel, and the bar going UP and then settling rather than wandering.
+  const mpp=PLATE_M/(2*r0);
+  const ys=pts.map(p=>p.y*h), xs=pts.map(p=>p.x*w);
+  const travel=(Math.max.apply(null,ys)-Math.min.apply(null,ys))*mpp;
+  const drift=(Math.max.apply(null,xs)-Math.min.apply(null,xs))*mpp;
+  // Deliberately NO assumption about direction. Requiring "rises then settles" false-flagged
+  // clips that stop recording with the bar still overhead, and would have false-flagged every
+  // squat (bar starts high, goes down, comes back up). Travel alone catches the failure that
+  // actually matters — a tracker stuck on a background object barely moves.
+  const plausible = travel>=0.35 && travel<=2.6 && drift<=0.9;
+  return { points:bpSmoothPath(pts), lockRate, w, h, seedR, fps:30/PRE_STEP,
+           seedAgree, rejectedR, travel:+travel.toFixed(2), drift:+drift.toFixed(2), plausible };
 }
 // borrow annS to run the (DOM-free) metrics engine on a headless track, then restore it
 function bpPreMetrics(res){
@@ -3601,7 +3650,15 @@ function bpPreMetrics(res){
     m._trackW=res.w; m._trackH=res.h; m._src='auto-pre'; m.facing='left';
     m._seedR=res.seedR;   // so reopening can re-derive the scale instead of losing it
     m._lockRate=+res.lockRate.toFixed(2);
-    m._needsEye=res.lockRate<PRE_MIN_LOCK;
+    m._seedAgree=res.seedAgree!=null?+res.seedAgree.toFixed(2):null;
+    m._travel=res.travel; m._drift=res.drift; m._rejectedR=res.rejectedR;
+    // Flag on ANY of: it lost the plate a lot, the seed frames disagreed on plate
+    // size, or the traced path doesn't look like a lift. Lock rate alone was blind
+    // to a tracker confidently following the wrong object.
+    m._needsEye = res.lockRate<PRE_MIN_LOCK || (res.seedAgree!=null && res.seedAgree<PRE_MIN_AGREE) || res.plausible===false;
+    m._why = m._needsEye ? [ res.lockRate<PRE_MIN_LOCK?'lost the plate often':null,
+                             (res.seedAgree!=null&&res.seedAgree<PRE_MIN_AGREE)?'plate size unclear':null,
+                             res.plausible===false?'path doesn’t look like a lift':null ].filter(Boolean).join(' · ') : null;
     return { metrics:m, scale:annS.scale||null };
   } finally { annS=saved; }
 }
@@ -7673,10 +7730,10 @@ async function renderHomeBand(){
   const trk={};
   if(VTRACKS_READY && annQueue.length){
     try{ const tr=await sb.from('video_tracks').select('video_path,metrics').in('video_path', annQueue.map(c=>c.video_path));
-      (tr.data||[]).forEach(r=>{ trk[r.video_path]={ needsEye:!!(r.metrics&&r.metrics._needsEye), auto:!!(r.metrics&&r.metrics._src==='auto-pre') }; }); }catch(e){}
+      (tr.data||[]).forEach(r=>{ trk[r.video_path]={ needsEye:!!(r.metrics&&r.metrics._needsEye), why:(r.metrics&&r.metrics._why)||'', auto:!!(r.metrics&&r.metrics._src==='auto-pre') }; }); }catch(e){}
   }
   const vRows=annQueue.slice(0,6).map((c,idx)=>{ const nw=!c.reviewed; const tk=trk[c.video_path];
-    const pathTag = tk ? (tk.needsEye?'<span class="hr-path eye" title="Auto-tracking wasn\'t confident — check the path before you review">⚠ check path</span>'
+    const pathTag = tk ? (tk.needsEye?`<span class="hr-path eye" title="${esc(tk.why||'Auto-tracking wasn\'t confident')} — re-detect or plot it by hand before you review">⚠ check path</span>`
                                      :'<span class="hr-path ok" title="Bar path already analysed">✓ path</span>') : '';
     return `<div class="home-row" onclick="openAnnStudio('${esc(c.video_path)}',{athleteId:'${c.athlete_id}',queueIdx:${idx}})">
       <span class="home-dot ${nw?'bad':'good'}"></span>
