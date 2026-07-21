@@ -3215,7 +3215,13 @@ function bpComputeMetrics(){
   let mpp=null;
   if(annS.calib&&annS.calib.length===2){ const a=annS.calib[0],b=annS.calib[1]; const dpx=Math.hypot((b.x-a.x)*W,(b.y-a.y)*H); if(dpx>2) mpp=PLATE_M/dpx; }   // manual override (two taps across a plate)
   else if(annS.seedR){ const dia=2*annS.seedR*W; if(dia>2) mpp=PLATE_M/dia; }                                                                                  // auto: detected plate Ø = 45 cm
-  annS.scale=mpp;
+  // FALL BACK to a scale that came from a saved track. Opening a clip restores scale but
+  // not the seed it was derived from, so re-deriving yields null here — and without a scale
+  // every metre-based metric below is skipped (the `if(mpp)` block), which is what collapsed
+  // the graph the moment the coach nudged a pin, trimmed, or flipped facing.
+  // mpp itself has to inherit it, not just annS.scale — the metres come off mpp.
+  mpp = mpp || annS.scale || null;
+  annS.scale = mpp;
   const sm=a=>a.map((_,i)=>{ const p=a[Math.max(0,i-1)],q=a[i],r=a[Math.min(a.length-1,i+1)]; return (p+q+r)/3; });
   const ts=pts.map(p=>p.t), Y=sm(pts.map(p=>p.y*H)), X=sm(pts.map(p=>p.x*W));
   const yFloor=Math.max.apply(null,Y), minY=Math.min.apply(null,Y);  // yFloor = lowest bar position (start/floor); minY = highest on screen
@@ -3500,6 +3506,7 @@ async function bpPersistTrack(){
   if(annS.metrics){ annS.metrics._load=(annS._load!=null?annS._load:null); annS.metrics.facing=annS.facing||'left'; annS.metrics.win=annS.win||null; annS.metrics._kf=annS.kf||null; annS.metrics._src=annS.trackSource||'auto';
     annS.metrics._gA=annS.gA||null; annS.metrics._gB=annS.gB||null;
     annS.metrics._trackW=annS._trackW||null; annS.metrics._trackH=annS._trackH||null;   // frame dims (belt-and-suspenders)
+    annS.metrics._seedR=annS.seedR||null; annS.metrics._calib=annS.calib||null;         // what the scale was derived from, so reopening can re-derive it
     // ⭐ save the coach's already-computed chart series so the athlete renders it verbatim (no recompute).
     // This is what actually makes the athlete's velocity/displacement charts + VMAX show real numbers.
     if(!annS.graph){ try{ bpgBuild(); }catch(e){} }
@@ -3592,6 +3599,7 @@ function bpPreMetrics(res){
     bpComputeMetrics();
     const m=annS.metrics||{};
     m._trackW=res.w; m._trackH=res.h; m._src='auto-pre'; m.facing='left';
+    m._seedR=res.seedR;   // so reopening can re-derive the scale instead of losing it
     m._lockRate=+res.lockRate.toFixed(2);
     m._needsEye=res.lockRate<PRE_MIN_LOCK;
     return { metrics:m, scale:annS.scale||null };
@@ -3670,6 +3678,8 @@ async function bpLoadTrack(path){
     if(annS.readOnly&&annS.metrics&&annS.metrics._gB) annS.gB=annS.metrics._gB;
     if(annS.metrics&&annS.metrics._trackW) annS._trackW=annS.metrics._trackW;   // restore the calibration frame size so velocity/displacement compute in real units (not ~0)
     if(annS.metrics&&annS.metrics._trackH) annS._trackH=annS.metrics._trackH;
+    if(annS.metrics&&annS.metrics._seedR) annS.seedR=annS.metrics._seedR;       // the plate radius the scale came from — lets a re-compute re-derive it instead of losing it
+    if(annS.metrics&&annS.metrics._calib) annS.calib=annS.metrics._calib;       // and the coach's manual 📏 calibration, if they set one
     if(annS.readOnly&&annS.metrics&&annS.metrics._graph) annS._savedGraph=annS.metrics._graph;   // ⭐ the coach's computed chart series — displayed verbatim, no recompute
     vstTrimUI();
     if(payload.fps){ annS.fps=payload.fps; const f=document.getElementById('vstFps'); if(f) f.value=payload.fps; }
