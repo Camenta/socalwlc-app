@@ -228,6 +228,26 @@
   .vst-btn.pri{background:var(--accent);border-color:var(--accent);color:#0a0d11}
   .vst-scrub{flex:1;min-width:120px;accent-color:var(--accent)}
   .vst-time{font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px;min-width:88px;text-align:right}
+  .cmp-body{flex:1;display:flex;gap:12px;min-height:0}
+  .cmp-pane{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
+  .cmp-panehd{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .cmp-tag{font-size:11px;font-weight:800;color:#0a0d11;background:var(--accent);border-radius:6px;padding:1px 7px}
+  .cmp-lbl{font-size:13px;color:var(--text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cmp-wrap{flex:1;min-height:0}
+  .cmp-tog{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--text)}
+  .cmp-tog input{accent-color:var(--accent)}
+  .cmp-synclbl{font-size:12px;color:var(--muted);font-weight:600}
+  .cmp-offset{font-size:12px;color:var(--accent2);font-variant-numeric:tabular-nums;min-width:70px}
+  .cmp-pick{flex:1;overflow-y:auto;border:1px solid var(--line);border-radius:10px;background:#0a0f14}
+  .cmp-pickrow{display:flex;align-items:center;gap:8px;padding:11px 12px;border-bottom:1px solid var(--line);cursor:pointer;font-size:13px;color:var(--text)}
+  .cmp-pickrow:hover{background:#13202c}
+  .cmp-pickrow:last-child{border-bottom:none}
+  @media (max-width:1100px){
+    .cmp-body{display:block;flex:0 0 auto}
+    .cmp-pane{display:block;margin-bottom:12px}
+    .cmp-wrap{height:40vh;min-height:220px;flex:none}
+    .cmp-pick{height:32vh}
+  }
   .vst-tools{display:flex;flex-wrap:wrap;gap:6px}
   .vst-tool{width:38px;height:34px;border-radius:8px;background:var(--panel2);border:1px solid var(--line);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px}
   .vst-tool.on{background:var(--accent);border-color:var(--accent);color:#0a0d11}
@@ -2413,6 +2433,11 @@ async function openAnnStudio(path, meta){
           <div class="vst-row" style="margin-top:10px"><span class="vst-btn pri" id="vstSave" style="flex:1;text-align:center">Save &amp; send to athlete</span></div>
           ${VNOTES_READY?'':'<div class="vst-row" style="margin-top:6px;color:#e0a85a">Run migration 29 to save to the cloud — saving locally for now.</div>'}
         </div>
+        <div class="vst-card">
+          <h4>Compare</h4>
+          <div class="bp-hint">Put this clip side-by-side with another of this athlete’s lifts — synced playback, slow-mo, and bar path on both.</div>
+          <div class="vst-row" style="margin-top:8px"><span class="vst-btn" onclick="cmpFromStudio()">⚖ Compare with another clip</span></div>
+        </div>
         <div class="vst-card" id="bpCard">
           <h4>Bar path &amp; velocity</h4>
           <div class="bp-steps">
@@ -3903,6 +3928,130 @@ window.rvAssignSet=(mode)=>{ if(!annS) return; annS.assign.mode=mode;
   rvPaintAssign(); };
 window.rvAssignPickLift=(sid)=>{ if(!annS) return; const t=(annS._targets||[]).find(x=>x.session===sid); if(t){ annS.assign.mode='lift'; annS.assign.session=t.session; annS.assign.date=t.date; annS.assign.exercise=t.exercise; } rvPaintAssign(); };
 window.rvAssignPickDate=(d)=>{ if(!annS) return; annS.assign.mode='date'; annS.assign.date=d||null; annS.assign.session=null; rvPaintAssign(); };
+/* ============ COMPARE TWO CLIPS (video-analysis Phase 3) ============ */
+// A self-contained side-by-side viewer: two players, one shared scrubber + synced slow-mo/frame-step,
+// a B-offset nudge to line the lifts up, and the saved bar-path trace drawn on each. Coach-only for now
+// (sending to the athlete = Phase 2). Its own overlay + state; it does not touch the annotation studio.
+let cmpS=null;
+function cmpHost(){ let h=document.getElementById('cmpStudio'); if(!h){ h=document.createElement('div'); h.id='cmpStudio'; h.className='vstudio'; document.body.appendChild(h); } return h; }
+window.cmpFromStudio=()=>{ if(!annS){ toast('Open a clip first.','err'); return; } if(!annS.athleteId){ toast('Open this from an athlete’s clip to compare with their other lifts.','err'); return; }
+  const vv=document.getElementById('vstVid'); if(vv) vv.pause();
+  openCompare(annS.path, { athleteId:annS.athleteId, exercise:annS.exercise, athName:rvAthFirst(), label:'This clip' }); };
+async function cmpSignUrl(path){ try{ const {data}=await sb.storage.from('lift-videos').createSignedUrl(path,3600); return (data&&data.signedUrl)||null; }catch(e){ return null; } }
+async function cmpLoadTrackFor(path){ if(!VTRACKS_READY) return null;
+  try{ const {data}=await sb.from('video_tracks').select('points,metrics').eq('video_path',path).order('updated_at',{ascending:false}).limit(1);
+    if(data&&data[0]&&Array.isArray(data[0].points)&&data[0].points.length) return { points:data[0].points, win:(data[0].metrics&&data[0].metrics.win)||null }; }catch(e){}
+  return null; }
+async function openCompare(pathA, meta){
+  meta=meta||{}; if(!pathA){ toast('No clip to compare.','err'); return; }
+  cmpS={ athId:meta.athleteId||null, athName:meta.athName||'', a:{path:pathA}, b:null, fps:(annS&&annS.fps)||30, offset:0, playing:false, showTrace:true, _raf:null, _pick:[] };
+  const host=cmpHost(); host.classList.add('on');
+  host.innerHTML=`<div class="vst-top"><h3>⚖ Compare lifts</h3><span class="vst-sub" id="cmpSub"></span><span class="vst-close" onclick="closeCompare()">✕</span></div>
+    <div class="cmp-body">
+      <div class="cmp-pane" id="cmpPaneA"></div>
+      <div class="cmp-pane" id="cmpPaneB"></div>
+    </div>
+    <div class="vst-transport" id="cmpTransport" style="display:none">
+      <span class="vst-btn" id="cmpPlay" onclick="cmpPlayToggle()">▶</span>
+      <span class="vst-btn" onclick="cmpStep(-1)" title="Back one frame">⟨ frame</span>
+      <span class="vst-btn" onclick="cmpStep(1)" title="Forward one frame">frame ⟩</span>
+      <select class="vst-rate" id="cmpRate" onchange="cmpSetRate(this.value)"><option value="1">1×</option><option value="0.5">0.5×</option><option value="0.25">0.25×</option></select>
+      <input type="range" class="vst-scrub" id="cmpScrub" min="0" max="1000" value="0" oninput="cmpScrub(this.value)">
+      <span class="vst-time" id="cmpTime">0:00</span>
+      <label class="cmp-tog"><input type="checkbox" id="cmpTrace" checked onchange="cmpToggleTrace(this.checked)"> Bar path</label>
+    </div>
+    <div class="vst-transport" id="cmpSyncRow" style="display:none">
+      <span class="cmp-synclbl">Line them up:</span>
+      <span class="vst-btn" onclick="cmpNudgeB(-1)" title="Shift the right clip back one frame">◀ nudge B</span>
+      <span class="vst-btn" onclick="cmpNudgeB(1)" title="Shift the right clip forward one frame">nudge B ▶</span>
+      <span class="cmp-offset" id="cmpOffset">in sync</span>
+      <span class="vst-btn" onclick="cmpResetSync()">reset</span>
+      <span class="vst-btn" onclick="cmpSwap()" title="Swap left / right">⇄ swap</span>
+      <span class="vst-btn" onclick="cmpOpenPicker()">change clip B</span>
+    </div>`;
+  const sub=document.getElementById('cmpSub'); if(sub) sub.textContent = cmpS.athName?('for '+cmpS.athName):'';
+  await cmpLoadPane('a', pathA, meta.label||'This clip');
+  cmpOpenPicker();
+}
+function closeCompare(){ if(cmpS){ if(cmpS._raf) cancelAnimationFrame(cmpS._raf); ['a','b'].forEach(k=>{ const P=cmpS[k]; if(P){ if(P._ro) try{P._ro.disconnect();}catch(e){} if(P.video){ try{P.video.pause();}catch(e){} P.video.src=''; } } }); }
+  const h=document.getElementById('cmpStudio'); if(h){ h.classList.remove('on'); h.innerHTML=''; } cmpS=null; }
+async function cmpLoadPane(pane, path, label){
+  const box=document.getElementById(pane==='a'?'cmpPaneA':'cmpPaneB'); if(!box||!cmpS) return;
+  const prev=cmpS[pane]; if(prev&&prev._ro){ try{prev._ro.disconnect();}catch(e){} }
+  box.innerHTML=`<div class="cmp-panehd"><span class="cmp-tag">${pane.toUpperCase()}</span><span class="cmp-lbl">${esc(label||'')}</span></div>
+    <div class="vst-canvaswrap cmp-wrap"><video id="cmpVid${pane}" crossorigin="anonymous" playsinline></video><canvas id="cmpCv${pane}" style="pointer-events:none"></canvas></div>`;
+  const v=document.getElementById('cmpVid'+pane), c=document.getElementById('cmpCv'+pane);
+  cmpS[pane]={ path, label:label||'', video:v, canvas:c, track:null, win:null, _cw:0, _ch:0, _ro:null };
+  const url=await cmpSignUrl(path); if(url&&v){ v.src=url; }
+  v.addEventListener('loadedmetadata', ()=>{ cmpFit(pane); if(pane==='a') cmpSyncScrub(); });
+  v.addEventListener('seeked', ()=>cmpDraw(pane));
+  try{ cmpS[pane]._ro=new ResizeObserver(()=>cmpFit(pane)); cmpS[pane]._ro.observe(v.parentElement); }catch(e){}
+  const trk=await cmpLoadTrackFor(path); if(trk&&cmpS[pane]){ cmpS[pane].track=trk.points; cmpS[pane].win=trk.win; }
+  cmpDraw(pane);
+}
+function cmpFit(pane){
+  const P=cmpS&&cmpS[pane]; if(!P||!P.video||!P.canvas||!P.video.videoWidth) return;
+  const wr=P.video.parentElement.getBoundingClientRect(); if(!wr.width||!wr.height) return;
+  const ar=P.video.videoWidth/P.video.videoHeight; let w=wr.width, h=w/ar; if(h>wr.height){ h=wr.height; w=h*ar; }
+  const c=P.canvas; c.style.width=w+'px'; c.style.height=h+'px'; c.style.left=((wr.width-w)/2)+'px'; c.style.top=((wr.height-h)/2)+'px';
+  const dpr=window.devicePixelRatio||1; c.width=Math.round(w*dpr); c.height=Math.round(h*dpr); c.getContext('2d').setTransform(dpr,0,0,dpr,0,0);
+  P._cw=w; P._ch=h; cmpDraw(pane);
+}
+function cmpDraw(pane){
+  const P=cmpS&&cmpS[pane]; if(!P||!P.canvas) return; const w=P._cw||0, h=P._ch||0; if(!w||!h) return;
+  const ctx=P.canvas.getContext('2d'); ctx.clearRect(0,0,w,h);
+  if(!cmpS.showTrace || !P.track || P.track.length<2) return;
+  const pts = P.win ? P.track.filter(p=>p.t>=P.win.a-0.001 && p.t<=P.win.b+0.001) : P.track;
+  if(pts.length<2) return;
+  ctx.strokeStyle='#f97316'; ctx.lineWidth=3; ctx.lineJoin='round'; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(pts[0].x*w, pts[0].y*h);
+  for(let i=1;i<pts.length-1;i++){ const a=pts[i], b=pts[i+1]; ctx.quadraticCurveTo(a.x*w,a.y*h,(a.x+b.x)/2*w,(a.y+b.y)/2*h); }
+  const lp=pts[pts.length-1]; ctx.lineTo(lp.x*w, lp.y*h); ctx.stroke();
+  const tc=P.video?P.video.currentTime:null;
+  if(tc!=null){ let near=pts[0], bd=1e9; pts.forEach(p=>{ const d=Math.abs(p.t-tc); if(d<bd){ bd=d; near=p; } });
+    ctx.fillStyle='#fde047'; ctx.beginPath(); ctx.arc(near.x*w, near.y*h, 5, 0, 7); ctx.fill(); ctx.strokeStyle='#0a0d11'; ctx.lineWidth=1.5; ctx.stroke(); }
+}
+function cmpDur(P){ return (P&&P.video&&P.video.duration)||0; }
+function cmpSyncScrub(){ if(!cmpS||!cmpS.a) return; const A=cmpS.a.video; const scrub=document.getElementById('cmpScrub'), time=document.getElementById('cmpTime'); if(!A||!scrub) return;
+  const dur=cmpDur(cmpS.a)||1; scrub.value=Math.round((A.currentTime/dur)*1000); if(time) time.textContent=vstFmt(A.currentTime)+' / '+vstFmt(dur); }
+function cmpPosB(){ if(!cmpS||!cmpS.b||!cmpS.a) return; const A=cmpS.a.video, B=cmpS.b.video; if(!A||!B) return;
+  const want=A.currentTime+cmpS.offset, cl=Math.max(0, Math.min(cmpDur(cmpS.b), want)); if(Math.abs((B.currentTime||0)-cl)>0.001){ try{ B.currentTime=cl; }catch(e){} } }
+function cmpTick(){ if(!cmpS){ return; } const A=cmpS.a&&cmpS.a.video;
+  if(A){ if(cmpS.playing && cmpS.b){ const B=cmpS.b.video, want=A.currentTime+cmpS.offset, cl=Math.max(0,Math.min(cmpDur(cmpS.b),want)); if(Math.abs((B.currentTime||0)-cl)>((1/(cmpS.fps||30))*1.2)){ try{B.currentTime=cl;}catch(e){} } }
+    cmpSyncScrub(); }
+  cmpDraw('a'); if(cmpS.b) cmpDraw('b');
+  cmpS._raf=requestAnimationFrame(cmpTick); }
+window.cmpPlayToggle=()=>{ if(!cmpS||!cmpS.a) return; const A=cmpS.a.video, B=cmpS.b&&cmpS.b.video, btn=document.getElementById('cmpPlay');
+  if(cmpS.playing){ if(A)A.pause(); if(B)B.pause(); cmpS.playing=false; if(btn)btn.textContent='▶'; }
+  else { const r=parseFloat((document.getElementById('cmpRate')||{}).value||'1'); if(A){ A.playbackRate=r; A.play(); } if(B){ B.playbackRate=r; cmpPosB(); B.play(); } cmpS.playing=true; if(btn)btn.textContent='⏸'; } };
+window.cmpStep=(d)=>{ if(!cmpS||!cmpS.a) return; const A=cmpS.a.video, B=cmpS.b&&cmpS.b.video, dt=1/(cmpS.fps||30);
+  if(cmpS.playing) cmpPlayToggle();
+  if(A){ A.currentTime=Math.max(0, Math.min(cmpDur(cmpS.a), A.currentTime+d*dt)); } cmpPosB(); cmpSyncScrub(); };
+window.cmpScrub=(val)=>{ if(!cmpS||!cmpS.a) return; const A=cmpS.a.video; if(!A) return; A.currentTime=(val/1000)*(cmpDur(cmpS.a)||0); cmpPosB(); cmpSyncScrub(); };
+window.cmpSetRate=(r)=>{ if(!cmpS) return; const rr=parseFloat(r)||1; if(cmpS.a&&cmpS.a.video) cmpS.a.video.playbackRate=rr; if(cmpS.b&&cmpS.b.video) cmpS.b.video.playbackRate=rr; };
+window.cmpToggleTrace=(on)=>{ if(!cmpS) return; cmpS.showTrace=!!on; cmpDraw('a'); cmpDraw('b'); };
+window.cmpNudgeB=(frames)=>{ if(!cmpS||!cmpS.b) return; cmpS.offset += frames*(1/(cmpS.fps||30)); cmpPosB(); cmpUpdateOffset(); cmpDraw('b'); };
+window.cmpResetSync=()=>{ if(!cmpS) return; cmpS.offset=0; cmpPosB(); cmpUpdateOffset(); cmpDraw('b'); };
+function cmpUpdateOffset(){ const el=document.getElementById('cmpOffset'); if(!el||!cmpS) return; const o=cmpS.offset; el.textContent = Math.abs(o)<0.005 ? 'in sync' : ('B '+(o>0?'+':'')+o.toFixed(2)+'s'); }
+window.cmpSwap=async()=>{ if(!cmpS||!cmpS.b) return; const a={path:cmpS.a.path,label:cmpS.a.label}, b={path:cmpS.b.path,label:cmpS.b.label}; cmpS.offset=-cmpS.offset;
+  await cmpLoadPane('a', b.path, b.label); await cmpLoadPane('b', a.path, a.label); cmpPosB(); cmpUpdateOffset(); };
+window.cmpOpenPicker=async()=>{ const box=document.getElementById('cmpPaneB'); if(!box||!cmpS) return;
+  const tr=document.getElementById('cmpTransport'), sr=document.getElementById('cmpSyncRow'); if(tr)tr.style.display='none'; if(sr)sr.style.display='none';
+  box.innerHTML=`<div class="cmp-panehd"><span class="cmp-tag">B</span><span class="cmp-lbl">Pick a clip to compare</span></div><div class="cmp-pick" id="cmpPickList"><div class="bp-hint" style="padding:14px">Loading ${esc(cmpS.athName||'the athlete')}’s clips…</div></div>`;
+  const list=document.getElementById('cmpPickList');
+  if(!cmpS.athId){ list.innerHTML='<div class="bp-hint" style="padding:14px">Open Compare from an athlete’s clip to see their other lifts here.</div>'; return; }
+  const r=await sb.from('logged_sets').select('video_path,logged_at,session_id').eq('athlete_id',cmpS.athId).not('video_path','is',null).order('logged_at',{ascending:false}).limit(60);
+  let rows=(r.data||[]).filter(x=>x.video_path && x.video_path!==cmpS.a.path);
+  const seen=new Set(); rows=rows.filter(x=>{ if(seen.has(x.video_path)) return false; seen.add(x.video_path); return true; });
+  const sids=[...new Set(rows.map(x=>x.session_id).filter(Boolean))]; let tById={};
+  if(sids.length){ const s=await sb.from('sessions').select('id,title,session_date').in('id',sids); (s.data||[]).forEach(x=>tById[x.id]={title:x.title,date:x.session_date}); }
+  if(!rows.length){ list.innerHTML='<div class="bp-hint" style="padding:14px">No other clips from this athlete yet.</div>'; return; }
+  cmpS._pick=rows.map(x=>{ const m=tById[x.session_id]||{}; const d=m.date||(x.logged_at?iso(new Date(x.logged_at)):null); const lbl=(d?fmtShort(d):'clip')+(m.title?' · '+m.title:''); return { path:x.video_path, label:lbl }; });
+  list.innerHTML=cmpS._pick.map((p,i)=>`<div class="cmp-pickrow" onclick="cmpSetBIdx(${i})">🎞 <span>${esc(p.label)}</span></div>`).join(''); };
+window.cmpSetBIdx=async(i)=>{ if(!cmpS||!cmpS._pick[i]) return; const p=cmpS._pick[i];
+  await cmpLoadPane('b', p.path, p.label); cmpS.offset=0; cmpUpdateOffset();
+  const tr=document.getElementById('cmpTransport'), sr=document.getElementById('cmpSyncRow'); if(tr)tr.style.display=''; if(sr)sr.style.display='';
+  if(!cmpS._raf) cmpTick(); };
 function rowHtml(key,i){
   const st=logState[key];
   return `<tr data-set="${key}">
