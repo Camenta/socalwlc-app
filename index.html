@@ -74,6 +74,19 @@
   .athbr-item:first-of-type{margin-top:0}
   .athbr-tag{display:inline-block;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:1px 6px;margin-bottom:3px}
   .athbr-body{font-size:14px;line-height:1.45}
+  .athbr-review{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px solid #27425c;margin-top:9px;padding-top:9px}
+  .athbr-review .athbr-body{flex:1;min-width:150px}
+  .athbr-tag.rev{color:var(--accent2);border-color:#3a5f80}
+  .athbr-review .cbtn{margin-left:auto}
+  .athbr-review.rev-watched{opacity:.6}
+  .athbr-done{color:var(--good);font-weight:700;font-size:12px;margin-left:4px}
+  .rvasg{background:#0e151c;border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-top:10px}
+  .rvasg-hd{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-bottom:7px}
+  .rvasg-opt{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:12.5px;color:var(--text);margin-top:5px;cursor:pointer}
+  .rvasg-opt input[type=radio]{accent-color:var(--accent2)}
+  .rvasg-sel,.rvasg-date{background:var(--panel2);border:1px solid var(--line);border-radius:7px;color:var(--text);font:inherit;font-size:12px;padding:3px 7px}
+  .rvasg-sel:disabled,.rvasg-date:disabled{opacity:.4}
+  .rvasg-note{font-size:11.5px;color:var(--accent2);margin-top:8px;line-height:1.4}
   .cvlw{background:#0e151c;border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-bottom:12px;font-size:12px}
   .cvlw.quiet{color:var(--muted);font-style:italic}
   .cvlw-hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:7px}
@@ -2396,6 +2409,7 @@ async function openAnnStudio(path, meta){
           <video id="vstReviewPrev" controls preload="none" style="display:none;width:100%;margin-top:6px;border-radius:8px;background:#000"></video>
           <div class="vst-row" id="vstReviewDelWrap" style="display:none;margin-top:6px"><span class="vst-btn" id="vstReviewDel">🗑 Discard recording</span></div>
           <div class="vst-row" style="margin-top:8px"><label>Video fps <input type="number" class="vst-fps" id="vstFps" value="30" min="1" max="240"></label></div>
+          <div id="rvAssignWrap"></div>
           <div class="vst-row" style="margin-top:10px"><span class="vst-btn pri" id="vstSave" style="flex:1;text-align:center">Save &amp; send to athlete</span></div>
           ${VNOTES_READY?'':'<div class="vst-row" style="margin-top:6px;color:#e0a85a">Run migration 29 to save to the cloud — saving locally for now.</div>'}
         </div>
@@ -2493,11 +2507,13 @@ async function openAnnStudio(path, meta){
     exercise:meta.exercise||null, trackMode:null, calib:null, seed:null, seedR:null, _detect:null, seedT:null, track:null, trackSource:null, kf:null, metrics:null, scale:null, trackId:null, showTrace:true, showDrift:true, jointAngles:[],
     facing:'left', pinPeakT:null, pinCatchT:null,
     gA:{metric:'velocity',axis:'v'}, gB:{metric:'displacement',axis:'h'}, graph:null, _load:(meta.load!=null?meta.load:null), _cursorT:0, win:null, _looping:false, _zoom:1, _panx:0, _pany:0,
-    voiceBlob:null, voiceUrl:null, voicePath:null, reviewBlob:null, reviewUrl:null, reviewPath:null };
+    voiceBlob:null, voiceUrl:null, voicePath:null, reviewBlob:null, reviewUrl:null, reviewPath:null,
+    assign:{ mode:'now', session:null, date:null, exercise:meta.exercise||null }, _targets:null };
   wireAnnStudio();
   if(annS.athleteId){ try{ const ph=await sb.from('profiles').select('height_cm').eq('id',annS.athleteId).maybeSingle(); if(ph.data&&ph.data.height_cm) annS._athHeightCm=parseFloat(ph.data.height_cm); }catch(e){} }   // for relative-height (H%/L%) metrics
   await loadAnnNotes(path);
   await bpLoadTrack(path);
+  if(!ro) rvInitAssign();
 }
 function closeAnnStudio(){ vstRecCleanup(); if(annS){ if(annS._ro) annS._ro.disconnect(); if(annS._gro) annS._gro.disconnect(); } const h=document.getElementById('annStudio'); if(h){ const v=h.querySelector('#vstVid'); if(v) v.pause(); h.classList.remove('on'); h.innerHTML=''; } annS=null; }
 function vstMsg(t){ const m=document.getElementById('vstMsg'); if(m){ m.textContent=t||''; if(t) setTimeout(()=>{ if(m.textContent===t) m.textContent=''; }, 2600); } }
@@ -3791,12 +3807,22 @@ async function saveAnnNotes(){
   const payload={ shapes:annS.shapes, note, fps:annS.fps, jointAngles:annS.jointAngles||[], reviewVideoPath:annS.reviewPath||null, voicePath:annS.voicePath||null, reviewTimeline:(annS.reviewPath&&annS._revTimeline&&annS._revTimeline.length)?annS._revTimeline:null, reviewChartTimeline:(annS.reviewPath&&annS._revChartTimeline&&annS._revChartTimeline.length>1)?annS._revChartTimeline:null };
   try{ localStorage.setItem('vst:'+annS.path, JSON.stringify(payload)); }catch(e){}
   if(!VNOTES_READY){ if(btn){ btn.style.pointerEvents=''; btn.textContent='Save & send to athlete'; } vstMsg('✓ Saved locally'); return; }
-  const row={ gym_id:me_.gym_id, video_path:annS.path, athlete_id:annS.athleteId||null, payload, timestamp_sec:null };
+  // scheduling (migration 52): resolve the coach's timing choice to concrete columns
+  let asg={};
+  if(RVASSIGN_READY && annS.assign){ const a=annS.assign;
+    if(a.mode==='lift' && a.session && a.date){ asg={ assign_date:a.date, assign_session:a.session, assign_exercise:a.exercise||null }; }
+    else if(a.mode==='date' && a.date){ asg={ assign_date:a.date, assign_session:null, assign_exercise:a.exercise||null }; }
+    else { asg={ assign_date:null, assign_session:null, assign_exercise:null }; }   // 'now' → flat Home feed, today's behavior
+  }
+  const row={ gym_id:me_.gym_id, video_path:annS.path, athlete_id:annS.athleteId||null, payload, timestamp_sec:null, ...asg };
   // clean-open means noteId starts null — reuse the existing row for this clip so a Save replaces it instead of piling up duplicates
   if(!annS.noteId){ const ex=await sb.from('video_notes').select('id').eq('video_path',annS.path).order('updated_at',{ascending:false}).limit(1); if(ex.data&&ex.data[0]) annS.noteId=ex.data[0].id; }
   let res;
-  if(annS.noteId) res=await sb.from('video_notes').update({payload, athlete_id:row.athlete_id, updated_at:new Date().toISOString()}).eq('id',annS.noteId).select();
-  else res=await sb.from('video_notes').insert(row).select();
+  if(annS.noteId){
+    const upd={payload, athlete_id:row.athlete_id, updated_at:new Date().toISOString(), ...asg};
+    if(RVASSIGN_READY && asg.assign_date){ upd.delivered_at=null; upd.watched_at=null; }   // a (re)scheduled review is a fresh delivery — re-prompt the athlete
+    res=await sb.from('video_notes').update(upd).eq('id',annS.noteId).select();
+  } else res=await sb.from('video_notes').insert(row).select();
   if(btn){ btn.style.pointerEvents=''; btn.textContent='Save & send to athlete'; }
   if(res.error){ vstMsg('Save failed — kept locally'); return; }
   if(res.data&&res.data[0]) annS.noteId=res.data[0].id;
@@ -3804,8 +3830,79 @@ async function saveAnnNotes(){
   // not just the notes — otherwise the athlete gets the review video/notes but blank bar-path numbers.
   let trackSent=false;
   if(annS.track && annS.track.length>1){ try{ const tr=await bpPersistTrack(); trackSent=!!(tr&&!tr.error); }catch(e){} }
-  vstMsg(trackSent?'✓ Saved & sent (review + bar-path analysis)':'✓ Saved & sent');
+  const when = (RVASSIGN_READY && annS.assign && annS.assign.date && annS.assign.mode!=='now')
+    ? ' — shows '+fmtShort(annS.assign.date) : '';
+  vstMsg((trackSent?'✓ Saved & sent (review + bar-path analysis)':'✓ Saved & sent')+when);
 }
+/* ----- assign a review to a specific training day (migration 52) ----- */
+// The athlete's upcoming programmed lifts, earliest session per distinct exercise, so the
+// coach can schedule this review to surface right before the next session containing one.
+// Each option carries its OWN resolved session+date, so picking one IS the resolution.
+async function rvLoadTargets(athId){
+  if(!athId || !RVASSIGN_READY) return [];
+  const today=iso(new Date()), horizon=iso(new Date(Date.now()+56*864e5));   // ~8 weeks out
+  const r=await sb.from('sessions').select('id,session_date,title,prescribed_exercises(name)')
+    .eq('athlete_id',athId).neq('status','draft').gte('session_date',today).lte('session_date',horizon)
+    .order('session_date',{ascending:true}).limit(80);
+  if(r.error||!r.data) return [];
+  const seen=new Set(), out=[];
+  r.data.forEach(s=>(s.prescribed_exercises||[]).forEach(ex=>{
+    const nm=(ex.name||'').trim(); if(!nm) return;
+    const k=cvExKey(nm); if(!k || seen.has(k)) return; seen.add(k);
+    out.push({ exercise:nm, key:k, session:s.id, date:s.session_date });   // first occurrence = earliest, since sessions are date-sorted
+  }));
+  return out;
+}
+function rvAthFirst(){ const id=annS&&annS.athleteId; const a=(coachState.athletes||[]).find(x=>x.id===id); return a&&a.full_name?((a.full_name.split(/\s+/)[0])||'the athlete'):'the athlete'; }
+async function rvInitAssign(){
+  if(!annS || annS.readOnly) return;
+  const wrap=document.getElementById('rvAssignWrap'); if(!wrap) return;
+  if(!RVASSIGN_READY || !annS.athleteId){ wrap.innerHTML=''; return; }   // pre-migration or no athlete → behave exactly as today (flat feed)
+  annS._targets = await rvLoadTargets(annS.athleteId);
+  // reflect an assignment already saved on this clip
+  let existing=null;
+  if(VNOTES_READY){ try{ const ex=await sb.from('video_notes').select('assign_date,assign_exercise,assign_session,delivered_at,watched_at').eq('video_path',annS.path).order('updated_at',{ascending:false}).limit(1); if(ex.data&&ex.data[0]) existing=ex.data[0]; }catch(e){} }
+  if(existing && existing.assign_date){
+    annS.assign.mode = existing.assign_session ? 'lift' : 'date';
+    annS.assign.date=existing.assign_date; annS.assign.session=existing.assign_session||null;
+    annS.assign.exercise=existing.assign_exercise||annS.assign.exercise;
+    annS._deliveredAt=existing.delivered_at||null; annS._watchedAt=existing.watched_at||null;
+  } else if(annS.assign.exercise){   // no prior assignment: pre-pick the clip's lift (but keep the default "Right away" — one click to schedule)
+    const want=cvExKey(annS.assign.exercise), wset=new Set(want.split(' ').filter(Boolean));
+    const hit=(annS._targets||[]).find(t=>t.key===want)
+      || (annS._targets||[]).find(t=>{ const tw=t.key.split(' ').filter(Boolean); return tw.length && (tw.every(w=>wset.has(w)) || want.split(' ').every(w=>tw.includes(w))); });
+    if(hit){ annS.assign.session=hit.session; annS.assign.date=hit.date; annS.assign.exercise=hit.exercise; }   // mode stays 'now'
+  }
+  rvPaintAssign();
+}
+function rvAssignSummary(){
+  const a=annS&&annS.assign; if(!a) return '';
+  if(a.mode==='now') return 'Shows on their Home feed as soon as you save.';
+  if(!a.date) return a.mode==='lift' ? 'Pick a lift above.' : 'Pick a day above.';
+  const watched = annS._watchedAt ? ' · ✓ already watched' : (annS._deliveredAt ? ' · seen, not yet watched' : '');
+  const forEx = (a.mode==='lift' && a.exercise) ? ' — before '+esc(a.exercise) : '';
+  return 'Will show on '+esc(fmtDate(a.date))+forEx+watched+'.';
+}
+function rvPaintAssign(){
+  const wrap=document.getElementById('rvAssignWrap'); if(!wrap||!annS) return;
+  const a=annS.assign, ts=annS._targets||[];
+  const opts = ts.length ? ts.map(t=>`<option value="${esc(t.session)}" ${a.session===t.session?'selected':''}>${esc(t.exercise)} — ${esc(fmtShort(t.date))}</option>`).join('')
+    : '<option value="" disabled selected>No upcoming lifts programmed</option>';
+  wrap.innerHTML=`<div class="rvasg">
+    <div class="rvasg-hd">When should ${esc(rvAthFirst())} see this?</div>
+    <label class="rvasg-opt"><input type="radio" name="rvasg" ${a.mode==='now'?'checked':''} onchange="rvAssignSet('now')"> <span>Right away — on their Home feed</span></label>
+    <label class="rvasg-opt"><input type="radio" name="rvasg" ${a.mode==='lift'?'checked':''} ${ts.length?'':'disabled'} onchange="rvAssignSet('lift')"> <span>Before their next…</span>
+      <select class="rvasg-sel" id="rvAsgSel" ${a.mode==='lift'?'':'disabled'} onchange="rvAssignPickLift(this.value)">${opts}</select></label>
+    <label class="rvasg-opt"><input type="radio" name="rvasg" ${a.mode==='date'?'checked':''} onchange="rvAssignSet('date')"> <span>On a specific day</span>
+      <input type="date" class="rvasg-date" id="rvAsgDate" ${a.mode==='date'?'':'disabled'} value="${a.mode==='date'&&a.date?esc(a.date):''}" min="${esc(iso(new Date()))}" onchange="rvAssignPickDate(this.value)"></label>
+    <div class="rvasg-note" id="rvAsgNote">${rvAssignSummary()}</div>
+  </div>`;
+}
+window.rvAssignSet=(mode)=>{ if(!annS) return; annS.assign.mode=mode;
+  if(mode==='lift'){ const ts=annS._targets||[]; if(!annS.assign.session && ts.length){ annS.assign.session=ts[0].session; annS.assign.date=ts[0].date; annS.assign.exercise=ts[0].exercise; } }
+  rvPaintAssign(); };
+window.rvAssignPickLift=(sid)=>{ if(!annS) return; const t=(annS._targets||[]).find(x=>x.session===sid); if(t){ annS.assign.mode='lift'; annS.assign.session=t.session; annS.assign.date=t.date; annS.assign.exercise=t.exercise; } rvPaintAssign(); };
+window.rvAssignPickDate=(d)=>{ if(!annS) return; annS.assign.mode='date'; annS.assign.date=d||null; annS.assign.session=null; rvPaintAssign(); };
 function rowHtml(key,i){
   const st=logState[key];
   return `<tr data-set="${key}">
@@ -3956,10 +4053,11 @@ async function probeProgramId(){
   const p=await sb.from('programs').select('archived,updated_at,team_id').limit(1); if(!p.error) PROG_META_READY=true;
   const tm=await sb.from('teams').select('focus,next_comp,next_comp_date').limit(1); if(!tm.error) TEAM_META_READY=true;
 }
-let VNOTES_READY=false, VTRACKS_READY=false;
+let VNOTES_READY=false, VTRACKS_READY=false, RVASSIGN_READY=false;
 async function probeVideoNotes(){
   const { error } = await sb.from('video_notes').select('id').limit(1); VNOTES_READY = !error;
   const t = await sb.from('video_tracks').select('id').limit(1); VTRACKS_READY = !t.error;
+  const a = await sb.from('video_notes').select('assign_date').limit(1); RVASSIGN_READY = !a.error;   // review scheduling (migration 52)
 }
 let SRPE_READY=false;   // sessions.session_minutes + session_rpe (migration 33) → session-RPE load
 async function probeSrpe(){ const { error } = await sb.from('sessions').select('session_rpe').limit(1); SRPE_READY = !error;
@@ -7367,26 +7465,65 @@ function athBriefPick(rows, dateStr, monday, myId, myTeam){
   const rank=(b)=>(b.athlete_id?0:1)+(b.scope==='day'?0:2);   // personal before team, day before week
   return keep.sort((a,b)=>rank(a)-rank(b));
 }
-// the coach's note for this day (and/or this week) — rendered above the logging blurb
+// the coach's note for this day (and/or this week) + any video review assigned to this day —
+// one "From your coach" block above the logging blurb
 async function athLoadBrief(dateStr){
-  const host=document.getElementById('athBrief'); if(!host) return;
+  const host=document.getElementById('athBrief'); if(!host || !me_) return;
   host.innerHTML='';
-  if(!BRIEFS_READY || !me_) return;
   const p=(n)=>String(n).padStart(2,'0');
   const m=mondayOfDate(new Date(dateStr+'T00:00:00'));
   const monday=m.getFullYear()+'-'+p(m.getMonth()+1)+'-'+p(m.getDate());
-  const r=await sb.from('coach_briefs').select('scope,target_date,athlete_id,team_id,body')
-    .in('target_date', monday===dateStr ? [dateStr] : [dateStr, monday]);
-  if(r.error || !r.data || !r.data.length) return;
-  const mine=athBriefPick(r.data, dateStr, monday, me_.id, me_.team_id);
-  if(!mine.length) return;
-  host.innerHTML=`<div class="athbr">
-    <div class="athbr-hd">From your coach</div>
-    ${mine.map(b=>`<div class="athbr-item">
+  // written/team briefs (migration 51) + assigned video reviews (migration 52), fetched together
+  const [br, rv] = await Promise.all([
+    BRIEFS_READY ? sb.from('coach_briefs').select('scope,target_date,athlete_id,team_id,body').in('target_date', monday===dateStr ? [dateStr] : [dateStr, monday]) : Promise.resolve({data:[]}),
+    (RVASSIGN_READY && VNOTES_READY) ? sb.from('video_notes').select('id,video_path,payload,updated_at,assign_exercise,delivered_at,watched_at').eq('athlete_id',me_.id).eq('assign_date',dateStr) : Promise.resolve({data:[]})
+  ]);
+  const mine = (br && !br.error && br.data) ? athBriefPick(br.data, dateStr, monday, me_.id, me_.team_id) : [];
+  const reviews = (rv && !rv.error && rv.data) ? rv.data : [];
+  if(!mine.length && !reviews.length) return;
+  const briefHtml = mine.map(b=>`<div class="athbr-item">
       ${b.scope==='week'?'<span class="athbr-tag">this week</span>':''}
       <div class="athbr-body">${esc(b.body).replace(/\n/g,'<br>')}</div>
-    </div>`).join('')}
+    </div>`).join('');
+  const localWatched=athWatchedSet();
+  const revHtml = reviews.map(r=>{
+    const done = !!r.watched_at || localWatched.has((r.video_path||'')+'|'+(r.updated_at||''));
+    const ex = r.assign_exercise ? esc(r.assign_exercise) : 'lift';
+    return `<div class="athbr-item athbr-review${done?' rev-watched':''}">
+      <span class="athbr-tag rev">🎬 watch before you lift</span>
+      <div class="athbr-body">Your coach reviewed your ${ex}.${done?' <span class="athbr-done">✓ watched</span>':''}</div>
+      <button class="cbtn" onclick="athWatchAssigned('${esc(r.id)}','${esc(r.video_path)}','${esc(r.updated_at)}',this)">▶ ${done?'Re-watch':'Watch now'}</button>
+    </div>`;
+  }).join('');
+  host.innerHTML=`<div class="athbr">
+    <div class="athbr-hd">From your coach</div>
+    ${briefHtml}${revHtml}
   </div>`;
+  // stamp delivery (first time this day's assigned reviews were shown) so the coach can see it reached them
+  const undelivered=reviews.filter(r=>!r.delivered_at).map(r=>r.id);
+  if(undelivered.length && RVASSIGN_READY){ try{ sb.from('video_notes').update({delivered_at:new Date().toISOString()}).in('id',undelivered); }catch(e){} }
+  // "watch before you lift" prompt — dismissible, once per session per device, re-prompts only on a new review
+  const unwatched=reviews.filter(r=>!r.watched_at && !localWatched.has((r.video_path||'')+'|'+(r.updated_at||'')));
+  if(unwatched.length) athReviewPrompt(unwatched[0], dateStr);
+}
+// stamp watched + open the review read-only. Called from the block button and the prompt.
+window.athWatchAssigned=(id,path,upd,el)=>{
+  athWatchedMark((path||'')+'|'+(upd||''));
+  if(RVASSIGN_READY && id){ try{ sb.from('video_notes').update({watched_at:new Date().toISOString()}).eq('id',id); }catch(e){} }
+  if(el){ const it=el.closest('.athbr-item'); if(it) it.classList.add('rev-watched'); }
+  openAnnStudio(path,{readOnly:true,title:'Coach review',athleteId:me_.id});
+};
+// dismissible interstitial before the log; never a native confirm() (browsers mute those — see the publish-all bug)
+function athReviewPrompt(r, dateStr){
+  const key='rvprompt:'+(me_&&me_.id)+':'+dateStr+':'+(r.video_path||'');
+  try{ if(sessionStorage.getItem(key)) return; sessionStorage.setItem(key,'1'); }catch(e){}
+  const ex=r.assign_exercise?esc(r.assign_exercise):'lift';
+  ovModal('rvPromptModal', `<div class="ov-hd"><h2 style="margin:0">Your coach left you something to watch</h2></div>
+    <p style="color:var(--text);line-height:1.45;margin:10px 0 0">A review of your <b>${ex}</b> — worth a look before you start today.</p>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+      <button class="btn ghost" onclick="document.getElementById('rvPromptModal').style.display='none'">I’ll watch after</button>
+      <button class="btn blue" onclick="document.getElementById('rvPromptModal').style.display='none';athWatchAssigned('${esc(r.id)}','${esc(r.video_path)}','${esc(r.updated_at)}')">Watch now</button>
+    </div>`);
 }
 // flag any sets in this session whose clip the coach has reviewed (badge + tap-to-open)
 async function markAthReviews(){
@@ -7677,13 +7814,25 @@ async function sweepOldReviews(){
   try{
     if(!VNOTES_READY || coachState._sweptReviews) return; coachState._sweptReviews=true;
     const cutoff=new Date(Date.now()-14*864e5).toISOString();
-    const { data, error }=await sb.from('video_notes').select('id,video_path,payload,updated_at').lt('updated_at', cutoff).limit(100);
+    const cols='id,video_path,payload,updated_at'+(RVASSIGN_READY?',assign_date,delivered_at':'');
+    const { data, error }=await sb.from('video_notes').select(cols).lt('updated_at', cutoff).limit(100);
     if(error||!data||!data.length) return;
+    const keepMs=Date.now()-14*864e5;
     const files=[], noteIds=[], clipPaths=[];
     for(const r of data){ const pl=r.payload||{};
+      // never sweep a scheduled review before the athlete has had it: for an assigned row, run the
+      // 14-day clock from delivery (or the assigned day) instead of updated_at — else a review pinned
+      // weeks out is created now and deleted before it ever surfaces.
+      if(RVASSIGN_READY && r.assign_date){
+        const deliv = r.delivered_at ? new Date(r.delivered_at).getTime() : null;
+        const asgMs = new Date(r.assign_date+'T00:00:00').getTime();
+        if(deliv==null){ if(asgMs > keepMs) continue; }        // not delivered yet & the day hasn't long passed → keep
+        else if(deliv > keepMs) continue;                       // delivered within 14 days → keep
+      }
       if(pl.reviewVideoPath) files.push(pl.reviewVideoPath);   // the coach's recorded review (big webm)
       if(pl.voicePath) files.push(pl.voicePath);
       noteIds.push(r.id); if(r.video_path) clipPaths.push(r.video_path); }
+    if(!noteIds.length) return;
     // remove the review recording/voice files (coach-folder files); the athlete's original clip is NOT in this list
     if(files.length){ try{ await sb.storage.from('lift-videos').remove(files); }catch(e){} }
     if(clipPaths.length){ try{ await sb.from('video_tracks').delete().in('video_path', clipPaths); }catch(e){} }   // bar-path analysis = part of the review
