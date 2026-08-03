@@ -10314,7 +10314,10 @@ window.planSaveSegment=async(trackId,segId)=>{
 window.planDelSegment=async(id)=>{ const res=await sb.from('plan_segments').delete().eq('id',id).select(); const m=document.getElementById('segModal'); if(m)m.style.display='none'; if(res.error){ toast('Delete failed — '+res.error.message); return; } await loadPlan(); paintPlan(); };
 /* ---- athlete invites (secure self-signup links) ---- */
 let inviteState={ link:null, justName:null };
-function inviteBase(){ return location.origin + location.pathname; }
+// Invite links must always use the clean custom domain — never the github.io project path
+// (`/socalwlc-app/`), which SMS/link previews drop and send athletes to a dead root. If a coach
+// opens an old github.io bookmark, still hand out the app.socalwlc.com link. Local dev unaffected.
+function inviteBase(){ if(location.hostname==='camenta.github.io') return 'https://app.socalwlc.com/'; return location.origin + location.pathname; }
 async function loadInvites(){ const { data, error } = await sb.from('invites').select('*').eq('status','pending').order('created_at',{ascending:false}); return error ? null : (data||[]); }
 window.conAddAthlete=async ()=>{
   inviteState={ link:null, justName:null };
