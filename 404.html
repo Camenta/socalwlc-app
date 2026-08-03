@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SoCal WLC</title>
+<script>
+  // SPA fallback: GitHub Pages serves this for any unknown path. Bounce back to the
+  // app root, PRESERVING the query string (?join=...) + hash so an invite link that
+  // arrives with a slightly wrong path still lands the athlete on the join screen.
+  (function () {
+    var target = '/' + (location.search || '') + (location.hash || '');
+    if (location.pathname !== '/') location.replace(target);
+  })();
+</script>
+</head>
+<body style="font:15px system-ui,sans-serif;background:#0a0d11;color:#c9d4de;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
+  <div style="text-align:center">
+    <div style="font-weight:700;margin-bottom:6px">SoCal WLC</div>
+    <div style="color:#8aa0b4">Taking you to the app&hellip; <a href="/" style="color:#e8643c">tap here</a> if it doesn't load.</div>
+  </div>
+</body>
+</html>
