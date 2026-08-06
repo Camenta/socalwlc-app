@@ -551,6 +551,7 @@
   .cw-delbar .cw-del-go{background:var(--bad);color:#fff}
   .cw-delbar .cw-del-x{background:#0e151c;color:var(--muted);border:1px solid var(--line)}
   .cw-delbar .cw-del-copy{background:var(--accent2);color:#0a0d11}
+  .cw-delbar .cw-del-push{background:#8b5cf6;color:#fff}
   .cw-delbar .cw-copydate{background:#0e151c;border:1px solid var(--line);border-radius:8px;color:var(--text);font:inherit;font-size:12px;padding:6px 8px}
   .cwd-st{font-size:12px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
   .cwd-dchip{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--warn);background:rgba(232,158,60,.16);border-radius:6px;padding:1px 5px}
@@ -11145,6 +11146,7 @@ function cwShowDelBar(){
   }
   bar.innerHTML=`<span class="cw-delc">${line}${warn}</span>
     <button class="cw-del-copy" onclick="cwCopyPrompt()">📋 Copy</button>
+    <button class="cw-del-push" onclick="cwPushPrompt()">⤵ Push</button>
     <button class="cw-del-go" onclick="cwSelDelete()">🗑 Delete</button>
     <button class="cw-del-x" onclick="cwClearDelBar()">Cancel</button>`;
 }
@@ -11202,6 +11204,46 @@ window.cwSelCopy=async(mode,arg)=>{
     await renderCoachPanel();
     toast('Copied '+made+' session'+(made===1?'':'s')+' as draft'+(made===1?'':'s')+' — review, then publish.');
   }catch(e){ console.error('lasso copy failed:', e); const b=document.getElementById('cwDelBar'); if(b) b.innerHTML=`<span class="cw-delc" style="color:var(--bad)">Copy failed — ${esc(e.message||String(e))}</span><button class="cw-del-x" onclick="cwClearDelBar()">Close</button>`; }
+};
+// lasso → Push: the athlete missed the lassoed day/week. Shift the earliest selected day AND everything after
+// it forward (or back) by a day or a week — completed (logged) sessions never move, so history is preserved.
+async function cwMovableFrom(anchorDate, athIds){
+  const { data: sess, error } = await sb.from('sessions').select('id,session_date,status').in('athlete_id', athIds).gte('session_date', anchorDate);
+  if(error) throw error;
+  const rows=sess||[], ids=rows.map(r=>r.id), logged=new Set();
+  rows.forEach(r=>{ if(r.status==='done') logged.add(r.id); });          // completed = never moves
+  for(let i=0;i<ids.length;i+=200){ const r=await sb.from('logged_sets').select('session_id').in('session_id', ids.slice(i,i+200)); if(!r.error)(r.data||[]).forEach(l=>logged.add(l.session_id)); }
+  return rows.filter(r=>!logged.has(r.id));                              // anything with logged sets is kept in place too
+}
+function cwPushAnchor(){ const sel=[...document.querySelectorAll('#cwCalScroll .cwd-sess.cw-sel')]; const d=sel.map(c=>c.dataset.date).filter(Boolean).sort(); return d[0]||null; }
+window.cwPushPrompt=async()=>{
+  const anchor=cwPushAnchor(); if(!anchor){ cwClearDelBar(); return; }
+  const bar=document.getElementById('cwDelBar'); if(!bar) return;
+  bar.innerHTML=`<span class="cw-delc">Checking…</span>`;
+  const athIds = cw.teamMode ? cw.athIds : [coachState.selected];
+  let n=0; try{ n=(await cwMovableFrom(anchor, athIds)).length; }catch(e){}
+  bar.innerHTML=`<span class="cw-delc">Shift from ${esc(fmtShort(anchor))} onward<small>${n} session${n===1?'':'s'} move · completed stay put</small></span>
+    <button class="cw-del-push" onclick="cwSelPush(7)">+1 wk</button>
+    <button class="cw-del-push" onclick="cwSelPush(1)">+1 day</button>
+    <button class="cw-del-x" onclick="cwSelPush(-7)">−1 wk</button>
+    <button class="cw-del-x" onclick="cwSelPush(-1)">−1 day</button>
+    <button class="cw-del-x" onclick="cwShowDelBar()">Back</button>`;
+};
+window.cwSelPush=async(days)=>{
+  const anchor=cwPushAnchor(); if(!anchor){ cwClearDelBar(); return; }
+  const bar=document.getElementById('cwDelBar'); if(bar) bar.innerHTML='<span class="cw-delc">Shifting…</span>';
+  try{
+    const athIds = cw.teamMode ? cw.athIds : [coachState.selected];
+    const movable = await cwMovableFrom(anchor, athIds);
+    if(!movable.length){ cwClearDelBar(); await renderCoachPanel(); toast('Nothing to shift — everything from there is already logged.'); return; }
+    const shift=(dstr,n)=>{ const nd=new Date(dstr+'T00:00:00'); nd.setDate(nd.getDate()+n); return iso(nd); };
+    const byDate={}; movable.forEach(r=>{ (byDate[r.session_date]=byDate[r.session_date]||[]).push(r.id); });
+    const dates=Object.keys(byDate).sort(); if(days>0) dates.reverse();   // move later dates first when pushing forward
+    for(const d of dates){ const nd=shift(d,days); const u=await sb.from('sessions').update({session_date:nd}).in('id', byDate[d]); if(u.error) throw u.error; }
+    cwClearDelBar(); await renderCoachPanel();
+    const amt=Math.abs(days)===7?'1 week':(Math.abs(days)+' day'+(Math.abs(days)===1?'':'s'));
+    toast('Shifted '+movable.length+' session'+(movable.length===1?'':'s')+' '+(days>0?'forward':'back')+' '+amt+' — completed sessions kept in place.');
+  }catch(e){ console.error('lasso push failed:', e); const b=document.getElementById('cwDelBar'); if(b) b.innerHTML=`<span class="cw-delc" style="color:var(--bad)">Shift failed — ${esc(e.message||String(e))}</span><button class="cw-del-x" onclick="cwClearDelBar()">Close</button>`; }
 };
 window.cwSelDelete=async()=>{
   const sel=[...document.querySelectorAll('#cwCalScroll .cwd-sess.cw-sel')];
