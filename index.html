@@ -11160,7 +11160,8 @@ window.cwCopyPrompt=()=>{
     <button class="cw-del-copy" onclick="cwSelCopy('weeks',3)">+3 wk</button>
     <button class="cw-del-copy" onclick="cwSelCopy('weeks',4)">+4 wk</button>
     <span class="cw-delc" style="font-weight:600">or week of</span>
-    <input type="date" class="cw-copydate" id="cwCopyDate" onchange="cwSelCopy('date',this.value)">
+    <input type="date" class="cw-copydate" id="cwCopyDate" min="${iso(new Date())}">
+    <button class="cw-del-copy" onclick="cwSelCopy('date',(document.getElementById('cwCopyDate')||{}).value)">Paste</button>
     <button class="cw-del-x" onclick="cwShowDelBar()">Back</button>`;
 };
 window.cwSelCopy=async(mode,arg)=>{
@@ -11170,9 +11171,11 @@ window.cwSelCopy=async(mode,arg)=>{
   let newDateFor;
   if(mode==='weeks'){ const n=parseInt(arg)||1; newDateFor=(d)=>shift(d, n*7); }
   else {
-    if(!arg) return;
+    if(!arg){ toast('Pick a date first.'); return; }
+    const dst=new Date(arg+'T00:00:00');
+    if(isNaN(dst.getTime()) || dst.getFullYear()<2000){ toast('Enter a full date (mm/dd/yyyy).'); return; }   // reject a half-typed year
     const dates=sel.map(c=>c.dataset.date).filter(Boolean).sort();
-    const srcMon=mondayOfDate(new Date(dates[0]+'T00:00:00')), dstMon=mondayOfDate(new Date(arg+'T00:00:00'));
+    const srcMon=mondayOfDate(new Date(dates[0]+'T00:00:00')), dstMon=mondayOfDate(dst);
     const deltaDays=Math.round((dstMon.getTime()-srcMon.getTime())/864e5);
     if(!deltaDays){ toast('That’s the same week — pick a different one.'); return; }
     newDateFor=(d)=>shift(d, deltaDays);
