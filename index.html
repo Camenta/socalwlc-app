@@ -645,13 +645,26 @@
   .home-dot.good{background:var(--good)}.home-dot.warn{background:var(--warn)}.home-dot.bad{background:var(--accent)}
   .home-empty{color:var(--muted);font-size:12.5px;padding:6px 0}
   .home-more{margin-top:8px;font-size:11.5px;font-weight:700;color:var(--accent2);cursor:pointer;align-self:flex-start}
-  #clipRevModal .vid-box{max-width:560px;width:96vw}
-  .cliprev-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:6px 0 8px}
-  .cliprev-count{font-size:12.5px;color:var(--muted)}.cliprev-count b{color:var(--text)}
-  .cliprev-tabs{display:flex;gap:4px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:2px}
-  .cliprev-tab{border:none;background:none;color:var(--muted);font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:6px;cursor:pointer}
-  .cliprev-tab.on{background:var(--accent2);color:#0c1116}
-  .cliprev-list{max-height:62vh;overflow-y:auto}
+  #clipRevModal .vid-box{max-width:580px;width:96vw}
+  .cliprev-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:6px 0 6px}
+  .cliprev-count{font-size:12.5px;color:var(--muted)}.cliprev-count b{color:var(--text);font-size:14px}
+  .cliprev-list{max-height:64vh;overflow-y:auto}
+  .cr-banner{background:rgba(232,177,60,.12);border:1px solid rgba(232,177,60,.4);color:var(--warn);font-size:11.5px;border-radius:8px;padding:7px 10px;margin-bottom:8px}
+  .cr-sec{font-size:10.5px;font-weight:800;letter-spacing:.5px;color:var(--muted);text-transform:uppercase;margin:12px 0 2px;padding-top:6px;border-top:1px solid var(--line)}
+  .cr-sec:first-child{border-top:none;padding-top:0;margin-top:2px}
+  .cr-sec.toggle{cursor:pointer;display:flex;align-items:center;gap:6px}
+  .cr-sec.toggle:hover{color:var(--text)}.cr-sec.toggle span{color:var(--accent2)}
+  .cr-sub{font-size:11px;font-weight:700;color:var(--muted);margin:8px 0 1px}.cr-sub span{opacity:.6;font-weight:600}
+  .cr-actions{flex:none;display:flex;gap:4px;margin-left:6px}
+  .cr-act{border:1px solid var(--line);background:var(--panel2);border-radius:6px;font-size:12px;line-height:1;padding:3px 6px;cursor:pointer;color:var(--text)}
+  .cr-act.ok:hover{border-color:var(--good);color:var(--good)}
+  .cr-act.del:hover{border-color:var(--accent);color:var(--accent)}
+  .cr-ctrls{display:flex;flex-direction:column;gap:6px;margin:10px 0 4px}
+  .cr-more{align-self:flex-start;background:none;border:none;color:var(--accent2);font-size:12px;font-weight:700;cursor:pointer;padding:2px 0}
+  .cr-bulk{align-self:flex-start;background:var(--panel2);border:1px solid var(--line);color:var(--muted);font-size:11.5px;font-weight:700;border-radius:8px;padding:6px 10px;cursor:pointer}
+  .cr-bulk:hover{color:var(--good);border-color:var(--good)}
+  .cr-btn{border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:13px;font-weight:700;border-radius:8px;padding:8px 14px;cursor:pointer}
+  .cr-btn.danger{background:var(--accent);border-color:var(--accent);color:#fff}.cr-btn.ghost:hover{border-color:var(--muted)}
   .home-days{flex:none;font-weight:800;font-size:13px}
   .home-days.soon{color:var(--accent)}
   .ctoolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
@@ -2468,10 +2481,11 @@ let annS=null;
 // coach review queue (#3): session-grouped video inbox so Prev/Next walks a session's
 // videos first, then rolls into the next athlete's clips. Built in renderHomeBand.
 let annQueue=[], annQIdx=-1;
-window.annStudioNav=(delta)=>{ const ni=annQIdx+delta; if(ni<0||ni>=annQueue.length) return; const c=annQueue[ni]; if(!c) return; openAnnStudio(c.video_path,{athleteId:c.athlete_id, queueIdx:ni}); };
+window.annStudioNav=(delta)=>{ const ni=annQIdx+delta; if(ni<0||ni>=annQueue.length) return; const c=annQueue[ni]; if(!c) return; clipMarkReviewed(c.video_path,c.athlete_id); c.reviewed=true; openAnnStudio(c.video_path,{athleteId:c.athlete_id, queueIdx:ni}); };
 // Open a clip in the studio by path, resolving its position in the CURRENT annQueue (so the
 // Home card and the full "All clips" review list can't drift out of sync on queue index).
-window.reviewOpen=(path)=>{ const i=annQueue.findIndex(c=>c.video_path===path); const c=i>=0?annQueue[i]:null; openAnnStudio(path,{athleteId:c?c.athlete_id:'', queueIdx:i>=0?i:-1}); };
+// Opening a clip counts as watching it → mark reviewed (coach-only; no-op pre-migration-53).
+window.reviewOpen=(path)=>{ const i=annQueue.findIndex(c=>c.video_path===path); const c=i>=0?annQueue[i]:null; clipMarkReviewed(path,c&&c.athlete_id); if(c) c.reviewed=true; openAnnStudio(path,{athleteId:c?c.athlete_id:'', queueIdx:i>=0?i:-1}); };
 const VST_COLORS=['#ff5a5a','#ffd23f','#34d399','#5aa9ff','#c77dff','#ffffff'];
 function vstHost(){ let h=document.getElementById('annStudio'); if(!h){ h=document.createElement('div'); h.id='annStudio'; h.className='vstudio'; document.body.appendChild(h); } return h; }
 async function openAnnStudio(path, meta){
@@ -3963,6 +3977,7 @@ async function saveAnnNotes(){
   if(btn){ btn.style.pointerEvents=''; btn.textContent='Save & send to athlete'; }
   if(res.error){ vstMsg('Save failed — kept locally'); return; }
   if(res.data&&res.data[0]) annS.noteId=res.data[0].id;
+  clipMarkReviewed(annS.path, annS.athleteId);   // annotating a clip durably marks it watched (survives the note sweep)
   // also persist the bar-path track so ONE "Save & send" delivers the full analysis (charts + metrics),
   // not just the notes — otherwise the athlete gets the review video/notes but blank bar-path numbers.
   let trackSent=false;
@@ -4314,11 +4329,12 @@ async function probeProgramId(){
   const p=await sb.from('programs').select('archived,updated_at,team_id').limit(1); if(!p.error) PROG_META_READY=true;
   const tm=await sb.from('teams').select('focus,next_comp,next_comp_date').limit(1); if(!tm.error) TEAM_META_READY=true;
 }
-let VNOTES_READY=false, VTRACKS_READY=false, RVASSIGN_READY=false;
+let VNOTES_READY=false, VTRACKS_READY=false, RVASSIGN_READY=false, CLIPREV_READY=false;
 async function probeVideoNotes(){
   const { error } = await sb.from('video_notes').select('id').limit(1); VNOTES_READY = !error;
   const t = await sb.from('video_tracks').select('id').limit(1); VTRACKS_READY = !t.error;
   const a = await sb.from('video_notes').select('assign_date').limit(1); RVASSIGN_READY = !a.error;   // review scheduling (migration 52)
+  const cr = await sb.from('clip_reviews').select('video_path').limit(1); CLIPREV_READY = !cr.error; // durable watched/deleted marker (migration 53)
 }
 let SRPE_READY=false;   // sessions.session_minutes + session_rpe (migration 33) → session-RPE load
 async function probeSrpe(){ const { error } = await sb.from('sessions').select('session_rpe').limit(1); SRPE_READY = !error;
@@ -8108,67 +8124,134 @@ function homeAgo(ts){ if(!ts) return ''; const d=new Date(ts), s=Math.floor((Dat
   const h=Math.floor(m/60); if(h<24) return h+'h ago'; const dd=Math.floor(h/24); if(dd<7) return dd+'d ago'; return fmtShort(iso(d)); }
 function homeDaysTo(dateStr){ const t=new Date(dateStr+'T00:00:00'), n=new Date(); const nd=new Date(n.getFullYear(),n.getMonth(),n.getDate()); return Math.round((t-nd)/864e5); }
 // ---- Full "All clips" video-review queue (opened from the Home video-inbox "All clips →") ----
-// Unlike the Home card (which fetches only ~14 for speed), this pulls EVERY clip with a video for
-// the coach's athletes, rebuilds the shared annQueue so the studio's Prev/Next walks all of them,
-// and lists them in a scrollable modal (unreviewed-first). No migration; client-only.
-let clipRevFilter='unrev', clipRevTrk={};
-window.clipRevSetFilter=(f)=>{ clipRevFilter=f; clipRevPaint(); };
-// Called when the studio closes: if the full review list is open, re-check which clips now have a
-// coach note and update their reviewed flags in place (no refetch of the whole queue, order kept —
-// a just-reviewed clip simply drops out of the Unreviewed filter). No-op if the list isn't open.
+// Pulls EVERY clip with a video for the coach's athletes, split into TO-REVIEW (unwatched, recent-
+// first, date-bucketed) and REVIEWED (collapsed), so the coach isn't staring at the whole history.
+// "Watched" is durable via clip_reviews (migration 53) — it survives the 14-day note sweep, and lets
+// a clip be marked reviewed without annotating, or deleted (hidden) to free storage. Client-only.
+let clipRevAll=[], clipRevTrk={}, clipRevScope='recent', clipRevShowWatched=false;
+const CLIPREV_DAYS=14, CLIPREV_MS=CLIPREV_DAYS*864e5;
+// Durable review/deleted state for the whole gym (RLS-scoped, no big IN lists): a clip is "reviewed"
+// if it has a coach note OR a clip_reviews row; "deleted" clips are hidden from the queue entirely.
+async function clipReviewState(){
+  const reviewed=new Set(), deleted=new Set();
+  try{ const rv=await sb.from('video_notes').select('video_path'); (rv.data||[]).forEach(r=>r.video_path&&reviewed.add(r.video_path)); }catch(e){}
+  if(CLIPREV_READY){ try{ const cr=await sb.from('clip_reviews').select('video_path,deleted'); (cr.data||[]).forEach(r=>{ if(r.deleted) deleted.add(r.video_path); else reviewed.add(r.video_path); }); }catch(e){} }
+  return {reviewed,deleted};
+}
+// Mark a clip watched durably (coach only). Omits `deleted` so an existing delete flag is preserved.
+async function clipMarkReviewed(path, athId){
+  if(!CLIPREV_READY || !path || !(me_&&me_.role==='coach')) return;
+  try{ await sb.from('clip_reviews').upsert({ video_path:path, gym_id:me_.gym_id, athlete_id:athId||null, reviewed_at:new Date().toISOString(), reviewed_by:me_.id }, {onConflict:'video_path'}); }catch(e){}
+}
+// Delete a clip: remove the athlete's original file + review artifacts, and record a durable "deleted"
+// marker so it never returns to the queue (logged_sets keeps its now-dangling video_path, but the
+// queue filters on clip_reviews.deleted — this avoids needing a coach-update policy on logged_sets).
+async function clipDeleteVideo(path, athId){
+  if(!path || !(me_&&me_.role==='coach')) return;
+  try{ await sb.storage.from('lift-videos').remove([path]); }catch(e){}
+  try{ await sb.from('video_tracks').delete().eq('video_path',path); }catch(e){}
+  try{ await sb.from('video_notes').delete().eq('video_path',path); }catch(e){}
+  if(CLIPREV_READY){ try{ await sb.from('clip_reviews').upsert({ video_path:path, gym_id:me_.gym_id, athlete_id:athId||null, deleted:true, deleted_at:new Date().toISOString(), reviewed_by:me_.id }, {onConflict:'video_path'}); }catch(e){} }
+}
+// Studio closed → reload durable state and repaint in place (a just-watched clip moves to Reviewed;
+// a deleted one drops out). No-op if the list isn't open.
 async function clipRevRefreshReviewed(){
   const modal=document.getElementById('clipRevModal'); if(!modal || modal.style.display==='none') return;
-  if(!annQueue.length){ clipRevPaint(); return; }
-  try{ const rv=await sb.from('video_notes').select('video_path').in('video_path', annQueue.map(c=>c.video_path));
-    const rset=new Set((rv.data||[]).map(r=>r.video_path)); annQueue.forEach(c=>{ c.reviewed=rset.has(c.video_path); }); }catch(e){}
+  if(!clipRevAll.length){ clipRevPaint(); return; }
+  const {reviewed,deleted}=await clipReviewState();
+  clipRevAll=clipRevAll.filter(c=>!deleted.has(c.video_path));
+  clipRevAll.forEach(c=>{ c.reviewed = c.reviewed || reviewed.has(c.video_path); });
   clipRevPaint();
 }
 async function openClipReview(){
   const aths=coachState.athletes||[]; const athIds=aths.map(a=>a.id);
   const nameById={}; aths.forEach(a=>nameById[a.id]=a.full_name); if(me_) nameById[me_.id]=me_.full_name;
-  clipRevFilter='unrev';
+  clipRevScope='recent'; clipRevShowWatched=false; clipRevAll=[]; clipRevTrk={};
   ovModal('clipRevModal', `<div class="ov-hd"><h2 style="margin:0">📹 Video review</h2><span class="vid-x" onclick="document.getElementById('clipRevModal').style.display='none'">✕</span></div><div id="clipRevBody"><div class="home-empty">Loading clips…</div></div>`);
   const body=()=>document.getElementById('clipRevBody');
   if(!athIds.length){ if(body()) body().innerHTML='<div class="home-empty">Add athletes to your roster first.</div>'; return; }
-  // full fetch — no 14 cap (300 = safety ceiling)
   let clips=[];
-  try{ const r=await sb.from('logged_sets').select('id,athlete_id,session_id,video_path,logged_at').in('athlete_id',athIds).not('video_path','is',null).order('logged_at',{ascending:false}).limit(300); clips=(r&&r.data)||[]; }catch(e){}
-  const reviewed=new Set(); const sessTitle={};
-  if(clips.length){ const paths=clips.map(c=>c.video_path);
-    try{ const rv=await sb.from('video_notes').select('video_path').in('video_path',paths); (rv.data||[]).forEach(r=>reviewed.add(r.video_path)); }catch(e){}
-    const sids=[...new Set(clips.map(c=>c.session_id).filter(Boolean))];
-    if(sids.length){ try{ const ss=await sb.from('sessions').select('id,title').in('id',sids); (ss.data||[]).forEach(s=>sessTitle[s.id]=s.title); }catch(e){} } }
-  // same ordering as the Home card: unreviewed-first, then grouped by session so a session's
-  // clips stay contiguous and Prev/Next walks them together before rolling to the next athlete
+  try{ const r=await sb.from('logged_sets').select('id,athlete_id,session_id,video_path,logged_at').in('athlete_id',athIds).not('video_path','is',null).order('logged_at',{ascending:false}).limit(400); clips=(r&&r.data)||[]; }catch(e){}
+  const sessTitle={}; const sids=[...new Set(clips.map(c=>c.session_id).filter(Boolean))];
+  if(sids.length){ try{ const ss=await sb.from('sessions').select('id,title').in('id',sids); (ss.data||[]).forEach(s=>sessTitle[s.id]=s.title); }catch(e){} }
+  const {reviewed,deleted}=await clipReviewState();
+  clips=clips.filter(c=>!deleted.has(c.video_path));
+  // unwatched-first, newest-first, grouped by session so a session's clips stay contiguous
   clips.sort((a,b)=> (reviewed.has(a.video_path)?1:0)-(reviewed.has(b.video_path)?1:0) || (new Date(b.logged_at)-new Date(a.logged_at)) );
   const _order=[], _bySess={};
   clips.forEach(c=>{ const s=c.session_id||('solo_'+c.video_path); if(!_bySess[s]){ _bySess[s]=[]; _order.push(s); } _bySess[s].push(c); });
-  annQueue=[]; _order.forEach(s=>_bySess[s].forEach((c,i)=>annQueue.push({ video_path:c.video_path, athlete_id:c.athlete_id, session_id:c.session_id, logged_at:c.logged_at, reviewed:reviewed.has(c.video_path), sessPos:i+1, sessN:_bySess[s].length, sessTitle:sessTitle[c.session_id]||'clip', athName:nameById[c.athlete_id]||'Athlete' })));
-  // bar-path badges (✓ path / ⚠ check path), same source as the card
-  clipRevTrk={};
-  if(VTRACKS_READY && annQueue.length){
-    try{ const tr=await sb.from('video_tracks').select('video_path,metrics').in('video_path', annQueue.map(c=>c.video_path));
+  clipRevAll=[]; _order.forEach(s=>_bySess[s].forEach((c,i)=>clipRevAll.push({ video_path:c.video_path, athlete_id:c.athlete_id, session_id:c.session_id, logged_at:c.logged_at, reviewed:reviewed.has(c.video_path), sessPos:i+1, sessN:_bySess[s].length, sessTitle:sessTitle[c.session_id]||'clip', athName:nameById[c.athlete_id]||'Athlete' })));
+  // bar-path badges — recent clips only (tracks get swept after 2 weeks anyway); cap the IN list
+  if(VTRACKS_READY && clipRevAll.length){
+    try{ const tr=await sb.from('video_tracks').select('video_path,metrics').in('video_path', clipRevAll.slice(0,120).map(c=>c.video_path));
       (tr.data||[]).forEach(r=>{ clipRevTrk[r.video_path]={ needsEye:!!(r.metrics&&r.metrics._needsEye), why:(r.metrics&&r.metrics._why)||'' }; }); }catch(e){}
   }
   clipRevPaint();
 }
+function clipRevBucket(ts){ const d=new Date(ts).getTime(); const now=new Date(); const t0=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
+  if(d>=t0) return 'Today'; if(d>=t0-6*864e5) return 'This week'; return 'Earlier'; }
+function clipRevRow(c){
+  const fn=nm=>((nm||'').split(/\s+/)[0]||''); const nw=!c.reviewed; const tk=clipRevTrk[c.video_path];
+  const pathTag = tk ? (tk.needsEye?`<span class="hr-path eye" title="${esc(tk.why||'Auto-tracking wasn\'t confident')} — re-detect or plot it by hand before you review">⚠ check path</span>`
+                                   :'<span class="hr-path ok" title="Bar path already analysed">✓ path</span>') : '';
+  const acts = CLIPREV_READY ? `<span class="cr-actions">${nw?`<button class="cr-act ok" title="Mark reviewed (don’t need to annotate)" onclick="event.stopPropagation();clipRowMark('${esc(c.video_path)}')">✓</button>`:''}<button class="cr-act del" title="Delete video (frees storage)" onclick="event.stopPropagation();clipRowDelete('${esc(c.video_path)}')">🗑</button></span>` : '';
+  return `<div class="home-row" onclick="reviewOpen('${esc(c.video_path)}')">
+    <span class="home-dot ${nw?'bad':'good'}"></span>
+    <span class="hr-main"><b>${esc(fn(c.athName))}</b> <span class="hr-sub">· ${esc(shortTitle(c.sessTitle))}${c.sessN>1?' ('+c.sessPos+'/'+c.sessN+')':''}</span></span>
+    ${pathTag}${nw?'<span class="home-new">NEW</span>':''}<span class="hr-when">${homeAgo(c.logged_at)}</span>${acts}</div>`;
+}
 function clipRevPaint(){
   const body=document.getElementById('clipRevBody'); if(!body) return;
-  const fn=nm=>((nm||'').split(/\s+/)[0]||'');
-  const total=annQueue.length, waiting=annQueue.filter(c=>!c.reviewed).length;
-  const list = clipRevFilter==='unrev' ? annQueue.filter(c=>!c.reviewed) : annQueue;
-  const rows=list.map(c=>{ const nw=!c.reviewed; const tk=clipRevTrk[c.video_path];
-    const pathTag = tk ? (tk.needsEye?`<span class="hr-path eye" title="${esc(tk.why||'Auto-tracking wasn\'t confident')} — re-detect or plot it by hand before you review">⚠ check path</span>`
-                                     :'<span class="hr-path ok" title="Bar path already analysed">✓ path</span>') : '';
-    return `<div class="home-row" onclick="reviewOpen('${esc(c.video_path)}')">
-      <span class="home-dot ${nw?'bad':'good'}"></span>
-      <span class="hr-main"><b>${esc(fn(c.athName))}</b> <span class="hr-sub">· ${esc(shortTitle(c.sessTitle))}${c.sessN>1?' ('+c.sessPos+'/'+c.sessN+')':''}</span></span>
-      ${pathTag}${nw?'<span class="home-new">NEW</span>':''}<span class="hr-when">${homeAgo(c.logged_at)}</span></div>`; }).join('');
-  const empty = clipRevFilter==='unrev' ? 'Nothing left to review — you’re all caught up. 🎉' : 'No lift videos submitted yet.';
-  body.innerHTML=`<div class="cliprev-bar"><span class="cliprev-count"><b>${waiting}</b> to review · ${total} total</span>
-    <span class="cliprev-tabs"><button class="cliprev-tab ${clipRevFilter==='unrev'?'on':''}" onclick="clipRevSetFilter('unrev')">Unreviewed</button><button class="cliprev-tab ${clipRevFilter==='all'?'on':''}" onclick="clipRevSetFilter('all')">All</button></span></div>
-    <div class="cliprev-list">${rows||'<div class="home-empty">'+empty+'</div>'}</div>`;
+  const cutoff=Date.now()-CLIPREV_MS;
+  const unwatched=clipRevAll.filter(c=>!c.reviewed);
+  const watched=clipRevAll.filter(c=>c.reviewed);
+  const recentUnw=unwatched.filter(c=>new Date(c.logged_at).getTime()>=cutoff);
+  const olderUnw =unwatched.filter(c=>new Date(c.logged_at).getTime()<cutoff);
+  const shown = clipRevScope==='all' ? unwatched : recentUnw;
+  annQueue = shown.slice();   // studio Prev/Next walks the visible to-review targets
+  // group the shown to-review clips into date buckets
+  const buckets=['Today','This week','Earlier']; const grp={};
+  shown.forEach(c=>{ const b=clipRevBucket(c.logged_at); (grp[b]=grp[b]||[]).push(c); });
+  let toReview=''; buckets.forEach(b=>{ if(grp[b]&&grp[b].length){ toReview+=`<div class="cr-sub">${b} <span>${grp[b].length}</span></div>`+grp[b].map(clipRevRow).join(''); } });
+  if(!shown.length) toReview=`<div class="home-empty">${clipRevScope==='all'?'No clips waiting — you’re all caught up. 🎉':'Nothing new in the last 2 weeks. 🎉'}</div>`;
+  // controls: reveal older + one-tap clear-the-backlog
+  let ctrls='';
+  if(clipRevScope!=='all' && olderUnw.length) ctrls+=`<button class="cr-more" onclick="clipRevSetScope('all')">Show older (${olderUnw.length}) →</button>`;
+  if(CLIPREV_READY && olderUnw.length) ctrls+=`<button class="cr-bulk" onclick="clipMarkAllOlder()">✓ Mark all older than 2 weeks reviewed (${olderUnw.length})</button>`;
+  // reviewed section (collapsed)
+  let watchedHtml='';
+  if(clipRevShowWatched){ const wl=watched.slice(0,60); watchedHtml=wl.map(clipRevRow).join('')+(watched.length>60?`<div class="home-empty">Showing the most recent 60 of ${watched.length}.</div>`:''); }
+  const banner = CLIPREV_READY ? '' : `<div class="cr-banner">⚠ Run migration 53 so watched clips are remembered past the 2-week note-sweep, and to mark/clear old ones.</div>`;
+  body.innerHTML = banner
+    + `<div class="cliprev-bar"><span class="cliprev-count"><b>${unwatched.length}</b> to review · ${watched.length} watched</span></div>`
+    + `<div class="cliprev-list"><div class="cr-sec">TO REVIEW</div>${toReview}${ctrls?`<div class="cr-ctrls">${ctrls}</div>`:''}`
+    + `<div class="cr-sec toggle" onclick="clipRevToggleWatched()">Reviewed (${watched.length}) <span>${clipRevShowWatched?'▾':'▸'}</span></div>${watchedHtml}</div>`;
 }
+window.clipRevSetScope=(s)=>{ clipRevScope=s; clipRevPaint(); };
+window.clipRevToggleWatched=()=>{ clipRevShowWatched=!clipRevShowWatched; clipRevPaint(); };
+window.clipRowMark=async(path)=>{ const c=clipRevAll.find(x=>x.video_path===path); await clipMarkReviewed(path, c&&c.athlete_id); if(c) c.reviewed=true; clipRevPaint(); };
+window.clipMarkAllOlder=async()=>{
+  if(!CLIPREV_READY) return; const cutoff=Date.now()-CLIPREV_MS;
+  const older=clipRevAll.filter(c=>!c.reviewed && new Date(c.logged_at).getTime()<cutoff);
+  if(!older.length) return;
+  const rows=older.map(c=>({ video_path:c.video_path, gym_id:me_.gym_id, athlete_id:c.athlete_id||null, reviewed_at:new Date().toISOString(), reviewed_by:me_.id }));
+  try{ await sb.from('clip_reviews').upsert(rows,{onConflict:'video_path'}); older.forEach(c=>c.reviewed=true); toast('Marked '+older.length+' older clip'+(older.length>1?'s':'')+' reviewed.'); }
+  catch(e){ toast('Could not mark those — try again.'); }
+  clipRevPaint();
+};
+window.clipRowDelete=(path)=>{
+  const c=clipRevAll.find(x=>x.video_path===path); const who=c?((c.athName||'').split(/\s+/)[0]||'This athlete'):'This athlete';
+  ovModal('clipDelModal', `<div class="ov-hd"><h2 style="margin:0">Delete this clip?</h2></div>
+    <p style="color:var(--muted);font-size:13px;line-height:1.5;margin:6px 0 14px">${esc(who)}’s video will be permanently removed to free storage — this can’t be undone. Any coach notes on it are cleared too.</p>
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button class="cr-btn ghost" onclick="document.getElementById('clipDelModal').style.display='none'">Cancel</button><button class="cr-btn danger" onclick="clipDelConfirm('${esc(path)}')">Delete video</button></div>`);
+};
+window.clipDelConfirm=async(path)=>{
+  const m=document.getElementById('clipDelModal'); if(m) m.style.display='none';
+  const c=clipRevAll.find(x=>x.video_path===path);
+  await clipDeleteVideo(path, c&&c.athlete_id);
+  clipRevAll=clipRevAll.filter(x=>x.video_path!==path);
+  toast('Clip deleted.'); clipRevPaint();
+};
 async function renderHomeBand(){
   const host=document.getElementById('homeHost'); if(!host) return;
   const aths=coachState.athletes||[]; const athIds=aths.map(a=>a.id);
