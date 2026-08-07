@@ -645,6 +645,13 @@
   .home-dot.good{background:var(--good)}.home-dot.warn{background:var(--warn)}.home-dot.bad{background:var(--accent)}
   .home-empty{color:var(--muted);font-size:12.5px;padding:6px 0}
   .home-more{margin-top:8px;font-size:11.5px;font-weight:700;color:var(--accent2);cursor:pointer;align-self:flex-start}
+  #clipRevModal .vid-box{max-width:560px;width:96vw}
+  .cliprev-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:6px 0 8px}
+  .cliprev-count{font-size:12.5px;color:var(--muted)}.cliprev-count b{color:var(--text)}
+  .cliprev-tabs{display:flex;gap:4px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:2px}
+  .cliprev-tab{border:none;background:none;color:var(--muted);font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:6px;cursor:pointer}
+  .cliprev-tab.on{background:var(--accent2);color:#0c1116}
+  .cliprev-list{max-height:62vh;overflow-y:auto}
   .home-days{flex:none;font-weight:800;font-size:13px}
   .home-days.soon{color:var(--accent)}
   .ctoolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
@@ -2462,6 +2469,9 @@ let annS=null;
 // videos first, then rolls into the next athlete's clips. Built in renderHomeBand.
 let annQueue=[], annQIdx=-1;
 window.annStudioNav=(delta)=>{ const ni=annQIdx+delta; if(ni<0||ni>=annQueue.length) return; const c=annQueue[ni]; if(!c) return; openAnnStudio(c.video_path,{athleteId:c.athlete_id, queueIdx:ni}); };
+// Open a clip in the studio by path, resolving its position in the CURRENT annQueue (so the
+// Home card and the full "All clips" review list can't drift out of sync on queue index).
+window.reviewOpen=(path)=>{ const i=annQueue.findIndex(c=>c.video_path===path); const c=i>=0?annQueue[i]:null; openAnnStudio(path,{athleteId:c?c.athlete_id:'', queueIdx:i>=0?i:-1}); };
 const VST_COLORS=['#ff5a5a','#ffd23f','#34d399','#5aa9ff','#c77dff','#ffffff'];
 function vstHost(){ let h=document.getElementById('annStudio'); if(!h){ h=document.createElement('div'); h.id='annStudio'; h.className='vstudio'; document.body.appendChild(h); } return h; }
 async function openAnnStudio(path, meta){
@@ -2642,7 +2652,7 @@ async function openAnnStudio(path, meta){
   await bpLoadTrack(path);
   if(!ro) rvInitAssign();
 }
-function closeAnnStudio(){ vstRecCleanup(); if(annS){ if(annS._ro) annS._ro.disconnect(); if(annS._gro) annS._gro.disconnect(); } const h=document.getElementById('annStudio'); if(h){ const v=h.querySelector('#vstVid'); if(v) v.pause(); h.classList.remove('on'); h.innerHTML=''; } annS=null; }
+function closeAnnStudio(){ vstRecCleanup(); if(annS){ if(annS._ro) annS._ro.disconnect(); if(annS._gro) annS._gro.disconnect(); } const h=document.getElementById('annStudio'); if(h){ const v=h.querySelector('#vstVid'); if(v) v.pause(); h.classList.remove('on'); h.innerHTML=''; } annS=null; clipRevRefreshReviewed(); }
 function vstMsg(t){ const m=document.getElementById('vstMsg'); if(m){ m.textContent=t||''; if(t) setTimeout(()=>{ if(m.textContent===t) m.textContent=''; }, 2600); } }
 
 function vstFit(){
@@ -8097,6 +8107,68 @@ function homeAgo(ts){ if(!ts) return ''; const d=new Date(ts), s=Math.floor((Dat
   if(s<60) return 'just now'; const m=Math.floor(s/60); if(m<60) return m+'m ago';
   const h=Math.floor(m/60); if(h<24) return h+'h ago'; const dd=Math.floor(h/24); if(dd<7) return dd+'d ago'; return fmtShort(iso(d)); }
 function homeDaysTo(dateStr){ const t=new Date(dateStr+'T00:00:00'), n=new Date(); const nd=new Date(n.getFullYear(),n.getMonth(),n.getDate()); return Math.round((t-nd)/864e5); }
+// ---- Full "All clips" video-review queue (opened from the Home video-inbox "All clips →") ----
+// Unlike the Home card (which fetches only ~14 for speed), this pulls EVERY clip with a video for
+// the coach's athletes, rebuilds the shared annQueue so the studio's Prev/Next walks all of them,
+// and lists them in a scrollable modal (unreviewed-first). No migration; client-only.
+let clipRevFilter='unrev', clipRevTrk={};
+window.clipRevSetFilter=(f)=>{ clipRevFilter=f; clipRevPaint(); };
+// Called when the studio closes: if the full review list is open, re-check which clips now have a
+// coach note and update their reviewed flags in place (no refetch of the whole queue, order kept —
+// a just-reviewed clip simply drops out of the Unreviewed filter). No-op if the list isn't open.
+async function clipRevRefreshReviewed(){
+  const modal=document.getElementById('clipRevModal'); if(!modal || modal.style.display==='none') return;
+  if(!annQueue.length){ clipRevPaint(); return; }
+  try{ const rv=await sb.from('video_notes').select('video_path').in('video_path', annQueue.map(c=>c.video_path));
+    const rset=new Set((rv.data||[]).map(r=>r.video_path)); annQueue.forEach(c=>{ c.reviewed=rset.has(c.video_path); }); }catch(e){}
+  clipRevPaint();
+}
+async function openClipReview(){
+  const aths=coachState.athletes||[]; const athIds=aths.map(a=>a.id);
+  const nameById={}; aths.forEach(a=>nameById[a.id]=a.full_name); if(me_) nameById[me_.id]=me_.full_name;
+  clipRevFilter='unrev';
+  ovModal('clipRevModal', `<div class="ov-hd"><h2 style="margin:0">📹 Video review</h2><span class="vid-x" onclick="document.getElementById('clipRevModal').style.display='none'">✕</span></div><div id="clipRevBody"><div class="home-empty">Loading clips…</div></div>`);
+  const body=()=>document.getElementById('clipRevBody');
+  if(!athIds.length){ if(body()) body().innerHTML='<div class="home-empty">Add athletes to your roster first.</div>'; return; }
+  // full fetch — no 14 cap (300 = safety ceiling)
+  let clips=[];
+  try{ const r=await sb.from('logged_sets').select('id,athlete_id,session_id,video_path,logged_at').in('athlete_id',athIds).not('video_path','is',null).order('logged_at',{ascending:false}).limit(300); clips=(r&&r.data)||[]; }catch(e){}
+  const reviewed=new Set(); const sessTitle={};
+  if(clips.length){ const paths=clips.map(c=>c.video_path);
+    try{ const rv=await sb.from('video_notes').select('video_path').in('video_path',paths); (rv.data||[]).forEach(r=>reviewed.add(r.video_path)); }catch(e){}
+    const sids=[...new Set(clips.map(c=>c.session_id).filter(Boolean))];
+    if(sids.length){ try{ const ss=await sb.from('sessions').select('id,title').in('id',sids); (ss.data||[]).forEach(s=>sessTitle[s.id]=s.title); }catch(e){} } }
+  // same ordering as the Home card: unreviewed-first, then grouped by session so a session's
+  // clips stay contiguous and Prev/Next walks them together before rolling to the next athlete
+  clips.sort((a,b)=> (reviewed.has(a.video_path)?1:0)-(reviewed.has(b.video_path)?1:0) || (new Date(b.logged_at)-new Date(a.logged_at)) );
+  const _order=[], _bySess={};
+  clips.forEach(c=>{ const s=c.session_id||('solo_'+c.video_path); if(!_bySess[s]){ _bySess[s]=[]; _order.push(s); } _bySess[s].push(c); });
+  annQueue=[]; _order.forEach(s=>_bySess[s].forEach((c,i)=>annQueue.push({ video_path:c.video_path, athlete_id:c.athlete_id, session_id:c.session_id, logged_at:c.logged_at, reviewed:reviewed.has(c.video_path), sessPos:i+1, sessN:_bySess[s].length, sessTitle:sessTitle[c.session_id]||'clip', athName:nameById[c.athlete_id]||'Athlete' })));
+  // bar-path badges (✓ path / ⚠ check path), same source as the card
+  clipRevTrk={};
+  if(VTRACKS_READY && annQueue.length){
+    try{ const tr=await sb.from('video_tracks').select('video_path,metrics').in('video_path', annQueue.map(c=>c.video_path));
+      (tr.data||[]).forEach(r=>{ clipRevTrk[r.video_path]={ needsEye:!!(r.metrics&&r.metrics._needsEye), why:(r.metrics&&r.metrics._why)||'' }; }); }catch(e){}
+  }
+  clipRevPaint();
+}
+function clipRevPaint(){
+  const body=document.getElementById('clipRevBody'); if(!body) return;
+  const fn=nm=>((nm||'').split(/\s+/)[0]||'');
+  const total=annQueue.length, waiting=annQueue.filter(c=>!c.reviewed).length;
+  const list = clipRevFilter==='unrev' ? annQueue.filter(c=>!c.reviewed) : annQueue;
+  const rows=list.map(c=>{ const nw=!c.reviewed; const tk=clipRevTrk[c.video_path];
+    const pathTag = tk ? (tk.needsEye?`<span class="hr-path eye" title="${esc(tk.why||'Auto-tracking wasn\'t confident')} — re-detect or plot it by hand before you review">⚠ check path</span>`
+                                     :'<span class="hr-path ok" title="Bar path already analysed">✓ path</span>') : '';
+    return `<div class="home-row" onclick="reviewOpen('${esc(c.video_path)}')">
+      <span class="home-dot ${nw?'bad':'good'}"></span>
+      <span class="hr-main"><b>${esc(fn(c.athName))}</b> <span class="hr-sub">· ${esc(shortTitle(c.sessTitle))}${c.sessN>1?' ('+c.sessPos+'/'+c.sessN+')':''}</span></span>
+      ${pathTag}${nw?'<span class="home-new">NEW</span>':''}<span class="hr-when">${homeAgo(c.logged_at)}</span></div>`; }).join('');
+  const empty = clipRevFilter==='unrev' ? 'Nothing left to review — you’re all caught up. 🎉' : 'No lift videos submitted yet.';
+  body.innerHTML=`<div class="cliprev-bar"><span class="cliprev-count"><b>${waiting}</b> to review · ${total} total</span>
+    <span class="cliprev-tabs"><button class="cliprev-tab ${clipRevFilter==='unrev'?'on':''}" onclick="clipRevSetFilter('unrev')">Unreviewed</button><button class="cliprev-tab ${clipRevFilter==='all'?'on':''}" onclick="clipRevSetFilter('all')">All</button></span></div>
+    <div class="cliprev-list">${rows||'<div class="home-empty">'+empty+'</div>'}</div>`;
+}
 async function renderHomeBand(){
   const host=document.getElementById('homeHost'); if(!host) return;
   const aths=coachState.athletes||[]; const athIds=aths.map(a=>a.id);
@@ -8135,13 +8207,13 @@ async function renderHomeBand(){
   const vRows=annQueue.slice(0,6).map((c,idx)=>{ const nw=!c.reviewed; const tk=trk[c.video_path];
     const pathTag = tk ? (tk.needsEye?`<span class="hr-path eye" title="${esc(tk.why||'Auto-tracking wasn\'t confident')} — re-detect or plot it by hand before you review">⚠ check path</span>`
                                      :'<span class="hr-path ok" title="Bar path already analysed">✓ path</span>') : '';
-    return `<div class="home-row" onclick="openAnnStudio('${esc(c.video_path)}',{athleteId:'${c.athlete_id}',queueIdx:${idx}})">
+    return `<div class="home-row" onclick="reviewOpen('${esc(c.video_path)}')">
       <span class="home-dot ${nw?'bad':'good'}"></span>
       <span class="hr-main"><b>${esc(fn(c.athName))}</b> <span class="hr-sub">· ${esc(shortTitle(c.sessTitle))}${c.sessN>1?' ('+c.sessPos+'/'+c.sessN+')':''}</span></span>
       ${pathTag}${nw?'<span class="home-new">NEW</span>':''}<span class="hr-when">${homeAgo(c.logged_at)}</span></div>`; }).join('');
   const card1=`<div class="home-card"><h3>📹 Video inbox <span class="hc-count ${waiting?'alert':''}">${waiting?waiting+' to review':(annQueue.length?'all reviewed':'0')}</span></h3>
     <div id="bpPreStatus"></div>
-    ${vRows||'<div class="home-empty">No lift videos submitted yet.</div>'}${annQueue.length>6?'<div class="home-more" onclick="coachGo(\'uploads\')">All clips →</div>':''}</div>`;
+    ${vRows||'<div class="home-empty">No lift videos submitted yet.</div>'}${annQueue.length>6?'<div class="home-more" onclick="openClipReview()">All clips →</div>':''}</div>`;
   // kick off background pre-computation for unreviewed clips that have no path yet
   const toPre=annQueue.filter(c=>!c.reviewed && !trk[c.video_path]);
   if(toPre.length) setTimeout(()=>bpPrecomputeQueue(toPre), 1200);
