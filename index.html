@@ -11311,13 +11311,18 @@ window.cwCopyPrompt=()=>{
   const sel=[...document.querySelectorAll('#cwCalScroll .cwd-sess.cw-sel')];
   if(!sel.length){ cwClearDelBar(); return; }
   const bar=document.getElementById('cwDelBar'); if(!bar) return;
+  // week offsets go both ways — you often build a block back-to-front (write week 4, copy it back to 3/2/1)
   bar.innerHTML=`<span class="cw-delc">Copy ${sel.length} session${sel.length===1?'':'s'} →</span>
-    <button class="cw-del-copy" onclick="cwSelCopy('weeks',1)">+1 wk</button>
-    <button class="cw-del-copy" onclick="cwSelCopy('weeks',2)">+2 wk</button>
-    <button class="cw-del-copy" onclick="cwSelCopy('weeks',3)">+3 wk</button>
-    <button class="cw-del-copy" onclick="cwSelCopy('weeks',4)">+4 wk</button>
-    <span class="cw-delc" style="font-weight:600">or week of</span>
-    <input type="date" class="cw-copydate" id="cwCopyDate" min="${iso(new Date())}">
+    <button class="cw-del-copy" onclick="cwSelCopy('weeks',-4)">−4</button>
+    <button class="cw-del-copy" onclick="cwSelCopy('weeks',-3)">−3</button>
+    <button class="cw-del-copy" onclick="cwSelCopy('weeks',-2)">−2</button>
+    <button class="cw-del-copy" onclick="cwSelCopy('weeks',-1)">−1</button>
+    <button class="cw-del-copy" onclick="cwSelCopy('weeks',1)">+1</button>
+    <button class="cw-del-copy" onclick="cwSelCopy('weeks',2)">+2</button>
+    <button class="cw-del-copy" onclick="cwSelCopy('weeks',3)">+3</button>
+    <button class="cw-del-copy" onclick="cwSelCopy('weeks',4)">+4</button>
+    <span class="cw-delc" style="font-weight:600">wk · or week of</span>
+    <input type="date" class="cw-copydate" id="cwCopyDate">
     <button class="cw-del-copy" onclick="cwSelCopy('date',(document.getElementById('cwCopyDate')||{}).value)">Paste</button>
     <button class="cw-del-x" onclick="cwShowDelBar()">Back</button>`;
 };
