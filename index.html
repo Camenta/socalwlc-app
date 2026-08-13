@@ -4227,14 +4227,14 @@ function refreshRow(id){
   const vc=tr.querySelector('.vidcell'); if(vc) vc.innerHTML=vidCell(id, st);
 }
 function computeSessionStats(){
-  let pNL=0,aNL=0,accPNL=0,accANL=0,aTon=0,miss=0,planSets=0,doneSets=0,good=0,effSum=0,effN=0;
+  let pNL=0,aNL=0,accPNL=0,accANL=0,aTon=0,miss=0,planSets=0,doneSets=0,good=0,goodNL=0,effSum=0,effN=0;
   const per=curExercises.map(ex=>{
     const acc=!!ex.acc;
     let e={name:ex.name,exId:ex.exId,acc,pNL:0,aNL:0,aTon:0,miss:0,sets:ex.setIds.length,done:0};
     ex.setIds.forEach(id=>{ const st=logState[id]; if(!st) return;
       const pr=parseInt(st.targetReps)||0, r=parseInt(st.reps)||0, k=num(st.kg), m=parseInt(st.miss)||0;
       planSets++; if(st.done){doneSets++;e.done++;}
-      if(st.lights===3)good++;
+      if(st.lights===3){ good++; goodNL+=r; }   // good = clean SETS (legacy) · goodNL = clean REPS (lift volume)
       if(st.effort){effN++;effSum+=EFFN[st.effort];}
       e.pNL+=pr; e.aNL+=r; e.aTon+=r*k; e.miss+=m;
       if(acc){ accPNL+=pr; accANL+=r; } else { pNL+=pr; aNL+=r; }   // accessories tracked separately from primary volume
@@ -4243,15 +4243,16 @@ function computeSessionStats(){
     return e;
   });
   const completion=planSets?Math.round(doneSets/planSets*100):0, avgEff=effN?EFFL[Math.round(effSum/effN)]:'—';
-  return {pNL,aNL,accPNL,accANL,aTon,miss,planSets,doneSets,good,completion,avgEff,per};
+  return {pNL,aNL,accPNL,accANL,aTon,miss,planSets,doneSets,good,goodNL,completion,avgEff,per};
 }
 function recompute(){
   const S=computeSessionStats();
-  const {pNL,aNL,accPNL,accANL,aTon,miss,planSets,doneSets,good,completion,avgEff,per}=S;
+  const {pNL,aNL,accPNL,accANL,aTon,miss,planSets,doneSets,good,goodNL,completion,avgEff,per}=S;
   const tile=(l,a,p)=>`<div class="ss-tile"><div class="ss-v">${a}${p!=null?`<span class="ss-p"> / ${p}</span>`:''}</div><div class="ss-l">${l}</div></div>`;
   const hasAcc=(accANL||accPNL);
   const volTile=`<div class="ss-tile"><div class="ss-v">${aNL}<span class="ss-p"> / ${pNL}</span>${hasAcc?`<span class="ss-acc" title="main lifts ${aNL}/${pNL} · accessory ${accANL}/${accPNL} · total ${aNL+accANL}/${pNL+accPNL}">+${accANL} acc · ${aNL+accANL} tot</span>`:''}</div><div class="ss-l">Volume (NL)${hasAcc?' · main lifts':''}</div></div>`;
-  const tiles=`<div class="ss-tiles">${volTile}${tile('Tonnage',(aTon/1000).toFixed(1)+'t')}${tile('Set completion',completion+'%')}${tile('Good lifts',good+'/'+planSets)}${tile('Misses',miss)}${tile('Avg effort',avgEff)}</div>`;
+  const totNL=aNL+accANL;   // total lifts (reps) performed — "good lifts" is a share of lift volume, not set count
+  const tiles=`<div class="ss-tiles">${volTile}${tile('Tonnage',(aTon/1000).toFixed(1)+'t')}${tile('Set completion',completion+'%')}${tile('Good lifts',goodNL+(totNL?'/'+totNL:''))}${tile('Misses',miss)}${tile('Avg effort',avgEff)}</div>`;
   const lines=`<table class="ss-ex"><tbody>${per.map(e=>`<tr><td>${esc(e.name)}${e.acc?' <span class="acc-tag">acc</span>':''}</td><td>${e.done}/${e.sets} sets</td><td><b style="color:var(--text)">${e.aNL}</b> NL / ${e.pNL}</td><td>${(e.aTon/1000).toFixed(1)}t</td><td>${e.miss?`<span style="color:var(--bad)">${e.miss} miss</span>`:'<span style="color:var(--good)">clean</span>'}</td></tr>`).join('')}</tbody></table>`;
   const box=document.getElementById('ssBody'); if(box) box.innerHTML=tiles+lines;
   // live per-exercise progress badge in each (roll-up) header
@@ -7004,7 +7005,7 @@ function reportHTML(d){
   const mMethod=()=>{ const r=(key,lab,v)=>`<div class="row"><span class="lab">${lab}</span><span class="val tnum">${ev('method:'+key,v)}</span></div>`;
     return `<h4 class="rx-mod">Methodology — grouped</h4><div class="rx-clusters">
       <div class="rx-cluster"><div class="ct">Intensity</div>${r('ari','Avg relative intensity',m.ari!=null?Math.round(m.ari)+'%':'—')}${r('peak','Peak intensity',m.peak!=null?Math.round(m.peak)+'%':'—')}${r('l90','Lifts 90–100%',m.l90?m.l90.toLocaleString():'—')}</div>
-      <div class="rx-cluster"><div class="ct">Volume</div>${r('vol','Total volume',m.vol!=null?m.vol.toLocaleString()+' NL':'—')}${r('weekly','Avg weekly',m.weekly!=null?m.weekly.toLocaleString()+' NL':'—')}${r('tonnage','Tonnage',m.tonnage?Math.round(m.tonnage).toLocaleString()+' kg':'—')}</div>
+      <div class="rx-cluster"><div class="ct">Volume</div>${r('vol','Volume (main lifts)',(m.volPri!=null?m.volPri:m.vol)!=null?(m.volPri!=null?m.volPri:m.vol).toLocaleString()+' NL'+(m.volAcc?' · +'+m.volAcc.toLocaleString()+' acc':''):'—')}${r('weekly','Avg weekly',m.weekly!=null?m.weekly.toLocaleString()+' NL':'—')}${r('tonnage','Tonnage',m.tonnage?Math.round(m.tonnage).toLocaleString()+' kg':'—')}</div>
       <div class="rx-cluster"><div class="ct">Adherence</div>${r('comp','Set completion',m.compPct!=null?m.compPct+'%':'—')}${r('sess','Sessions logged',m.sessLogged)}${r('make','Make-rate (clean)',m.cleanPct!=null?m.cleanPct+'%':'—')}</div>
       <div class="rx-cluster"><div class="ct">Recovery / effort</div>${r('rd','Avg readiness',m.rdAvg!=null?m.rdAvg.toFixed(1)+' /5':'—')}${r('ri','RI (effort)',riDisplay(m.ri))}${r('inol','INOL',m.inol!=null?m.inol.toFixed(2):'—')}</div>
     </div><div class="rx-note">Intensity, RI, INOL and volume are from programmed work over the window; tonnage, completion, readiness and clean-lift rate are from what ${esc(d.viewName.split(/\s+/)[0])} actually logged.</div>`; };
