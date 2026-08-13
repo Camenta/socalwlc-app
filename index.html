@@ -7646,7 +7646,10 @@ async function renderAthlete(selDate){
     sets.forEach((s,i)=>{
       const lg = logBySet[s.id];
       logState[s.id] = {
-        idx:i+1, targetReps: s.target_reps, targetText: s.target_text||'',
+        // recompute % sets from the stored fields so sessions published before the targetText fix
+        // still show their percentage (their saved target_text snapshot had dropped it)
+        idx:i+1, targetReps: s.target_reps,
+        targetText: (s.target_pct!=null&&s.target_pct!=='') ? targetText({reps:s.target_reps, pct:s.target_pct, kg:s.target_kg}, 'percentage') : (s.target_text||''),
         reps: lg && lg.actual_reps!=null ? lg.actual_reps : (s.target_reps!=null?s.target_reps:''),
         kg:   lg && lg.actual_kg!=null ? lg.actual_kg : (s.target_kg!=null?s.target_kg:''),
         lights: lg && lg.lights!=null ? lg.lights : 3,
@@ -11699,16 +11702,25 @@ function mainLiftName(name){ const s=(name||'').toLowerCase(); if(!s.trim()) ret
 function exIsMain(ex){ const c=((ex&&ex.category)||'').toLowerCase();
   if(c==='accessory') return false; if(c==='main') return true; return mainLiftName(ex&&ex.name); }
 function exIsAcc(ex){ return !exIsMain(ex); }
+// When the specific lift has no max on file, price off the parent competition lift. This is what makes
+// a clean/jerk complex resolve: athletes log a combined 'Clean & Jerk' max, not standalone Clean/Jerk,
+// so "Clean Pull to Hip + Clean + Jerk" (last move → Jerk → no jerk max) still prices off the C&J.
+const ORM_FAMILY={ 'Clean':['Clean & Jerk'], 'Jerk':['Clean & Jerk'], 'Clean DL':['Clean','Clean & Jerk'], 'Snatch DL':['Snatch'] };
+function ormResolveFam(lift, maxes){
+  if(!lift) return null;
+  if(maxes[lift]!=null) return {kg:maxes[lift], lift};             // the specific lift is on file → use it
+  for(const fb of (ORM_FAMILY[lift]||[])) if(maxes[fb]!=null) return {kg:maxes[fb], lift:fb};   // else the parent comp lift
+  return null;
+}
 // resolve a movement name -> {kg, lift}. For a complex (A + B [+ C]), the LAST movement drives the load.
 function ormResolveName(name, maxes){
   if(!maxes||!name) return null;
   if(maxes[name]!=null) return {kg:maxes[name], lift:name};         // exact custom-lift match
   const segs=String(name).split('+').map(s=>s.trim()).filter(Boolean);
   const last=segs.length?segs[segs.length-1]:name;
-  let lift=classifyLift(last) || classifyLift(name);
-  if(lift && maxes[lift]!=null) return {kg:maxes[lift], lift};
-  // fall back to whatever lift in the whole name has a max (first hit)
-  for(const seg of segs.length?segs:[name]){ const l=classifyLift(seg); if(l && maxes[l]!=null) return {kg:maxes[l], lift:l}; }
+  let r=ormResolveFam(classifyLift(last) || classifyLift(name), maxes); if(r) return r;
+  // fall back to whatever lift in the whole name has a (specific or parent) max — first hit
+  for(const seg of segs.length?segs:[name]){ r=ormResolveFam(classifyLift(seg), maxes); if(r) return r; }
   return null;
 }
 // the load base for an exercise, honouring a per-exercise override (a kg number OR a lift name).
@@ -13095,8 +13107,11 @@ function targetText(st, type){
   if(type==='open'){ return r!=null?`${r} reps · open`:'open set'; }
   if(type==='weight'){ if(r!=null&&k!=null) return `${r} × ${k}kg`; if(k!=null) return `${k}kg`; if(r!=null) return `${r} reps`; return '—'; }
   if(r!=null&&p!=null&&k!=null) return `${r} @ ${p}% (${k}kg)`;
+  if(r!=null&&p!=null) return `${r} @ ${p}%`;          // % shows even when the 1RM base isn't on file yet (e.g. a C&J complex with no jerk max)
   if(r!=null&&k!=null) return `${r} × ${k}kg`;
+  if(p!=null&&k!=null) return `@ ${p}% (${k}kg)`;
   if(r!=null) return `${r} reps`;
+  if(p!=null) return `${p}%`;
   if(k!=null) return `${k}kg`;
   return '—';
 }
