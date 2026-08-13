@@ -924,6 +924,23 @@
   .pf-thr th{font-size:9px;text-transform:uppercase;color:var(--muted);font-weight:700;padding:4px 3px}
   .pf-thr td{padding:5px 3px;font-weight:700;color:var(--muted)}
   .pf-thr .on{color:var(--good)}
+  .cn-card .cn-hd{font-weight:800;font-size:15px;display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .cn-hd .cn-sub{font-size:11px;font-weight:600;color:var(--muted);background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:2px 7px}
+  .cn-add{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:12px}
+  .cn-ta{width:100%;background:#0e151c;border:1px solid var(--line);border-radius:8px;color:var(--text);font-size:13px;line-height:1.45;padding:8px 10px;resize:vertical;font-family:inherit}
+  .cn-ta:focus{outline:none;border-color:var(--accent2)}
+  .cn-addrow{display:flex;gap:8px;align-items:center;margin-top:8px}
+  .cn-date{background:#0e151c;border:1px solid var(--line);border-radius:8px;color:var(--text);padding:6px 9px;font-size:12.5px}
+  .cn-save{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:7px 13px;font-size:12.5px;font-weight:700;cursor:pointer;margin-left:auto}
+  .cn-save:hover{filter:brightness(1.06)}
+  .cn-list{display:flex;flex-direction:column;gap:9px}
+  .cn-item{border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:var(--panel)}
+  .cn-meta{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+  .cn-when{font-size:11px;font-weight:700;color:var(--accent2);letter-spacing:.02em}
+  .cn-acts{display:flex;gap:8px}
+  .cn-lnk{background:none;border:none;color:var(--muted);font-size:11.5px;font-weight:700;cursor:pointer;padding:0}
+  .cn-lnk:hover{color:var(--text)}.cn-lnk.del:hover{color:var(--accent)}
+  .cn-body{font-size:13px;line-height:1.5;color:var(--text);white-space:normal;word-break:break-word}
   .eff-filter{display:flex;gap:6px;margin:4px 0 12px;flex-wrap:wrap}
   .eff-filter button{background:var(--panel2);border:1px solid var(--line);color:var(--muted);padding:6px 14px;border-radius:16px;cursor:pointer;font-size:12.5px;font-weight:700}
   .eff-filter button.on{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -4330,12 +4347,13 @@ async function probeProgramId(){
   const p=await sb.from('programs').select('archived,updated_at,team_id').limit(1); if(!p.error) PROG_META_READY=true;
   const tm=await sb.from('teams').select('focus,next_comp,next_comp_date').limit(1); if(!tm.error) TEAM_META_READY=true;
 }
-let VNOTES_READY=false, VTRACKS_READY=false, RVASSIGN_READY=false, CLIPREV_READY=false;
+let VNOTES_READY=false, VTRACKS_READY=false, RVASSIGN_READY=false, CLIPREV_READY=false, CNOTES_READY=false;
 async function probeVideoNotes(){
   const { error } = await sb.from('video_notes').select('id').limit(1); VNOTES_READY = !error;
   const t = await sb.from('video_tracks').select('id').limit(1); VTRACKS_READY = !t.error;
   const a = await sb.from('video_notes').select('assign_date').limit(1); RVASSIGN_READY = !a.error;   // review scheduling (migration 52)
   const cr = await sb.from('clip_reviews').select('video_path').limit(1); CLIPREV_READY = !cr.error; // durable watched/deleted marker (migration 53)
+  const cn = await sb.from('coach_notes').select('id').limit(1); CNOTES_READY = !cn.error;            // private coach meeting notes (migration 54)
 }
 let SRPE_READY=false;   // sessions.session_minutes + session_rpe (migration 33) → session-RPE load
 async function probeSrpe(){ const { error } = await sb.from('sessions').select('session_rpe').limit(1); SRPE_READY = !error;
@@ -5925,6 +5943,58 @@ function trPanelHTML(tr){
   </div>`;
 }
 window.dashSetTrBasis=(b)=>{ dashState.trBasis=b; renderAthDash(); };
+// ---- Coach meeting/planning notes (private, coach-only; coach_notes / migration 54) ----
+// A dated running log per athlete on the Athlete Profile. Athletes never see these (no RLS policy).
+let cnCache={};
+function cnotesCard(athId, list){
+  if(!CNOTES_READY) return `<div class="card"><div class="cn-hd">🗒 Coaching notes</div><div class="note sub" style="padding:6px 0">Run <b>migration 54</b> in Supabase to turn on private meeting notes.</div></div>`;
+  return `<div class="card cn-card"><div class="cn-hd">🗒 Coaching notes <span class="cn-sub">private — athletes never see these</span></div><div id="cnotesBody">${cnotesInner(athId, list)}</div></div>`;
+}
+function cnotesInner(athId, list){
+  cnCache={}; (list||[]).forEach(n=>cnCache[n.id]=n);
+  const add=`<div class="cn-add"><textarea id="cnNew" class="cn-ta" rows="2" placeholder="What did you discuss? Programming, goals, plan changes…"></textarea>
+    <div class="cn-addrow"><input type="date" id="cnDate" class="cn-date" value="${iso(new Date())}"><button class="cn-save" onclick="cnAdd('${athId}')">＋ Add note</button></div></div>`;
+  const rows=(list&&list.length)? list.map(n=>cnRow(athId,n)).join('') : '<div class="note sub" style="padding:8px 0">No notes yet — jot what you cover in your next planning chat.</div>';
+  return add+`<div class="cn-list">${rows}</div>`;
+}
+function cnRow(athId, n){
+  const d=n.meeting_date?fmtShort(n.meeting_date):'';
+  return `<div class="cn-item" data-id="${n.id}"><div class="cn-meta"><span class="cn-when">${esc(d)}</span>
+    <span class="cn-acts"><button class="cn-lnk" onclick="cnEdit('${athId}','${n.id}')">Edit</button><button class="cn-lnk del" onclick="cnDel('${athId}','${n.id}')">Delete</button></span></div>
+    <div class="cn-body">${esc(n.body||'').replace(/\n/g,'<br>')}</div></div>`;
+}
+async function cnReload(athId){
+  const el=document.getElementById('cnotesBody'); if(!el) return;
+  const r=await sb.from('coach_notes').select('id,body,meeting_date,phase_id,created_at').eq('athlete_id',athId).order('meeting_date',{ascending:false}).order('created_at',{ascending:false});
+  el.innerHTML=cnotesInner(athId, (r&&r.data)||[]);
+}
+window.cnAdd=async(athId)=>{
+  const ta=document.getElementById('cnNew'), dt=document.getElementById('cnDate');
+  const body=((ta&&ta.value)||'').trim(); if(!body){ toast('Type a note first.'); return; }
+  const row={ gym_id:me_.gym_id, athlete_id:athId, body }; if(dt&&dt.value) row.meeting_date=dt.value;
+  const { error }=await sb.from('coach_notes').insert(row); if(error){ toast('Could not save the note — try again.'); return; }
+  toast('Note added.'); cnReload(athId);
+};
+window.cnEdit=(athId,id)=>{
+  const n=cnCache[id], item=document.querySelector(`.cn-item[data-id="${id}"]`); if(!n||!item) return;
+  item.innerHTML=`<textarea id="cnE_${id}" class="cn-ta" rows="3">${esc(n.body||'')}</textarea>
+    <div class="cn-addrow"><input type="date" id="cnED_${id}" class="cn-date" value="${n.meeting_date||iso(new Date())}"><button class="cn-save" onclick="cnEditSave('${athId}','${id}')">Save</button><button class="cn-lnk" onclick="cnReload('${athId}')">Cancel</button></div>`;
+};
+window.cnEditSave=async(athId,id)=>{
+  const ta=document.getElementById('cnE_'+id), dt=document.getElementById('cnED_'+id);
+  const body=((ta&&ta.value)||'').trim(); if(!body){ toast('Note can’t be empty.'); return; }
+  const upd={ body, updated_at:new Date().toISOString() }; if(dt&&dt.value) upd.meeting_date=dt.value;
+  const { error }=await sb.from('coach_notes').update(upd).eq('id',id); if(error){ toast('Save failed — try again.'); return; }
+  toast('Note updated.'); cnReload(athId);
+};
+window.cnDel=(athId,id)=>{
+  ovModal('cnDelModal', `<div class="ov-hd"><h2 style="margin:0">Delete this note?</h2></div><p style="color:var(--muted);font-size:13px;margin:6px 0 14px">This can’t be undone.</p><div style="display:flex;gap:8px;justify-content:flex-end"><button class="cr-btn ghost" onclick="document.getElementById('cnDelModal').style.display='none'">Cancel</button><button class="cr-btn danger" onclick="cnDelGo('${athId}','${id}')">Delete note</button></div>`);
+};
+window.cnDelGo=async(athId,id)=>{
+  const m=document.getElementById('cnDelModal'); if(m) m.style.display='none';
+  const { error }=await sb.from('coach_notes').delete().eq('id',id); if(error){ toast('Delete failed — try again.'); return; }
+  toast('Note deleted.'); cnReload(athId);
+};
 // background & goals (athlete-profile-spec §9) — free-text in profiles.bio.bg
 const BG_FIELDS=[['occupation','Occupation'],['hours_avail','Hours/wk available'],['primary_goal','Primary goal'],['secondary_goal','Secondary goal'],['injuries','Injury history'],['athletic_background','Athletic background'],['prev_sports','Previous sports'],['family','Family status'],['hobbies','Hobbies'],['potential','Athletic potential']];
 window.editBackground=async(athId)=>{
@@ -6324,6 +6394,7 @@ async function renderAthDash(){
     const age = prof&&prof.birthdate ? Math.floor((Date.now()-new Date(prof.birthdate).getTime())/(365.25*864e5)) : null;
     let nextComp=null; const ncR=await sb.from('competitions').select('name,comp_date').gte('comp_date', todayStr).order('comp_date',{ascending:true}).limit(1); if(!ncR.error && ncR.data && ncR.data[0]) nextComp=ncR.data[0];
     const rmMap={}; const rmR=await sb.from('rep_maxes').select('lift,reps,kg').eq('athlete_id', viewId); if(!rmR.error)(rmR.data||[]).forEach(r=>{ const k=normEx(r.lift); (rmMap[k]=rmMap[k]||{})[r.reps]=parseFloat(r.kg); });
+    const cnList = (coach && CNOTES_READY) ? (((await sb.from('coach_notes').select('id,body,meeting_date,phase_id,created_at').eq('athlete_id', viewId).order('meeting_date',{ascending:false}).order('created_at',{ascending:false})).data)||[]) : [];
     const rmMoves=[]; const rmSeen=new Set(); const rmAdd=n=>{ const k=normEx(n); if(!rmSeen.has(k)){ rmSeen.add(k); rmMoves.push(n); } };
     REP_MAX_DEFAULT.forEach(rmAdd); Object.keys(rmMap).forEach(k=>{ const nm=(maxMap[k]&&maxMap[k].lift)||k; rmAdd(nm); }); (dashState.rmExtra||[]).forEach(rmAdd);
     const rmCell=(lift,reps)=>{ const k=normEx(lift); const base=maxMap[k]?maxMap[k].kg:null; const escL=esc(lift).replace(/'/g,"\\'");
@@ -6407,7 +6478,8 @@ async function renderAthDash(){
         const bgRows=BG_FIELDS.map(([k,l])=>`<div class="gr-row"><span class="gr-lbl">${l}</span><span class="gr-val" style="max-width:62%;text-align:right;font-weight:600">${bg[k]?esc(bg[k]):'<span class="sub" style="font-weight:400">—</span>'}</span></div>`).join('');
         return rollup('bg','Background &amp; goals',
           `<div class="note sub" style="padding:2px 0 8px">Free-text context — not in the math, but it's what you (and the AI assistant) read to interpret everything above (e.g. hours/wk sanity-checks the loading band).</div>${bgRows}`,
-          coach?`<span class="cbtn alt" onclick="editBackground('${viewId}')">✎ Edit</span>`:''); })()}`;
+          coach?`<span class="cbtn alt" onclick="editBackground('${viewId}')">✎ Edit</span>`:''); })()}
+      ${coach ? cnotesCard(viewId, cnList) : ''}`;
     return;
   }
 
