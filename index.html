@@ -101,6 +101,13 @@
   .ob-repc input{width:74px}
   .ob-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}
   .ob-actions .btn{flex:1;min-width:150px}
+  .wg-flow{display:flex;flex-direction:column;gap:12px;margin-top:18px}
+  .wg-step{display:flex;gap:12px;align-items:flex-start}
+  .wg-when{flex:none;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:var(--accent2);border-radius:6px;padding:5px 0;width:64px;text-align:center;margin-top:1px}
+  .wg-b{font-size:13.5px;line-height:1.5;color:var(--text)}
+  .wg-tip{margin-top:16px;background:rgba(232,100,60,.10);border:1px solid rgba(232,100,60,.28);border-left:3px solid var(--accent);border-radius:10px;padding:11px 13px;font-size:12.8px;line-height:1.5;color:var(--text)}
+  .wg-tabs{margin-top:12px;font-size:12.3px;color:var(--muted);line-height:1.65}
+  .wg-tabs b{color:var(--text)}
   .cvlw{background:#0e151c;border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-bottom:12px;font-size:12px}
   .cvlw.quiet{color:var(--muted);font-style:italic}
   .cvlw-hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:7px}
@@ -2122,7 +2129,26 @@ function athOnboardNeeded(p){
 const OB_STR=['Back Squat','Front Squat','OH Squat'];   // strength 1RMs
 const OB_REP=['Back Squat','Front Squat'], OB_REPN=[3,5];   // rep maxes captured up front (full grid still on their profile later)
 function obDone(){ try{ localStorage.setItem('wlc_onboard:'+me_.id,'1'); }catch(e){} }
-window.obSkip=()=>{ obDone(); athGo(athState.screen||'athlete'); };
+window.obSkip=()=>{ obDone(); renderWelcomeGuide(); };
+// Final onboarding step: a quick "how to train with the app" tour, shown right after a new athlete
+// completes (or skips) their profile, then the CTA drops them into their home. New athletes only.
+window.obGuideGo=()=>{ athGo(athState.screen||'athlete'); };
+function renderWelcomeGuide(){
+  const p=me_||{}; const first=p.full_name?esc(p.full_name.split(/\s+/)[0]):'there';
+  app.innerHTML=`<div class="login ob-wrap"><div class="topbar"><div class="brand">SoCal <span class="o">WLC</span></div></div>
+    <div class="card ob-card wg-card">
+      <h1>You're in, ${first}! 💪</h1>
+      <div class="sub">A 30-second tour so you get the most out of training here. Everything you log, your coach sees — the more you put in, the sharper your coaching.</div>
+      <div class="wg-flow">
+        <div class="wg-step"><span class="wg-when">Before</span><div class="wg-b"><b>Morning check-in.</b> On <b>Athlete Home</b>, rate sleep / energy / soreness, add your bodyweight, and flag any aches on the body map. It tells your coach how ready you are.</div></div>
+        <div class="wg-step"><span class="wg-when">During</span><div class="wg-b"><b>Log as you lift.</b> In <b>Athlete View</b>, fill in reps &amp; weight, tap the <b>lights</b> (white = good lift, red = miss), rate effort, and <b>film your main lifts</b> with the Video button.</div></div>
+        <div class="wg-step"><span class="wg-when">After</span><div class="wg-b"><b>Close it out.</b> Leave a quick note on how it felt and tell the app how the session went.</div></div>
+      </div>
+      <div class="wg-tip">🎥 <b>Filming tip:</b> shoot from the side, full body + bar in frame, in <b>1080p (not 4K)</b>. Your coach draws on it, maps your bar path, and sends it back under “From your coach” — watch those before your next session.</div>
+      <div class="wg-tabs"><b>Where things live:</b> <b>Home</b> (check-in + what's next) · <b>Annual Plan</b> (your season) · <b>Athlete View</b> (log here) · <b>Dashboard</b> (your progress) · <b>Uploads</b> (share VBT / force-plate files).</div>
+      <div class="ob-actions"><button class="btn" onclick="obGuideGo()">Let's train 💪</button></div>
+    </div></div>`;
+}
 window.obTotal=()=>{ const sn=parseFloat((document.getElementById('obSn')||{}).value), cj=parseFloat((document.getElementById('obCj')||{}).value);
   const t=(isNaN(sn)?0:sn)+(isNaN(cj)?0:cj); const el=document.getElementById('obTot'); if(el) el.textContent=(t>0)?(t+' kg'):'—'; };
 function renderOnboard(){
@@ -2192,7 +2218,7 @@ window.obSave=async()=>{
     if(rUp.length){ const r=await sb.from('rep_maxes').upsert(rUp,{onConflict:'athlete_id,lift,reps'}); if(r.error) throw r.error; }
     Object.assign(me_, prof);   // keep the in-memory profile current so the app reflects it right away
     obDone();
-    athGo(athState.screen||'athlete');
+    renderWelcomeGuide();
   }catch(e){ if(err){ err.textContent='Could not save — '+(e.message||String(e))+'. You can also tap “I\'ll do this later” and add these on your profile.'; } if(go){ go.disabled=false; go.textContent='Save & continue'; } }
 };
 // if the login expires or dies mid-use, say so plainly instead of showing empty screens
