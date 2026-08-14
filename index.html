@@ -598,6 +598,35 @@
   .cw-loadmore{text-align:center;padding:9px;border:1px dashed var(--line);border-radius:9px;color:var(--accent2);font-weight:800;font-size:12px;cursor:pointer;margin:2px 0 12px}
   .cw-loadmore:hover{border-color:var(--accent2)}
   .vid-box.cw-daymodal{max-width:1100px;width:96vw;max-height:92vh;overflow-y:auto}
+  #cwDayModal .vid-box.cw-daymodal{max-width:1260px}
+  .cw-daysplit{display:flex;align-items:stretch}
+  .cw-rail{flex:none;width:236px;border-right:1px solid var(--line);padding-right:14px;margin-right:16px;align-self:flex-start;position:sticky;top:0}
+  .cw-daymain{flex:1;min-width:0}
+  .cwr-hd{display:flex;align-items:center;justify-content:space-between;margin:2px 0 8px}
+  .cwr-mon{font-weight:800;font-size:13px}
+  .cwr-nav{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:6px;width:24px;height:24px;cursor:pointer;font-size:14px;line-height:1;padding:0}
+  .cwr-nav:hover{border-color:var(--accent2)}
+  .cwr-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+  .cwr-dow{font-size:9px;color:var(--muted);text-align:center;font-weight:700;padding-bottom:2px}
+  .cwr-cell{position:relative;aspect-ratio:1;border:none;background:none;color:var(--text);border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11.5px;padding:0;font-family:inherit}
+  .cwr-cell.empty{cursor:default}
+  .cwr-cell:not(.empty):hover{background:var(--panel2)}
+  .cwr-cell.sel{background:var(--accent);color:#fff;font-weight:800}
+  .cwr-cell.today:not(.sel){box-shadow:inset 0 0 0 1.5px var(--accent2)}
+  .cwr-dot{position:absolute;bottom:3px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--good)}
+  .cwr-cell.sel .cwr-dot{background:#fff}
+  .cwr-steps{display:flex;gap:6px;margin:10px 0 4px}
+  .cwr-step{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:5px 0;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit}
+  .cwr-step:hover{border-color:var(--accent2);color:var(--accent2)}
+  .cwr-prevhd{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:800;margin:12px 0 6px;border-top:1px solid var(--line);padding-top:10px}
+  .cwr-prev{display:flex;flex-direction:column;gap:9px;max-height:38vh;overflow-y:auto}
+  .cwr-ptitle{font-weight:700;font-size:12px;margin-bottom:4px}.cwr-ptitle i{color:var(--warn);font-style:normal;font-size:10px;font-weight:700}
+  .cwr-pex{display:flex;gap:7px;align-items:flex-start;padding:2px 0}
+  .cwr-pl{flex:none;width:16px;height:16px;border-radius:50%;border:1px solid var(--line);font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;color:var(--muted);margin-top:1px}
+  .cwr-pn{font-size:11.5px;font-weight:600;line-height:1.25}
+  .cwr-ps{font-size:10.5px;color:var(--muted)}
+  .cwr-pempty{font-size:11px;color:var(--muted);padding:4px 0;line-height:1.4}
+  @media(max-width:900px){ .cw-rail{display:none} }
   .te-banner{background:rgba(56,160,255,.1);border:1px solid rgba(56,160,255,.4);border-radius:9px;padding:9px 12px;margin-bottom:10px;font-size:12.5px;color:var(--text);line-height:1.4}
   .stamp-warn{background:rgba(232,158,60,.1);border:1px solid rgba(232,158,60,.45);border-radius:9px;padding:10px 12px;font-size:12.5px;color:var(--text);line-height:1.45;text-align:left}
   .stamp-warn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}
@@ -11308,14 +11337,71 @@ function cwSetWeekScope(dIso){
   cw.weekSessFull=wkIso.flatMap(d=>cw.sessByDate[d]||[]);
   cw.weekLogs=cw.weekSessFull.flatMap(s=>(cw.logsBySess[s.id]||[]));
 }
+function cwDayTitleHtml(){ const nm=(cw&&cw.ath&&cw.ath.full_name)?cw.ath.full_name.split(' ')[0]:''; return `${esc(nm)} · ${esc(fmtDate(cw.selDate))}`; }
 function cwOpenDayModal(){
   if(!cw || !cw.selDate) return;
   cwSetWeekScope(cw.selDate);
-  const m=ovModal('cwDayModal', `<div class="ov-hd"><h2 style="margin:0">${esc(cw.ath.full_name.split(' ')[0])} · ${esc(fmtDate(cw.selDate))}</h2><span class="vid-x" onclick="cwCloseDay()">✕</span></div><div id="cvDay"></div>`);
+  const sd=new Date(cw.selDate+'T00:00:00'); cw.rail={ y:sd.getFullYear(), m:sd.getMonth() }; cw.railExtra=cw.railExtra||{};
+  const m=ovModal('cwDayModal', `<div class="ov-hd"><h2 style="margin:0" id="cwDayTitle">${cwDayTitleHtml()}</h2><span class="vid-x" onclick="cwCloseDay()">✕</span></div>
+    <div class="cw-daysplit"><aside class="cw-rail" id="cwRail"></aside><div class="cw-daymain" id="cvDay"></div></div>`);
   const box=m.querySelector('.vid-box'); if(box) box.classList.add('cw-daymodal');
   m.onclick=(ev)=>{ if(ev.target===m) cwCloseDay(); };
+  cwRenderRail();
   renderCoachDay();
 }
+// ---- day-editor mini-calendar rail (TrainHeroic-style: jump between sessions without leaving) ----
+function cwRailSessOn(dStr){ return (cw&&cw.sessByDate&&cw.sessByDate[dStr]) || (cw&&cw.railExtra&&cw.railExtra[dStr]) || []; }
+function cwRenderRail(){
+  const host=document.getElementById('cwRail'); if(!host||!cw||!cw.rail) return;
+  const y=cw.rail.y, mo=cw.rail.m;
+  const MON=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const first=new Date(y,mo,1); const startDow=(first.getDay()+6)%7; const dim=new Date(y,mo+1,0).getDate();
+  const todayStr=iso(new Date());
+  let cells='<div class="cwr-grid">'+['M','T','W','T','F','S','S'].map(d=>`<span class="cwr-dow">${d}</span>`).join('');
+  for(let i=0;i<startDow;i++) cells+='<span class="cwr-cell empty"></span>';
+  for(let d=1;d<=dim;d++){ const ds=iso(new Date(y,mo,d)); const has=cwRailSessOn(ds).length>0; const sel=ds===cw.selDate, tod=ds===todayStr;
+    cells+=`<button class="cwr-cell${sel?' sel':''}${tod?' today':''}" onclick="cwRailPick('${ds}')"><span class="cwr-n">${d}</span>${has?'<span class="cwr-dot"></span>':''}</button>`; }
+  cells+='</div>';
+  const sess=cwRailSessOn(cw.selDate);
+  const prev = sess.length ? sess.map(s=>{
+      const exs=(s.prescribed_exercises||[]).slice().sort(sortByPos);
+      const items=exs.map((ex,i)=>{ const sc=cwFmtScheme(ex); return `<div class="cwr-pex"><span class="cwr-pl">${String.fromCharCode(65+i)}</span><div><div class="cwr-pn">${esc(ex.name||'')}</div>${sc?`<div class="cwr-ps">${esc(sc)}</div>`:''}</div></div>`; }).join('');
+      return `<div class="cwr-psess"><div class="cwr-ptitle">${esc(s.title||'Session')}${s.status==='draft'?' <i>draft</i>':''}</div>${items||'<div class="cwr-pempty">No exercises yet.</div>'}</div>`;
+    }).join('') : '<div class="cwr-pempty">No session on this day. Click to create one.</div>';
+  host.innerHTML=`<div class="cwr-hd"><button class="cwr-nav" onclick="cwRailMonth(-1)" title="Previous month">‹</button><span class="cwr-mon">${MON[mo]} ${y}</span><button class="cwr-nav" onclick="cwRailMonth(1)" title="Next month">›</button></div>
+    ${cells}
+    <div class="cwr-steps"><button class="cwr-step" onclick="cwRailStep(-1)" title="Previous session">‹ Prev</button><button class="cwr-step" onclick="cwRailStep(1)" title="Next session">Next ›</button></div>
+    <div class="cwr-prevhd">Session Preview</div><div class="cwr-prev">${prev}</div>`;
+}
+async function cwRailFlush(){ try{ if(_draftTimer){ clearTimeout(_draftTimer); _draftTimer=null; } if(ed && ed.session && ed.session.status==='draft' && ed.dirty) await doDraftSave(); }catch(e){} }
+async function cwRailFetchMonth(y,mo){
+  const athId=cw&&cw.athId; if(!athId) return;   // team-edit: cw.athId is the representative athlete → team schedule
+  const a=iso(new Date(y,mo,1)), b=iso(new Date(y,mo+1,0));
+  const sel='id,title,session_date,status,created_at,prescribed_exercises(name,position,category,load_type,prescribed_sets(target_reps,target_pct,target_kg,target_vel,target_eff,target_text,position))';
+  try{ const { data }=await sb.from('sessions').select(sel).eq('athlete_id',athId).gte('session_date',a).lte('session_date',b).order('session_date',{ascending:true}).order('created_at',{ascending:true});
+    (data||[]).forEach(s=>{ if(cw.sessByDate && cw.sessByDate[s.session_date]) return; (cw.railExtra[s.session_date]=cw.railExtra[s.session_date]||[]); if(!cw.railExtra[s.session_date].find(x=>x.id===s.id)) cw.railExtra[s.session_date].push(s); }); }catch(e){}
+}
+window.cwRailPick=async(dStr)=>{
+  if(!cw) return; await cwRailFlush();
+  cw.selDate=dStr; const list=cwRailSessOn(dStr); cw.selSess=list.length?list[0].id:null;
+  if(cw._teamEditCtx && list.length) cw._teamEditCtx={ ...cw._teamEditCtx, repSessId:list[0].id, date:dStr, title:list[0].title||'Training' };
+  const sd=new Date(dStr+'T00:00:00'); cw.rail.y=sd.getFullYear(); cw.rail.m=sd.getMonth();
+  const t=document.getElementById('cwDayTitle'); if(t) t.innerHTML=cwDayTitleHtml();
+  ed=null; renderCoachDay(); cwRenderRail();
+};
+window.cwRailStep=async(dir)=>{
+  if(!cw) return;
+  const dates=new Set([...Object.keys(cw.sessByDate||{}), ...Object.keys(cw.railExtra||{})]);
+  const sorted=[...dates].filter(d=>cwRailSessOn(d).length).sort(); const cur=cw.selDate; let target=null;
+  if(dir<0){ for(let i=sorted.length-1;i>=0;i--){ if(sorted[i]<cur){ target=sorted[i]; break; } } }
+  else { for(let i=0;i<sorted.length;i++){ if(sorted[i]>cur){ target=sorted[i]; break; } } }
+  if(!target){ toast(dir<0?'No earlier session loaded — page the month back with ‹.':'No later session loaded — page the month forward with ›.'); return; }
+  cwRailPick(target);
+};
+window.cwRailMonth=async(dir)=>{
+  if(!cw||!cw.rail) return; let mo=cw.rail.m+dir, y=cw.rail.y; if(mo<0){mo=11;y--;} if(mo>11){mo=0;y++;}
+  cw.rail.y=y; cw.rail.m=mo; await cwRailFetchMonth(y,mo); cwRenderRail();
+};
 window.cwCloseDay = ()=>{ ed=null; if(cw) cw.modalOpen=false; const m=document.getElementById('cwDayModal'); if(m) m.style.display='none';
   if(_teamEditReturn){ const tid=_teamEditReturn; _teamEditReturn=null; coachState.subject='team'; coachState.teamId=tid; cw=null; paintCoach(); return; }
   renderCoachPanel(); };
