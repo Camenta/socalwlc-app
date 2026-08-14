@@ -11926,14 +11926,17 @@ function mainLiftName(name){ const s=(name||'').toLowerCase(); if(!s.trim()) ret
 function exIsMain(ex){ const c=((ex&&ex.category)||'').toLowerCase();
   if(c==='accessory') return false; if(c==='main') return true; return mainLiftName(ex&&ex.name); }
 function exIsAcc(ex){ return !exIsMain(ex); }
-// When the specific lift has no max on file, price off the parent competition lift. This is what makes
-// a clean/jerk complex resolve: athletes log a combined 'Clean & Jerk' max, not standalone Clean/Jerk,
-// so "Clean Pull to Hip + Clean + Jerk" (last move → Jerk → no jerk max) still prices off the C&J.
-const ORM_FAMILY={ 'Clean':['Clean & Jerk'], 'Jerk':['Clean & Jerk'], 'Clean DL':['Clean','Clean & Jerk'], 'Snatch DL':['Snatch'] };
+// Chris's pricing rule: EVERY snatch movement prices off the 1RM Snatch, EVERY clean & jerk variation
+// off the 1RM Clean & Jerk — pulls, extensions, deadlifts, jerks and complexes all follow the comp lift,
+// not a separate max. (Snatch push/stretch press & squats classify away from Snatch/C&J, so they keep
+// their own max.) This is a redirect, not just a fallback: it holds even if a Snatch DL / Clean / Jerk
+// max happens to be on file. If the comp max is missing, fall back to the specific lift's own max.
+const PRICE_OFF={ 'Snatch':'Snatch', 'Snatch DL':'Snatch', 'Clean':'Clean & Jerk', 'Clean DL':'Clean & Jerk', 'Jerk':'Clean & Jerk', 'Clean & Jerk':'Clean & Jerk' };
 function ormResolveFam(lift, maxes){
   if(!lift) return null;
-  if(maxes[lift]!=null) return {kg:maxes[lift], lift};             // the specific lift is on file → use it
-  for(const fb of (ORM_FAMILY[lift]||[])) if(maxes[fb]!=null) return {kg:maxes[fb], lift:fb};   // else the parent comp lift
+  const price=PRICE_OFF[lift]||lift;
+  if(maxes[price]!=null) return {kg:maxes[price], lift:price};                    // comp lift (Snatch / Clean & Jerk)
+  if(price!==lift && maxes[lift]!=null) return {kg:maxes[lift], lift};            // comp max not on file → the specific one
   return null;
 }
 // resolve a movement name -> {kg, lift}. For a complex (A + B [+ C]), the LAST movement drives the load.
@@ -12579,6 +12582,9 @@ function paintEditor(){
   const exHtml = ed.exercises.map((ex,ei)=>{
     const type=ex.loadType||'percentage';
     const bi=baseInfoFor(ex); const orm=bi&&bi.kg!=null?bi.kg:null;
+    // fill any empty LOAD KG cells from the resolved 1RM × % so the coach sees the weights — they were
+    // left blank when the session was published before the base resolved. Won't overwrite a typed kg.
+    if(type==='percentage' && orm!=null) ex.sets.forEach(st=>{ if(st.kg===''||st.kg==null){ const p=parseFloat(st.pct); if(!isNaN(p)) st.kg=rnd1(orm*p/100); } });
     const showTgt = type!=='weight' && type!=='open';
     // collapse consecutive identical sets into one display row with a Sets multiplier
     const groups=[];
