@@ -613,8 +613,17 @@
   .cwr-cell:not(.empty):hover{background:var(--panel2)}
   .cwr-cell.sel{background:var(--accent);color:#fff;font-weight:800}
   .cwr-cell.today:not(.sel){box-shadow:inset 0 0 0 1.5px var(--accent2)}
-  .cwr-dot{position:absolute;bottom:3px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--good)}
+  .cwr-dot{position:absolute;bottom:3px;left:50%;transform:translateX(-50%);width:4.5px;height:4.5px;border-radius:50%;background:var(--good)}
+  .cwr-dot.done{background:var(--good)}.cwr-dot.pub{background:var(--accent2)}.cwr-dot.draft{background:var(--warn)}
   .cwr-cell.sel .cwr-dot{background:#fff}
+  .cwr-legend{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 2px;font-size:9.5px;color:var(--muted)}
+  .cwr-legend span{display:inline-flex;align-items:center;gap:4px}
+  .cwr-legend i{position:static;transform:none;width:6px;height:6px;border-radius:50%;display:inline-block}
+  .cwr-pdate{color:var(--accent2);font-weight:700;font-size:11px}
+  .cwr-pb{font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;border-radius:4px;padding:1px 5px;white-space:nowrap}
+  .cwr-pb.done{background:rgba(62,201,122,.16);color:var(--good)}
+  .cwr-pb.pub{background:rgba(90,169,255,.16);color:var(--accent2)}
+  .cwr-pb.draft{background:rgba(232,177,60,.16);color:var(--warn)}
   .cwr-steps{display:flex;gap:6px;margin:10px 0 4px}
   .cwr-step{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:5px 0;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit}
   .cwr-step:hover{border-color:var(--accent2);color:var(--accent2)}
@@ -11341,37 +11350,67 @@ function cwDayTitleHtml(){ const nm=(cw&&cw.ath&&cw.ath.full_name)?cw.ath.full_n
 function cwOpenDayModal(){
   if(!cw || !cw.selDate) return;
   cwSetWeekScope(cw.selDate);
-  const sd=new Date(cw.selDate+'T00:00:00'); cw.rail={ y:sd.getFullYear(), m:sd.getMonth() }; cw.railExtra=cw.railExtra||{};
+  const sd=new Date(cw.selDate+'T00:00:00'); cw.rail={ y:sd.getFullYear(), m:sd.getMonth() }; cw.railExtra={};
+  cw.railDone=new Set(); cw.railDoneChecked=new Set();   // session ids with logged (completed) work → green dot
+  if(cw.logsBySess) Object.keys(cw.logsBySess).forEach(sid=>{ if((cw.logsBySess[sid]||[]).some(l=>l.done)) cw.railDone.add(sid); });
   const m=ovModal('cwDayModal', `<div class="ov-hd"><h2 style="margin:0" id="cwDayTitle">${cwDayTitleHtml()}</h2><span class="vid-x" onclick="cwCloseDay()">✕</span></div>
     <div class="cw-daysplit"><aside class="cw-rail" id="cwRail"></aside><div class="cw-daymain" id="cvDay"></div></div>`);
   const box=m.querySelector('.vid-box'); if(box) box.classList.add('cw-daymodal');
   m.onclick=(ev)=>{ if(ev.target===m) cwCloseDay(); };
   cwRenderRail();
   renderCoachDay();
+  cwRailSyncDone();   // confirm completion for the visible month from logged_sets (covers team + fetched months)
 }
 // ---- day-editor mini-calendar rail (TrainHeroic-style: jump between sessions without leaving) ----
 function cwRailSessOn(dStr){ return (cw&&cw.sessByDate&&cw.sessByDate[dStr]) || (cw&&cw.railExtra&&cw.railExtra[dStr]) || []; }
+// day status → dot colour: completed (has logged work) green · published blue · draft yellow
+function cwDayStatus(dStr){ const list=cwRailSessOn(dStr); if(!list.length) return null;
+  if(cw.railDone && list.some(s=>cw.railDone.has(s.id))) return 'done';
+  if(list.some(s=>s.status==='published')) return 'published';
+  return 'draft'; }
+function cwShortDate(d){ const D=new Date(d+'T00:00:00'); const wd=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return wd[D.getDay()]+' '+mo[D.getMonth()]+' '+D.getDate(); }
+function cwPrevHdHtml(d){ return 'Session Preview'+(d?` <span class="cwr-pdate">· ${esc(cwShortDate(d))}</span>`:''); }
+function cwRailPreviewHtml(dStr){
+  const sess=cwRailSessOn(dStr);
+  if(!sess.length) return '<div class="cwr-pempty">No session on this day.</div>';
+  return sess.map(s=>{
+    const exs=(s.prescribed_exercises||[]).slice().sort(sortByPos);
+    const items=exs.map((ex,i)=>{ const sc=cwFmtScheme(ex); return `<div class="cwr-pex"><span class="cwr-pl">${String.fromCharCode(65+i)}</span><div><div class="cwr-pn">${esc(ex.name||'')}</div>${sc?`<div class="cwr-ps">${esc(sc)}</div>`:''}</div></div>`; }).join('');
+    const badge=(cw.railDone&&cw.railDone.has(s.id))?'<span class="cwr-pb done">Completed</span>':(s.status==='published'?'<span class="cwr-pb pub">Published</span>':'<span class="cwr-pb draft">Draft</span>');
+    return `<div class="cwr-psess"><div class="cwr-ptitle">${esc(s.title||'Session')} ${badge}</div>${items||'<div class="cwr-pempty">No exercises yet.</div>'}</div>`;
+  }).join('');
+}
+// hover a day → preview it below (revert to the selected day on leave)
+window.cwRailHover=(dStr)=>{ const d=dStr||(cw&&cw.selDate); if(!d) return;
+  const prev=document.getElementById('cwrPrev'), hd=document.getElementById('cwrPrevHd');
+  if(prev) prev.innerHTML=cwRailPreviewHtml(d); if(hd) hd.innerHTML=cwPrevHdHtml(d); };
+// confirm which of the shown month's sessions have logged work (green), querying only ids not yet checked
+async function cwRailSyncDone(){
+  if(!cw||!cw.rail) return;
+  const y=cw.rail.y, mo=cw.rail.m, dim=new Date(y,mo+1,0).getDate(); const ids=[];
+  for(let d=1;d<=dim;d++){ cwRailSessOn(iso(new Date(y,mo,d))).forEach(s=>{ if(s.id) ids.push(s.id); }); }
+  cw.railDoneChecked=cw.railDoneChecked||new Set();
+  const need=ids.filter(id=>!cw.railDoneChecked.has(id)); if(!need.length) return;
+  need.forEach(id=>cw.railDoneChecked.add(id));
+  try{ const { data }=await sb.from('logged_sets').select('session_id').eq('done',true).in('session_id', need); (data||[]).forEach(l=>cw.railDone.add(l.session_id)); }catch(e){}
+  cwRenderRail();
+}
 function cwRenderRail(){
   const host=document.getElementById('cwRail'); if(!host||!cw||!cw.rail) return;
   const y=cw.rail.y, mo=cw.rail.m;
   const MON=['January','February','March','April','May','June','July','August','September','October','November','December'];
   const first=new Date(y,mo,1); const startDow=(first.getDay()+6)%7; const dim=new Date(y,mo+1,0).getDate();
-  const todayStr=iso(new Date());
-  let cells='<div class="cwr-grid">'+['M','T','W','T','F','S','S'].map(d=>`<span class="cwr-dow">${d}</span>`).join('');
+  const todayStr=iso(new Date()); const DOTCLS={done:'done',published:'pub',draft:'draft'};
+  let cells='<div class="cwr-grid" onmouseleave="cwRailHover(null)">'+['M','T','W','T','F','S','S'].map(d=>`<span class="cwr-dow">${d}</span>`).join('');
   for(let i=0;i<startDow;i++) cells+='<span class="cwr-cell empty"></span>';
-  for(let d=1;d<=dim;d++){ const ds=iso(new Date(y,mo,d)); const has=cwRailSessOn(ds).length>0; const sel=ds===cw.selDate, tod=ds===todayStr;
-    cells+=`<button class="cwr-cell${sel?' sel':''}${tod?' today':''}" onclick="cwRailPick('${ds}')"><span class="cwr-n">${d}</span>${has?'<span class="cwr-dot"></span>':''}</button>`; }
+  for(let d=1;d<=dim;d++){ const ds=iso(new Date(y,mo,d)); const st=cwDayStatus(ds); const sel=ds===cw.selDate, tod=ds===todayStr;
+    cells+=`<button class="cwr-cell${sel?' sel':''}${tod?' today':''}" onclick="cwRailPick('${ds}')" onmouseenter="cwRailHover('${ds}')"><span class="cwr-n">${d}</span>${st?`<span class="cwr-dot ${DOTCLS[st]}"></span>`:''}</button>`; }
   cells+='</div>';
-  const sess=cwRailSessOn(cw.selDate);
-  const prev = sess.length ? sess.map(s=>{
-      const exs=(s.prescribed_exercises||[]).slice().sort(sortByPos);
-      const items=exs.map((ex,i)=>{ const sc=cwFmtScheme(ex); return `<div class="cwr-pex"><span class="cwr-pl">${String.fromCharCode(65+i)}</span><div><div class="cwr-pn">${esc(ex.name||'')}</div>${sc?`<div class="cwr-ps">${esc(sc)}</div>`:''}</div></div>`; }).join('');
-      return `<div class="cwr-psess"><div class="cwr-ptitle">${esc(s.title||'Session')}${s.status==='draft'?' <i>draft</i>':''}</div>${items||'<div class="cwr-pempty">No exercises yet.</div>'}</div>`;
-    }).join('') : '<div class="cwr-pempty">No session on this day. Click to create one.</div>';
   host.innerHTML=`<div class="cwr-hd"><button class="cwr-nav" onclick="cwRailMonth(-1)" title="Previous month">‹</button><span class="cwr-mon">${MON[mo]} ${y}</span><button class="cwr-nav" onclick="cwRailMonth(1)" title="Next month">›</button></div>
     ${cells}
+    <div class="cwr-legend"><span><i class="cwr-dot done"></i>Completed</span><span><i class="cwr-dot pub"></i>Published</span><span><i class="cwr-dot draft"></i>Draft</span></div>
     <div class="cwr-steps"><button class="cwr-step" onclick="cwRailStep(-1)" title="Previous session">‹ Prev</button><button class="cwr-step" onclick="cwRailStep(1)" title="Next session">Next ›</button></div>
-    <div class="cwr-prevhd">Session Preview</div><div class="cwr-prev">${prev}</div>`;
+    <div class="cwr-prevhd" id="cwrPrevHd">${cwPrevHdHtml(cw.selDate)}</div><div class="cwr-prev" id="cwrPrev">${cwRailPreviewHtml(cw.selDate)}</div>`;
 }
 async function cwRailFlush(){ try{ if(_draftTimer){ clearTimeout(_draftTimer); _draftTimer=null; } if(ed && ed.session && ed.session.status==='draft' && ed.dirty) await doDraftSave(); }catch(e){} }
 async function cwRailFetchMonth(y,mo){
@@ -11400,7 +11439,7 @@ window.cwRailStep=async(dir)=>{
 };
 window.cwRailMonth=async(dir)=>{
   if(!cw||!cw.rail) return; let mo=cw.rail.m+dir, y=cw.rail.y; if(mo<0){mo=11;y--;} if(mo>11){mo=0;y++;}
-  cw.rail.y=y; cw.rail.m=mo; await cwRailFetchMonth(y,mo); cwRenderRail();
+  cw.rail.y=y; cw.rail.m=mo; await cwRailFetchMonth(y,mo); cwRenderRail(); cwRailSyncDone();
 };
 window.cwCloseDay = ()=>{ ed=null; if(cw) cw.modalOpen=false; const m=document.getElementById('cwDayModal'); if(m) m.style.display='none';
   if(_teamEditReturn){ const tid=_teamEditReturn; _teamEditReturn=null; coachState.subject='team'; coachState.teamId=tid; cw=null; paintCoach(); return; }
