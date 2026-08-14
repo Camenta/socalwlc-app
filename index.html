@@ -2034,6 +2034,28 @@
   .rptx.rx-editing [contenteditable]:focus{outline:1.5px solid var(--rx-accent)}
   .rptx.rx-editing .rx-nb-title:empty:before,.rptx.rx-editing .rx-nb-body:empty:before{content:attr(data-ph);color:var(--rx-muted2);font-weight:400}
   @media (max-width:760px){ .rptx .rx-exec,.rptx .rx-2col,.rptx .rx-clusters{grid-template-columns:1fr} .rptx .rx-kpis{grid-template-columns:1fr 1fr} .rptx .rx-mast{flex-direction:column} .rptx .rx-pad,.rptx .rx-chhead{padding-left:18px;padding-right:18px} }
+  /* ---- in-app notifications (mentions + announcements) ---- */
+  .notif-bell{position:relative;padding:6px 10px;font-size:15px;line-height:1}
+  .notif-count{position:absolute;top:-5px;right:-4px;min-width:16px;height:16px;padding:0 4px;border-radius:9px;background:var(--accent,#e8643c);color:#fff;font-size:10px;font-weight:800;line-height:16px;text-align:center;box-shadow:0 0 0 2px var(--bg,#0c1117)}
+  .notif-panel{position:fixed;z-index:10000;width:320px;max-width:calc(100vw - 16px);max-height:min(70vh,460px);overflow:auto;background:#131c27;border:1px solid var(--line,#2b3648);border-radius:12px;box-shadow:0 14px 40px rgba(0,0,0,.5)}
+  .notif-hd{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid var(--line,#2b3648);position:sticky;top:0;background:#131c27;font-size:13px}
+  .notif-allread{font-size:11.5px;font-weight:700;color:var(--accent2,#3c9ee8);cursor:pointer}
+  .notif-allread:hover{text-decoration:underline}
+  .notif-list{padding:4px 0}
+  .notif-row{display:flex;gap:8px;align-items:flex-start;padding:10px 14px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.04)}
+  .notif-row:hover{background:rgba(255,255,255,.04)}
+  .notif-row.unread{background:rgba(232,100,60,.07)}
+  .notif-main{flex:1;font-size:12.5px;line-height:1.4;color:var(--text,#eaf0f6)}
+  .notif-snip{color:var(--muted,#7e93a6);font-style:italic;margin:2px 0 1px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .notif-when{color:var(--muted,#7e93a6);font-size:10.5px;margin-top:2px}
+  .notif-dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--accent,#e8643c);margin-top:5px}
+  .notif-empty{padding:22px 14px;text-align:center;color:var(--muted,#7e93a6);font-size:12.5px}
+  /* @mention autocomplete + in-feed highlight */
+  .mn-panel{position:fixed;z-index:10001;max-height:224px;overflow:auto;background:#131c27;border:1px solid var(--line,#2b3648);border-radius:10px;box-shadow:0 12px 34px rgba(0,0,0,.5);padding:4px}
+  .mn-item{display:flex;align-items:center;gap:7px;padding:8px 10px;border-radius:7px;cursor:pointer;font-size:13px;color:var(--text,#eaf0f6)}
+  .mn-item i{color:var(--muted,#7e93a6);font-style:normal;font-size:11px;margin-left:auto}
+  .mn-item.on,.mn-item:hover{background:rgba(60,158,232,.18)}
+  .mn-tag{color:var(--accent2,#3c9ee8);font-weight:700}
 </style>
 </head>
 <body>
@@ -2104,6 +2126,8 @@ async function boot(){
   await probePainResolve();
   await probeChatSocial();
   await probeBriefs();
+  await probeNotif();
+  await notifLoad();
   if(profile.role === 'coach') renderCoach();
   else if(athOnboardNeeded(profile)) renderOnboard();
   else athGo(athState.screen||'athlete');
@@ -2322,6 +2346,7 @@ function topbar(roleLabel){
     <div class="brand">SoCal <span class="o">WLC</span></div>
     <div style="display:flex;align-items:center;gap:12px">
       <div class="who"><b>${esc((me_&&me_.full_name)||'')}</b><br>${roleLabel}</div>
+      ${notifBellHtml()}
       <button class="btn ghost tk-btn" onclick="openTicketModal()" title="Report a glitch or problem">🐞 Report</button>
       <button class="btn ghost" onclick="logout()">Sign out</button>
     </div></div>`;
@@ -4419,6 +4444,8 @@ async function probeVideoNotes(){
   const cr = await sb.from('clip_reviews').select('video_path').limit(1); CLIPREV_READY = !cr.error; // durable watched/deleted marker (migration 53)
   const cn = await sb.from('coach_notes').select('id').limit(1); CNOTES_READY = !cn.error;            // private coach meeting notes (migration 54)
 }
+let NOTIF_READY=false;   // in-app notifications: @mentions + announcements (migration 55)
+async function probeNotif(){ const { error } = await sb.from('notifications').select('id').limit(1); NOTIF_READY = !error; }
 let SRPE_READY=false;   // sessions.session_minutes + session_rpe (migration 33) → session-RPE load
 async function probeSrpe(){ const { error } = await sb.from('sessions').select('session_rpe').limit(1); SRPE_READY = !error;
   if(SRPE_READY && SESSION_SELECT.indexOf('session_rpe')<0) SESSION_SELECT += ',session_minutes,session_rpe'; }
@@ -4886,7 +4913,7 @@ async function chatUploadAndSend(convId, file, inputEl, reloadFn){
   const ins=await sb.from('messages').insert({ gym_id:me_.gym_id, author_id:me_.id, conversation_id:convId, body, media_path:path, media_type:contentType }).select();
   if(ins.error||!ins.data||!ins.data.length){ toast('Send failed — '+(ins.error?ins.error.message:'try again')); return; }
   if(inputEl) inputEl.value='';
-  reloadFn();
+  reloadFn(); chatNotifyMentions(convId, ins.data[0]);
 }
 function chatComposeAttach(which){ return CHAT_MEDIA_READY?`<label class="chat-attach" title="Attach a photo, GIF, or video">📎<input type="file" accept="image/*,video/*" onchange="chatAttachPick('${which}',this)" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none"></label>`:''; }
 // ---- GIF picker (Giphy) — search a library and send the GIF as a remote-URL message ----
@@ -4948,7 +4975,7 @@ async function athChatFeed(){
   feed.innerHTML=(msgs||[]).map(m=>{ const mine=m.author_id===(me_&&me_.id); const p=athChat.prof[m.author_id]; const nm=p?p.full_name:(mine?'You':'Someone');
     return '<div class="msg '+(mine?'me':'')+'"><span class="msg-av" style="background:'+avColor(nm)+'">'+esc(initials(nm))+'</span>'+
       '<div class="msg-bub"><div class="msg-who">'+esc(mine?'You':nm)+' · '+athClockT(m.created_at)+'</div>'+
-      (m.body?'<div class="msg-txt">'+esc(m.body)+'</div>':'')+chatMediaHTML(m,ex.signed)+chatReactHTML(m,ex.re)+'</div></div>';
+      (m.body?'<div class="msg-txt">'+chatHi(esc(m.body))+'</div>':'')+chatMediaHTML(m,ex.signed)+chatReactHTML(m,ex.re)+'</div></div>';
   }).join('') || '<div class="con-empty" style="padding:20px">No messages yet — say hi 👋</div>';
   feed.scrollTop=feed.scrollHeight;
 }
@@ -4956,7 +4983,7 @@ window.athChatSend=async()=>{
   const i=document.getElementById('athChatInput'); if(!i) return; const body=(i.value||'').trim(); if(!body||!athChat.convId) return;
   const res=await sb.from('messages').insert({ gym_id:me_.gym_id, author_id:me_.id, conversation_id:athChat.convId, body }).select();
   if(res.error||!res.data||!res.data.length){ const f=document.getElementById('athChatFeed'); if(f) f.insertAdjacentHTML('beforeend','<div class="note sub" style="color:var(--bad)">Couldn’t send — try again.</div>'); return; }
-  i.value=''; athChatFeed();
+  i.value=''; athChatFeed(); chatNotifyMentions(athChat.convId, res.data[0]);
 };
 window.athAddSchedule=()=>{ planState.mode='athlete'; planState.athleteId=me_.id; planState.tab='calendar'; const t=new Date(); planState.cur={y:t.getFullYear(),m:t.getMonth(),d:t.getDate()}; renderAthPlan().then(()=>setTimeout(()=>{ if(window.planAddEvent) planAddEvent(); },300)); };
 function homeTrendSVG(weeks){
@@ -4971,6 +4998,179 @@ function homeTrendSVG(weeks){
   return '<svg class="chart" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet">'+bars+line+dots+labels+'</svg>';
 }
 
+/* ================= In-app notifications (@mentions + announcements) — migration 55 ================= */
+let notifState={ items:[], unread:0 };
+let _notifGotoConv=null;   // athlete-side: conv to open once Home re-renders
+function notifWho(id){
+  if(!id) return 'Someone';
+  if(me_&&id===me_.id) return me_.full_name||'You';
+  const a=(coachState.athletes||[]).find(x=>x.id===id); if(a&&a.full_name) return a.full_name;
+  const p=(athChat.prof||{})[id]; if(p&&p.full_name) return p.full_name;
+  return 'Your coach';
+}
+function notifBellHtml(){
+  if(!NOTIF_READY) return '';
+  const u=notifState.unread;
+  return `<button class="btn ghost notif-bell" id="notifBell" onclick="notifToggle(event)" title="Notifications">🔔${u>0?`<span class="notif-count">${u>9?'9+':u}</span>`:''}</button>`;
+}
+function notifPaintBell(){
+  const b=document.getElementById('notifBell'); if(!b) return;
+  const u=notifState.unread;
+  b.innerHTML=`🔔${u>0?`<span class="notif-count">${u>9?'9+':u}</span>`:''}`;
+}
+async function notifLoad(){
+  if(!NOTIF_READY || !me_) return;
+  const { data, error } = await sb.from('notifications').select('*').eq('recipient_id', me_.id).order('created_at',{ascending:false}).limit(40);
+  if(error) return;
+  notifState.items=data||[];
+  notifState.unread=notifState.items.filter(n=>!n.read_at).length;
+  notifPaintBell();
+}
+window.notifToggle=(ev)=>{ if(ev) ev.stopPropagation(); const ex=document.getElementById('notifPanel'); if(ex){ notifPanelClose(); return; } notifOpenPanel(); };
+function notifOpenPanel(){
+  const items=notifState.items;
+  const rows=items.length?items.map(n=>{
+    const who=notifWho(n.actor_id), unread=!n.read_at;
+    const label = n.kind==='announcement' ? `<b>${esc(who)}</b> posted an announcement` : `<b>${esc(who)}</b> mentioned you`;
+    return `<div class="notif-row${unread?' unread':''}" data-id="${n.id}"><div class="notif-main">${label}${n.body?`<div class="notif-snip">“${esc(n.body)}”</div>`:''}<div class="notif-when">${relTime(n.created_at)}</div></div>${unread?'<span class="notif-dot"></span>':''}</div>`;
+  }).join(''):'<div class="notif-empty">No notifications yet.</div>';
+  const p=document.createElement('div'); p.id='notifPanel'; p.className='notif-panel';
+  p.innerHTML=`<div class="notif-hd"><b>Notifications</b>${notifState.unread>0?'<span class="notif-allread" onclick="notifMarkAllRead(event)">Mark all read</span>':''}</div><div class="notif-list">${rows}</div>`;
+  document.body.appendChild(p);
+  p.querySelectorAll('.notif-row').forEach(r=> r.addEventListener('click', ()=>notifOpen(r.dataset.id)));
+  const bell=document.getElementById('notifBell');
+  if(bell){ const r=bell.getBoundingClientRect(); p.style.top=(r.bottom+6)+'px'; p.style.right=Math.max(8,(window.innerWidth-r.right))+'px'; }
+  setTimeout(()=>document.addEventListener('click', notifPanelDocClose, true), 0);
+}
+function notifPanelClose(){ const p=document.getElementById('notifPanel'); if(p) p.remove(); document.removeEventListener('click', notifPanelDocClose, true); }
+function notifPanelDocClose(e){ const p=document.getElementById('notifPanel'); if(!p) return; const b=document.getElementById('notifBell'); if(p.contains(e.target)||(b&&b.contains(e.target))) return; notifPanelClose(); }
+window.notifOpen=async(id)=>{
+  const n=notifState.items.find(x=>x.id===id); notifPanelClose();
+  if(!n) return;
+  await notifMarkRead(id);
+  notifGoto(n);
+};
+function notifGoto(n){
+  if(!n) return;
+  const coach=!!(me_&&me_.role==='coach');
+  if(n.kind==='announcement'){ if(coach){ conState.tab='hub'; coachGo('console'); } else athGo('home'); return; }
+  const cid=n.conversation_id; if(!cid) return;
+  if(coach){ conState.tab='hub'; hubState.convId=cid; coachGo('console'); }
+  else if(athState.screen==='home' && athChat.convs.find(c=>c.id===cid)){ athChatSelect(cid); }
+  else { _notifGotoConv=cid; athGo('home'); }
+}
+async function notifMarkRead(id){
+  const n=notifState.items.find(x=>x.id===id); if(!n||n.read_at) return;
+  n.read_at=new Date().toISOString(); notifState.unread=notifState.items.filter(x=>!x.read_at).length; notifPaintBell();
+  try{ await sb.from('notifications').update({read_at:n.read_at}).eq('id',id); }catch(e){}
+}
+window.notifMarkAllRead=async(ev)=>{
+  if(ev) ev.stopPropagation();
+  const now=new Date().toISOString(); const uns=notifState.items.filter(n=>!n.read_at); if(!uns.length){ notifPanelClose(); return; }
+  uns.forEach(n=>n.read_at=now); notifState.unread=0; notifPaintBell(); notifPanelClose();
+  try{ await sb.from('notifications').update({read_at:now}).eq('recipient_id',me_.id).is('read_at',null); }catch(e){}
+};
+// realtime hook — called from both role channels on a notifications INSERT for me
+function notifOnInsert(p){ if(p&&p.new&&p.new.recipient_id===(me_&&me_.id)) notifLoad(); }
+
+/* ---- @mention picker + resolution (shared coach + athlete composers) ---- */
+function chatConvKind(convId){ const c=(hubState.convs||[]).concat(athChat.convs||[]).find(x=>x.id===convId); return c?c.kind:null; }
+function chatMembersFor(convId){
+  const c=(hubState.convs||[]).concat(athChat.convs||[]).find(x=>x.id===convId);
+  const nameOf=id=>{ if(me_&&id===me_.id) return me_.full_name;
+    const a=(coachState.athletes||[]).find(x=>x.id===id); if(a&&a.full_name) return a.full_name;
+    const p=(athChat.prof||{})[id]; if(p&&p.full_name) return p.full_name; return null; };
+  let ids;
+  if(c && c.kind==='team'){
+    if((coachState.athletes||[]).length) ids=(coachState.athletes||[]).map(a=>a.id).concat(me_?[me_.id]:[]);
+    else ids=Object.keys(athChat.prof||{});
+  } else {
+    ids=(hubState.membersByConv&&hubState.membersByConv[convId]) || (athChat.membersByConv&&athChat.membersByConv[convId]) || [];
+  }
+  const out=[], seen=new Set();
+  (ids||[]).forEach(id=>{ if(seen.has(id)) return; seen.add(id); const nm=nameOf(id); if(nm) out.push({id, full_name:nm}); });
+  return out;
+}
+function chatResolveMentions(body, members){
+  const ids=new Set(); let everyone=false;
+  if(/@(everyone|all)\b/i.test(body||'')) everyone=true;
+  (members||[]).forEach(m=>{ if(!m||!m.full_name) return;
+    const re=new RegExp('@'+m.full_name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?![\\w])','i');
+    if(re.test(body||'')) ids.add(m.id); });
+  return {ids, everyone};
+}
+async function chatNotifyMentions(convId, msg){
+  if(!NOTIF_READY || !convId || !msg || !msg.id) return;
+  const members=chatMembersFor(convId);
+  const {ids, everyone}=chatResolveMentions(msg.body||'', members);
+  let rec = everyone ? members.map(m=>m.id) : [...ids];
+  rec=[...new Set(rec.filter(id=>id && id!==(me_&&me_.id)))];
+  if(!rec.length) return;
+  const snip=(msg.body||'').slice(0,120);
+  const rows=rec.map(rid=>({ gym_id:me_.gym_id, recipient_id:rid, actor_id:me_.id, kind:'mention', conversation_id:convId, message_id:msg.id, body:snip }));
+  try{ await sb.from('notifications').insert(rows); }catch(e){}
+}
+// bold @mentions in a message body that has ALREADY been HTML-escaped
+function chatHi(escBody){ return (escBody||'').replace(/@(?:everyone|all|[A-Za-z0-9][A-Za-z0-9'’.\-]*)/gi, m=>`<span class="mn-tag">${m}</span>`); }
+// wire an input for @-autocomplete (call after the composer is in the DOM)
+function chatMentionInit(which){
+  if(!NOTIF_READY) return;
+  const inp=document.getElementById(which==='ath'?'athChatInput':'cChatInput'); if(!inp || inp._mnWired) return;
+  inp._mnWired=true;
+  inp.addEventListener('input', ()=>chatMentionOnInput(which, inp));
+  inp.addEventListener('blur', ()=>setTimeout(chatMentionClose, 120));
+}
+function chatMentionOnInput(which, inp){
+  const pos=inp.selectionStart==null?inp.value.length:inp.selectionStart;
+  const pre=inp.value.slice(0,pos);
+  const m=pre.match(/(?:^|\s)@([^\s@]*)$/);
+  if(!m){ chatMentionClose(); return; }
+  const q=(m[1]||'').toLowerCase();
+  const convId = which==='ath'?athChat.convId:hubState.convId;
+  const members=chatMembersFor(convId).filter(x=>x.id!==(me_&&me_.id));
+  let opts=[{name:'Everyone', ev:true}].concat(members.map(mm=>({name:mm.full_name})));
+  if(q) opts=opts.filter(o=> o.name.toLowerCase().includes(q) || (o.ev && ('everyone'.startsWith(q)||'all'.startsWith(q))));
+  if(!opts.length){ chatMentionClose(); return; }
+  chatMentionShow(inp, opts, which);
+}
+function chatMentionShow(inp, opts, which){
+  chatMentionClose();
+  const p=document.createElement('div'); p.id='mentionPanel'; p.className='mn-panel';
+  p.innerHTML=opts.slice(0,8).map((o,i)=>`<div class="mn-item${i===0?' on':''}" data-name="${esc(o.name)}">${o.ev?'📣 ':''}<span>${esc(o.name)}</span>${o.ev?'<i>whole thread</i>':''}</div>`).join('');
+  document.body.appendChild(p);
+  p.querySelectorAll('.mn-item').forEach(el=> el.addEventListener('mousedown', ev=>{ ev.preventDefault(); chatMentionPick(which, el.dataset.name); }));
+  const r=inp.getBoundingClientRect();
+  p.style.left=r.left+'px'; p.style.width=Math.max(200,r.width)+'px';
+  const top=r.top - p.offsetHeight - 6;
+  p.style.top=(top<8 ? r.bottom+6 : top)+'px';
+}
+window.chatMentionPick=(which, name)=>{
+  const inp=document.getElementById(which==='ath'?'athChatInput':'cChatInput'); if(!inp) return;
+  const pos=inp.selectionStart==null?inp.value.length:inp.selectionStart;
+  const pre=inp.value.slice(0,pos), post=inp.value.slice(pos);
+  const newPre=pre.replace(/(^|\s)@([^\s@]*)$/, (mm,p1)=> (p1||'')+'@'+name+' ');
+  inp.value=newPre+post; const np=newPre.length; try{ inp.setSelectionRange(np,np); }catch(e){}
+  chatMentionClose(); inp.focus();
+};
+function chatMentionClose(){ const p=document.getElementById('mentionPanel'); if(p) p.remove(); }
+// returns true if the mention dropdown consumed the key
+function chatMentionKey(e){
+  const panel=document.getElementById('mentionPanel'); if(!panel) return false;
+  const items=[...panel.querySelectorAll('.mn-item')]; if(!items.length) return false;
+  let idx=items.findIndex(x=>x.classList.contains('on')); if(idx<0) idx=0;
+  if(e.key==='ArrowDown'){ e.preventDefault(); items[idx].classList.remove('on'); items[(idx+1)%items.length].classList.add('on'); return true; }
+  if(e.key==='ArrowUp'){ e.preventDefault(); items[idx].classList.remove('on'); items[(idx-1+items.length)%items.length].classList.add('on'); return true; }
+  if(e.key==='Enter'){ e.preventDefault(); const el=items[idx]; if(el){ const which=panel._which||'coach'; chatMentionPick(which, el.dataset.name); } return true; }
+  if(e.key==='Escape'){ e.preventDefault(); chatMentionClose(); return true; }
+  return false;
+}
+// unified composer Enter/nav handler for both sides
+window.chatComposerKey=(e, which)=>{
+  const panel=document.getElementById('mentionPanel'); if(panel) panel._which=which;
+  if(chatMentionKey(e)) return;
+  if(e.key==='Enter'){ e.preventDefault(); if(which==='coach') hubSendMsg(); else athChatSend(); }
+};
+
 async function renderAthHome(){
   athState.screen='home';
   app.innerHTML = topbar('Athlete') + athNav('home') + `<div class="spin">Loading your home…</div>`;
@@ -4979,6 +5179,7 @@ async function renderAthHome(){
     athChan = sb.channel('chat-ath')
       .on('postgres_changes', { event:'*', schema:'public', table:'message_reactions' }, ()=>{ if(document.getElementById('athChatFeed')) athChatFeed(); })
       .on('postgres_changes', { event:'INSERT', schema:'public', table:'messages' }, (p)=>{ if(document.getElementById('athChatFeed') && athChat.convId && p && p.new && p.new.conversation_id===athChat.convId) athChatFeed(); })
+      .on('postgres_changes', { event:'INSERT', schema:'public', table:'notifications' }, notifOnInsert)
       .subscribe();
   }
   const today=new Date(), todayStr=iso(today);
@@ -5043,8 +5244,9 @@ async function renderAthHome(){
   let profById={}; const pall=await sb.from('profiles').select('id,full_name,role'); if(!pall.error)(pall.data||[]).forEach(p=>profById[p.id]=p);
   let anns=[]; const an=await sb.from('announcements').select('*').order('created_at',{ascending:false}).limit(5); if(!an.error) anns=an.data||[];
   let convs=[]; const cv=await sb.from('conversations').select('*'); if(!cv.error) convs=cv.data||[];
+  let membersByConv={}; { const cids=convs.map(c=>c.id); if(cids.length){ const mm=await sb.from('conversation_members').select('conversation_id,profile_id').in('conversation_id', cids); (mm.data||[]).forEach(x=>{ (membersByConv[x.conversation_id]=membersByConv[x.conversation_id]||[]).push(x.profile_id); }); } }
   const teamConv=convs.find(c=>c.kind==='team');
-  athChat={ convId: teamConv?teamConv.id:(convs[0]?convs[0].id:null), convs, prof:profById };
+  athChat={ convId: teamConv?teamConv.id:(convs[0]?convs[0].id:null), convs, prof:profById, membersByConv };
 
   const greet = doneN>0 ? 'Strong week' : 'Welcome back';
   const heroSub = phase
@@ -5136,7 +5338,9 @@ async function renderAthHome(){
 
     ${nextUpHtml}`;
   await athChatFeed();
-  const ci=document.getElementById('athChatInput'); if(ci) ci.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); athChatSend(); } });
+  const ci=document.getElementById('athChatInput'); if(ci){ ci.setAttribute('placeholder','Message your team…  (@ to tag)'); ci.addEventListener('keydown', e=>chatComposerKey(e,'ath')); }
+  chatMentionInit('ath');
+  if(_notifGotoConv){ const cid=_notifGotoConv; _notifGotoConv=null; if(athChat.convs.find(c=>c.id===cid)) athChatSelect(cid); }
   loadAthReviews();
   renderMyReview();
 }
@@ -8094,6 +8298,7 @@ async function renderCoach(){
     .on('postgres_changes', { event:'INSERT', schema:'public', table:'announcements' }, ()=>{ if(coachState.screen==='console' && conState.tab==='hub') hubReloadAnn(); })
     .on('postgres_changes', { event:'INSERT', schema:'public', table:'messages' }, (payload)=>{ if(coachState.screen==='console' && conState.tab==='hub' && payload && payload.new && payload.new.conversation_id===hubState.convId) hubReloadFeed(); })
     .on('postgres_changes', { event:'*', schema:'public', table:'message_reactions' }, ()=>{ if(coachState.screen==='console' && conState.tab==='hub' && document.getElementById('cChatFeed')) hubReloadFeed(); })   // #6 live reactions
+    .on('postgres_changes', { event:'INSERT', schema:'public', table:'notifications' }, notifOnInsert)
     .subscribe();
   if(!coachState.screen) coachState.screen='console';
   if(coachState.screen==='coach') paintCoach(); else renderConsole();
@@ -8861,13 +9066,14 @@ async function renderHub(host){
       <div class="chat-threads" id="cChatThreads"></div>
       <div id="cChatActive"></div>
       <div class="chat-feed" id="cChatFeed"><div class="spin" style="padding:10px">Loading…</div></div>
-      <div class="chat-compose">${chatComposeAttach('coach')}${chatComposeGif('coach')}<input id="cChatInput" placeholder="Type a message…" onkeydown="if(event.key==='Enter')hubSendMsg()"><span class="chat-send" onclick="hubSendMsg()">Send</span></div>
+      <div class="chat-compose">${chatComposeAttach('coach')}${chatComposeGif('coach')}<input id="cChatInput" placeholder="Type a message…  (@ to tag)" onkeydown="chatComposerKey(event,'coach')"><span class="chat-send" onclick="hubSendMsg()">Send</span></div>
     </div>
   </div>`;
   await loadConvs();
   hubReloadAnn();
   renderThreads();
   hubReloadFeed();
+  chatMentionInit('coach');
 }
 async function loadConvs(){
   const { data: convs, error } = await sb.from('conversations').select('*').order('created_at',{ascending:true});
@@ -8964,7 +9170,7 @@ async function hubReloadFeed(){
   const ex=await chatFeedExtras(msgs||[]); _chatActive='coach';
   feed.innerHTML=(msgs||[]).map(m=>{ const mine=m.author_id===(me_&&me_.id);
     return `<div class="msg ${mine?'me':''}"><span class="msg-av" style="background:${avColor(hubName(m.author_id))}">${esc(initials(hubName(m.author_id)))}</span>
-      <div class="msg-bub"><div class="msg-who">${esc(hubName(m.author_id))}${canDelMsg?`<span class="msg-del" onclick="hubDelMsg('${m.id}')" title="Delete this message">✕</span>`:''}</div>${m.body?`<div class="msg-txt">${esc(m.body)}</div>`:''}${chatMediaHTML(m,ex.signed)}${chatReactHTML(m,ex.re)}</div></div>`;
+      <div class="msg-bub"><div class="msg-who">${esc(hubName(m.author_id))}${canDelMsg?`<span class="msg-del" onclick="hubDelMsg('${m.id}')" title="Delete this message">✕</span>`:''}</div>${m.body?`<div class="msg-txt">${chatHi(esc(m.body))}</div>`:''}${chatMediaHTML(m,ex.signed)}${chatReactHTML(m,ex.re)}</div></div>`;
   }).join('')||'<div class="con-empty" style="padding:20px">No messages yet — say hi 👋</div>';
   feed.scrollTop=feed.scrollHeight;
 }
@@ -8974,6 +9180,7 @@ window.hubPostAnn=async()=>{
   const res=await sb.from('announcements').insert({ gym_id:me_.gym_id, author_id:me_.id, body }).select();
   if(res.error||!res.data||!res.data.length){ toast('Post failed — '+(res.error?res.error.message:'sign out and back in')); return; }
   ta.value=''; hubReloadAnn();
+  if(NOTIF_READY){ const rows=(coachState.athletes||[]).filter(a=>a.id!==(me_&&me_.id)).map(a=>({ gym_id:me_.gym_id, recipient_id:a.id, actor_id:me_.id, kind:'announcement', body:(body||'').slice(0,120) })); if(rows.length){ try{ await sb.from('notifications').insert(rows); }catch(e){} } }
 };
 window.hubDelAnn=async(id)=>{ const res=await sb.from('announcements').delete().eq('id', id).select(); if(res.error){ toast('Remove failed — '+res.error.message); return; } hubReloadAnn(); };
 window.hubDelMsg=async(id)=>{ const res=await sb.from('messages').delete().eq('id', id).select(); if(res.error){ toast('Delete failed — '+res.error.message); return; } hubReloadFeed(); };
@@ -8981,7 +9188,7 @@ window.hubSendMsg=async()=>{
   const inp=document.getElementById('cChatInput'); const body=(inp.value||'').trim(); if(!body||!hubState.convId) return;
   const res=await sb.from('messages').insert({ gym_id:me_.gym_id, author_id:me_.id, body, conversation_id:hubState.convId }).select();
   if(res.error||!res.data||!res.data.length){ toast('Send failed — '+(res.error?res.error.message:'sign out and back in')); return; }
-  inp.value=''; hubReloadFeed();
+  inp.value=''; hubReloadFeed(); chatNotifyMentions(hubState.convId, res.data[0]);
 };
 window.hubNewDM=()=>{
   const athletes=coachState.athletes||[];
