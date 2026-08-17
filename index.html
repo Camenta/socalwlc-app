@@ -1319,8 +1319,12 @@
   .cx-lassohint{font-size:11px;color:var(--muted);margin-top:8px;display:flex;align-items:center;gap:6px}
   .cx-day{max-width:720px}
   .cx-day-hd{font-size:18px;font-weight:700;margin-bottom:12px}
-  .cx-evrow{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--panel2);border:1px solid var(--line);border-left-width:4px;border-radius:8px;padding:10px 12px;margin-bottom:8px;cursor:pointer}
+  .cx-evrow{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px 10px;background:var(--panel2);border:1px solid var(--line);border-left-width:4px;border-radius:8px;padding:10px 12px;margin-bottom:8px;cursor:pointer}
   .cx-etype{font-size:11px;color:var(--muted)}
+  .cx-evrow .ev-time{color:var(--accent2);font-weight:800;margin-right:3px}
+  .ev-notes{flex-basis:100%;font-size:12px;color:var(--muted);line-height:1.45;word-break:break-word}
+  .ev-link{color:var(--accent2);text-decoration:underline;font-weight:600}
+  .ev-link:hover{opacity:.85}
   .cx-scard{background:var(--panel2);border:1px solid var(--line);border-left:4px solid #3c9ee8;border-radius:10px;padding:14px;margin-bottom:10px}
   .cx-scard.done{border-left-color:#3ec97a}
   .cx-scard.draft{border-left-style:dashed}
@@ -2132,6 +2136,7 @@ async function boot(){
   await probeChatSocial();
   await probeBriefs();
   await probeNotif();
+  await probeCalx();
   await notifLoad();
   if(profile.role === 'coach') renderCoach();
   else if(athOnboardNeeded(profile)) renderOnboard();
@@ -5281,7 +5286,7 @@ async function renderAthHome(){
   '</div>'+
   '<div class="note">Daily readiness goes in before each session. Weekly &amp; block reviews are coming — they’ll keep your coach dialed in on how you’re recovering.</div>';
 
-  const schedHtml = myEvents.length ? myEvents.map(e=>'<div class="schrow2"><span class="dot" style="background:'+calColor(e.kind)+'"></span><span class="dt">'+MONS[D(e.start_date).getMonth()]+' '+D(e.start_date).getDate()+'</span><span class="tt">'+esc(e.title)+'</span><span class="tp">'+calLbl(e.kind)+((e.days||1)>1?' · '+e.days+'d':'')+'</span></div>').join('')
+  const schedHtml = myEvents.length ? myEvents.map(e=>'<div class="schrow2"><span class="dot" style="background:'+calColor(e.kind)+'"></span><span class="dt">'+MONS[D(e.start_date).getMonth()]+' '+D(e.start_date).getDate()+(e.start_time?' · '+evFmtT(e.start_time):'')+'</span><span class="tt">'+esc(e.title)+'</span><span class="tp">'+calLbl(e.kind)+(e.start_time?' · '+evTimeRange(e.start_time,e.end_time):((e.days||1)>1?' · '+e.days+'d':''))+'</span></div>').join('')
     : '<div class="note sub" style="padding:4px 0">No personal events yet. Add travel, work or life blocks so your coach can program around them.</div>';
 
   const cleanLifts=wkLogs.filter(l=>l.lights===3).length;
@@ -9996,6 +10001,21 @@ let PLAN_READY=true;
 const CAL_KINDS={ competition:['#e8643c','Competition'], team:['#2fb6a8','Team event'], testing:['#8a6bd1','Testing'], deload:['#3c9ee8','Deload'], travel:['#5a6b7a','Travel / camp'], work:['#c98a3e','Work / school'], life:['#9b6dd1','Life / personal'], unavail:['#d6504f','Unavailable'], other:['#7e93a6','Other'] };
 function calColor(k){ return (CAL_KINDS[k]||CAL_KINDS.other)[0]; }
 function calLbl(k){ return (CAL_KINDS[k]||CAL_KINDS.other)[1]; }
+// ---- timed events (start/end time) + notes-with-link — migration 56 (CALX_READY) ----
+function evFmtT(t){ if(!t) return ''; const p=String(t).split(':'); let h=+p[0]; const m=+p[1]||0; if(isNaN(h)) return ''; const ap=h<12?'a':'p'; h=h%12||12; return h+(m?':'+String(m).padStart(2,'0'):'')+ap; }
+function evTimeRange(st,et){ if(!st) return ''; return evFmtT(st)+(et&&et.slice(0,5)!==st.slice(0,5)?'–'+evFmtT(et):''); }
+// escape text, then make http(s) links clickable (opens in a new tab). event.stopPropagation so tapping a link doesn't also open the edit modal.
+function evNotesHtml(notes){ if(!notes) return ''; const escd=esc(notes); const linked=escd.replace(/(https?:\/\/[^\s<]+)/g, u=>`<a href="${u}" target="_blank" rel="noopener noreferrer" class="ev-link" onclick="event.stopPropagation()">${u}</a>`); return `<div class="ev-notes">${linked}</div>`; }
+function evTimeRowHtml(e){ if(!CALX_READY) return ''; const timed=!!(e&&e.start_time);
+  return `<label class="ev-timed" style="display:flex;align-items:center;gap:7px;margin-top:12px;font-size:13px;cursor:pointer"><input type="checkbox" id="ceTimed" ${timed?'checked':''} onchange="evToggleTimed()"> ⏰ Set a time <span class="sub" style="font-weight:400">— for meetings, calls, Zooms</span></label>
+    <div class="bf-row" id="ceTimeRow" style="margin-top:8px;${timed?'':'display:none'}">
+      <span class="bf-wk"><label>Start</label><input id="ceStart" type="time" class="cw-sel" style="width:130px" value="${timed?esc((e.start_time||'').slice(0,5)):''}"></span>
+      <span class="bf-wk"><label>End</label><input id="ceEnd" type="time" class="cw-sel" style="width:130px" value="${e&&e.end_time?esc((e.end_time||'').slice(0,5)):''}"></span>
+    </div>`; }
+function evNotesRowHtml(e){ if(!CALX_READY) return ''; return `<div class="bf-row" style="margin-top:10px"><span class="bf-wk" style="flex:1;min-width:240px"><label>Notes / link <span class="sub" style="font-weight:400">— paste a Zoom or event link</span></label><textarea id="ceNotes" placeholder="https://zoom.us/j/123456789" style="width:100%;min-height:58px;resize:vertical">${e&&e.notes?esc(e.notes):''}</textarea></span></div>`; }
+window.evToggleTimed=()=>{ const on=document.getElementById('ceTimed')&&document.getElementById('ceTimed').checked; const tr=document.getElementById('ceTimeRow'); if(tr) tr.style.display=on?'':'none'; const dw=document.getElementById('ceDaysWrap'); if(dw) dw.style.display=on?'none':''; };
+let CALX_READY=false;   // calendar_events.start_time/end_time/notes (migration 56)
+async function probeCalx(){ const { error } = await sb.from('calendar_events').select('start_time').limit(1); CALX_READY=!error; }
 const _td=new Date();
 let planState={ mode:'coach', tab:'macro', teamId:'', athleteId:'', planId:'', year:_td.getFullYear(), calView:'month', month:_td.getMonth(),
   cur:{y:_td.getFullYear(), m:_td.getMonth(), d:_td.getDate()}, selWk:null, openGroups:{}, phases:[], comps:[], events:[], tracks:[], segments:[], plans:[], assignments:[], overrides:[], calSess:{} };
@@ -10219,7 +10239,7 @@ window.planDoFork=async(athId)=>{
   if(phRows.length){ const r=await sb.from('plan_phases').insert(phRows); if(r.error){ if(msg){msg.style.color='var(--bad)';msg.textContent='Failed on blocks — '+r.error.message;} return; } }
   const cpRows=planState.comps.filter(c=>c.plan_id===pid).map(c=>({gym_id:me_.gym_id,plan_id:newId,name:c.name,kind:c.kind,comp_date:c.comp_date}));
   if(cpRows.length) await sb.from('competitions').insert(cpRows);
-  const evRows=planState.events.filter(e=>e.plan_id===pid).map(e=>({gym_id:me_.gym_id,plan_id:newId,title:e.title,kind:e.kind,start_date:e.start_date,days:e.days,recur_unit:e.recur_unit,recur_interval:e.recur_interval,recur_until:e.recur_until}));
+  const evRows=planState.events.filter(e=>e.plan_id===pid).map(e=>Object.assign({gym_id:me_.gym_id,plan_id:newId,title:e.title,kind:e.kind,start_date:e.start_date,days:e.days,recur_unit:e.recur_unit,recur_interval:e.recur_interval,recur_until:e.recur_until}, CALX_READY?{start_time:e.start_time||null,end_time:e.end_time||null,notes:e.notes||null}:{}));
   if(evRows.length) await sb.from('calendar_events').insert(evRows);
   for(const t of planState.tracks.filter(t=>t.plan_id===pid)){
     const nt=await sb.from('plan_tracks').insert({gym_id:me_.gym_id,plan_id:newId,grp:t.grp,name:t.name,sort_order:t.sort_order}).select();
@@ -10491,7 +10511,7 @@ function calEventsList(){
     else { if(!isLegacyShared(e)) return; if(planState.teamId && e.team_id && e.team_id!==planState.teamId) return; }
     const mine=(e.athlete_id&&e.athlete_id===myId), rec=!!e.recur_unit;
     expandOccurrences(e.start_date, e.recur_unit, e.recur_interval, e.recur_until).forEach(sd=>{
-      out.push({ id:e.id, src:'ev', title:e.title, kind:e.kind, mine, recur:rec, y:+sd.slice(0,4), m:+sd.slice(5,7)-1, d:+sd.slice(8,10), days:e.days||1 });
+      out.push({ id:e.id, src:'ev', title:e.title, kind:e.kind, mine, recur:rec, y:+sd.slice(0,4), m:+sd.slice(5,7)-1, d:+sd.slice(8,10), days:e.days||1, st:e.start_time, et:e.end_time, notes:e.notes });
     });
   });
   planState.comps.forEach(c=>{
@@ -10504,7 +10524,7 @@ function calEventsList(){
   return out;
 }
 function evOn(y,m,d){ const idx=dIdx(y,m,d); return calEventsList().filter(e=>{ const s=dIdx(e.y,e.m,e.d); return idx>=s && idx<=s+(e.days||1)-1; }).map(e=>{ const s=dIdx(e.y,e.m,e.d); return Object.assign({}, e, { cont: idx>s, start: idx===s }); }); }
-function evChip(e){ const lbl=e.cont?('↳ '+e.title):((e.recur?'↻ ':'')+e.title+(e.days>1?' · '+e.days+'d':'')); const ro=e.cont||(planIsAth()&&!e.mine); const click=ro?'':`onclick="event.stopPropagation();planEditEvent('${e.src}','${e.id}')"`; return `<div class="cx-ev${e.cont?' cont':''}" style="background:${calColor(e.kind)}${ro?';cursor:default':''}" title="${esc(e.title)}" ${click}>${esc(lbl)}</div>`; }
+function evChip(e){ const tm=(!e.cont&&e.st)?evFmtT(e.st)+' ':''; const lbl=e.cont?('↳ '+e.title):((e.recur?'↻ ':'')+tm+e.title+(e.days>1?' · '+e.days+'d':'')); const ro=e.cont||(planIsAth()&&!e.mine); const click=ro?'':`onclick="event.stopPropagation();planEditEvent('${e.src}','${e.id}')"`; return `<div class="cx-ev${e.cont?' cont':''}" style="background:${calColor(e.kind)}${ro?';cursor:default':''}" title="${esc((e.st?evTimeRange(e.st,e.et)+' · ':'')+e.title)}" ${click}>${esc(lbl)}</div>`; }
 async function loadCalSessions(){
   planState.calSess={};
   if(!planState.athleteId || planState.calView==='year') return;
@@ -10565,7 +10585,7 @@ async function renderPlanCal(){
     const evs=evOn(c.y,c.m,c.d), s=sessOn(c.y,c.m,c.d);
     let h=`<div class="cx-day"><div class="cx-day-hd">${MONF[c.m]} ${c.d}${isToday(c.y,c.m,c.d)?' · Today':''}</div>`;
     if(!evs.length && !s) h+='<div class="note sub">Nothing scheduled. Use ＋ Add event to put a meet, test, deload or team event on this day.</div>';
-    evs.forEach(e=>{ const ro=planIsAth()&&!e.mine; h+=`<div class="cx-evrow" style="border-left-color:${calColor(e.kind)}${ro?';cursor:default':''}"${ro?'':` onclick="planEditEvent('${e.src}','${e.id}')"`}><b>${esc(e.title)}</b><span class="cx-etype">${calLbl(e.kind)}${e.days>1?' · '+e.days+'d':''}${ro?' · set by coach':''}</span></div>`; });
+    evs.forEach(e=>{ const ro=planIsAth()&&!e.mine; const tr=(!e.cont&&e.st)?evTimeRange(e.st,e.et):''; h+=`<div class="cx-evrow" style="border-left-color:${calColor(e.kind)}${ro?';cursor:default':''}"${ro?'':` onclick="planEditEvent('${e.src}','${e.id}')"`}><b>${tr?'<span class="ev-time">'+esc(tr)+'</span> ':''}${esc(e.title)}</b><span class="cx-etype">${calLbl(e.kind)}${!e.st&&e.days>1?' · '+e.days+'d':''}${ro?' · set by coach':''}</span>${(!e.cont&&e.notes)?evNotesHtml(e.notes):''}</div>`; });
     if(s){ const ath=planIsAth(); const sc=s.status==='draft'?'draft':(s.status==='done'?'done':''); const badge=s.status==='draft'?'<span class="cx-sbadge draft">Draft · not published</span>':(s.status==='done'?'<span class="cx-sbadge done">Done</span>':`<span class="cx-sbadge pub">${ath?'Your session':'Published'}</span>`);
       const dStr=iso(new Date(c.y,c.m,c.d));
       const note = s.status==='done' ? (ath?'You logged this — nice work.':'Logged — actuals are in.')
@@ -10612,9 +10632,11 @@ window.planAddEvent=(presetDate)=>{
     <div class="bf-row"><input id="ceTitle" placeholder="${ath?'e.g. Work trip to Denver':'e.g. Squat max test'}" style="flex:1;min-width:220px"></div>
     <div class="bf-row" style="margin-top:10px">
       <span class="bf-wk"><label>Start date</label><input id="ceDate" type="date" style="width:150px;text-align:left" value="${d}"></span>
-      <span class="bf-wk"><label>Length</label><select id="ceDays" class="cw-sel">${[1,2,3,4,5,6,7,10,14].map(n=>`<option value="${n}">${n} day${n===1?'':'s'}</option>`).join('')}</select></span>
+      <span class="bf-wk" id="ceDaysWrap"><label>Length</label><select id="ceDays" class="cw-sel">${[1,2,3,4,5,6,7,10,14].map(n=>`<option value="${n}">${n} day${n===1?'':'s'}</option>`).join('')}</select></span>
       <span class="bf-wk"><label>Type</label><select id="ceType" class="cw-sel">${kinds.map(k=>`<option value="${k}">${CAL_KINDS[k][1]}</option>`).join('')}</select></span>
     </div>
+    ${evTimeRowHtml()}
+    ${evNotesRowHtml()}
     ${recurRowHtml()}
     ${teamRow}
     <div class="bf-row" style="margin-top:12px"><button class="btn" onclick="planSaveEvent()">Add event</button><span class="saved" id="ceMsg"></span></div>`);
@@ -10633,12 +10655,15 @@ window.planEditEvent=(src,id)=>{
     <div class="bf-row"><input id="ceTitle" value="${esc(e.title)}" style="flex:1;min-width:220px"></div>
     <div class="bf-row" style="margin-top:10px">
       <span class="bf-wk"><label>Start date</label><input id="ceDate" type="date" style="width:150px;text-align:left" value="${e.start_date}"></span>
-      <span class="bf-wk"><label>Length</label><select id="ceDays" class="cw-sel">${[1,2,3,4,5,6,7,10,14].map(n=>`<option value="${n}"${(e.days||1)===n?' selected':''}>${n} day${n===1?'':'s'}</option>`).join('')}</select></span>
+      <span class="bf-wk" id="ceDaysWrap"><label>Length</label><select id="ceDays" class="cw-sel">${[1,2,3,4,5,6,7,10,14].map(n=>`<option value="${n}"${(e.days||1)===n?' selected':''}>${n} day${n===1?'':'s'}</option>`).join('')}</select></span>
       <span class="bf-wk"><label>Type</label><select id="ceType" class="cw-sel">${kinds.map(k=>`<option value="${k}"${e.kind===k?' selected':''}>${CAL_KINDS[k][1]}</option>`).join('')}</select></span>
     </div>
+    ${evTimeRowHtml(e)}
+    ${evNotesRowHtml(e)}
     ${recurRowHtml(e)}
     ${teamRow}
     <div class="bf-row" style="margin-top:12px"><button class="btn" onclick="planSaveEvent('${id}')">Save</button><span class="extool del" style="margin-left:10px" onclick="planDelEvent('${id}')">✕ delete</span><span class="saved" id="ceMsg"></span></div>`);
+  setTimeout(evToggleTimed,20);
 };
 window.planSaveEvent=async(id)=>{
   const title=(document.getElementById('ceTitle').value||'').trim(); const msg=document.getElementById('ceMsg');
@@ -10646,6 +10671,18 @@ window.planSaveEvent=async(id)=>{
   const date=document.getElementById('ceDate').value; if(!date){ if(msg){msg.style.color='var(--warn)';msg.textContent='Pick a start date.';} return; }
   const ath=planIsAth(); const teamEl=document.getElementById('ceTeam');
   const payload={ title, kind:document.getElementById('ceType').value, start_date:date, days:+document.getElementById('ceDays').value||1, team_id: ath ? null : (teamEl?teamEl.value||null:null) };
+  // timed event (start/end time) + notes/link — migration 56
+  if(CALX_READY){
+    const timed=document.getElementById('ceTimed') && document.getElementById('ceTimed').checked;
+    const st=(document.getElementById('ceStart')||{}).value||'';
+    const et=(document.getElementById('ceEnd')||{}).value||'';
+    if(timed && !st){ if(msg){msg.style.color='var(--warn)';msg.textContent='Set a start time, or uncheck “Set a time”.';} return; }
+    if(timed && et && et<st){ if(msg){msg.style.color='var(--warn)';msg.textContent='End time is before the start time.';} return; }
+    payload.start_time = timed ? st : null;
+    payload.end_time   = timed ? (et||null) : null;
+    if(timed) payload.days=1;   // a timed meeting is a single day
+    const nt=document.getElementById('ceNotes'); payload.notes = nt ? ((nt.value||'').trim()||null) : null;
+  }
   // recurrence rule
   const rv=(document.getElementById('ceRecur')||{}).value||'none';
   let recur_unit=null, recur_interval=1, recur_until=null;
