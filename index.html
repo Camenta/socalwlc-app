@@ -810,7 +810,12 @@
   .prow .pl-name{font-weight:700;color:var(--text);font-size:14px;flex:0 0 215px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .prow .pl-team{font-size:12px;color:var(--muted);flex:0 0 110px}
   .prow .pl-meta{font-size:12px;color:var(--muted);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .prow .pl-send{flex:0 0 160px;text-align:right;display:flex;gap:12px;justify-content:flex-end;align-items:center}
+  .prow .pl-send{flex:0 0 176px;text-align:right;display:flex;gap:12px;justify-content:flex-end;align-items:center}
+  /* Programs: assigned-athlete chips on cards */
+  .prog-ath{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}
+  .prog-ath.none{color:var(--muted);font-size:11.5px;font-style:italic;margin-top:9px}
+  .prog-ath .pchip{display:inline-flex;align-items:center;gap:5px;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:2px 9px 2px 2px;font-size:11px;font-weight:600;color:var(--text);max-width:100%}
+  .prog-ath .pchip .rava{width:19px;height:19px;font-size:9.5px;flex:0 0 auto}
   /* Programs: active-program tracking */
   .pb-sec{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:800;margin:20px 0 9px}
   .asg-grid{display:flex;flex-direction:column;gap:10px}
@@ -9358,8 +9363,16 @@ function progDerive(p){
   const pubWeeks=new Set();
   (conState._progSess||[]).forEach(s=>{ if(s.program_id!==p.id||s.status!=='published') return; const st=startByAth[s.athlete_id]; if(st==null) return;
     const wk=Math.round((mondayOfDate(new Date(s.session_date+'T00:00:00'))-st)/(7*864e5)); if(wk>=0&&wk<wks) pubWeeks.add(wk); });
-  return { id:p.id, name:p.name, phase:p.phase||'', wks, status, team:progAudience(p,assigns), athletes:assigns.length, edited:progEdited(p,status), built:wks, pub:pubWeeks.size, cur };
+  const rosterMap={}; assigns.forEach(a=>{ if(rosterMap[a.athlete_id]) return; const ath=(coachState.athletes||[]).find(x=>x.id===a.athlete_id); if(ath) rosterMap[a.athlete_id]={id:ath.id, name:ath.full_name||'Athlete'}; });
+  const roster=Object.values(rosterMap);
+  return { id:p.id, name:p.name, phase:p.phase||'', wks, status, team:progAudience(p,assigns), athletes:roster.length, roster, edited:progEdited(p,status), built:wks, pub:pubWeeks.size, cur };
 }
+function progFirst(n){ return (n||'').split(/\s+/)[0]||n||'Athlete'; }
+function progRosterHtml(d){
+  if(!d.roster || !d.roster.length) return d.status==='draft' ? '<div class="prog-ath none">Not stamped to anyone yet</div>' : '';
+  return `<div class="prog-ath">${d.roster.map(a=>`<span class="pchip" title="${esc(a.name)}"><span class="rava" style="background:${avColor(a.name)}">${esc(initials(a.name))}</span>${esc(progFirst(a.name))}</span>`).join('')}</div>`;
+}
+function progDelBtn(d, mini){ return `<span class="${mini?'ropen':'extool'}" style="color:var(--bad)" onclick="event.stopPropagation();conDelProgram('${d.id}')" title="Delete program">🗑${mini?'':' Delete'}</span>`; }
 function pubInfo(d){ let wks=d.wks||0, built=Math.min(d.built==null?wks:d.built, wks), pub=Math.min(d.pub||0, built); const bufWks=built-pub; return {wks,built,pub,bufWks,bufDays:bufWks*7}; }
 function pubMeter(d){ const u=pubInfo(d); if(!u.wks) return '';
   const live=Math.round(u.pub/u.wks*100), buf=Math.round(u.bufWks/u.wks*100);
@@ -9394,17 +9407,21 @@ function progGridCard(d){
     <div class="meta" style="margin-top:6px">${esc(d.team)} · ${d.athletes} athlete${d.athletes===1?'':'s'}<br>${d.wks}-week block · ${esc(d.phase||'—')}<br>${esc(d.edited)}</div>
     ${d.status==='active'?`<div class="cprog-bar"><i style="width:${pct}%"></i></div><div class="meta" style="margin-top:5px">Week ${d.cur} of ${d.wks}</div>`:''}
     ${d.status!=='arch'?pubMeter(d)+pubChip(d):''}
-    <div class="row" style="margin-top:12px"><span style="font-size:11px;color:var(--muted)">Tap card to edit</span>${progSendBtn(d,false)}</div>
+    ${progRosterHtml(d)}
+    <div class="row" style="margin-top:12px"><span style="font-size:11px;color:var(--muted)">Tap card to edit</span><span style="display:inline-flex;gap:14px;align-items:center">${progSendBtn(d,false)}${progDelBtn(d,false)}</span></div>
   </div>`;
 }
 function progRow(d){
+  const rosterTxt = (d.roster&&d.roster.length) ? d.roster.map(a=>progFirst(a.name)).join(', ')
+    : (d.status==='draft' ? 'not stamped yet' : d.athletes+' athlete'+(d.athletes===1?'':'s'));
+  const rosterTip = (d.roster||[]).map(a=>a.name).join(', ');
   return `<div class="prow" onclick="openProgramView('${d.id}')">
     <span class="pl-badge"><span class="badge ${d.status}">${PROG_BLABEL[d.status]}</span></span>
     <span class="pl-name">${esc(d.name)}</span>
     <span class="pl-team">${esc(d.team)}</span>
-    <span class="pl-meta">${d.wks}-wk · ${esc(d.phase||'—')} · ${d.athletes} athlete${d.athletes===1?'':'s'}</span>
+    <span class="pl-meta" title="${esc(rosterTip)}">${d.wks}-wk · ${esc(d.phase||'—')} · ${esc(rosterTxt)}</span>
     <span class="pl-meta">${listPubNote(d)}</span>
-    <span class="pl-send">${progSendBtn(d,true)}</span>
+    <span class="pl-send">${progSendBtn(d,true)}${progDelBtn(d,true)}</span>
   </div>`;
 }
 function progDerivedList(){
@@ -9455,11 +9472,27 @@ window.conRestoreProgram=async(id)=>{
   const p=(conState._programs||[]).find(x=>x.id===id); if(p){ p.archived=false; p.updated_at=new Date().toISOString(); }
   renderConBody();
 };
-window.conDelProgram=async(id,name)=>{
+window.conDelProgram=(id)=>{
+  const p=(conState._programs||[]).find(x=>x.id===id);
+  const nm=p?p.name:'this program';
+  const assigns=(conState._assigns||[]).filter(a=>a.program_id===id);
+  const roster=[...new Set(assigns.map(a=>a.athlete_id))].map(aid=>{ const x=(coachState.athletes||[]).find(y=>y.id===aid); return x?x.full_name:null; }).filter(Boolean);
+  const live = p && !p.archived && roster.length;
+  ovModal('progDelModal', `
+    <div class="ov-hd"><h2 style="margin:0">Delete program</h2><span class="vid-x" onclick="document.getElementById('progDelModal').style.display='none'">✕</span></div>
+    <div class="sub" style="margin:6px 0 4px">Permanently delete <b>${esc(nm)}</b> from your program library?</div>
+    <div class="note" style="margin:8px 0 2px">This can’t be undone. ${live?`<b>${roster.length}</b> athlete${roster.length===1?'':'s'} training on it (${esc(roster.join(', '))}) <b>keep their already-stamped sessions</b> — only the reusable program is removed.`:'No athletes are currently training on it.'} If you might reuse it later, <b>Archive</b> instead.</div>
+    <div class="bf-row" style="margin-top:16px;gap:10px"><button class="btn" style="background:var(--bad);border-color:var(--bad)" onclick="conDelProgramGo('${id}')">Delete permanently</button><button class="btn ghost" onclick="document.getElementById('progDelModal').style.display='none'">Cancel</button><span class="saved" id="progDelMsg"></span></div>`);
+};
+window.conDelProgramGo=async(id)=>{
+  const msg=document.getElementById('progDelMsg'); if(msg){ msg.style.color=''; msg.textContent='Deleting…'; }
   const res=await sb.from('programs').delete().eq('id', id).select();
-  if(res.error){ toast('Remove failed — '+res.error.message); return; }
+  if(res.error){ if(msg){ msg.style.color='var(--bad)'; msg.textContent='Delete failed — '+res.error.message; } return; }
   conState._programs=(conState._programs||[]).filter(p=>p.id!==id);
-  renderConBody();
+  conState._assigns=(conState._assigns||[]).filter(a=>a.program_id!==id);
+  const m=document.getElementById('progDelModal'); if(m) m.style.display='none';
+  toast('Program deleted.');
+  if(coachState.screen==='pgview'){ coachState.screen='console'; renderConsole(); } else renderConBody();
 };
 window._stampMode='ath';
 window.stampProgram=async function(id){
@@ -9878,6 +9911,7 @@ function renderProgramView(){
         <button class="${pvState.view==='day'?'on':''}" onclick="pvSetView('day')">Day</button>
       </div>
       ${PROG_META_READY?`<button class="pb-back" onclick="pvArchive()">${p.archived?'↩ Restore':'🗄 Archive'}</button>`:''}
+      <button class="pb-back" style="color:var(--bad)" onclick="conDelProgram('${pvState.id}')">🗑 Delete</button>
       <button class="pb-back" onclick="pvEdit(0)">✎ Edit</button>
       <button class="pb-save" onclick="pvStamp()">→ Stamp</button>
     </div>
