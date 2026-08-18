@@ -708,6 +708,8 @@
   .cr-more{align-self:flex-start;background:none;border:none;color:var(--accent2);font-size:12px;font-weight:700;cursor:pointer;padding:2px 0}
   .cr-bulk{align-self:flex-start;background:var(--panel2);border:1px solid var(--line);color:var(--muted);font-size:11.5px;font-weight:700;border-radius:8px;padding:6px 10px;cursor:pointer}
   .cr-bulk:hover{color:var(--good);border-color:var(--good)}
+  .cr-bulk.primary{background:rgba(62,201,122,.14);border-color:rgba(62,201,122,.5);color:var(--good)}
+  .cr-bulk.primary:hover{background:rgba(62,201,122,.24)}
   .cr-btn{border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:13px;font-weight:700;border-radius:8px;padding:8px 14px;cursor:pointer}
   .cr-btn.danger{background:var(--accent);border-color:var(--accent);color:#fff}.cr-btn.ghost:hover{border-color:var(--muted)}
   .home-days{flex:none;font-weight:800;font-size:13px}
@@ -8573,6 +8575,7 @@ function clipRevPaint(){
   if(!shown.length) toReview=`<div class="home-empty">${clipRevScope==='all'?'No clips waiting — you’re all caught up. 🎉':'Nothing new in the last 2 weeks. 🎉'}</div>`;
   // controls: reveal older + one-tap clear-the-backlog
   let ctrls='';
+  if(CLIPREV_READY && shown.length) ctrls+=`<button class="cr-bulk primary" onclick="clipMarkAllShown()">✓ Mark all ${shown.length} reviewed</button>`;
   if(clipRevScope!=='all' && olderUnw.length) ctrls+=`<button class="cr-more" onclick="clipRevSetScope('all')">Show older (${olderUnw.length}) →</button>`;
   if(CLIPREV_READY && olderUnw.length) ctrls+=`<button class="cr-bulk" onclick="clipMarkAllOlder()">✓ Mark all older than 2 weeks reviewed (${olderUnw.length})</button>`;
   // reviewed section (collapsed)
@@ -8593,6 +8596,16 @@ window.clipMarkAllOlder=async()=>{
   if(!older.length) return;
   const rows=older.map(c=>({ video_path:c.video_path, gym_id:me_.gym_id, athlete_id:c.athlete_id||null, reviewed_at:new Date().toISOString(), reviewed_by:me_.id }));
   try{ await sb.from('clip_reviews').upsert(rows,{onConflict:'video_path'}); older.forEach(c=>c.reviewed=true); toast('Marked '+older.length+' older clip'+(older.length>1?'s':'')+' reviewed.'); }
+  catch(e){ toast('Could not mark those — try again.'); }
+  clipRevPaint();
+};
+window.clipMarkAllShown=async()=>{
+  if(!CLIPREV_READY) return; const cutoff=Date.now()-CLIPREV_MS;
+  // mark exactly what's visible in TO REVIEW: recent-only by default, or everything once 'Show older' (scope=all) is on
+  const list=clipRevAll.filter(c=>!c.reviewed && (clipRevScope==='all' || new Date(c.logged_at).getTime()>=cutoff));
+  if(!list.length) return;
+  const rows=list.map(c=>({ video_path:c.video_path, gym_id:me_.gym_id, athlete_id:c.athlete_id||null, reviewed_at:new Date().toISOString(), reviewed_by:me_.id }));
+  try{ await sb.from('clip_reviews').upsert(rows,{onConflict:'video_path'}); list.forEach(c=>c.reviewed=true); toast('Marked '+list.length+' clip'+(list.length>1?'s':'')+' reviewed.'); }
   catch(e){ toast('Could not mark those — try again.'); }
   clipRevPaint();
 };
