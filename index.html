@@ -8635,10 +8635,13 @@ async function renderHomeBand(){
     sb.from('announcements').select('*').order('created_at',{ascending:false}).limit(5).then(r=>r,e=>({error:e})),
     sb.from('readiness').select('athlete_id,sleep,energy,motivation,soreness,mood,stress,appetite').in('athlete_id',athIds).eq('check_date',todayStr).then(r=>r,e=>({error:e}))
   ]);
-  // video inbox: reviewed set + session titles
-  let clips=(clipR&&clipR.data)||[]; const reviewed=new Set(); const sessTitle={};
-  if(clips.length){ const paths=clips.map(c=>c.video_path);
-    try{ const rv=await sb.from('video_notes').select('video_path').in('video_path',paths); (rv.data||[]).forEach(r=>reviewed.add(r.video_path)); }catch(e){}
+  // video inbox: reviewed set — DURABLE (video_notes ∪ clip_reviews), same source as the "All clips" modal,
+  // so a bulk "Mark all reviewed" (which writes clip_reviews, not video_notes) clears the Home card too.
+  // Also drop clips marked deleted so they never resurface here.
+  let clips=(clipR&&clipR.data)||[]; const sessTitle={};
+  const { reviewed, deleted } = await clipReviewState();
+  clips=clips.filter(c=> c.video_path && !deleted.has(c.video_path));
+  if(clips.length){
     const sids=[...new Set(clips.map(c=>c.session_id).filter(Boolean))];
     if(sids.length){ try{ const ss=await sb.from('sessions').select('id,title').in('id',sids); (ss.data||[]).forEach(s=>sessTitle[s.id]=s.title); }catch(e){} } }
   let painToday=[]; if(PAIN_READY){ try{ const pr=await sb.from('body_pain_reports').select('athlete_id,region_label,side,severity').in('athlete_id',athIds).eq('report_date',todayStr); painToday=pr.data||[]; }catch(e){} }
