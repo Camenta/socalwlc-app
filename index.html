@@ -2612,6 +2612,8 @@ async function openAnnStudio(path, meta){
   host.classList.add('on');
   const { data, error } = await sb.storage.from('lift-videos').createSignedUrl(path, 3600);
   if(error || !data){ host.querySelector('.spin').textContent='Could not load that clip.'; return; }
+  // Watching a clip in the studio from ANY entry point (Coach View, athlete program, review queue) durably marks it reviewed so it drops out of the console inbox. clipMarkReviewed is coach-only + idempotent; the auto bar-path precompute never calls this, so background PATH tracking alone stays "NEW".
+  clipMarkReviewed(path, meta.athleteId);
   const ro=!!meta.readOnly;
   const title=meta.title||(ro?'Coach review':'Lift review'), sub=meta.sub||'';
   // review-queue Prev/Next (#3): session videos first, then the rest of the inbox
