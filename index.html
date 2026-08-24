@@ -11859,10 +11859,14 @@ window.cwSelCopy=async(mode,arg)=>{
     if(!arg){ toast('Pick a date first.'); return; }
     const dst=new Date(arg+'T00:00:00');
     if(isNaN(dst.getTime()) || dst.getFullYear()<2000){ toast('Enter a full date (mm/dd/yyyy).'); return; }   // reject a half-typed year
+    // Land the EARLIEST selected session on exactly the date picked (any weekday), keeping the rest
+    // at the same spacing relative to it. Previously both sides were snapped to mondayOfDate(), so
+    // picking a Saturday behaved identically to picking that week's Monday — a session could never
+    // change weekday, and a same-week nudge computed delta 0 and silently did nothing.
     const dates=sel.map(c=>c.dataset.date).filter(Boolean).sort();
-    const srcMon=mondayOfDate(new Date(dates[0]+'T00:00:00')), dstMon=mondayOfDate(dst);
-    const deltaDays=Math.round((dstMon.getTime()-srcMon.getTime())/864e5);
-    if(!deltaDays){ toast('That’s the same week — pick a different one.'); return; }
+    const srcD=new Date(dates[0]+'T00:00:00');
+    const deltaDays=Math.round((dst.getTime()-srcD.getTime())/864e5);
+    if(!deltaDays){ toast('That’s the same day — pick a different date.'); return; }
     newDateFor=(d)=>shift(d, deltaDays);
   }
   const bar=document.getElementById('cwDelBar'); if(bar) bar.innerHTML='<span class="cw-delc">Copying…</span>';
@@ -12659,11 +12663,15 @@ function sessionTiles(){
   const volB=`${vol||'—'}${volAcc?`<span class="ss-acc" title="main lifts ${vol} · accessory ${volAcc} · total ${vol+volAcc}">+${volAcc} acc · ${vol+volAcc} tot</span>`:''}`;
   return `<span><label>${volLbl}</label><b>${volB}</b></span><span><label>ari</label><b>${ari?ari.toFixed(1)+'%':'—'}</b></span><span><label>RI</label><b>${riDisplay(ri)}</b></span><span><label>misses</label><b${miss?' style="color:var(--bad)"':''}>${miss}</b></span>`;
 }
+// ±21 days around this session, split into Earlier/Later. Backwards used to be missing entirely,
+// so a session could only ever be copied forward — there was no way to reach yesterday or last week.
 function copyDateOptions(){
-  const out=[]; const base=new Date(ed.session.session_date+'T00:00:00');
-  for(let i=1;i<=21;i++){ const d=new Date(base); d.setDate(base.getDate()+i);
-    out.push(`<option value="${iso(d)}">${DOW[(d.getDay()+6)%7]} · ${MONS[d.getMonth()]} ${d.getDate()}</option>`); }
-  return out.join('');
+  const base=new Date(ed.session.session_date+'T00:00:00');
+  const opt=(i)=>{ const d=new Date(base); d.setDate(base.getDate()+i);
+    return `<option value="${iso(d)}"${i===1?' selected':''}>${DOW[(d.getDay()+6)%7]} · ${MONS[d.getMonth()]} ${d.getDate()}</option>`; };
+  const back=[], fwd=[];
+  for(let i=-21;i<=21;i++){ if(!i) continue; (i<0?back:fwd).push(opt(i)); }
+  return `<optgroup label="Earlier">${back.join('')}</optgroup><optgroup label="Later">${fwd.join('')}</optgroup>`;
 }
 // coach clip links: ▶ play + ✎ annotate (opens the studio, scoped to the viewed athlete)
 function vidLinks(path,label){ return `<span class="vidlink" onclick="playVideo('${esc(path)}')">${label||'▶'}</span> <span class="vidlink" title="Review this clip (with Next ▸ through the session)" onclick="openReview('${esc(path)}')">✎</span>`; }
@@ -12956,6 +12964,11 @@ function paintEditor(){
         <select id="edCopyDate" class="cw-sel">${copyDateOptions()}</select>
         <button class="btn ghost" id="edCopyGo" style="padding:7px 12px">Copy as draft</button>
       </span>
+      ${(ed.logs||[]).length?'':`<span class="lg-add" id="edMoveOpen" style="margin:0 0 0 16px" title="Reschedule this session — it leaves ${esc(fmtDate(s.session_date))} and lands on the new day">⇄ Move this day to…</span>
+      <span id="edMoveUI" style="display:none">
+        <select id="edMoveDate" class="cw-sel">${copyDateOptions()}</select>
+        <button class="btn ghost" id="edMoveGo" style="padding:7px 12px">Move</button>
+      </span>`}
     </div>
     ${(ANOTES_READY && s.athlete_notes && s.athlete_notes.s && s.athlete_notes.s.trim())?`<div class="cvx-snote">📝 <b>${esc((cw.ath.full_name||'Athlete').split(' ')[0])}’s session note:</b> “${esc(s.athlete_notes.s)}”</div>`:''}
     <div id="edExs">${exHtml}</div>
@@ -13160,6 +13173,8 @@ function wireEditor(){
     if(e.target.id==='edUnpublish'){ saveEditor('draft'); return; }
     if(e.target.id==='edCopyOpen'){ const ui=document.getElementById('edCopyUI'); ui.style.display = ui.style.display==='none'?'inline-flex':'none'; return; }
     if(e.target.id==='edCopyGo'){ cvCopyDay(document.getElementById('edCopyDate').value); return; }
+    if(e.target.id==='edMoveOpen'){ const ui=document.getElementById('edMoveUI'); ui.style.display = ui.style.display==='none'?'inline-flex':'none'; return; }
+    if(e.target.id==='edMoveGo'){ cvMoveDay(document.getElementById('edMoveDate').value); return; }
     const ds=e.target.closest('#edDelSess');
     if(ds){ if(!ds.classList.contains('arm')){ ds.classList.add('arm'); ds.textContent='delete session?';
         setTimeout(()=>{ if(ds.isConnected){ ds.classList.remove('arm'); ds.textContent='✕ session'; } },3500); return; }
@@ -13600,6 +13615,35 @@ async function cvCopyDay(targetDate){
     edMsgSet('⚠ Copy failed — '+(e2.message||e2),'var(--bad)');
   }
   if(go){ go.disabled=false; go.textContent='Copy as draft'; }
+}
+// Reschedule this one session to another date — the ONLY single-session mover in the app.
+// (Lasso ⤵ Push shifts the anchor day AND everything after it; every ⧉ Copy path leaves the original
+// behind. Neither could change one session's weekday, which is what a coach actually wants.)
+async function cvMoveDay(targetDate){
+  const go=document.getElementById('edMoveGo'); if(go){ go.disabled=true; go.textContent='Moving…'; }
+  const fail=(m)=>{ edMsgSet('⚠ Move failed — '+m,'var(--bad)'); };
+  try{
+    if(!targetDate) throw new Error('pick a date first');
+    if(ed.dirty) throw new Error('save your changes first, then move');
+    // same rule as the lasso push: logged work never moves, or the history stops matching the calendar
+    if((ed.logs||[]).length) throw new Error('that session already has logged sets — it stays put');
+    const from=ed.session.session_date;
+    if(targetDate===from) throw new Error('that’s the day it’s already on');
+    const { data, error } = await sb.from('sessions').update({session_date:targetDate}).eq('id', ed.session.id).select('id');
+    if(error) throw error;
+    if(!(data||[]).length) throw new Error('0 rows updated — likely a permissions/gym mismatch');
+    // repoint local state so the panel repaints on the new day instead of the old one
+    if(cw && cw.sessByDate){
+      const row=(cw.sessByDate[from]||[]).find(x=>x.id===ed.session.id);
+      cw.sessByDate[from]=(cw.sessByDate[from]||[]).filter(x=>x.id!==ed.session.id);
+      if(!cw.sessByDate[from].length) delete cw.sessByDate[from];
+      if(row){ row.session_date=targetDate; (cw.sessByDate[targetDate]=cw.sessByDate[targetDate]||[]).push(row); }
+    }
+    if(cw){ cw.selDate=targetDate; cw.selSess=ed.session.id; cw.rollupCache=null; }
+    ed=null;
+    await renderCoachPanel();
+    toast('Moved to '+fmtDate(targetDate)+'.');
+  }catch(e2){ fail(e2.message||String(e2)); if(go){ go.disabled=false; go.textContent='Move'; } }
 }
 function refreshStripDot(){
   if(!cw) return; const chip=document.querySelector('#coachPanel .av-day.on'); if(!chip) return;
