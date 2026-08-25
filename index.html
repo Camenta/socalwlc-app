@@ -2139,6 +2139,8 @@ async function boot(){
   await probeBriefs();
   await probeNotif();
   await probeCalx();
+  await probePbRef();
+  await loadPbRef();
   await notifLoad();
   if(profile.role === 'coach') renderCoach();
   else if(athOnboardNeeded(profile)) renderOnboard();
@@ -12151,6 +12153,456 @@ window.cwPublishWeek = async (off)=>{
   await renderCoachPanel();
   setMsg('✓ Published '+n+' to '+name,'var(--good)');
 };
+
+/* ===== Program Builder: reference defaults, seeded verbatim from
+   program-builder-reference.json (18 lifts, 60 schemes, 11 patterns, the 8x8
+   RI chart, 20 classification rows). Generated, not retyped. ===== */
+const PB_DEFAULTS={"lifts":[{"key":"Clean & Jerk","parent":null,"ratioLow":1,"ratioHigh":1},{"key":"Snatch","parent":"Clean & Jerk","ratioLow":0.8,"ratioHigh":0.8},{"key":"Clean","parent":"Clean & Jerk","ratioLow":1.02,"ratioHigh":1.02},{"key":"Jerk","parent":"Clean & Jerk","ratioLow":1.05,"ratioHigh":1.05},{"key":"BTN Jerk","parent":"Clean & Jerk","ratioLow":1.1,"ratioHigh":1.1},{"key":"Back Squat","parent":"Clean & Jerk","ratioLow":1.27,"ratioHigh":1.35},{"key":"Front Squat","parent":"Clean & Jerk","ratioLow":1.12,"ratioHigh":1.17},{"key":"Snatch off Blocks","parent":"Snatch","ratioLow":0.95,"ratioHigh":0.95},{"key":"Hang Snatch","parent":"Snatch","ratioLow":0.95,"ratioHigh":0.95},{"key":"Power Snatch","parent":"Snatch","ratioLow":0.8,"ratioHigh":0.85},{"key":"Snatch Balance","parent":"Snatch","ratioLow":1.05,"ratioHigh":1.05},{"key":"Overhead Squat","parent":"Snatch","ratioLow":1.05,"ratioHigh":1.05},{"key":"Clean off Blocks","parent":"Clean","ratioLow":0.95,"ratioHigh":0.95},{"key":"Hang Clean","parent":"Clean","ratioLow":0.95,"ratioHigh":0.95},{"key":"Power Clean","parent":"Clean","ratioLow":0.8,"ratioHigh":0.85},{"key":"Power Jerk","parent":"Jerk","ratioLow":0.95,"ratioHigh":0.95},{"key":"Push Press","parent":"Jerk","ratioLow":0.75,"ratioHigh":0.75},{"key":"Clean Deadlift","parent":"Back Squat","ratioLow":1,"ratioHigh":1}],"repMax":{"1":1,"2":0.95,"3":0.93,"4":0.9,"5":0.88,"6":0.85,"7":0.83,"8":0.8,"9":0.79,"10":0.75},"phaseDiscount":{"Accumulation":0.973,"Intensification":0.997,"Fresh / test day":1},"riReps":[1,2,3,4,5,6,8,10],"riChart":[{"rank":1,"tier":"Maximal","high":[1,0.95,0.925,0.9,0.875,0.85,0.8,0.75],"low":null},{"rank":2,"tier":"Very Heavy","high":[0.975,0.925,0.9,0.88,0.85,0.83,0.78,0.73],"low":[0.95,0.9,0.88,0.855,0.83,0.81,0.76,0.71]},{"rank":3,"tier":"Heavy","high":[0.925,0.88,0.86,0.83,0.81,0.79,0.74,0.69],"low":[0.9,0.855,0.83,0.81,0.79,0.765,0.72,0.675]},{"rank":4,"tier":"Medium Heavy","high":[0.875,0.83,0.81,0.79,0.77,0.74,0.7,0.65],"low":[0.85,0.81,0.79,0.765,0.74,0.72,0.68,0.64]},{"rank":5,"tier":"Medium","high":[0.825,0.78,0.76,0.74,0.72,0.7,0.66,0.62],"low":[0.8,0.76,0.74,0.72,0.7,0.68,0.64,0.6]},{"rank":6,"tier":"Medium Light","high":[0.775,0.735,0.72,0.7,0.68,0.66,0.62,0.58],"low":[0.75,0.71,0.69,0.675,0.66,0.64,0.6,0.56]},{"rank":7,"tier":"Light","high":[0.725,0.69,0.67,0.65,0.63,0.62,0.58,0.54],"low":[0.7,0.665,0.65,0.63,0.61,0.595,0.56,0.525]},{"rank":8,"tier":"Very Light","high":[0.675,0.64,0.62,0.61,0.59,0.57,0.54,0.51],"low":[0.65,0.62,0.6,0.585,0.57,0.55,0.52,0.49]}],"loadingPatterns":[{"key":"3-1 Wave","offsets":[2,1,0,3],"peakWeek":3},{"key":"Pyramid","offsets":[1,0,2,1],"peakWeek":2},{"key":"Linear ascending","offsets":[3,2,1,0],"peakWeek":4},{"key":"Linear descending","offsets":[0,1,2,3],"peakWeek":1},{"key":"Wave down-up-down-up","offsets":[3,1,2,0],"peakWeek":4},{"key":"Wave up-down-up-down","offsets":[1,3,0,2],"peakWeek":3},{"key":"3-1 Wave · 5 week","offsets":[3,2,1,0,4],"peakWeek":4},{"key":"3-1 Wave · 6 week","offsets":[4,3,2,1,0,5],"peakWeek":5},{"key":"2 week ramp","offsets":[1,0],"peakWeek":2},{"key":"3 week ramp","offsets":[2,1,0],"peakWeek":3},{"key":"3 week wave","offsets":[1,0,2],"peakWeek":2}],"loadingSchemes":[{"key":"2wk · Linear Descending","weeks":2,"split":[0.6,0.4]},{"key":"2wk · Tight Linear Descending","weeks":2,"split":[0.55,0.45]},{"key":"2wk · Large Reverse Step","weeks":2,"split":[0.7,0.3]},{"key":"2wk · Reverse Step","weeks":2,"split":[0.65,0.35]},{"key":"2wk · Aggressive Reverse Step","weeks":2,"split":[0.75,0.25]},{"key":"3wk · Wide Pyramid","weeks":3,"split":[0.3,0.4,0.3]},{"key":"3wk · Narrow Pyramid","weeks":3,"split":[0.25,0.5,0.25]},{"key":"3wk · Even Distribution","weeks":3,"split":[0.33,0.33,0.34]},{"key":"3wk · Linear Distribution","weeks":3,"split":[0.4,0.35,0.25]},{"key":"3wk · Peak on Week 2 (25/45/30)","weeks":3,"split":[0.25,0.45,0.3]},{"key":"3wk · Peak on Week 2 (20/50/30)","weeks":3,"split":[0.2,0.5,0.3]},{"key":"3wk · Reverse Pyramid (35/30/35)","weeks":3,"split":[0.35,0.3,0.35]},{"key":"3wk · Pyramid (28/44/28)","weeks":3,"split":[0.28,0.44,0.28]},{"key":"3wk · Reverse Pyramid (33/30/37)","weeks":3,"split":[0.33,0.3,0.37]},{"key":"3wk · Pyramid (27/46/27)","weeks":3,"split":[0.27,0.46,0.27]},{"key":"3wk · Reverse Step Plateau","weeks":3,"split":[0.4,0.3,0.3]},{"key":"3wk · Peak on Week 2 (30/50/20)","weeks":3,"split":[0.3,0.5,0.2]},{"key":"3wk · Step Plateau","weeks":3,"split":[0.3,0.35,0.35]},{"key":"3wk · Linear Descending (45/30/25)","weeks":3,"split":[0.45,0.3,0.25]},{"key":"3wk · Peak on Week 2 (25/40/35)","weeks":3,"split":[0.25,0.4,0.35]},{"key":"4wk · Even Distribution","weeks":4,"split":[0.25,0.25,0.25,0.25]},{"key":"4wk · Plateau Pyramid (20/30/30/20)","weeks":4,"split":[0.2,0.3,0.3,0.2]},{"key":"4wk · Plateau Pyramid (15/35/35/15)","weeks":4,"split":[0.15,0.35,0.35,0.15]},{"key":"4wk · Reverse Step","weeks":4,"split":[0.3,0.25,0.25,0.2]},{"key":"4wk · Undulating Up/Down (28/22/28/22)","weeks":4,"split":[0.28,0.22,0.28,0.22]},{"key":"4wk · Peak on Week 2 (25/35/25/15)","weeks":4,"split":[0.25,0.35,0.25,0.15]},{"key":"4wk · Peak on Week 2 (24/30/26/20)","weeks":4,"split":[0.24,0.3,0.26,0.2]},{"key":"4wk · Undulating Down/Up (22/28/22/28)","weeks":4,"split":[0.22,0.28,0.22,0.28]},{"key":"4wk · Undulating Up/Down (30/20/30/20)","weeks":4,"split":[0.3,0.2,0.3,0.2]},{"key":"4wk · Peak on Week 2 (25/30/25/20)","weeks":4,"split":[0.25,0.3,0.25,0.2]},{"key":"4wk · Linear Descending","weeks":4,"split":[0.35,0.25,0.2,0.2]},{"key":"4wk · Peak on Week 3 (20/25/30/25)","weeks":4,"split":[0.2,0.25,0.3,0.25]},{"key":"4wk · Plateau Pyramid (15/30/30/25)","weeks":4,"split":[0.15,0.3,0.3,0.25]},{"key":"4wk · Undulating Up/Down (25/20/35/20)","weeks":4,"split":[0.25,0.2,0.35,0.2]},{"key":"4wk · Undulating Down/Up (30/25/20/25)","weeks":4,"split":[0.3,0.25,0.2,0.25]},{"key":"5wk · Even Distribution","weeks":5,"split":[0.2,0.2,0.2,0.2,0.2]},{"key":"5wk · Wave Loading","weeks":5,"split":[0.25,0.15,0.25,0.2,0.15]},{"key":"5wk · Undulating Up/Down","weeks":5,"split":[0.3,0.25,0.15,0.2,0.1]},{"key":"5wk · Undulating Down/Up","weeks":5,"split":[0.2,0.3,0.2,0.2,0.1]},{"key":"5wk · Peak on Week 3 (18/23/30/16/13)","weeks":5,"split":[0.18,0.23,0.3,0.16,0.13]},{"key":"5wk · Peak on Week 2","weeks":5,"split":[0.23,0.3,0.18,0.16,0.13]},{"key":"5wk · Peak on Week 3 (18/22/25/20/15)","weeks":5,"split":[0.18,0.22,0.25,0.2,0.15]},{"key":"5wk · Pyramid","weeks":5,"split":[0.15,0.225,0.25,0.225,0.15]},{"key":"5wk · Linear Ascending","weeks":5,"split":[0.12,0.16,0.2,0.24,0.28]},{"key":"5wk · Linear Descending (28/24/20/16/12)","weeks":5,"split":[0.28,0.24,0.2,0.16,0.12]},{"key":"5wk · Reverse Step (30/20/20/15/15)","weeks":5,"split":[0.3,0.2,0.2,0.15,0.15]},{"key":"5wk · Linear Descending (28/22/20/15/15)","weeks":5,"split":[0.28,0.22,0.2,0.15,0.15]},{"key":"5wk · Reverse Step (25/25/20/15/15)","weeks":5,"split":[0.25,0.25,0.2,0.15,0.15]},{"key":"5wk · Step","weeks":5,"split":[0.15,0.2,0.2,0.2,0.25]},{"key":"5wk · Pyramid (15/20/25/20/20)","weeks":5,"split":[0.15,0.2,0.25,0.2,0.2]},{"key":"6wk · Even Distribution","weeks":6,"split":[0.16,0.16,0.17,0.17,0.17,0.17]},{"key":"6wk · Linear Ascending","weeks":6,"split":[0.08,0.12,0.15,0.18,0.22,0.25]},{"key":"6wk · Step (15/15/20/20/20/10)","weeks":6,"split":[0.15,0.15,0.2,0.2,0.2,0.1]},{"key":"6wk · Reverse Step (20/20/20/20/10/10)","weeks":6,"split":[0.2,0.2,0.2,0.2,0.1,0.1]},{"key":"6wk · Reverse Step (25/20/15/15/15/10)","weeks":6,"split":[0.25,0.2,0.15,0.15,0.15,0.1]},{"key":"6wk · Step (15/20/20/15/20/10)","weeks":6,"split":[0.15,0.2,0.2,0.15,0.2,0.1]},{"key":"6wk · Linear Descending","weeks":6,"split":[0.24,0.21,0.18,0.14,0.12,0.11]},{"key":"6wk · Undulating Down/Up","weeks":6,"split":[0.15,0.25,0.15,0.2,0.15,0.1]},{"key":"6wk · Undulating Up/Down","weeks":6,"split":[0.22,0.1,0.22,0.1,0.22,0.14]},{"key":"6wk · Peak on Week 3","weeks":6,"split":[0.15,0.2,0.25,0.15,0.15,0.1]}],"classRows":[{"gender":"Male","weightClass":"55","totals":{"Class III":126,"Class II":146,"Class I":165,"CMS":188,"MS":219,"IMS":274},"volumeMultiplier":1.1},{"gender":"Male","weightClass":"61","totals":{"Class III":136,"Class II":157,"Class I":178,"CMS":202,"MS":236,"IMS":295},"volumeMultiplier":1.08},{"gender":"Male","weightClass":"67","totals":{"Class III":144,"Class II":167,"Class I":190,"CMS":216,"MS":251,"IMS":313},"volumeMultiplier":1.05},{"gender":"Male","weightClass":"73","totals":{"Class III":152,"Class II":176,"Class I":200,"CMS":227,"MS":265,"IMS":331},"volumeMultiplier":1},{"gender":"Male","weightClass":"81","totals":{"Class III":161,"Class II":186,"Class I":211,"CMS":240,"MS":280,"IMS":350},"volumeMultiplier":1},{"gender":"Male","weightClass":"89","totals":{"Class III":168,"Class II":195,"Class I":221,"CMS":251,"MS":293,"IMS":366},"volumeMultiplier":1},{"gender":"Male","weightClass":"96","totals":{"Class III":173,"Class II":201,"Class I":228,"CMS":259,"MS":302,"IMS":377},"volumeMultiplier":0.95},{"gender":"Male","weightClass":"102","totals":{"Class III":177,"Class II":206,"Class I":233,"CMS":265,"MS":309,"IMS":386},"volumeMultiplier":0.9},{"gender":"Male","weightClass":"109","totals":{"Class III":181,"Class II":210,"Class I":238,"CMS":271,"MS":316,"IMS":395},"volumeMultiplier":0.85},{"gender":"Male","weightClass":"109+","totals":{"Class III":188,"Class II":218,"Class I":247,"CMS":281,"MS":328,"IMS":409},"volumeMultiplier":0.8},{"gender":"Female","weightClass":"45","totals":{"Class III":76,"Class II":84,"Class I":94,"CMS":108,"MS":125,"IMS":157},"volumeMultiplier":1.08},{"gender":"Female","weightClass":"49","totals":{"Class III":81,"Class II":90,"Class I":100,"CMS":115,"MS":134,"IMS":169},"volumeMultiplier":1.08},{"gender":"Female","weightClass":"55","totals":{"Class III":89,"Class II":98,"Class I":109,"CMS":126,"MS":146,"IMS":184},"volumeMultiplier":1.08},{"gender":"Female","weightClass":"59","totals":{"Class III":93,"Class II":103,"Class I":114,"CMS":132,"MS":153,"IMS":193},"volumeMultiplier":1.08},{"gender":"Female","weightClass":"64","totals":{"Class III":98,"Class II":108,"Class I":120,"CMS":138,"MS":161,"IMS":203},"volumeMultiplier":1},{"gender":"Female","weightClass":"71","totals":{"Class III":104,"Class II":115,"Class I":128,"CMS":147,"MS":170,"IMS":215},"volumeMultiplier":1},{"gender":"Female","weightClass":"76","totals":{"Class III":107,"Class II":119,"Class I":132,"CMS":152,"MS":176,"IMS":223},"volumeMultiplier":0.95},{"gender":"Female","weightClass":"81","totals":{"Class III":110,"Class II":122,"Class I":136,"CMS":156,"MS":181,"IMS":230},"volumeMultiplier":0.95},{"gender":"Female","weightClass":"87","totals":{"Class III":114,"Class II":126,"Class I":140,"CMS":161,"MS":187,"IMS":236},"volumeMultiplier":0.9},{"gender":"Female","weightClass":"87+","totals":{"Class III":117,"Class II":130,"Class I":145,"CMS":166,"MS":193,"IMS":244},"volumeMultiplier":0.85}],"classBenchmarks":{"Yearly loading (reps)":{"Class III":"7,000-9,000","Class II":"9,000-11,000","Class I":"11,000-13,000","CMS":"13,000-17,000","MS":"16,000-21,000","IMS":"20,000-26,000"},"Avg weekly volume":{"Class III":"150-200","Class II":"200-245","Class I":"245-288","CMS":"288-378","MS":"355-466","IMS":"445-577"},"Overall ARI":{"Class III":"65-75%","Class II":"65-75%","Class I":"73-77%","CMS":"73-75%","MS":"73-77%","IMS":"73-77%"},"90-100% lifts / yr":{"Class III":"200-300","Class II":"200-400","Class I":"200-400","CMS":"300-500","MS":"300-600","IMS":"400-700"},"Lowest % counted":{"Class III":"50%","Class II":"60%","Class I":"60%","CMS":"70%","MS":"70%","IMS":"70%"},"Meets / yr":{"Class III":"1 - 4","Class II":"2 - 4","Class I":"3 - 5","CMS":"1 - 3","MS":"1 - 2","IMS":"1 - 2"},"Training hrs / wk":{"Class III":"1.5-5","Class II":"5 - 10","Class I":"8 - 12","CMS":"15 - 25","MS":"20 - 30","IMS":"34 - 36"},"Snatch ARI":{"Class III":"-","Class II":"75%","Class I":"75%","CMS":"72%","MS":"71%","IMS":"71%"},"C&J ARI":{"Class III":"-","Class II":"76%","Class I":"77%","CMS":"74%","MS":"73%","IMS":"73%"},"Squat ARI":{"Class III":"-","Class II":"71%","Class I":"70%","CMS":"68%","MS":"66%","IMS":"66%"},"Snatch pull ARI":{"Class III":"-","Class II":"92%","Class I":"92%","CMS":"91%","MS":"91%","IMS":"91%"},"Clean pull ARI":{"Class III":"-","Class II":"89%","Class I":"87%","CMS":"84%","MS":"84%","IMS":"84%"}}};
+
+/* ==================================================================================
+   PROGRAM BUILDER ENGINE  —  reference tables + the calculation chain
+   Spec: "Program Builder Engine Spec.html" + the build brief (2026-08-25).
+   Seeded from program-builder-reference.json; every table is gym-editable via
+   public.program_reference (migration 57), same pattern as loading_norms (48):
+   only EDITED rows get a DB row, everything else falls back to PB_DEFAULTS, so the
+   engine works before the migration is run.
+
+   THE TWO-DENOMINATOR RULE (brief §"The rule that will bite you"):
+   a bare percentage never crosses a function boundary. Percentages travel as
+   { pct, denominator:'own'|'parent', liftKey } via pbPct(), or as kilos. For a
+   0.95 variation "own" and "parent" sit 5% apart — one whole intensity tier.
+
+   NOTHING HERE IS EVER PERSISTED AS KILOS (brief decision #7): store the plan,
+   resolve on read, so a retest re-prices the whole block. Rounding happens at
+   render only (pbRound), never in storage — see brief decision #8.
+   ================================================================================== */
+
+let PBREF_READY=false;             // program_reference (migration 57)
+let gymPbRef=null;                 // { kind: { key: payload } } — gym overrides only
+async function probePbRef(){ try{ const {error}=await sb.from('program_reference').select('kind').limit(1); PBREF_READY=!error; }catch(e){ PBREF_READY=false; } }
+async function loadPbRef(){
+  if(!PBREF_READY){ gymPbRef={}; return; }
+  const {data,error}=await sb.from('program_reference').select('kind,key,payload,pos');
+  gymPbRef={}; if(error||!data) return;
+  data.forEach(r=>{ (gymPbRef[r.kind]=gymPbRef[r.kind]||{})[r.key]=r.payload; });
+}
+// A reference table = defaults overlaid with this gym's edits. Rows are DATA, never constants.
+function pbRows(kind, keyOf){
+  const base=(PB_DEFAULTS[kind]||[]).slice();
+  const ov=(gymPbRef&&gymPbRef[kind])||{};
+  const out=base.map(r=>{ const k=keyOf(r); return ov[k]?Object.assign({},r,ov[k]):r; });
+  // gym-authored rows that aren't in the defaults at all
+  Object.keys(ov).forEach(k=>{ if(!base.some(r=>keyOf(r)===k)) out.push(ov[k]); });
+  return out;
+}
+const pbLifts    =()=>pbRows('lifts',           r=>r.key);
+const pbPatterns =()=>pbRows('loadingPatterns', r=>r.key);
+const pbSchemes  =()=>pbRows('loadingSchemes',  r=>r.key);
+const pbClassRows=()=>pbRows('classRows',       r=>r.gender+'|'+r.weightClass);
+function pbLift(k){ return pbLifts().find(l=>l.key===k)||null; }
+function pbScalar(kind){ const ov=(gymPbRef&&gymPbRef[kind])||{}; return Object.assign({},PB_DEFAULTS[kind],ov); }
+const pbRepMax   =()=>pbScalar('repMax');
+const pbPhaseDisc=()=>pbScalar('phaseDiscount');
+function pbRiChart(){ const ov=(gymPbRef&&gymPbRef.riChart)||{}; return (PB_DEFAULTS.riChart||[]).map(r=>ov[String(r.rank)]?Object.assign({},r,ov[String(r.rank)]):r); }
+function pbRiRow(rank){ return pbRiChart().find(r=>r.rank===rank)||null; }
+const pbTierRank =(tier)=>{ const r=pbRiChart().find(x=>x.tier===tier); return r?r.rank:null; };
+const pbMidRatio =(l)=>((+l.ratioLow)+(+l.ratioHigh))/2;
+
+/* ---- engine flags: the audited defects, each a switch defaulting to CURRENT behaviour
+       (brief §"Defects in the source math" A/B/C/E). Flip one, see what changes. ---- */
+const PB_FLAGS_DEFAULT={ continuousVolumeCurve:false, continuousAgeScore:false, symmetricMultiplierCaps:false, normaliseQuestionnaire:false };
+function pbFlags(){ return Object.assign({}, PB_FLAGS_DEFAULT, (gymPbRef&&gymPbRef.engineFlags&&gymPbRef.engineFlags.flags)||{}); }
+
+/* ---- percentages carry their denominator, always ---- */
+function pbPct(pct, denominator, liftKey){ return { pct, denominator, liftKey }; }
+function pbPctLabel(p){ return p==null?'—':(p.pct*100).toFixed(1)+'% of '+(p.denominator==='own'?(p.liftKey||'the variation'):'the classic lift'); }
+// display-only rounding (brief decision #8) — never call this before storage or recalculation
+function pbRound(kg, inc){ if(kg==null) return null; const i=inc||1; return Math.round(kg/i)*i; }
+
+/* ---------- 2. resolveMax — an athlete's effective 1RM for any lift ----------
+   Tested always wins. Untested walks the parent tree to the nearest tested ancestor
+   and multiplies down; a ratio RANGE uses its midpoint.
+   maxesByLift: { 'Snatch': {kg, tested_at}, ... }  (see pbMaxMap) */
+function pbResolveMax(maxesByLift, liftKey, _seen){
+  const seen=_seen||[];
+  if(seen.indexOf(liftKey)>=0){
+    // A coach can edit the ratio table into A->B->A. Name BOTH lifts, never hang or blow the stack.
+    const loop=seen.slice(seen.indexOf(liftKey)).concat(liftKey);
+    return { kg:null, source:'cycle', error:'Ratio loop: '+loop.join(' → ')+'. Two lifts are each other’s parent — fix one of them in the ratio table.', cycle:loop };
+  }
+  const tested=(maxesByLift||{})[liftKey];
+  if(tested && tested.kg!=null && !isNaN(+tested.kg)) return { kg:+tested.kg, source:'tested', liftKey, tested_at:tested.tested_at||null };
+  const lift=pbLift(liftKey);
+  if(!lift) return { kg:null, source:'unknown lift', needsTest:liftKey, error:'"'+liftKey+'" is not in the ratio table.' };
+  if(lift.parent==null) return { kg:null, source:'no data upstream', needsTest:liftKey };
+  const parent=pbResolveMax(maxesByLift, lift.parent, seen.concat(liftKey));
+  if(parent.source==='cycle') return parent;
+  if(parent.kg==null) return { kg:null, source:'no data upstream', needsTest:parent.needsTest||lift.parent };
+  return { kg:parent.kg*pbMidRatio(lift), source:'derived', liftKey, derivedFrom:lift.parent, ratio:pbMidRatio(lift), rootSource:parent.source==='tested'?lift.parent:(parent.rootSource||lift.parent) };
+}
+function pbMaxMap(rows){ const m={}; (rows||[]).forEach(r=>{ const k=r.lift; if(!k) return; if(!m[k] || (r.tested_at||'')>(m[k].tested_at||'')) m[k]={kg:+r.kg, tested_at:r.tested_at||null}; }); return m; }
+
+/* ---------- 3. checkpointTarget ---------- */
+function pbCheckpointTarget(maxesByLift, liftKey, reps, phaseKey){
+  const lift=pbLift(liftKey);
+  if(!lift) return { kg:null, error:'"'+liftKey+'" is not in the ratio table.' };
+  const rm=pbRepMax()[String(reps)], disc=pbPhaseDisc()[phaseKey];
+  if(rm==null) return { kg:null, error:'No rep-max entry for '+reps+' reps.' };
+  if(disc==null) return { kg:null, error:'No phase discount for "'+phaseKey+'".' };
+  const parentKey = lift.parent!=null ? lift.parent : liftKey;
+  const ratio     = lift.parent!=null ? pbMidRatio(lift) : 1;
+  const pctOfOwn    = rm*disc;
+  const pctOfParent = ratio*pctOfOwn;
+  const theoretical = ratio*rm;                        // before the phase discount
+  const parentMax   = pbResolveMax(maxesByLift, parentKey);
+  return {
+    liftKey, parentKey, ratio, reps, phaseKey, repMax:rm, discount:disc, theoretical,
+    pctOfOwn:    pbPct(pctOfOwn,    'own',    liftKey),
+    pctOfParent: pbPct(pctOfParent, 'parent', parentKey),
+    kg: parentMax.kg==null ? null : pctOfParent*parentMax.kg,
+    parentMax, error: parentMax.kg==null ? ('Needs a tested max on '+(parentMax.needsTest||parentKey)) : null
+  };
+}
+
+/* ---------- 4. readiness → annual volume ----------
+   Store the ANSWERS, never the score (brief §readiness): the score depends on the
+   athlete's classification, which moves when they hit a new total. */
+const PB_EXP_BANDS=[['less than 1 year',1],['1-2.5 years',2],['2.5-5 years',3],['5-9 years',4]];
+// Fallthrough by design (brief decision #5): '> 9 Years', '9+ Years' and anything
+// unrecognised all land on the TOP band rather than throwing.
+function pbExpBase(band){ const b=String(band||'').trim().toLowerCase(); const hit=PB_EXP_BANDS.find(x=>x[0]===b); return hit?hit[1]:5; }
+function pbIsTopExp(band){ return pbExpBase(band)===5; }
+function pbAgeScore(age, band){
+  const base=pbExpBase(band), top=pbIsTopExp(band);
+  if(pbFlags().continuousAgeScore){
+    // Defect B fixed: each bracket continues from where the previous one ENDED, so the
+    // score falls monotonically instead of jumping UP at 31 and again at 41.
+    if(age<18)  return base*0.5;
+    if(!top)    return base;
+    if(age<=24) return 5;
+    if(age<=30) return 5-(age-24)/6;                    // 5.00 -> 4.00
+    if(age<=40) return 4-(age-30)*0.15;                 // 4.00 -> 2.50 (was: restarted at 5)
+    return Math.max(1, 2.5-(age-40)/3);                 // 2.50 -> 1.00 (was: restarted at 5)
+  }
+  if(age<18)  return base*0.5;
+  if(age<=24) return base;
+  if(age<=30) return top ? 5-(age-24)/6 : base;
+  if(age<=40) return top ? 5-(age-30)/4 : base;
+  return top ? Math.max(1, 5-(age-40)/3) : base;
+}
+function pbChronoScore(age){ if(age<18) return 3; if(age<=22) return 4; if(age<=29) return 5; if(age<=34) return 3; if(age<=44) return 2; return 1; }
+const PB_HISTORY={'Frequently Injured':1,'Inconsistent':2,'Consistent, some injuries':3,'Consistent, injury free':4,'Elite consistency':5};
+const PB_INJ_LAST={'No':5,'Yes, fully healed':4,'Yes, barely affects training':3,'Yes, affects training':1.5,'Yes, drastically affects training':0.75};
+const PB_INJ_FREQ={'Rarely (0-1x/yr)':4,'Occasionally (2-4x/yr)':3,'Frequently (>4x/yr)':1};
+const PB_INJ_LIM ={'No limitations':5,'Minor limitations':4,'Moderate limitations':3,'Severe limitations':2};
+const PB_SLEEP={'<5 hrs':1,'5-6 hrs':2,'6-7 hrs':3,'7-8 hrs':4,'8+ hrs':5};
+const PB_NUTR ={'Poor':1,'Moderate':2,'Good':3,'Very Good':4,'Excellent':5};
+const PB_STRESS={'Low':5,'Moderate':3,'High':2,'Very High':1};
+const PB_WORK ={'<20 hrs':5,'20-40 hrs':4,'41-55 hrs':3,'56-70 hrs':2,'>70 hrs':1};
+function pbLook(map, v, dflt){ if(v==null) return dflt; if(typeof v==='number') return v; const k=Object.keys(map).find(x=>x.toLowerCase()===String(v).trim().toLowerCase()); return k?map[k]:dflt; }
+// Class weights on the four response questions. MS and IMS are DELIBERATELY separate here
+// (the source table gives them different weights) — it is only the TIER BASE below that
+// must treat them identically (brief decision #6).
+const PB_CLASS_W={
+  'Class III':{technique:4,recovery:3,progress:2,volume:1},
+  'Class II' :{technique:4,recovery:3,progress:2,volume:1},
+  'Class I'  :{technique:3,recovery:3,progress:2,volume:1},
+  'CMS'      :{technique:3,recovery:3,progress:2,volume:2},
+  'MS'       :{technique:2,recovery:3,progress:3,volume:3},
+  'IMS'      :{technique:1.5,recovery:3,progress:4,volume:3}
+};
+const PB_TIER_BASE={'Class III':1,'Class II':2,'Class I':3,'CMS':4,'MS':5,'IMS':5};
+// base + adjustment with a fallthrough (brief decision #6) — never a lookup that can miss.
+// MS and IMS both resolve to 5; an unrecognised tier lands on the top rather than undefined.
+function pbClassProgressScore(tier, progress01){
+  const base=(PB_TIER_BASE[tier]!=null)?PB_TIER_BASE[tier]:5;
+  const p=(progress01==null||isNaN(+progress01))?0.5:+progress01;
+  if(p>=0.90) return base+0.5;
+  if(p<=0.10) return base-0.5;
+  return base;
+}
+function pbReadiness(a){
+  const flags=pbFlags();
+  const tier=a.classTier||'Class III';
+  const w=PB_CLASS_W[tier]||PB_CLASS_W['IMS'];
+  const r=a.responses||{};
+  let questionnaire=(+r.technique||0)*w.technique + (+r.recovery||0)*w.recovery + (+r.progress||0)*w.progress + (+r.volume||0)*w.volume;
+  // Defect E: labelled a 10% weight but scored on a far bigger scale — for a Class I athlete
+  // four subjective answers can contribute 4.50 of an ~8.84 ceiling.
+  const qMax=5*(w.technique+w.recovery+w.progress+w.volume);
+  const questionnaireRaw=questionnaire;
+  if(flags.normaliseQuestionnaire) questionnaire=qMax?questionnaire/qMax*5:0;
+
+  const ageScore=pbAgeScore(a.age, a.experience), chrono=pbChronoScore(a.age);
+  const history=pbLook(PB_HISTORY, a.history, 3);
+  const ageAndHistory=ageScore*0.4 + chrono*0.4 + history*0.2;
+  const classProgress=pbClassProgressScore(tier, a.progressIntoClass);
+  const injury   = pbLook(PB_INJ_LAST,a.injuryLastYear,5)*0.3 + pbLook(PB_INJ_FREQ,a.injuryFrequency,4)*0.3 + pbLook(PB_INJ_LIM,a.limitations,5)*0.4;
+  const lifestyle= pbLook(PB_SLEEP,a.sleep,3)*0.3 + pbLook(PB_NUTR,a.nutrition,3)*0.3 + pbLook(PB_STRESS,a.stress,3)*0.2 + pbLook(PB_WORK,a.workload,3)*0.2;
+  const weighted = ageAndHistory*0.25 + classProgress*0.25 + questionnaire*0.10 + injury*0.125 + lifestyle*0.225;
+
+  let base;
+  if(flags.continuousVolumeCurve){
+    // Defect A fixed: the stock curve jumps 1,503 reps for a 0.01 change at 2.50 and again
+    // at 4.00. This is the same three segments made to MEET at the joins.
+    if(weighted<=2.5)     base=10000+2000*(weighted/2.5);            // 10,000 -> 12,000
+    else if(weighted<=4)  base=12000+2000*((weighted-2.5)/1.5);      // 12,000 -> 14,000
+    else                  base=14000+500*(weighted-4);
+  } else {
+    if(weighted<=2.5)     base=10000+500*(weighted/2.5);
+    else if(weighted<=4)  base=12000+500*((weighted-2.5)/1.5);
+    else                  base=14000+500*((weighted-4)/1);
+  }
+  base=Math.min(base,22000);                                          // Defect D: unreachable — needs weighted 20
+  const row=(a.classRow)||null;
+  const genderMult=(a.sex==='F'||a.gender==='Female')?1.10:1.00;
+  const volMult=(row&&row.volumeMultiplier!=null)?+row.volumeMultiplier:1.00;
+  // Defect C: bonuses are capped at 1.05 but penalties (0.80) run in full.
+  const cap=flags.symmetricMultiplierCaps ? (x)=>Math.max(0.95,Math.min(x,1.05)) : (x)=>Math.min(x,1.05);
+  const annualVolume=Math.round(base*cap(genderMult)*cap(volMult));
+  return { questionnaire, questionnaireRaw, questionnaireMax:qMax, ageScore, chronoScore:chrono, historyScore:history,
+           ageAndHistory, classProgress, injury, lifestyle, weighted, base, annualVolume,
+           genderMult:cap(genderMult), volumeMultiplier:cap(volMult), tier, flags };
+}
+// Defect F: surface the engine's number NEXT TO its own benchmark, never enforce it.
+function pbBenchmarkCheck(tier, annualVolume){
+  const b=(PB_DEFAULTS.classBenchmarks||{})['Yearly loading (reps)']||{};
+  const s=b[tier]; if(!s||annualVolume==null) return null;
+  const m=String(s).replace(/,/g,'').match(/(\d+)\s*-\s*(\d+)/); if(!m) return null;
+  const lo=+m[1], hi=+m[2];
+  return { tier, band:s, low:lo, high:hi, annualVolume,
+           status: annualVolume<lo?'under':(annualVolume>hi?'over':'inside'),
+           pctOfHigh: annualVolume/hi };
+}
+
+/* ---------- 5. volume flowing down ---------- */
+function pbWeekReps(annualInUse, macroShare, mesoShare, scheme){
+  const macroVolume=annualInUse*macroShare;
+  const mesoVolume =macroVolume*mesoShare;
+  const split=(scheme&&scheme.split)||[];
+  return { macroVolume, mesoVolume, weekReps: split.map(s=>Math.round(mesoVolume*s)), split };
+}
+
+/* ---------- 6. weekIntensity ---------- */
+// The RI chart covers 1,2,3,4,5,6,8,10. A checkpoint at 7 or 9 has a rep-max target but no
+// column, so we interpolate linearly between the neighbours and LABEL it (never let an
+// interpolated number pass as a charted one).
+function pbRiCell(row, reps){
+  const cols=PB_DEFAULTS.riReps, i=cols.indexOf(+reps);
+  const pick=(arr,idx)=>arr?arr[idx]:null;
+  if(i>=0) return { high:pick(row.high,i), low:row.low?pick(row.low,i):null, interpolated:false };
+  const below=cols.filter(c=>c<reps).pop(), above=cols.filter(c=>c>reps)[0];
+  if(below==null||above==null) return { high:null, low:null, interpolated:false, outOfRange:true };
+  const bi=cols.indexOf(below), ai=cols.indexOf(above), t=(reps-below)/(above-below);
+  const mix=(arr)=>arr?arr[bi]+(arr[ai]-arr[bi])*t:null;
+  return { high:mix(row.high), low:row.low?mix(row.low):null, interpolated:true, between:[below,above] };
+}
+function pbWeekIntensity(opts){
+  const { peakTier, offset, reps, ownMaxKg, liftKey }=opts;
+  const peak=pbTierRank(peakTier);
+  if(peak==null) return { error:'Unknown intensity tier "'+peakTier+'".' };
+  const rank=Math.min(8, peak+offset);
+  const row=pbRiRow(rank);
+  if(!row) return { error:'No relative-intensity row at rank '+rank+'.' };
+  const cell=pbRiCell(row, reps);
+  if(cell.high==null) return { tier:row.tier, rank, error:'The intensity chart has no column for '+reps+' reps.' };
+  const pctHigh=cell.high;
+  const pctLow =cell.low!=null?cell.low:cell.high;      // Maximal is a single value, not a band
+  return { tier:row.tier, rank, reps, interpolated:cell.interpolated, between:cell.between,
+           pctLow: pbPct(pctLow,'own',liftKey), pctHigh: pbPct(pctHigh,'own',liftKey),
+           kgLow: ownMaxKg==null?null:pctLow*ownMaxKg, kgHigh: ownMaxKg==null?null:pctHigh*ownMaxKg,
+           singleValue: cell.low==null };
+}
+
+/* ---------- 7. verdict — MODE A (Chris, 2026-08-25) ----------
+   The checkpoint is TESTED INSIDE the peak week. So the peak week carries two intensities:
+   a TOP SET at the checkpoint target, and WORKING SETS at the tier band. The answerable
+   question is therefore "is the top set reachable from the working weight", not the old
+   containment check (which compared a maximal effort against a deliberately submaximal
+   band — a category error).
+   topSetGapMax defaults to 5%: across Chris's seven worked mesocycles the peak band lands
+   96.9-100.3% of its checkpoint, so a healthy top set sits at most a few % above band high. */
+const PB_VERDICT_DEFAULTS={ topSetGapMax:0.05 };
+function pbVerdict(peakBand, targetKg, cfg){
+  const c=Object.assign({},PB_VERDICT_DEFAULTS,cfg||{});
+  if(targetKg==null||!peakBand||peakBand.kgHigh==null) return { status:'undecided', reason:'needs a tested max upstream', targetKg, peakBandKg:peakBand?[peakBand.kgLow,peakBand.kgHigh]:null, ratio:null };
+  const mid=(peakBand.kgLow+peakBand.kgHigh)/2;
+  const gap=(targetKg-peakBand.kgHigh)/peakBand.kgHigh;    // how far the top set sits above the working weight
+  return {
+    status: gap<=c.topSetGapMax ? 'reachable' : 'too big a jump',
+    mode:'A', targetKg, topSetKg:targetKg,
+    peakBandKg:[peakBand.kgLow,peakBand.kgHigh], ratio:mid/targetKg,
+    gapAboveBandHigh:gap, topSetGapMax:c.topSetGapMax,
+    note: gap<=c.topSetGapMax
+      ? 'Top set sits '+(gap*100).toFixed(1)+'% above the working band — reachable inside the session.'
+      : 'Top set sits '+(gap*100).toFixed(1)+'% above the working band (limit '+(c.topSetGapMax*100).toFixed(0)+'%). The block never gets close enough to expect this lift.'
+  };
+}
+/* The four reads — how an ACHIEVED lift compares to its checkpoint. Editable; these decide
+   when the app tells a coach to retest, so they are data, not constants. */
+const PB_READS_DEFAULT={ over:0.02, hit:0.02, justUnder:0.05 };
+function pbRead(achievedKg, targetKg, cfg){
+  const c=Object.assign({},PB_READS_DEFAULT,cfg||{});
+  if(achievedKg==null||targetKg==null) return { read:null, label:'not tested yet' };
+  const d=(achievedKg-targetKg)/targetKg;
+  if(d >  c.over)      return { read:'over',       label:'Over the checkpoint',  delta:d };
+  if(d >= -c.hit)      return { read:'hit',        label:'Hit the checkpoint',   delta:d };
+  if(d >= -c.justUnder)return { read:'just under', label:'Just under',           delta:d };
+  return                      { read:'well under', label:'Well under',           delta:d };
+}
+
+/* ---------- 4 (decision). Alignment check — ADVISORY ONLY, never blocks ---------- */
+function pbAlignmentWarnings(weekReps, weekRanks){
+  const n=weekReps.length; if(n<3) return [];
+  const byVol=weekReps.map((r,i)=>({i,r})).sort((a,b)=>a.r-b.r);   // ascending volume
+  const third=Math.max(1,Math.round(n/3));
+  const lightestVol=new Set(byVol.slice(0,third).map(x=>x.i));
+  const heaviestVol=new Set(byVol.slice(-third).map(x=>x.i));
+  const hardest=weekRanks.indexOf(Math.min.apply(null,weekRanks));  // rank 1 = heaviest
+  const easiest=weekRanks.indexOf(Math.max.apply(null,weekRanks));
+  const out=[];
+  if(lightestVol.has(hardest)) out.push({level:'warn', msg:'Week '+(hardest+1)+' is the heaviest intensity but sits in the lightest third of volume — the wave and the volume scheme are pulling against each other.'});
+  if(heaviestVol.has(easiest)) out.push({level:'warn', msg:'Week '+(easiest+1)+' is the lightest intensity but carries the most volume — check this is the deload you meant.'});
+  return out;
+}
+
+/* ---------- the block: everything above, assembled ---------- */
+function pbBuildBlock(o){
+  const maxes=o.maxesByLift, lk=o.checkpointLift;
+  const ownMax=pbResolveMax(maxes, lk);
+  const ckpt=pbCheckpointTarget(maxes, lk, o.checkpointReps, o.phaseKey);
+  const scheme=o.scheme, pattern=o.pattern;
+  const annualInUse=(o.annualVolumeOverride!=null)?o.annualVolumeOverride:o.annualVolume;
+  const vol=(o.mesoVolume!=null)
+    ? { macroVolume:null, mesoVolume:o.mesoVolume, split:scheme.split, weekReps:scheme.split.map(s=>Math.round(o.mesoVolume*s)) }
+    : pbWeekReps(annualInUse, o.macroShare, o.mesoShare, scheme);
+  const peakRank=pbTierRank(o.peakTier);
+  const weeks=vol.weekReps.map((reps,w)=>{
+    // brief decision #2: an optional per-week rep override, defaulting to the checkpoint reps
+    const wReps=(o.weekRepOverrides&&o.weekRepOverrides[w]!=null)?o.weekRepOverrides[w]:o.checkpointReps;
+    const band=pbWeekIntensity({peakTier:o.peakTier, offset:pattern.offsets[w], reps:wReps, ownMaxKg:ownMax.kg, liftKey:lk});
+    return Object.assign({ week:w+1, volumeReps:reps, split:vol.split[w], offset:pattern.offsets[w], intensityReps:wReps }, band);
+  });
+  const peakIdx=weeks.reduce((b,x,i)=>(x.rank!=null&&(b<0||x.rank<weeks[b].rank))?i:b,-1);
+  const peak=peakIdx>=0?weeks[peakIdx]:null;
+  return {
+    checkpointLift:lk, ownMax, checkpoint:ckpt, weeks, peakWeek:peakIdx>=0?peakIdx+1:null,
+    macroVolume:vol.macroVolume, mesoVolume:vol.mesoVolume, annualInUse, peakRank,
+    verdict: pbVerdict(peak, ckpt.kg, o.verdictCfg),
+    warnings: pbAlignmentWarnings(vol.weekReps, weeks.map(w=>w.rank==null?99:w.rank)),
+    needsTest: ownMax.kg==null?(ownMax.needsTest||lk):null, cycleError: ownMax.source==='cycle'?ownMax.error:null
+  };
+}
+
+/* ---- acceptance tests T1..T6; run pbSelfTest() from the console ---- */
+/* Program Builder — acceptance tests T1..T6 (brief §"Acceptance tests").
+   Tolerance 1e-6, never round before comparing. */
+function pbSelfTest(){
+  const R=[], EPS=1e-6;
+  const ok=(n,g,e)=>{ const p=(g!=null&&e!=null&&Math.abs(g-e)<EPS); R.push({t:n,pass:p,got:g,exp:e}); return p; };
+  const eq=(n,g,e)=>{ const p=(g===e); R.push({t:n,pass:p,got:g,exp:e}); return p; };
+  const MAX=pbMaxMap([{lift:'Clean & Jerk',kg:138},{lift:'Snatch',kg:110},{lift:'Back Squat',kg:168},{lift:'Front Squat',kg:152}]);
+
+  // T1 — checkpoint
+  const t1=pbCheckpointTarget(MAX,'Snatch off Blocks',3,'Accumulation');
+  eq('T1 parent','Snatch',t1.parentKey);
+  ok('T1 parent kg',t1.parentMax.kg,110);
+  ok('T1 ratio',t1.ratio,0.95); ok('T1 repMax',t1.repMax,0.93); ok('T1 discount',t1.discount,0.973);
+  ok('T1 theoretical',t1.theoretical,0.8835);
+  ok('T1 pctOfParent',t1.pctOfParent.pct,0.8596455);
+  ok('T1 targetKg',t1.kg,94.561005);
+  ok('T1 pctOfOwn',t1.pctOfOwn.pct,0.90489);
+  eq('T1 denominators tagged', t1.pctOfOwn.denominator+'/'+t1.pctOfParent.denominator, 'own/parent');
+
+  // T2 — readiness
+  const rd=pbReadiness({ age:29, experience:'2.5-5 Years', sex:'M', classTier:'Class I', progressIntoClass:0.90,
+    history:'Consistent, some injuries', responses:{technique:3,recovery:3,progress:3,volume:2},
+    injuryLastYear:'Yes, barely affects training', injuryFrequency:'Frequently (>4x/yr)', limitations:'Minor limitations',
+    sleep:'8+ hrs', nutrition:'Very Good', stress:'High', workload:'56-70 hrs',
+    classRow:{volumeMultiplier:1.0} });
+  ok('T2 questionnaire',rd.questionnaire,26);
+  ok('T2 ageAndHistory',rd.ageAndHistory,3.80);
+  ok('T2 classProgress',rd.classProgress,3.50);
+  ok('T2 injury',rd.injury,2.80);
+  ok('T2 lifestyle',rd.lifestyle,3.50);
+  ok('T2 weighted',rd.weighted,5.5625);
+  ok('T2 base',rd.base,14781.25);
+  ok('T2 annual',rd.annualVolume,14781);
+
+  // T3 — full block
+  const sch4=pbSchemes().find(s=>s.key==='4wk · Plateau Pyramid (20/30/30/20)');
+  const pat4=pbPatterns().find(p=>p.key==='3-1 Wave');
+  const b3=pbBuildBlock({ maxesByLift:MAX, checkpointLift:'Snatch off Blocks', checkpointReps:5, phaseKey:'Accumulation',
+    annualVolume:14781, macroShare:0.50, mesoShare:0.22, scheme:sch4, pattern:pat4, peakTier:'Very Heavy' });
+  ok('T3 mesoVolume',b3.mesoVolume,1625.91);
+  ok('T3 own 1RM',b3.ownMax.kg,104.5);
+  [[325,'Medium Heavy',77.330,80.465],[488,'Heavy',82.555,84.645],[488,'Very Heavy',86.735,88.825],[325,'Medium',73.150,75.240]]
+    .forEach((e,i)=>{ const w=b3.weeks[i];
+      eq('T3 wk'+(i+1)+' reps',w.volumeReps,e[0]); eq('T3 wk'+(i+1)+' tier',w.tier,e[1]);
+      ok('T3 wk'+(i+1)+' kgLow',w.kgLow,e[2]); ok('T3 wk'+(i+1)+' kgHigh',w.kgHigh,e[3]); });
+  ok('T3 checkpoint target',b3.checkpoint.kg,89.47708);
+  eq('T3 peak week',b3.peakWeek,3);
+
+  // T4 — Maximal fallback (brief omits the shares; meso volume is what it pins)
+  const sch3=pbSchemes().find(s=>s.key==='3wk · Linear Distribution');
+  const pat3=pbPatterns().find(p=>p.key==='3 week ramp');
+  const b4=pbBuildBlock({ maxesByLift:MAX, checkpointLift:'Snatch off Blocks', checkpointReps:2, phaseKey:'Intensification',
+    mesoVolume:14781*0.50*0.14, scheme:sch3, pattern:pat3, peakTier:'Maximal' });
+  [[414,'Heavy',89.3475,91.960],[362,'Very Heavy',94.050,96.6625],[259,'Maximal',99.275,99.275]]
+    .forEach((e,i)=>{ const w=b4.weeks[i];
+      eq('T4 wk'+(i+1)+' reps',w.volumeReps,e[0]); eq('T4 wk'+(i+1)+' tier',w.tier,e[1]);
+      ok('T4 wk'+(i+1)+' kgLow',w.kgLow,e[2]); ok('T4 wk'+(i+1)+' kgHigh',w.kgHigh,e[3]); });
+  ok('T4 checkpoint target',b4.checkpoint.kg,98.977175);
+  eq('T4 Maximal is single-valued',b4.weeks[2].singleValue,true);
+
+  // T5 — cycle guard
+  const savedOv=gymPbRef;
+  gymPbRef={ lifts:{ 'Snatch':{key:'Snatch',parent:'Snatch off Blocks',ratioLow:0.8,ratioHigh:0.8},
+                     'Snatch off Blocks':{key:'Snatch off Blocks',parent:'Snatch',ratioLow:0.95,ratioHigh:0.95} } };
+  let t5;
+  try{ t5=pbResolveMax({}, 'Snatch off Blocks'); }catch(e){ t5={source:'THREW: '+e.message}; }
+  eq('T5 returns a named cycle error',t5.source,'cycle');
+  eq('T5 names both lifts', !!(t5.error&&t5.error.indexOf('Snatch')>=0&&t5.error.indexOf('Snatch off Blocks')>=0), true);
+  gymPbRef=savedOv;
+
+  // T6 — missing upstream: explicit empty state naming the lift, never 0, never blank
+  const t6=pbBuildBlock({ maxesByLift:{}, checkpointLift:'Power Clean', checkpointReps:3, phaseKey:'Accumulation',
+    mesoVolume:1000, scheme:sch3, pattern:pat3, peakTier:'Heavy' });
+  eq('T6 ownMax kg is null not 0',t6.ownMax.kg,null);
+  eq('T6 names the lift to test',t6.needsTest,'Clean & Jerk');
+  eq('T6 checkpoint kg null',t6.checkpoint.kg,null);
+  eq('T6 checkpoint carries an error',!!t6.checkpoint.error,true);
+  eq('T6 week band kg null',t6.weeks[0].kgLow,null);
+  eq('T6 week tier still resolves',t6.weeks[0].tier,'Medium');   // peak Heavy(3) + offset 2 = rank 5
+  eq('T6 verdict undecided',t6.verdict.status,'undecided');
+
+  // extras — the audited defects reproduce, and the flags change them
+  const mkR=(over)=>pbReadiness(Object.assign({age:29,experience:'2.5-5 Years',sex:'M',classTier:'Class I',progressIntoClass:0.5,
+    history:'Consistent, some injuries',responses:{technique:3,recovery:3,progress:3,volume:2},
+    injuryLastYear:'No',injuryFrequency:'Rarely (0-1x/yr)',limitations:'No limitations',
+    sleep:'8+ hrs',nutrition:'Excellent',stress:'Low',workload:'<20 hrs',classRow:{volumeMultiplier:1.0}},over));
+  eq('Defect B reproduces (age 30 -> 31 goes UP)', pbAgeScore(31,'> 9 Years')>pbAgeScore(30,'> 9 Years'), true);
+  ok('Defect B: age 30',pbAgeScore(30,'> 9 Years'),4.00);
+  ok('Defect B: age 31',pbAgeScore(31,'> 9 Years'),4.75);
+  ok('Defect B: age 41',pbAgeScore(41,'> 9 Years'),5-1/3);
+  eq("decision #5: '> 9 Years' hits the top band", pbExpBase('> 9 Years'), 5);
+  eq("decision #5: unrecognised falls through to top", pbExpBase('banana'), 5);
+  eq('decision #6: MS and IMS score identically', pbClassProgressScore('MS',0.5)===pbClassProgressScore('IMS',0.5), true);
+  eq('decision #6: unknown tier does not return undefined', pbClassProgressScore('Nonsense',0.5), 5);
+  const savedF=gymPbRef; gymPbRef={engineFlags:{flags:{continuousAgeScore:true}}};
+  eq('Flag continuousAgeScore removes the age-31 jump', pbAgeScore(31,'> 9 Years')<pbAgeScore(30,'> 9 Years'), true);
+  gymPbRef=savedF;
+  // interpolation for 7 reps (Chris chose interpolate)
+  const i7=pbWeekIntensity({peakTier:'Heavy',offset:0,reps:7,ownMaxKg:100,liftKey:'Snatch'});
+  eq('7 reps interpolates',i7.interpolated,true);
+  eq('7 reps is labelled between 6 and 8', i7.between.join('-'), '6-8');
+  eq('7-rep band sits between the 6 and 8 columns', (i7.pctHigh.pct<0.79 && i7.pctHigh.pct>0.74), true);
+
+  const fail=R.filter(x=>!x.pass);
+  return { total:R.length, passed:R.length-fail.length, failed:fail.length, failures:fail, all:R };
+}
+window.pbSelfTest=pbSelfTest;
+
 /* ---------------- methodology engine (methodology-spec §3) ---------------- */
 // Rep-Max table: % of 1RM achievable for N reps (powers RI). Off-curve reps interpolate.
 const REP_MAX_PCT={1:100,2:95,3:92.5,4:90,5:87.5,6:85,7:82.5,8:80,9:78.5,10:75,12:67,15:62,20:43};
