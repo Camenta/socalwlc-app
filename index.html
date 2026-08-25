@@ -2105,6 +2105,53 @@
   .be-empty{padding:16px 4px;color:var(--muted);font-size:13px}
   .be-empty.bad{color:var(--bad)}
   @media(max-width:760px){ .be-hd{flex-basis:100%;padding-bottom:0} .be-f{min-width:118px;flex:1} .be-tbl{font-size:12px} .be-tbl td,.be-tbl th{padding:6px} }
+  /* ---- Program Builder (volume distribution tree) ---- */
+  .pg-head{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;padding:2px 2px 12px}
+  .pg-cls{font-size:11.5px;font-weight:700;color:var(--muted);border:1px solid var(--line);border-radius:12px;padding:3px 10px}
+  .pg-flag{font-size:11px;font-weight:700;border-radius:12px;padding:3px 10px;border:1px solid var(--line);color:var(--muted)}
+  .pg-flag.ok{color:var(--good);border-color:var(--good)}
+  .pg-flag.warn{color:var(--warn);border-color:var(--warn)}
+  .pg-sec{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+  .pg-subtle{font-weight:600;letter-spacing:0;text-transform:none;font-size:11.5px;opacity:.8}
+  .pg-tot{margin-left:auto;font-weight:800;letter-spacing:0;text-transform:none;font-size:11.5px;border-radius:12px;padding:2px 10px;border:1px solid var(--line)}
+  .pg-tot.ok{color:var(--good);border-color:var(--good)}
+  .pg-tot.warn{color:var(--warn);border-color:var(--warn)}
+  .pg-bal{font-size:11.5px;font-weight:700;letter-spacing:0;text-transform:none;color:var(--accent,#6aa8ff);cursor:pointer;border-bottom:1px dashed currentColor}
+  .pg-arow{display:flex;flex-wrap:wrap;gap:22px;align-items:flex-end}
+  .pg-stat{display:flex;flex-direction:column;gap:3px}
+  .pg-stat>label{font-size:10.5px;font-weight:700;letter-spacing:.05em;color:var(--muted);text-transform:uppercase}
+  .pg-stat>b{font-size:17px}
+  .pg-stat i{font-style:normal;font-size:11px}
+  .pg-ok{color:var(--good)} .pg-warn{color:var(--warn)}
+  .pg-src{font-size:11px;color:var(--muted);align-self:flex-end;padding-bottom:4px}
+  .pg-in{background:var(--panel);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:6px 8px;font:inherit;font-size:13px;width:66px;text-align:right}
+  .pg-in.wide{width:100%;min-width:110px;text-align:left}
+  .pg-in.big{width:120px;font-size:17px;font-weight:700;text-align:left}
+  .pg-tbl{width:100%;border-collapse:collapse;font-size:13px}
+  .pg-tbl th{font-size:10px;font-weight:800;letter-spacing:.06em;color:var(--muted);text-transform:uppercase;padding:6px 8px;border-bottom:1px solid var(--line);text-align:left}
+  .pg-tbl td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  .pg-tbl tr.on td{background:rgba(120,150,255,.06)}
+  .pg-ord{color:var(--muted);font-weight:800;width:28px}
+  .pg-vol{background:rgba(120,150,255,.05)}
+  .pg-dates{font-size:10.5px;color:var(--muted);margin-top:2px}
+  .pg-nm{font-size:10.5px;color:var(--muted);margin-top:3px}
+  .pg-cur{font-size:10.5px;font-weight:800;color:var(--good);text-transform:uppercase;letter-spacing:.05em}
+  .pg-pick{font-size:11.5px;color:var(--accent,#6aa8ff);cursor:pointer;border-bottom:1px dashed currentColor}
+  .pg-kind,.pg-sch{min-width:132px}
+  .pg-bad{display:block;font-size:10.5px;color:var(--bad);margin-top:3px}
+  .pg-exp{width:26px;text-align:center}
+  .pg-exp span{cursor:pointer;color:var(--muted);font-size:14px;user-select:none}
+  .pg-totrow td{border-top:2px solid var(--line);border-bottom:none;font-weight:800;color:var(--muted)}
+  .pg-det td{background:rgba(120,150,255,.04)}
+  .pg-wks{display:flex;flex-wrap:wrap;gap:10px;padding:4px 0}
+  .pg-wk{display:flex;flex-direction:column;gap:1px;align-items:center;border:1px solid var(--line);border-radius:9px;padding:7px 14px;min-width:74px}
+  .pg-wkn{font-size:10px;font-weight:800;color:var(--muted);letter-spacing:.06em}
+  .pg-wkp{font-size:10.5px;color:var(--muted)}
+  .pg-wk b{font-size:17px}
+  .pg-wku{font-size:9.5px;color:var(--muted)}
+  .pg-note{font-size:11px;color:var(--muted);padding:8px 2px 0}
+  .pg-empty{padding:14px 4px;color:var(--muted);font-size:13px}
+  @media(max-width:760px){ .pg-tbl{font-size:12px} .pg-tbl td,.pg-tbl th{padding:5px} .pg-kind,.pg-sch{min-width:104px} .pg-in{width:54px} }
 </style>
 </head>
 <body>
@@ -2179,6 +2226,7 @@ async function boot(){
   await probeCalx();
   await probePeRef();
   await loadPeRef();
+  await probePgPlan();
   await notifLoad();
   if(profile.role === 'coach') renderCoach();
   else if(athOnboardNeeded(profile)) renderOnboard();
@@ -8799,7 +8847,7 @@ async function renderConsole(){
     <div class="home-band" id="homeHost"></div>
     <div id="attnHost"></div>
     <div class="ctabs">
-      ${[['athletes','Athletes'],['programs','Active Programs'],['builder','Block Builder'],['templates','Template Library'],['teams','Teams'],['hub','Team Hub']].map(t=>`<button data-tab="${t[0]}" class="${conState.tab===t[0]?'on':''}" onclick="conTab('${t[0]}')">${t[1]}</button>`).join('')}
+      ${[['athletes','Athletes'],['programs','Active Programs'],['builder','Program Builder'],['templates','Template Library'],['teams','Teams'],['hub','Team Hub']].map(t=>`<button data-tab="${t[0]}" class="${conState.tab===t[0]?'on':''}" onclick="conTab('${t[0]}')">${t[1]}</button>`).join('')}
     </div>
     <div id="conBody"></div>`;
   renderConBody();
@@ -8817,7 +8865,7 @@ function renderConBody(){
   if(conState.tab==='templates') return renderTemplates(host);
   if(conState.tab==='teams') return (conState._teams===null) ? host.innerHTML=conSoon('Teams','group athletes to assign programs and compare at the group level','the teams table — run 13_teams.sql') : renderTeams(host);
   if(conState.tab==='programs') return renderPrograms(host);
-  if(conState.tab==='builder') return renderBlockBuilder(host);
+  if(conState.tab==='builder') return renderProgramBuilder(host);
   if(conState.tab==='hub') return renderHub(host);
 }
 /* ---- Surface A: roster "Needs attention" overview (Training Response across the roster) ---- */
@@ -12362,6 +12410,32 @@ function peClassProgressScore(tier, progress01){
   if(p<=0.10) return base-0.5;
   return base;
 }
+/* Where an athlete sits on the DEVELOPMENT ladder (PE_DEFAULTS.classRows), which is what
+   the readiness maths needs. Deliberately NOT the app's USAW A/B classification: A/B is a
+   two-tier senior ladder (age 29 -> only Senior B 343 / Senior A 361), so every athlete
+   under a 343 total falls off the bottom and abClassify's guardKey defaults to 'Class III'.
+   Scoring a 248-total Class I athlete as Class III would understate annual volume badly.
+   A/B stays the athlete-facing label everywhere; this drives volume only. See pgClassOf. */
+function peClassFromRows(sex, weightClass, total){
+  if(total==null||!sex) return { tier:null, progress:null, why:'needs sex and a total' };
+  const g=(sex==='F'||sex==='Female')?'Female':'Male';
+  const wc=String(weightClass==null?'':weightClass).match(/\d+(\.\d+)?/);
+  if(!wc) return { tier:null, progress:null, why:'no weight class' };
+  const rows=peClassRows().filter(r=>r.gender===g);
+  if(!rows.length) return { tier:null, progress:null, why:'no classification rows for '+g };
+  // nearest weight-class row at or above the athlete's class, else the heaviest
+  const num=(r)=>parseFloat(String(r.weightClass).match(/\d+(\.\d+)?/)[0]);
+  const want=parseFloat(wc[0]);
+  const row=rows.slice().sort((a,b)=>num(a)-num(b)).find(r=>num(r)>=want) || rows[rows.length-1];
+  const order=['Class III','Class II','Class I','CMS','MS','IMS'];
+  const th=order.map(k=>({k, v:row.totals[k]})).filter(x=>x.v!=null);
+  let i=-1; th.forEach((x,ix)=>{ if(total>=x.v) i=ix; });
+  if(i<0) return { tier:th[0].k, progress:0, below:true, row:row.weightClass,
+                   why:'below '+th[0].k+' ('+th[0].v+')' };
+  const cur=th[i], next=th[i+1]||null;
+  const progress = next ? Math.max(0,Math.min(1,(total-cur.v)/(next.v-cur.v))) : 1;
+  return { tier:cur.k, progress, nextTier:next?next.k:null, nextTotal:next?next.v:null, row:row.weightClass };
+}
 function peReadiness(a){
   const flags=peFlags();
   const tier=a.classTier||'Class III';
@@ -12790,6 +12864,227 @@ async function renderBlockBuilder(host){
     body=peFanOut(plan, athletes).map(r=>beBlockCard(r.athlete.full_name||'Athlete', r.block, r.athlete.id)).join('');
   }
   host.innerHTML=beStatusLine()+beControls()+body;
+}
+
+
+/* ==================================================================================
+   PROGRAM BUILDER — the volume-distribution tree (slices 1 + 2).
+   Mirrors Chris's "Annual Volume Distribution Tool":
+       annual -> macrocycles (share) -> mesocycles (phase, weeks, share) -> weeks
+   Reads and writes public.plan_phases — the SAME rows the Annual Plan uses. This
+   surface owns the volume columns (migration 58); the Annual Plan owns the dates.
+   ================================================================================== */
+
+let PGPLAN_READY=false;      // plan_phases volume columns + program_readiness (migration 58)
+async function probePgPlan(){ try{ const {error}=await sb.from('plan_phases').select('volume_share').limit(1); PGPLAN_READY=!error; }catch(e){ PGPLAN_READY=false; } }
+
+const PG_KINDS=['exposure','comprehension','ascension','summit','realization','transition'];
+const PG_KIND_LBL={exposure:'Exposure',comprehension:'Comprehension',ascension:'Ascension',summit:'Summit',realization:'Realization',transition:'Transition'};
+
+let pgState={ athleteId:null, macroId:null, loaded:false, phases:[], readiness:null, profile:null,
+              annual:null, annualEdit:null, maxes:{}, maxRows:[], busy:false, open:{}, msg:'' };
+
+/* ---------- load ---------- */
+async function pgLoad(){
+  await ensureDashRoster();
+  const A=pgState.athleteId; pgState.phases=[]; pgState.readiness=null; pgState.maxes={};
+  if(A){
+    const ph=await sb.from('plan_phases').select('*').eq('athlete_id',A).order('sort_order').order('start_date');
+    pgState.phases=(ph.error?[]:(ph.data||[]));
+    const rd=await sb.from('program_readiness').select('*').eq('athlete_id',A).order('answered_at',{ascending:false}).limit(1);
+    pgState.readiness=(rd.error||!rd.data||!rd.data.length)?null:rd.data[0];
+    const mx=await sb.from('maxes').select('lift,kg,tested_at').eq('athlete_id',A);
+    pgState.maxRows=mx.error?[]:(mx.data||[]);
+    pgState.maxes=peMaxMap(pgState.maxRows);
+    const pr=await sb.from('profiles').select('*').eq('id',A).maybeSingle();
+    pgState.profile=(pr.error||!pr.data)?null:pr.data;
+  }
+  pgState.loaded=true;
+}
+function pgAth(){ return (coachState.athletes||[]).find(a=>a.id===pgState.athleteId)||null; }
+const pgMacros=()=>pgState.phases.filter(p=>(p.level||'meso')==='phase').sort((a,b)=>(a.sort_order-b.sort_order)||String(a.start_date).localeCompare(String(b.start_date)));
+function pgCurMacro(){ const m=pgMacros(); return m.find(x=>x.id===pgState.macroId)||m[0]||null; }
+// mesos belong to a macro by parent_id; rows written by the older Annual Plan have no
+// parent, so fall back to date containment rather than hiding them.
+function pgMesos(macro){
+  const all=pgState.phases.filter(p=>(p.level||'meso')==='meso');
+  if(!macro) return all.sort(pgBySort);
+  return all.filter(p=> p.parent_id ? p.parent_id===macro.id
+      : (p.start_date>=macro.start_date && p.start_date<=macro.end_date)).sort(pgBySort);
+}
+function pgBySort(a,b){ return (a.sort_order-b.sort_order)||String(a.start_date).localeCompare(String(b.start_date)); }
+function pgWeeks(p){ if(!p||!p.start_date||!p.end_date) return 0;
+  return Math.max(1, Math.round((new Date(p.end_date+'T00:00:00')-new Date(p.start_date+'T00:00:00'))/(7*864e5))+ (0)) || 1; }
+
+/* ---------- annual volume ---------- */
+function pgAnnual(){
+  if(pgState.annualEdit!=null) return pgState.annualEdit;
+  const r=pgState.readiness;
+  if(r && r.annual_override!=null) return +r.annual_override;
+  if(r && r.answers && Object.keys(r.answers).length){
+    const cls=pgClassOf(), prof=pgState.profile||{};
+    if(!cls.tier) return null;                       // never guess a class -> never guess a volume
+    const rd=peReadiness(Object.assign({}, r.answers,
+      { classTier:cls.tier, progressIntoClass:cls.progress, sex:prof.sex,
+        age:pgAge(), experience:prof.experience }));
+    return rd.annualVolume;
+  }
+  return null;
+}
+// Classification comes from the app's LIVE engine (Chris, 2026-08-25), NOT the JSON
+// classRows. Assembled exactly the way renderAthDash does it (index.html ~6683) so the
+// Program Builder can never disagree with the athlete's own dashboard.
+function pgClassOf(){
+  const prof=pgState.profile; if(!prof) return { tier:null, progress:null, label:null, why:'no profile' };
+  const sex=prof.sex;
+  const totM=totalFromMaxes(pgState.maxRows||[]);
+  const wcN=(prof.weight_class!=null)?parseFloat((String(prof.weight_class).match(/\d+(\.\d+)?/)||[])[0]):NaN;
+  const clsBw=(!isNaN(wcN)&&wcN>0)?wcN:null;
+  if(!sex) return { tier:null, progress:null, label:null, why:'no sex on profile' };
+  if(clsBw==null) return { tier:null, progress:null, label:null, why:'no weight class' };
+  if(!totM||!totM.hasBoth) return { tier:null, progress:null, label:null, why:'needs both Snatch and C&J maxes' };
+  const fed=prof.federation||'USAW', ver=fed==='WCH'?'wch-canada-2026':null;
+  const by=prof.birthdate?parseInt(String(prof.birthdate).slice(0,4),10):null;
+  let c=null; try{ c=classify(sex, clsBw, totM.total, ver, qtCompAge(prof.birthdate), by); }catch(e){}
+  // A/B (or WCH) is the athlete-facing LABEL. It is not usable for volume: its senior ladder
+  // starts at a 343 total, so c.rank is null for most of the roster and guardKey silently
+  // falls back to 'Class III'. Volume therefore comes from the development ladder instead.
+  const dev=peClassFromRows(sex, clsBw, totM.total);
+  return { tier:dev.tier, progress:dev.progress, below:dev.below, devWhy:dev.why,
+           nextTier:dev.nextTier, nextTotal:dev.nextTotal,
+           label:(c&&c.rank)||null, abBelow:!!(c&&!c.rank), total:totM.total,
+           why:dev.tier?null:(dev.why||'classification unavailable') };
+}
+function pgAge(){ const b=pgState.profile&&pgState.profile.birthdate; if(!b) return null;
+  try{ return qtCompAge(b); }catch(e){ return null; } }
+
+/* ---------- writes (volume columns only — never the Annual Plan's dates) ---------- */
+async function pgSave(id, patch){
+  if(!PGPLAN_READY){ pgState.msg='Run migration 58 to save volume numbers.'; renderConBody(); return; }
+  const row=pgState.phases.find(p=>p.id===id); if(row) Object.assign(row,patch);   // optimistic
+  renderConBody();
+  const r=await sb.from('plan_phases').update(patch).eq('id',id).select('id');
+  if(r.error){ pgState.msg='Save failed — '+r.error.message; renderConBody(); }
+}
+window.pgSetShare=(id,v)=>{ const n=parseFloat(v); pgSave(id,{volume_share:isNaN(n)?null:n/100}); };
+window.pgSetGoal =(id,v)=>pgSave(id,{goal:v||null});
+window.pgSetKind =(id,v)=>pgSave(id,{kind:v});
+window.pgSetScheme=(id,v)=>pgSave(id,{scheme_key:v||null});
+window.pgPickAth=(id)=>{ pgState.athleteId=id; pgState.macroId=null; pgState.loaded=false; pgState.annualEdit=null; renderConBody(); };
+window.pgPickMacro=(id)=>{ pgState.macroId=id; renderConBody(); };
+window.pgSetAnnual=(v)=>{ const n=parseFloat(v); pgState.annualEdit=isNaN(n)?null:n; renderConBody(); };
+window.pgToggle=(id)=>{ pgState.open[id]=!pgState.open[id]; renderConBody(); };
+window.pgBalance=async(macroId)=>{
+  const ms=pgMesos(pgState.phases.find(p=>p.id===macroId));
+  const pinned=ms.filter(m=>m.volume_share!=null), free=ms.filter(m=>m.volume_share==null);
+  if(!free.length){ pgState.msg='Every mesocycle already has a share — clear one to balance into it.'; renderConBody(); return; }
+  const used=pinned.reduce((s,m)=>s+(+m.volume_share||0),0), each=Math.max(0,(1-used))/free.length;
+  for(const m of free) await pgSave(m.id,{volume_share:each});
+};
+
+/* ---------- render ---------- */
+function pgNum(n,d){ return n==null?'—':(+n).toFixed(d==null?0:d); }
+function pgTotalsBar(items, label){
+  const sum=items.reduce((s,m)=>s+(+m.volume_share||0),0);
+  const pct=sum*100, ok=Math.abs(pct-100)<0.5;
+  return { sum, pct, ok, html:`<span class="pg-tot ${ok?'ok':'warn'}">${label} ${pct.toFixed(0)}%${ok?' ✓':' ⚠ should be 100%'}</span>` };
+}
+function pgMesoRow(m, macroVol, idx){
+  const wks=pgWeeks(m), share=m.volume_share, vol=(macroVol!=null&&share!=null)?macroVol*share:null;
+  const scheme=peSchemes().find(s=>s.key===m.scheme_key);
+  const fits=scheme?scheme.weeks===wks:null;
+  const schemeOpts=peSchemes().filter(s=>s.weeks===wks);
+  const open=!!pgState.open[m.id];
+  let detail='';
+  if(open){
+    if(!scheme) detail=`<tr class="pg-det"><td colspan="8"><div class="pg-empty">Pick a ${wks}-week loading scheme to split this mesocycle across its weeks.</div></td></tr>`;
+    else if(vol==null) detail=`<tr class="pg-det"><td colspan="8"><div class="pg-empty">Set a volume share to see the weekly split.</div></td></tr>`;
+    else {
+      const wk=scheme.split.map((s,i)=>`<div class="pg-wk"><span class="pg-wkn">W${i+1}</span><span class="pg-wkp">${(s*100).toFixed(0)}%</span><b>${Math.round(vol*s)}</b><span class="pg-wku">reps</span></div>`).join('');
+      detail=`<tr class="pg-det"><td colspan="8"><div class="pg-wks">${wk}</div>
+        <div class="pg-note">Whole-program reps for this week — every exercise, not one lift. Intensity bands come in the next slice.</div></td></tr>`;
+    }
+  }
+  return `<tr class="pg-mrow">
+    <td class="pg-ord">${idx+1}</td>
+    <td><select class="cw-sel pg-kind" onchange="pgSetKind('${m.id}',this.value)">${PG_KINDS.map(k=>`<option value="${k}"${(m.kind||'comprehension')===k?' selected':''}>${PG_KIND_LBL[k]}</option>`).join('')}</select>
+        <div class="pg-nm">${esc(m.name||'')}</div></td>
+    <td class="tnum">${wks}</td>
+    <td><input class="pg-in" type="number" step="1" min="0" max="100" value="${share!=null?+(share*100).toFixed(0):''}" placeholder="—" onchange="pgSetShare('${m.id}',this.value)"></td>
+    <td class="tnum pg-vol"><b>${vol==null?'—':Math.round(vol)}</b></td>
+    <td class="tnum">${vol==null||!wks?'—':Math.round(vol/wks)}</td>
+    <td><select class="cw-sel pg-sch" onchange="pgSetScheme('${m.id}',this.value)">
+        <option value="">— scheme —</option>${schemeOpts.map(s=>`<option value="${esc(s.key)}"${m.scheme_key===s.key?' selected':''}>${esc(s.key)}</option>`).join('')}</select>
+        ${(m.scheme_key&&fits===false)?`<span class="pg-bad" title="That scheme is not ${wks} weeks long">✕ ${wks}wk?</span>`:''}</td>
+    <td><input class="pg-in wide" type="text" value="${esc(m.goal||'')}" placeholder="goal…" onchange="pgSetGoal('${m.id}',this.value)"></td>
+    <td class="pg-exp"><span onclick="pgToggle('${m.id}')" title="Weekly split">${open?'▾':'▸'}</span></td>
+  </tr>${detail}`;
+}
+
+async function renderProgramBuilder(host){
+  if(!pgState.athleteId && (coachState.athletes||[]).length) pgState.athleteId=coachState.athletes[0].id;
+  if(!pgState.loaded){ host.innerHTML='<div class="card"><div class="spin" style="padding:14px">loading plan…</div></div>'; await pgLoad(); }
+  const a=pgAth(), annual=pgAnnual(), macros=pgMacros(), macro=pgCurMacro();
+  const cls=pgClassOf();
+  const bench=annual!=null&&cls.tier?peBenchmarkCheck(cls.tier,annual):null;
+
+  const head=`<div class="pg-head">
+    <span class="be-f"><label>Athlete</label><select class="cw-sel" onchange="pgPickAth(this.value)">${(coachState.athletes||[]).map(x=>`<option value="${x.id}"${pgState.athleteId===x.id?' selected':''}>${esc(x.full_name)}</option>`).join('')||'<option>no athletes</option>'}</select></span>
+    ${cls.label?`<span class="pg-cls" title="USAW A/B — the athlete-facing classification">${esc(cls.label)}</span>`:''}
+    ${cls.tier?`<span class="pg-cls" title="Development ladder — this is what drives annual volume${cls.nextTier?`. Next: ${esc(cls.nextTier)} at ${cls.nextTotal}kg`:''}">${esc(cls.tier)}${cls.progress!=null?` · ${Math.round(cls.progress*100)}%`:''}${cls.below?' (below)':''}</span>`
+       :`<span class="pg-flag warn" title="Readiness cannot score without a classification">no class — ${esc(cls.why||'')}</span>`}
+    ${cls.abBelow&&cls.tier?`<span class="pg-flag warn" title="USAW A/B's senior ladder starts at a 343 total, so it can't rank this athlete. Volume uses the development ladder instead.">A/B: below senior ladder</span>`:''}
+    <span class="pg-flag ${PGPLAN_READY?'ok':'warn'}">${PGPLAN_READY?'plan columns live':'run migration 58 to save'}</span>
+    ${pgState.msg?`<span class="pg-flag warn">${esc(pgState.msg)}</span>`:''}</div>`;
+
+  const annualCard=`<div class="card pg-annual">
+    <div class="pg-sec">Annual</div>
+    <div class="pg-arow">
+      <span class="be-f"><label>Annual reps</label><input class="pg-in big" type="number" step="1" value="${annual!=null?annual:''}" placeholder="—" onchange="pgSetAnnual(this.value)"></span>
+      <span class="pg-stat"><label>avg / week</label><b>${annual!=null?Math.round(annual/52):'—'}</b></span>
+      ${bench?`<span class="pg-stat"><label>${esc(cls.tier)} benchmark</label><b>${esc(bench.band)}</b>
+        <i class="pg-${bench.status==='inside'?'ok':'warn'}">${bench.status==='inside'?'inside':(bench.status==='over'?((bench.pctOfHigh-1)*100).toFixed(0)+'% over':'under')}</i></span>`:''}
+      <span class="pg-src">${pgState.annualEdit!=null?'typed (unsaved)':(pgState.readiness?(pgState.readiness.annual_override!=null?'coach override':'from readiness answers'):'no readiness yet — type it')}</span>
+    </div></div>`;
+
+  let macroCard;
+  if(!macros.length){
+    macroCard=`<div class="card"><div class="pg-sec">Macrocycles</div>
+      <div class="pg-empty">No macrocycles on ${esc((a&&a.full_name)||'this athlete')}'s plan yet. Build the phase bands on the <b>Annual Plan</b> (it owns the dates), then set their volume shares here.</div></div>`;
+  } else {
+    const t=pgTotalsBar(macros,'Total');
+    macroCard=`<div class="card"><div class="pg-sec">Macrocycles <span class="pg-subtle">${macros.length} this year</span> ${t.html}</div>
+      <table class="pg-tbl"><thead><tr><th>#</th><th>Macrocycle</th><th>Vol %</th><th class="tnum">Volume</th><th></th></tr></thead><tbody>
+      ${macros.map((m,i)=>{ const v=(annual!=null&&m.volume_share!=null)?annual*m.volume_share:null;
+        return `<tr class="${macro&&macro.id===m.id?'on':''}">
+          <td class="pg-ord">${i+1}</td>
+          <td>${esc(m.name||PG_KIND_LBL[m.kind]||'Macro')}<div class="pg-dates">${esc(m.start_date)} → ${esc(m.end_date)}</div></td>
+          <td><input class="pg-in" type="number" step="1" min="0" max="100" value="${m.volume_share!=null?+(m.volume_share*100).toFixed(0):''}" placeholder="—" onchange="pgSetShare('${m.id}',this.value)"></td>
+          <td class="tnum pg-vol"><b>${v==null?'—':Math.round(v)}</b></td>
+          <td>${macro&&macro.id===m.id?'<span class="pg-cur">current</span>':`<span class="pg-pick" onclick="pgPickMacro('${m.id}')">view</span>`}</td></tr>`; }).join('')}
+      </tbody></table></div>`;
+  }
+
+  let mesoCard='';
+  if(macro){
+    const ms=pgMesos(macro);
+    const macroVol=(annual!=null&&macro.volume_share!=null)?annual*macro.volume_share:null;
+    const t=pgTotalsBar(ms,'Total');
+    const wkSum=ms.reduce((s,m)=>s+pgWeeks(m),0);
+    mesoCard=`<div class="card"><div class="pg-sec">Mesocycles — ${esc(macro.name||'Macro')}
+        <span class="pg-subtle">${ms.length} blocks · ${wkSum} wks · ${macroVol==null?'—':Math.round(macroVol)+' reps'}</span>
+        ${t.html}${!t.ok&&ms.length?`<span class="pg-bal" onclick="pgBalance('${macro.id}')" title="Spread the remainder across mesocycles with no share set">balance →</span>`:''}</div>
+      ${ms.length?`<table class="pg-tbl pg-meso"><thead><tr>
+          <th>#</th><th>Phase</th><th>Wks</th><th>Vol %</th><th class="tnum">Volume</th><th class="tnum">Avg/wk</th><th>Loading scheme</th><th>Goal</th><th></th>
+        </tr></thead><tbody>${ms.map((m,i)=>pgMesoRow(m,macroVol,i)).join('')}
+        <tr class="pg-totrow"><td></td><td>Totals</td><td class="tnum">${wkSum}</td><td class="tnum">${(t.pct).toFixed(0)}%</td>
+          <td class="tnum"><b>${macroVol==null?'—':Math.round(macroVol*t.sum)}</b></td><td colspan="4"></td></tr>
+        </tbody></table>`
+        :`<div class="pg-empty">No mesocycles inside this macrocycle. Add the blocks on the <b>Annual Plan</b>, then distribute volume here.</div>`}
+      <div class="pg-note">Volume shares warn but never block — a plan is normally half-filled while you're working on it.</div>
+    </div>`;
+  }
+  host.innerHTML=head+annualCard+macroCard+mesoCard;
 }
 
 /* ---------------- methodology engine (methodology-spec §3) ---------------- */
