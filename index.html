@@ -2152,6 +2152,8 @@
   .pg-note{font-size:11px;color:var(--muted);padding:8px 2px 0}
   .pg-empty{padding:14px 4px;color:var(--muted);font-size:13px}
   @media(max-width:760px){ .pg-tbl{font-size:12px} .pg-tbl td,.pg-tbl th{padding:5px} .pg-kind,.pg-sch{min-width:104px} .pg-in{width:54px} }
+  /* the block NAME distinguishes rows that share a kind (Ascension / Ascension I / II) */
+  .pg-nmMain{font-weight:700;font-size:13px;margin-bottom:5px}
 </style>
 </head>
 <body>
@@ -12925,8 +12927,18 @@ async function pgLoad(){
   await ensureDashRoster();
   const A=pgState.athleteId; pgState.phases=[]; pgState.readiness=null; pgState.maxes={};
   if(A){
-    const ph=await sb.from('plan_phases').select('*').eq('athlete_id',A).order('sort_order').order('start_date');
-    pgState.phases=(ph.error?[]:(ph.data||[]));
+    // Phases are NOT simply `athlete_id = A`. A plan reaches an athlete four ways: their own
+    // athlete_id rows, plans assigned to them, plans assigned to their team, and legacy
+    // gym/team-wide bands (no plan_id, no athlete_id) -- which is how most of the real plans
+    // are stored. Filtering on athlete_id alone reported "no macrocycles" for athletes with a
+    // full plan on screen. Reuse the Annual Plan's own resolver instead of re-deriving it;
+    // borrow planState.athleteId for the call and put it back so the Annual Plan is untouched.
+    await loadPlan();
+    const _sa=planState.athleteId, _sp=planState.planId;
+    planState.athleteId=A; planState.planId='';
+    try{ pgState.phases=planScopedPhases().slice().sort(pgBySort); }
+    catch(e){ pgState.phases=[]; }
+    planState.athleteId=_sa; planState.planId=_sp;
     const rd=await sb.from('program_readiness').select('*').eq('athlete_id',A).order('answered_at',{ascending:false}).limit(1);
     pgState.readiness=(rd.error||!rd.data||!rd.data.length)?null:rd.data[0];
     const mx=await sb.from('maxes').select('lift,kg,tested_at').eq('athlete_id',A);
@@ -12938,7 +12950,16 @@ async function pgLoad(){
   pgState.loaded=true;
 }
 function pgAth(){ return (coachState.athletes||[]).find(a=>a.id===pgState.athleteId)||null; }
-const pgMacros=()=>pgState.phases.filter(p=>(p.level||'meso')==='phase').sort((a,b)=>(a.sort_order-b.sort_order)||String(a.start_date).localeCompare(String(b.start_date)));
+function pgMacros(){
+  const real=pgState.phases.filter(p=>(p.level||'meso')==='phase').sort(pgBySort);
+  if(real.length) return real;
+  // Some plans are drawn with mesocycles only (no top band). Rather than report "no
+  // macrocycles" at an athlete who plainly has a plan, span one implicit macro across them.
+  const ms=pgState.phases.filter(p=>(p.level||'meso')==='meso').sort(pgBySort);
+  if(!ms.length) return [];
+  return [{ id:'__all', name:'Full plan', level:'phase', kind:'comprehension', volume_share:1,
+            start_date:ms[0].start_date, end_date:ms.map(m=>m.end_date).sort().pop(), _synthetic:true }];
+}
 function pgCurMacro(){ const m=pgMacros(); return m.find(x=>x.id===pgState.macroId)||m[0]||null; }
 // mesos belong to a macro by parent_id; rows written by the older Annual Plan have no
 // parent, so fall back to date containment rather than hiding them.
@@ -12996,6 +13017,7 @@ function pgAge(){ const b=pgState.profile&&pgState.profile.birthdate; if(!b) ret
 
 /* ---------- writes (volume columns only — never the Annual Plan's dates) ---------- */
 async function pgSave(id, patch){
+  if(id==='__all'){ pgState.msg='This plan has no macrocycle band to hang volume on — add one on the Annual Plan.'; renderConBody(); return; }
   if(!PGPLAN_READY){ pgState.msg='Run migration 58 to save volume numbers.'; renderConBody(); return; }
   const row=pgState.phases.find(p=>p.id===id); if(row) Object.assign(row,patch);   // optimistic
   renderConBody();
@@ -13043,8 +13065,8 @@ function pgMesoRow(m, macroVol, idx){
   }
   return `<tr class="pg-mrow">
     <td class="pg-ord">${idx+1}</td>
-    <td><select class="cw-sel pg-kind" onchange="pgSetKind('${m.id}',this.value)">${PG_KINDS.map(k=>`<option value="${k}"${(m.kind||'comprehension')===k?' selected':''}>${PG_KIND_LBL[k]}</option>`).join('')}</select>
-        <div class="pg-nm">${esc(m.name||'')}</div></td>
+    <td><div class="pg-nmMain">${esc(m.name||PG_KIND_LBL[m.kind]||'Block')}</div>
+        <select class="cw-sel pg-kind" onchange="pgSetKind('${m.id}',this.value)">${PG_KINDS.map(k=>`<option value="${k}"${(m.kind||'comprehension')===k?' selected':''}>${PG_KIND_LBL[k]}</option>`).join('')}</select></td>
     <td class="tnum">${wks}</td>
     <td><input class="pg-in" type="number" step="1" min="0" max="100" value="${share!=null?+(share*100).toFixed(0):''}" placeholder="—" onchange="pgSetShare('${m.id}',this.value)"></td>
     <td class="tnum pg-vol"><b>${vol==null?'—':Math.round(vol)}</b></td>
