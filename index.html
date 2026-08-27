@@ -2227,6 +2227,7 @@ async function boot(){
   await probePeRef();
   await loadPeRef();
   await probePgPlan();
+  await probeMaxHist();
   await notifLoad();
   if(profile.role === 'coach') renderCoach();
   else if(athOnboardNeeded(profile)) renderOnboard();
@@ -2374,7 +2375,7 @@ window.obSave=async()=>{
     const mUp=[]; const addMax=(lift,val)=>{ const v=numv(val); if(v!=null) mUp.push({gym_id:me_.gym_id,athlete_id:me_.id,lift,kg:v,tested_at:iso(new Date())}); };
     addMax('Snatch',g('obSn')); addMax('Clean & Jerk',g('obCj'));
     OB_STR.forEach((lift,i)=>addMax(lift,g('obS'+i)));
-    if(mUp.length){ const r=await sb.from('maxes').upsert(mUp,{onConflict:'athlete_id,lift'}); if(r.error) throw r.error; }
+    if(mUp.length){ const r=await sb.from('maxes').upsert(mUp,{onConflict:'athlete_id,lift'}); if(r.error) throw r.error; logMaxTests(mUp,'athlete'); }
     // rep maxes
     const rUp=[]; OB_REP.forEach(lift=>OB_REPN.forEach(r=>{ const v=numv(g('obR_'+lift.replace(/\W/g,'')+'_'+r)); if(v!=null) rUp.push({gym_id:me_.gym_id,athlete_id:me_.id,lift,reps:r,kg:v,tested_at:iso(new Date())}); }));
     if(rUp.length){ const r=await sb.from('rep_maxes').upsert(rUp,{onConflict:'athlete_id,lift,reps'}); if(r.error) throw r.error; }
@@ -6452,10 +6453,44 @@ window.addRepMaxMove=()=>{
     <div class="bf-row" style="margin-top:10px;gap:10px"><select id="rmAddSel" class="cw-sel" style="min-width:200px">${pool.map(l=>`<option>${esc(l)}</option>`).join('')}</select><button class="btn" onclick="addRepMaxMoveGo()">Add</button></div>`);
 };
 window.addRepMaxMoveGo=()=>{ const l=(document.getElementById('rmAddSel')||{}).value; if(l){ dashState.rmExtra=dashState.rmExtra||[]; if(!dashState.rmExtra.includes(l)) dashState.rmExtra.push(l); } const m=document.getElementById('rmAddModal'); if(m) m.style.display='none'; renderAthDash(); };
+
+/* ---- tested-max HISTORY (migration 57) ----------------------------------------
+   public.maxes is unique(athlete_id, lift) so it OVERWRITES on retest; max_tests is the
+   append-only log that retest recalculation and (later) learned per-athlete ratios need.
+   Every place that writes a max calls this afterwards. Deliberately:
+     * never throws — a history write must not be able to fail a coach's save
+     * de-duplicates against the latest logged row per lift, because the profile batch-save
+       rewrites EVERY buffered max on every save; without this, one click would append a
+       full set of identical history rows.                                                */
+let MAXHIST_READY=false;
+async function probeMaxHist(){ try{ const {error}=await sb.from('max_tests').select('id').limit(1); MAXHIST_READY=!error; }catch(e){ MAXHIST_READY=false; } }
+async function logMaxTests(rows, source){
+  try{
+    if(!MAXHIST_READY || !rows || !rows.length) return;
+    const clean=rows.filter(r=>r && r.lift && r.kg!=null && !isNaN(+r.kg));
+    if(!clean.length) return;
+    const athId=clean[0].athlete_id, lifts=[...new Set(clean.map(r=>r.lift))];
+    // created_at is the TIEBREAK, and it is load-bearing: two rows can share a tested_at
+    // (change a max and save twice in one day). Ordering by date alone leaves the winner
+    // arbitrary in Postgres, so the stale row could win and the dedupe below would miss --
+    // logging a duplicate on every re-save, which is exactly what this guard exists to stop.
+    const { data: prev } = await sb.from('max_tests').select('lift,kg,tested_at,created_at')
+      .eq('athlete_id',athId).in('lift',lifts)
+      .order('tested_at',{ascending:false}).order('created_at',{ascending:false});
+    const latest={}; (prev||[]).forEach(p=>{ if(!latest[p.lift]) latest[p.lift]=p; });
+    const today=iso(new Date());
+    const ins=clean.map(r=>({ gym_id:r.gym_id, athlete_id:r.athlete_id, lift:r.lift, kg:+r.kg,
+                              tested_at:r.tested_at||today, source:source||'coach' }))
+      .filter(r=>{ const p=latest[r.lift]; return !(p && +p.kg===r.kg && String(p.tested_at)===String(r.tested_at)); });
+    if(ins.length) await sb.from('max_tests').insert(ins);
+  }catch(e){ /* history is best-effort; never surface over the real save */ }
+}
 window.saveMax=async(athId,lift,val)=>{
   const v=parseFloat(val);
   if(isNaN(v)){ await sb.from('maxes').delete().eq('athlete_id',athId).eq('lift',lift); renderAthDash(); return; }
-  await sb.from('maxes').upsert({gym_id:me_.gym_id,athlete_id:athId,lift,kg:v,tested_at:iso(new Date())},{onConflict:'athlete_id,lift'});
+  const _mx={gym_id:me_.gym_id,athlete_id:athId,lift,kg:v,tested_at:iso(new Date())};
+  await sb.from('maxes').upsert(_mx,{onConflict:'athlete_id,lift'});
+  logMaxTests([_mx],'coach');
   renderAthDash();
 };
 /* ---- Athlete Profile: buffer all max / rep-max edits, commit with ONE batch Save (no per-cell reload) ---- */
@@ -6482,7 +6517,7 @@ window.pfSaveChanges=async()=>{
     const now=iso(new Date());
     const mUp=[], mDel=[];
     Object.keys(b.maxes).forEach(lift=>{ const v=b.maxes[lift]; if(v==null) mDel.push(lift); else mUp.push({gym_id:me_.gym_id,athlete_id:athId,lift,kg:v,tested_at:now}); });
-    if(mUp.length){ const r=await sb.from('maxes').upsert(mUp,{onConflict:'athlete_id,lift'}); if(r.error) throw r.error; }
+    if(mUp.length){ const r=await sb.from('maxes').upsert(mUp,{onConflict:'athlete_id,lift'}); if(r.error) throw r.error; logMaxTests(mUp,'coach'); }
     if(mDel.length){ const r=await sb.from('maxes').delete().eq('athlete_id',athId).in('lift',mDel); if(r.error) throw r.error; }
     const rUp=[], rDel=[];
     Object.keys(b.reps).forEach(key=>{ const p=key.split(PF_SEP), lift=p[0], reps=parseInt(p[1]); const v=b.reps[key];
@@ -6588,6 +6623,7 @@ window.saveClassInputs=async(athId)=>{
   if(pu.error){ if(msg){ msg.style.color='var(--bad)'; msg.textContent='Save failed — '+pu.error.message; } return; }
   for(const u of [ !isNaN(sn)?{gym_id:me_.gym_id,athlete_id:athId,lift:'Snatch',kg:sn}:null, !isNaN(cj)?{gym_id:me_.gym_id,athlete_id:athId,lift:'Clean & Jerk',kg:cj}:null ].filter(Boolean)){
     const r=await sb.from('maxes').upsert(u,{onConflict:'athlete_id,lift'}); if(r.error){ if(msg){ msg.style.color='var(--bad)'; msg.textContent='Maxes failed — '+r.error.message; } return; }
+    logMaxTests([u],'coach');
   }
   renderAthDash();
 };
