@@ -2192,6 +2192,8 @@
   .pg-mrow.locked input,.pg-mrow.locked select{opacity:.5}
   .act-lnk{background:none;border:none;color:var(--accent);font:inherit;font-size:12px;font-weight:600;
     cursor:pointer;border-bottom:1px dashed currentColor;padding:0}
+  .pg-hand{font-size:10px;color:var(--good);margin-top:3px}
+  .pg-hand span{color:var(--muted);cursor:pointer;border-bottom:1px dashed currentColor;margin-left:5px}
 </style>
 </head>
 <body>
@@ -13002,81 +13004,248 @@ function pgSchemeOf(m){ const all=peSchemes().filter(s=>s.weeks===pgWeeks(m));
   return all.find(s=>s.key===m.scheme_key)||null; }
 function pgPatternOf(m){ const w=pgWeeks(m), all=pePatterns().filter(p=>p.offsets.length===w);
   return all.find(p=>p.key===m.pattern_key)||all[0]||null; }
-/* every week of the current macro, with its volume and the tier the pattern produces */
-function pgWeekRows(macro){
+/* ---------- the shape of a block: split + per-week tier ---------- */
+// custom hand-drawn split wins, then the named scheme, then even
+function pgSplit(m){
+  const wk=pgWeeks(m);
+  const ws=m.week_split;
+  if(Array.isArray(ws) && ws.length===wk && ws.every(x=>typeof x==='number')) return ws.slice();
+  const sc=pgSchemeOf(m); if(sc && sc.split.length===wk) return sc.split.slice();
+  return Array.from({length:wk},()=>1/wk);
+}
+// per-week RI rank: the loading pattern, with any week the coach dragged pinned over it
+function pgRanks(m){
+  const wk=pgWeeks(m), pat=pgPatternOf(m), peak=peTierRank(m.peak_tier||'Very Heavy');
+  const pin=Array.isArray(m.week_tiers)?m.week_tiers:[];
+  return Array.from({length:wk},(_,i)=>{
+    if(pin[i]!=null) return pin[i];
+    return (peak!=null&&pat)?Math.min(8,peak+(pat.offsets[i]||0)):null;
+  });
+}
+function pgHasShape(m){ return Array.isArray(m.week_split)||(Array.isArray(m.week_tiers)&&m.week_tiers.some(x=>x!=null)); }
+
+/* ---------- the WHOLE YEAR, not one macrocycle ---------- */
+function pgWeekRows(){
   const out=[], annual=pgAnnual();
-  const macroVol=(annual!=null&&macro&&macro.volume_share!=null)?annual*macro.volume_share:null;
-  pgMesos(macro).forEach(m=>{
-    const wk=pgWeeks(m), sc=pgSchemeOf(m), pat=pgPatternOf(m);
-    const vol=(macroVol!=null&&m.volume_share!=null)?macroVol*m.volume_share:null;
-    const split=sc?sc.split:Array.from({length:wk},()=>1/wk);
-    const peak=peTierRank(m.peak_tier||'Very Heavy');
-    for(let i=0;i<wk;i++){
-      const rank=(peak!=null&&pat)?Math.min(8,peak+(pat.offsets[i]||0)):null;
-      const row=rank!=null?peRiRow(rank):null;
-      out.push({ meso:m, wk:i+1, of:wk, reps:vol!=null?vol*split[i]:null,
-                 share:split[i], tier:row?row.tier:null, rank, evenSplit:!sc });
-    }
+  pgMacros().forEach(mac=>{
+    const macroVol=(annual!=null&&mac.volume_share!=null)?annual*mac.volume_share:null;
+    pgMesos(mac).forEach(m=>{
+      const wk=pgWeeks(m), split=pgSplit(m), ranks=pgRanks(m), sc=pgSchemeOf(m);
+      const vol=(macroVol!=null&&m.volume_share!=null)?macroVol*m.volume_share:null;
+      for(let i=0;i<wk;i++) out.push({ macro:mac, meso:m, wk:i+1, of:wk,
+        reps:vol!=null?vol*split[i]:null, share:split[i], rank:ranks[i],
+        tier:ranks[i]!=null?(peRiRow(ranks[i])||{}).tier:null,
+        custom:Array.isArray(m.week_split), evenSplit:!sc&&!Array.isArray(m.week_split) });
+    });
   });
   return out;
 }
+function pgYearStats(){
+  const ws=pgWeekRows(), annual=pgAnnual();
+  const placed=ws.reduce((s,w)=>s+(w.reps||0),0);
+  return { weeks:ws.length, placed, annual,
+           unplaced:(annual!=null?annual-placed:null),
+           pct:(annual?placed/annual:null) };
+}
+
+/* ---------- length: weeks here, dates follow (Chris 2026-08-25) ---------- */
+// Blocks run back to back. Changing one block's week count moves every block after it
+// and stretches its macrocycle, then shifts later macrocycles. Dates are still the
+// Annual Plan's vocabulary -- this just writes them from a week count, because how long
+// a block runs is a volume decision and belongs next to the volume.
+function pgAddDays(iso_, n){ const d=new Date(iso_+'T00:00:00'); d.setDate(d.getDate()+n); return iso(d); }
+function pgRelayoutPlan(){
+  const macros=pgMacros().filter(m=>!m._synthetic);
+  const edits=[];
+  let cursor=null;
+  macros.forEach(mac=>{
+    const start=cursor||mac.start_date;
+    let c=start;
+    const ms=pgMesos(mac);
+    ms.forEach(m=>{
+      const wk=Math.max(1,pgWeeks(m));
+      const s=c, e=pgAddDays(c, wk*7-1);
+      if(m.start_date!==s||m.end_date!==e) edits.push({row:m, patch:{start_date:s,end_date:e}});
+      c=pgAddDays(e,1);
+    });
+    const macEnd=ms.length?pgAddDays(c,-1):mac.end_date;
+    if(mac.start_date!==start||mac.end_date!==macEnd) edits.push({row:mac, patch:{start_date:start,end_date:macEnd}});
+    cursor=pgAddDays(macEnd,1);
+  });
+  return edits;
+}
+window.pgSetWeeks=async(id,v)=>{
+  const n=Math.max(1,Math.min(26,parseInt(v,10)||1));
+  const m=pgState.phases.find(p=>p.id===id); if(!m) return;
+  if(pgIsShared(m)&&!pgState.unlocked){ pgState.msg='That block is shared — unlock shared editing to change its length.'; renderConBody(); return; }
+  m.end_date=pgAddDays(m.start_date, n*7-1);
+  // a resized block invalidates a hand-drawn shape whose length no longer matches
+  if(Array.isArray(m.week_split)&&m.week_split.length!==n) m.week_split=null;
+  if(Array.isArray(m.week_tiers)&&m.week_tiers.length!==n) m.week_tiers=null;
+  const edits=pgRelayoutPlan().filter(e=>!(pgIsShared(e.row)&&!pgState.unlocked));
+  const blocked=pgRelayoutPlan().length-edits.length;
+  edits.forEach(e=>Object.assign(e.row,e.patch));
+  renderConBody();
+  for(const e of edits){ const r=await sb.from('plan_phases').update(e.patch).eq('id',e.row.id); if(r.error){ pgState.msg='Could not move the dates — '+r.error.message; break; } }
+  await sb.from('plan_phases').update({week_split:m.week_split,week_tiers:m.week_tiers}).eq('id',m.id);
+  if(blocked) pgState.msg=blocked+' shared block'+(blocked===1?' was':'s were')+' left where they are — unlock shared editing to move them too.';
+  renderConBody();
+};
+
+/* ---------- dragging the chart ---------- */
+let pgDrag=null;   // {i, mode:'vol'|'tier', meso}
+// reshape a block around one week, keeping the block's TOTAL fixed (Chris 2026-08-25):
+// the other weeks absorb the change proportionally, so year totals never drift.
+function pgReshape(split, i, want){
+  const n=split.length; if(n<2) return split.slice();
+  const w=Math.max(.02,Math.min(.92,want));
+  const restOld=split.reduce((s,x,k)=>k===i?s:s+x,0);
+  const out=split.slice(); out[i]=w;
+  if(restOld<=0){ const each=(1-w)/(n-1); out.forEach((_,k)=>{ if(k!==i) out[k]=each; }); }
+  else { const f=(1-w)/restOld; out.forEach((_,k)=>{ if(k!==i) out[k]=split[k]*f; }); }
+  return out;
+}
+async function pgCommitShape(m, patch){
+  if(pgIsShared(m)&&!pgState.unlocked){ pgState.msg='That block is shared — unlock shared editing to reshape it.'; renderConBody(); return; }
+  Object.assign(m,patch);
+  renderConBody();
+  const r=await sb.from('plan_phases').update(patch).eq('id',m.id);
+  if(r.error){ pgState.msg='Could not save that shape — '+r.error.message; renderConBody(); }
+}
+window.pgResetShape=(id)=>{ const m=pgState.phases.find(p=>p.id===id); if(m) pgCommitShape(m,{week_split:null,week_tiers:null}); };
+
+/* ---------- the canvas: whole year, draggable ---------- */
+const PG_GEO={padL:48,padR:60,padT:34,padB:46,H:340};
+function pgGeo(cv){ const W=cv.clientWidth||900, ws=pgWeekRows();
+  const g=Object.assign({},PG_GEO,{W,n:ws.length});
+  g.cw=ws.length?(W-g.padL-g.padR)/ws.length:0;
+  const haveVol=ws.some(w=>w.reps!=null);
+  g.maxR=haveVol?Math.max(...ws.map(w=>w.reps||0))*1.18:1;
+  g.haveVol=haveVol;
+  g.y=v=>g.padT+(g.H-g.padT-g.padB)*(1-v/g.maxR);
+  g.ty=r=>g.padT+6+((g.H-g.padT-g.padB-14)*((r-1)/7));
+  g.rankAt=py=>Math.max(1,Math.min(8,Math.round(1+((py-g.padT-6)/(g.H-g.padT-g.padB-14))*7)));
+  return g;
+}
 function pgDraw(){
   const cv=document.getElementById('pgCv'); if(!cv) return;
-  const macro=pgCurMacro(), ws=pgWeekRows(macro);
-  const dpr=window.devicePixelRatio||1, W=cv.clientWidth||900, H=320;
-  cv.width=W*dpr; cv.height=H*dpr;
-  const g=cv.getContext('2d'); g.scale(dpr,dpr); g.clearRect(0,0,W,H);
+  const ws=pgWeekRows(), G=pgGeo(cv), dpr=window.devicePixelRatio||1;
+  cv.width=G.W*dpr; cv.height=G.H*dpr;
+  const g=cv.getContext('2d'); g.scale(dpr,dpr); g.clearRect(0,0,G.W,G.H);
   const cs=getComputedStyle(document.documentElement), col=n=>cs.getPropertyValue(n).trim()||'#888';
   if(!ws.length){ g.fillStyle=col('--muted'); g.font='13px sans-serif';
-    g.fillText('No mesocycles in this macrocycle yet.',14,H/2); return; }
-  const haveVol=ws.some(w=>w.reps!=null);
-  const padL=46,padR=58,padT=16,padB=44;
-  const cw=(W-padL-padR)/ws.length;
-  const maxR=haveVol?Math.max(...ws.map(w=>w.reps||0))*1.18:1;
-  const y=v=>padT+(H-padT-padB)*(1-v/maxR);
-  g.strokeStyle=col('--line'); g.fillStyle=col('--muted'); g.font='10px sans-serif'; g.lineWidth=1;
-  if(haveVol) for(let i=0;i<=4;i++){ const v=maxR*i/4, yy=Math.round(y(v))+.5;
-    g.beginPath(); g.moveTo(padL,yy); g.lineTo(W-padR,yy); g.stroke();
-    g.textAlign='right'; g.fillText(Math.round(v),padL-7,yy+3); }
-  /* volume bars, one colour per block so the blocks read apart */
+    g.fillText('No mesocycles on this plan yet.',14,G.H/2); return; }
+  const curId=(pgCurMacro()||{}).id;
+  if(G.haveVol){ g.strokeStyle=col('--line'); g.fillStyle=col('--muted'); g.font='10px sans-serif';
+    for(let i=0;i<=4;i++){ const v=G.maxR*i/4, yy=Math.round(G.y(v))+.5;
+      g.beginPath(); g.moveTo(G.padL,yy); g.lineTo(G.W-G.padR,yy); g.stroke();
+      g.textAlign='right'; g.fillText(Math.round(v),G.padL-7,yy+3); } }
+  /* macrocycle rail across the WHOLE year */
+  let x=G.padL;
+  pgMacros().forEach(mac=>{
+    const n=pgMesos(mac).reduce((s,m)=>s+pgWeeks(m),0); if(!n) return;
+    const w=n*G.cw, on=mac.id===curId;
+    g.fillStyle=col(on?'--accent':'--muted'); g.globalAlpha=on?.95:.3;
+    g.fillRect(x+1,10,w-2,5); g.globalAlpha=1;
+    g.fillStyle=on?col('--text'):col('--muted'); g.font='600 11px sans-serif'; g.textAlign='left';
+    if(w>90) g.fillText((mac.name||'Macro').toUpperCase()+'  '+n+' wk',x+3,28);
+    x+=w; });
+  /* bars */
   ws.forEach((w,i)=>{
     if(w.reps==null) return;
-    const bx=padL+i*cw+1.5, bw=Math.max(2,cw-3), yy=y(w.reps);
-    const hot=pgState.hoverWk===i, sel=pgState.selWk===i;
-    g.fillStyle=col('--'+(PG_KIND_COL[w.meso.kind]||'accent'));
-    g.globalAlpha=hot||sel?1:.82; g.fillRect(bx,yy,bw,(H-padB)-yy); g.globalAlpha=1;
-    if(hot||sel){ g.strokeStyle=col('--text'); g.lineWidth=sel?2:1.2; g.strokeRect(bx,yy,bw,(H-padB)-yy); }
+    const bx=G.padL+i*G.cw+1.5, bw=Math.max(2,G.cw-3), yy=G.y(w.reps);
+    const on=w.macro.id===curId, hot=pgState.hoverWk===i, sel=pgState.selWk===i;
+    g.fillStyle=col(PG_KIND_COL[w.meso.kind]||'--accent');
+    g.globalAlpha=hot||sel?1:(on?.85:.32); g.fillRect(bx,yy,bw,(G.H-G.padB)-yy); g.globalAlpha=1;
+    if(w.custom){ g.fillStyle=col('--good'); g.fillRect(bx,yy-3,bw,2); }   // hand-drawn marker
+    if(hot||sel){ g.strokeStyle=col('--text'); g.lineWidth=sel?2:1.2; g.strokeRect(bx,yy,bw,(G.H-G.padB)-yy); }
   });
   /* block dividers + labels */
-  let x=padL; g.textAlign='left';
-  pgMesos(macro).forEach(m=>{ const w=pgWeeks(m)*cw;
-    g.strokeStyle=col('--line'); g.beginPath(); g.moveTo(Math.round(x)+.5,padT); g.lineTo(Math.round(x)+.5,H-padB); g.stroke();
+  x=G.padL; g.textAlign='left';
+  pgMacros().forEach(mac=>pgMesos(mac).forEach(m=>{
+    const w=pgWeeks(m)*G.cw;
+    g.strokeStyle=col('--line'); g.lineWidth=1; g.beginPath();
+    g.moveTo(Math.round(x)+.5,G.padT); g.lineTo(Math.round(x)+.5,G.H-G.padB); g.stroke();
     g.fillStyle=col('--muted'); g.font='600 10px sans-serif';
-    if(w>62){ g.fillText((m.name||'Block').toUpperCase().slice(0,18),x+4,H-padB+14);
-      const v=pgMesoVol(m); g.fillText(pgWeeks(m)+' wk'+(v!=null?' · '+Math.round(v):''),x+4,H-padB+26); }
-    x+=w; });
-  g.strokeStyle=col('--line'); g.beginPath(); g.moveTo(padL,H-padB+.5); g.lineTo(W-padR,H-padB+.5); g.stroke();
-  /* intensity — always on. Right axis is the tier ladder, heavier sits higher. */
+    if(w>58){ g.fillText((m.name||'Block').toUpperCase().slice(0,16),x+4,G.H-G.padB+14);
+      const v=pgMesoVolOf(m); g.fillText(pgWeeks(m)+'w'+(v!=null?' · '+Math.round(v):''),x+4,G.H-G.padB+26); }
+    x+=w; }));
+  g.strokeStyle=col('--line'); g.beginPath(); g.moveTo(G.padL,G.H-G.padB+.5); g.lineTo(G.W-G.padR,G.H-G.padB+.5); g.stroke();
+  /* intensity line */
   const ranked=ws.filter(w=>w.rank!=null);
   if(ranked.length){
-    const ty=r=>padT+6+((H-padT-padB-14)*((r-1)/7));
-    g.strokeStyle=col('--warn'); g.lineWidth=2; g.beginPath();
-    ws.forEach((w,i)=>{ if(w.rank==null) return; const xx=padL+i*cw+cw/2, yy=ty(w.rank);
-      g.lineWidth=2; if(i===0||ws[i-1].rank==null) g.moveTo(xx,yy); else g.lineTo(xx,yy); });
+    g.strokeStyle=col('--warn'); g.lineWidth=2; g.beginPath(); let started=false;
+    ws.forEach((w,i)=>{ if(w.rank==null){ started=false; return; }
+      const xx=G.padL+i*G.cw+G.cw/2, yy=G.ty(w.rank);
+      if(!started){ g.moveTo(xx,yy); started=true; } else g.lineTo(xx,yy); });
     g.stroke();
-    ws.forEach((w,i)=>{ if(w.rank==null) return; const xx=padL+i*cw+cw/2, yy=ty(w.rank);
-      g.fillStyle=col('--warn'); g.beginPath(); g.arc(xx,yy,2.6,0,7); g.fill(); });
+    ws.forEach((w,i)=>{ if(w.rank==null) return;
+      const xx=G.padL+i*G.cw+G.cw/2, yy=G.ty(w.rank);
+      const pinned=Array.isArray(w.meso.week_tiers)&&w.meso.week_tiers[w.wk-1]!=null;
+      g.fillStyle=col(pinned?'--good':'--warn');
+      g.beginPath(); g.arc(xx,yy,pgState.hoverWk===i?4:2.8,0,7); g.fill(); });
     g.fillStyle=col('--warn'); g.font='600 9px sans-serif'; g.textAlign='left';
-    [1,3,5,8].forEach(r=>{ const row=peRiRow(r); if(row) g.fillText(row.tier.toUpperCase(),W-padR+5,ty(r)+3); });
+    [1,3,5,8].forEach(r=>{ const row=peRiRow(r); if(row) g.fillText(row.tier.toUpperCase(),G.W-G.padR+5,G.ty(r)+3); });
   }
 }
-const PG_KIND_COL={exposure:'accent',comprehension:'accent',ascension:'warn',summit:'heat',realization:'bad',transition:'muted'};
-function pgMesoVol(m){ const macro=pgCurMacro(), annual=pgAnnual();
-  const mv=(annual!=null&&macro&&macro.volume_share!=null)?annual*macro.volume_share:null;
-  return (mv!=null&&m.volume_share!=null)?mv*m.volume_share:null; }
+function pgMesoVolOf(m){
+  const annual=pgAnnual(), mac=pgMacros().find(x=>pgMesos(x).some(y=>y.id===m.id));
+  const mv=(annual!=null&&mac&&mac.volume_share!=null)?annual*mac.volume_share:null;
+  return (mv!=null&&m.volume_share!=null)?mv*m.volume_share:null;
+}
+function pgWireCanvas(){
+  const cv=document.getElementById('pgCv'); if(!cv||cv._wired) return; cv._wired=true;
+  const idx=ev=>{ const r=cv.getBoundingClientRect(), G=pgGeo(cv);
+    if(!G.n) return -1; const i=Math.floor((ev.clientX-r.left-G.padL)/G.cw); return (i>=0&&i<G.n)?i:-1; };
+  const localY=ev=>ev.clientY-cv.getBoundingClientRect().top;
+
+  cv.addEventListener('mousedown',ev=>{
+    const i=idx(ev); if(i<0) return;
+    const ws=pgWeekRows(), w=ws[i], G=pgGeo(cv), py=localY(ev);
+    if(pgIsShared(w.meso)&&!pgState.unlocked){
+      pgState.msg='“'+(w.meso.name||'That block')+'” is shared — unlock shared editing to reshape it.'; renderConBody(); return; }
+    // near the intensity dot -> drag the tier; otherwise drag the volume
+    const near = w.rank!=null && Math.abs(py-G.ty(w.rank))<14;
+    pgDrag={ i, meso:w.meso, mode:near?'tier':'vol',
+             split:pgSplit(w.meso).slice(), ranks:pgRanks(w.meso).slice(), wk:w.wk-1 };
+    cv.style.cursor=near?'ns-resize':'row-resize';
+    ev.preventDefault();
+  });
+  window.addEventListener('mousemove',ev=>{
+    if(!pgDrag){ const i=idx(ev); if(i!==pgState.hoverWk){ pgState.hoverWk=i; pgReadout(i); pgDraw(); } return; }
+    const G=pgGeo(cv), py=localY(ev), m=pgDrag.meso;
+    if(pgDrag.mode==='tier'){ pgDrag.ranks[pgDrag.wk]=G.rankAt(py); m.week_tiers=pgDrag.ranks.slice(); }
+    else { const vol=pgMesoVolOf(m); if(vol==null||!G.haveVol) return;
+      const want=Math.max(0,(G.maxR*(1-(py-G.padT)/(G.H-G.padT-G.padB))))/vol;
+      m.week_split=pgReshape(pgDrag.split, pgDrag.wk, want); }
+    pgDraw(); pgReadout(pgDrag.i);
+  });
+  window.addEventListener('mouseup',()=>{
+    if(!pgDrag) return; const m=pgDrag.meso, mode=pgDrag.mode;
+    const patch = mode==='tier' ? {week_tiers:m.week_tiers} : {week_split:m.week_split};
+    pgDrag=null; cv.style.cursor='crosshair'; pgCommitShape(m,patch);
+  });
+  cv.addEventListener('mouseleave',()=>{ if(!pgDrag){ pgState.hoverWk=-1; pgDraw(); } });
+  cv.addEventListener('click',ev=>{ if(pgDrag) return; const i=idx(ev); pgState.selWk=(pgState.selWk===i?-1:i); pgDraw(); pgDayPanel(); });
+}
+function pgReadout(i){
+  const el=document.getElementById('pgRead'); if(!el) return;
+  const ws=pgWeekRows();
+  if(i<0||i>=ws.length){ el.innerHTML='Hover a week &middot; <b>drag a bar</b> to reshape the block &middot; <b>drag a dot</b> to change that week&rsquo;s intensity &middot; click to open the days.'; return; }
+  const w=ws[i];
+  el.innerHTML=`<b>${esc(w.macro.name||'Macro')}</b> › <b>${esc(w.meso.name||'Block')}</b> · week ${w.wk}/${w.of}`
+    +(w.reps!=null?` — <b>${Math.round(w.reps)}</b> reps (${(w.share*100).toFixed(0)}% of the block)`:' — no volume set')
+    +(w.tier?` · ${esc(w.tier)}`:'')
+    +(w.custom?' · <span style="color:var(--good)">hand-drawn</span>':(w.evenSplit?' · <i>no scheme — even split</i>':''));
+}
+
+// CSS custom-property NAMES (with the leading --), since these go straight into
+// getPropertyValue. 'heat' is not a token in this app; summit uses --warn.
+const PG_KIND_COL={exposure:'--accent2',comprehension:'--accent',ascension:'--warn',
+                   summit:'--warn',realization:'--bad',transition:'--muted'};
 function pgDayPanel(){
   const host=document.getElementById('pgDays'); if(!host) return;
-  const ws=pgWeekRows(pgCurMacro()), i=pgState.selWk;
+  const ws=pgWeekRows(), i=pgState.selWk;
   if(i==null||i<0||i>=ws.length){ host.innerHTML=''; return; }
   const w=ws[i];
   if(w.reps==null){ host.innerHTML=`<div class="pg-empty">Set an annual number and this block's share to see the days.</div>`; return; }
@@ -13086,19 +13255,7 @@ function pgDayPanel(){
       <div class="dv">${Math.round(w.reps*sh)}</div><div class="dl">reps · ${(sh*100).toFixed(0)}% of the week</div></div>`).join('')}</div>
     <div class="pg-note">Placeholder microcycle — five sessions at 22/20/22/18/18. Exercises land here in the next phase.</div>`;
 }
-window.pgPickWeek=(i)=>{ pgState.selWk=(pgState.selWk===i?-1:i); pgDraw(); pgDayPanel(); };
-function pgWireCanvas(){
-  const cv=document.getElementById('pgCv'); if(!cv||cv._wired) return; cv._wired=true;
-  const at=ev=>{ const r=cv.getBoundingClientRect(), n=pgWeekRows(pgCurMacro()).length; if(!n) return -1;
-    const cw=(r.width-46-58)/n, i=Math.floor((ev.clientX-r.left-46)/cw); return (i>=0&&i<n)?i:-1; };
-  cv.addEventListener('mousemove',ev=>{ const i=at(ev); if(i===pgState.hoverWk) return; pgState.hoverWk=i;
-    const ws=pgWeekRows(pgCurMacro()), r=document.getElementById('pgRead');
-    if(r) r.innerHTML = i<0?'Hover a week. Click one to open its days.'
-      : `<b>${esc(ws[i].meso.name||'Block')}</b> · week ${ws[i].wk}/${ws[i].of}${ws[i].reps!=null?` — <b>${Math.round(ws[i].reps)}</b> reps`:''}${ws[i].tier?` · ${esc(ws[i].tier)}`:''}${ws[i].evenSplit?' · <i>no scheme yet — split evenly</i>':''}`;
-    pgDraw(); });
-  cv.addEventListener('mouseleave',()=>{ pgState.hoverWk=-1; pgDraw(); });
-  cv.addEventListener('click',ev=>pgPickWeek(at(ev)));
-}
+
 /* the block row */
 function pgMesoRow(m, macroVol, idx){
   const wks=pgWeeks(m), share=m.volume_share, vol=(macroVol!=null&&share!=null)?macroVol*share:null;
@@ -13113,12 +13270,15 @@ function pgMesoRow(m, macroVol, idx){
     <td class="pg-ord">${idx+1}</td>
     <td><div class="pg-nmMain">${esc(m.name||PG_KIND_LBL[m.kind]||'Block')}${shared?'<span class="pg-shared" title="Inherited from a team or gym plan">shared</span>':''}</div>
         <select class="cw-sel pg-kind"${dis} onchange="pgSetKind('${m.id}',this.value)">${PG_KINDS.map(k=>`<option value="${k}"${(m.kind||'comprehension')===k?' selected':''}>${PG_KIND_LBL[k]}</option>`).join('')}</select></td>
-    <td class="tnum">${wks}</td>
+    <td><input class="pg-in" style="width:46px" type="number" min="1" max="26" value="${wks}"${dis}
+        title="How many weeks this block runs. Changing it moves every block after it and stretches the macrocycle."
+        onchange="pgSetWeeks('${m.id}',this.value)"></td>
     <td><input class="pg-in" type="number" min="0" max="100" value="${share!=null?+(share*100).toFixed(0):''}" placeholder="—"${dis} onchange="pgSetShare('${m.id}',this.value)"></td>
     <td class="tnum pg-vol"><b>${vol==null?'—':Math.round(vol)}</b></td>
     <td class="tnum">${vol==null||!wks?'—':Math.round(vol/wks)}</td>
     <td><select class="cw-sel pg-sch"${dis} onchange="pgSetScheme('${m.id}',this.value)">
-        <option value="">— even split —</option>${schemes.map(s=>`<option value="${esc(s.key)}"${m.scheme_key===s.key?' selected':''}>${esc(s.key)}</option>`).join('')}</select></td>
+        <option value="">— even split —</option>${schemes.map(s=>`<option value="${esc(s.key)}"${m.scheme_key===s.key?' selected':''}>${esc(s.key)}</option>`).join('')}</select>
+        ${pgHasShape(m)?`<div class="pg-hand">hand-drawn <span onclick="pgResetShape('${m.id}')" title="Discard the shape you dragged and go back to this scheme">reset</span></div>`:''}</td>
     <td><div class="pg-tops"><select class="cw-sel"${dis} onchange="pgSetPeak('${m.id}',this.value)">${peRiChart().map(r=>`<option${r.tier===tier?' selected':''}>${esc(r.tier)}</option>`).join('')}</select>
         <span class="pg-pct">${band}</span>
         <select class="cw-sel pg-pat"${dis} onchange="pgSetPattern('${m.id}',this.value)">${pats.map(p=>`<option value="${esc(p.key)}"${(m.pattern_key||(pats[0]&&pats[0].key))===p.key?' selected':''}>${esc(p.key)}</option>`).join('')}</select></div></td>
@@ -13166,6 +13326,10 @@ async function renderProgramBuilder(host){
       ${bench?`<span class="pg-stat"><label>${esc(cls.tier)} benchmark</label><b>${esc(bench.band)}</b>
         <i class="pg-${bench.status==='inside'?'ok':'warn'}">${bench.status==='inside'?'inside':(bench.status==='over'?((bench.pctOfHigh-1)*100).toFixed(0)+'% over':'under')}</i></span>`:''}
       <span class="pg-src">${pgState.annualEdit!=null?'typed — not saved yet':(pgState.readiness?'from readiness answers':'no readiness yet — type it')}</span>
+      ${(()=>{ const y=pgYearStats(); if(y.annual==null||!y.weeks) return '';
+        const ok=Math.abs(y.pct-1)<0.005;
+        return `<span class="pg-stat"><label>placed across ${y.weeks} wks</label><b>${Math.round(y.placed)}</b>
+          <i class="pg-${ok?'ok':'warn'}">${ok?'all of it':(y.unplaced>0?Math.round(y.unplaced)+' unplaced':Math.abs(Math.round(y.unplaced))+' over')}</i></span>`; })()}
       ${macros.length?`<span class="pg-macros">${macros.map(m=>{const v=(annual!=null&&m.volume_share!=null)?annual*m.volume_share:null;
         return `<span class="pg-mchip ${macro&&macro.id===m.id?'on':''}" onclick="pgPickMacro('${m.id}')">
           <b>${esc(m.name||PG_KIND_LBL[m.kind]||'Macro')}</b>
@@ -13184,7 +13348,7 @@ async function renderProgramBuilder(host){
     canvas=`<div class="card">
       <div class="pg-sec">${esc(macro.name||'Macro')} <span class="pg-subtle">${ms.length} blocks · ${wkSum} wks${macroVol!=null?' · '+Math.round(macroVol)+' reps':''}</span></div>
       <div class="pg-chartbox"><canvas id="pgCv" height="320"></canvas></div>
-      <div class="pg-read" id="pgRead">Hover a week. Click one to open its days.</div>
+      <div class="pg-read" id="pgRead">Hover a week &middot; <b>drag a bar</b> to reshape the block &middot; <b>drag a dot</b> to change that week&rsquo;s intensity &middot; click to open the days.</div>
       <div id="pgDays"></div></div>`;
     table=`<div class="card"><div class="pg-sec">Blocks ${t.html}
         ${!t.ok&&ms.length?`<span class="pg-bal" onclick="pgBalance('${macro.id}')">balance →</span>`:''}</div>
