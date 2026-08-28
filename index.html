@@ -11699,8 +11699,8 @@ function cwWeekRowHtml(off, todayStr){
       const rdy=(cw.rdyByDate||{})[dIso];                                   // morning readiness /5 (per day; team avg in team mode)
       const srpe = tm ? (s._teamSrpe!=null?s._teamSrpe:null)                // team-average session-RPE load
                       : ((s.session_minutes>0 && s.session_rpe>0)?Math.round(s.session_minutes*s.session_rpe):null);
-      const volMain=st.volPri!=null?st.volPri:st.vol;   // little day box shows MAIN-lift volume; full breakdown on hover
-      const volTitle=st.volAcc?`Main lifts ${volMain} · accessory ${st.volAcc} · total ${st.vol}`:`${volMain} NL`;
+      const volMain=st.volPri!=null?st.volPri:st.vol;   // day box shows CE+SPE+SDE volume; Bondarchuk breakdown on hover
+      const volTitle=(st.volCE!=null)?`CE ${st.volCE} · SPE ${st.volSPE} · SDE ${st.volSDE} · GE ${st.volAcc} · total ${st.vol} NL`:`${volMain} NL`;
       const badges=`<div class="cwd-badges">${cwBadge(volMain||'—','main vol',volTitle)}${cwBadge(st.ari?Math.round(st.ari):'—','ari')}${cwBadge(rdy!=null?rdy.toFixed(1):'—','rdy')}${cwBadge(srpe!=null?srpe:'—','sRPE')}</div>`;
       let body;
       if(detailed){
@@ -13169,19 +13169,20 @@ function liftMetrics(sets){
 }
 function riDisplay(ri){ return ri? (ri*10).toFixed(1) : '—'; }   // RI on a 0–10 (RPE-like) scale per spec
 function statsFor(sessRows, logs){
-  let vol=0, volPri=0, volAcc=0, vw=0, pv=0, peak=0, totalSets=0;
+  let vol=0, volPri=0, volAcc=0, volCE=0, volSPE=0, volSDE=0, vw=0, pv=0, peak=0, totalSets=0;
   (sessRows||[]).forEach(s=>(s.prescribed_exercises||[]).forEach(ex=>{
-    const acc=exIsAcc(ex);
+    const tier=exClassOf(ex), acc=(tier==='ge');
     (ex.prescribed_sets||[]).forEach(ps=>{
       const r=ps.target_reps||0, p=ps.target_pct!=null?parseFloat(ps.target_pct):0;
       vol+=r; totalSets++;
-      if(acc){ volAcc+=r; return; }   // accessories: separate bucket, out of primary vol + ARI/peak
-      volPri+=r; if(p&&r){ vw+=p*r; pv+=r; if(p>peak)peak=p; }
+      if(acc){ volAcc+=r; return; }   // GE: separate bucket, out of primary vol + ARI/peak
+      volPri+=r; if(tier==='ce')volCE+=r; else if(tier==='spe')volSPE+=r; else volSDE+=r;
+      if(p&&r){ vw+=p*r; pv+=r; if(p>peak)peak=p; }
     });
   }));
   let miss=0, done=0, added=0;
   (logs||[]).forEach(l=>{ miss+=(l.miss||0); if(l.done) done++; if(!l.prescribed_set_id) added++; });
-  return { vol, volPri, volAcc, ari: pv?vw/pv:0, peak, miss, done, total: totalSets+added, sessions:(sessRows||[]).length };
+  return { vol, volPri, volAcc, volCE, volSPE, volSDE, ari: pv?vw/pv:0, peak, miss, done, total: totalSets+added, sessions:(sessRows||[]).length };
 }
 window.cwSelectDay = (d)=>{ ed=null; cw.selDate=d; renderCoachPanel(); };
 
@@ -13212,14 +13213,47 @@ function classifyLift(seg){
 // "main lift" = the competition lifts + squats + pulls/DLs (snatch/clean/jerk, squats, pulls & deadlifts).
 // Everything else (presses, KB work, curls, extensions, GHR, …) is accessory. Coach can override per-exercise:
 //   category==='accessory' → force accessory · category==='main' → force main · else auto by name.
-function mainLiftName(name){ const s=(name||'').toLowerCase(); if(!s.trim()) return false;
-  if(/snatch|clean|jerk|\bsn\b|\bcj\b|\bc&j\b/.test(s)) return true;         // O-lifts + variations
-  if(/squat/.test(s)) return true;                                          // squats (front/back/OH/pause…)
-  if(/\b(pull|deadlift|dead\s*lift|dl|rdl|sldl)\b/.test(s)) return true;     // pulls & deadlifts
-  return false; }
-function exIsMain(ex){ const c=((ex&&ex.category)||'').toLowerCase();
-  if(c==='accessory') return false; if(c==='main') return true; return mainLiftName(ex&&ex.name); }
-function exIsAcc(ex){ return !exIsMain(ex); }
+// Bondarchuk transfer-of-training classification (Chris's system, 2026-07-26):
+//   CE  competition lifts        — full snatch, full clean & jerk (only)
+//   SPE special preparatory      — comp-lift variations / complexes / pulls / extensions (incl. snatch/clean deadlift)
+//   SDE special developmental    — strength, different structure: squats, presses, good mornings, plain deadlift/RDL
+//   GE  general                  — rows, KB/DB/flywheel (Kboxx) work, carries, back ext, Cossack, curls, core, conditioning
+// Auto by name; the coach can pin a tier via the day-editor pill (stored on prescribed_exercises.category).
+function exClass(name){
+  const s=(name||'').toLowerCase().replace(/\s+/g,' ').trim();
+  if(!s) return 'ge';
+  // 1) equipment / clearly-general markers win first — a KB/DB/flywheel "snatch" is GPP, not the barbell lift; Kboxx family = GE
+  if(/\bkboxx?\b|\bk ?box\b|flywheel|\bkb\b|kettlebell|\bdb\b|dumbbell|dumbell|\bmachine\b|leg press|\bsled\b|\bband\b|\bcable\b|cossack/.test(s)) return 'ge';
+  // 2) competition family
+  if(/\brdl\b|romanian|\bsldl\b/.test(s)) return 'sde';                        // snatch-grip RDL = SDE (Chris 2026-08-25); Snatch/Clean DEADLIFT stays SPE below
+  const t=s.replace(/\band\b/g,' ').replace(/[^a-z]+/g,' ').trim().split(/\s+/).filter(Boolean);
+  if(t.length===1 && t[0]==='snatch') return 'ce';
+  if(t.length===2 && t[0]==='clean' && t[1]==='jerk') return 'ce';
+  if(/^c ?& ?j$|^cj$/.test(s)) return 'ce';
+  if(/snatch|clean|jerk|\bsn\b|\bcj\b/.test(s)) return 'spe';                 // any variation/complex/pull/ext of the O-lifts
+  // 3) other clearly-general movements
+  if(/\brow\b|curl|\bfly(e|es)?\b|lateral raise|front raise|\braise\b|carry|farmer|waiter|back ?ext|hyperext|reverse hyper|\bplank\b|\bcore\b|\babs?\b|hollow|\bcalf\b|\bdip\b|push ?up|face ?pull|pull ?up|chin ?up|\bshrug\b/.test(s)) return 'ge';
+  // Chris 2026-08-25: bench presses are GE, not developmental — they must be caught BEFORE the
+  // generic /press/ -> SDE rule below. GHR / Nordic / hip thrust are GE too (confirmed, already here).
+  if(/bench|\bghr\b|glute ?ham|nordic|hip ?thrust/.test(s)) return 'ge';
+  // 4) developmental strength (comp-family pulls already routed to SPE above)
+  if(/\bpull\b/.test(s)) return 'spe';                                        // a standalone barbell pull = special-prep (Chris: pulls→SPE)
+  if(/squat/.test(s)) return 'sde';
+  if(/deadlift|dead ?lift|\bdl\b|\brdl\b|\bsldl\b|romanian|good ?morning/.test(s)) return 'sde';
+  if(/press/.test(s)) return 'sde';                                           // barbell presses supporting the lifts
+  return 'ge';
+}
+const EX_TIERS=['ce','spe','sde','ge'];
+// resolve the tier actually in force for an exercise: an explicitly pinned tier wins; legacy 'accessory'→ge,
+// 'main'→keep out of ge; anything else ('primary'/blank) auto-classifies by name.
+function exClassOf(ex){ const c=((ex&&ex.category)||'').toLowerCase();
+  if(EX_TIERS.includes(c)) return c;
+  if(c==='accessory') return 'ge';
+  if(c==='main'){ const k=exClass(ex&&ex.name); return k==='ge'?'sde':k; }
+  return exClass(ex&&ex.name); }
+// primary = anything that counts toward the headline volume + intensity = every tier EXCEPT general (GE)
+function exIsAcc(ex){ return exClassOf(ex)==='ge'; }
+function exIsMain(ex){ return !exIsAcc(ex); }
 // Chris's pricing rule: EVERY snatch movement prices off the 1RM Snatch, EVERY clean & jerk variation
 // off the 1RM Clean & Jerk — pulls, extensions, deadlifts, jerks and complexes all follow the comp lift,
 // not a separate max. (Snatch push/stretch press & squats classify away from Snatch/C&J, so they keep
@@ -13646,15 +13680,16 @@ function exTiles(ex){
 }
 function sessionTiles(){
   if(!ed) return '';
-  let vol=0,volAcc=0,vw=0,pv=0,riw=0;          // primary volume headline + volume-weighted ARI/RI (§3d); accessories tracked apart
-  ed.exercises.forEach(ex=>{ const acc=exIsAcc(ex);
+  let vol=0,volAcc=0,volCE=0,volSPE=0,volSDE=0,vw=0,pv=0,riw=0;   // primary volume (CE+SPE+SDE) + volume-weighted ARI/RI (§3d); GE tracked apart
+  ed.exercises.forEach(ex=>{ const tier=exClassOf(ex), acc=(tier==='ge');
     ex.sets.forEach(st=>{ const r=parseInt(st.reps)||0,p=parseFloat(st.pct)||0;
-      if(acc){ volAcc+=r; return; }                // accessory reps don't inflate primary vol / ARI / RI
-      vol+=r; if(p&&r){ vw+=p*r; pv+=r; riw+=r*(p/repMaxPct(r)); } }); });
+      if(acc){ volAcc+=r; return; }                // GE reps don't inflate primary vol / ARI / RI
+      vol+=r; if(tier==='ce')volCE+=r; else if(tier==='spe')volSPE+=r; else volSDE+=r;
+      if(p&&r){ vw+=p*r; pv+=r; riw+=r*(p/repMaxPct(r)); } }); });
   const ari=pv?vw/pv:0, ri=pv?riw/pv:0;
   let miss=0; ed.logs.forEach(l=>{ miss+=(l.miss||0); });
   const volLbl = volAcc?'main vol':'vol';
-  const volB=`${vol||'—'}${volAcc?`<span class="ss-acc" title="main lifts ${vol} · accessory ${volAcc} · total ${vol+volAcc}">+${volAcc} acc · ${vol+volAcc} tot</span>`:''}`;
+  const volB=`${vol||'—'}${volAcc?`<span class="ss-acc" title="CE ${volCE} · SPE ${volSPE} · SDE ${volSDE} · GE ${volAcc} · total ${vol+volAcc}">+${volAcc} acc · ${vol+volAcc} tot</span>`:''}`;
   return `<span><label>${volLbl}</label><b>${volB}</b></span><span><label>ari</label><b>${ari?ari.toFixed(1)+'%':'—'}</b></span><span><label>RI</label><b>${riDisplay(ri)}</b></span><span><label>misses</label><b${miss?' style="color:var(--bad)"':''}>${miss}</b></span>`;
 }
 // ±21 days around this session, split into Earlier/Later. Backwards used to be missing entirely,
@@ -13846,9 +13881,9 @@ function showCopyMenu(fromEi, anchor){
   menu.style.width='280px'; menu.style.display='block'; menu.scrollTop=0;
 }
 function hideCopyMenu(){ const m=document.getElementById('copyMenu'); if(m) m.style.display='none'; copyFromEi=null; }
-// coach override: flip an exercise between main lift and accessory (explicit, stored on category)
+// coach override: cycle an exercise's Bondarchuk tier CE→SPE→SDE→GE (explicit, stored on category)
 window.cvxToggleCat=(ei)=>{ const ex=ed&&ed.exercises[ei]; if(!ex) return;
-  ex.category = exIsMain(ex) ? 'accessory' : 'main'; ed.dirty=true; paintEditor(); };
+  ex.category = EX_TIERS[(EX_TIERS.indexOf(exClassOf(ex))+1)%EX_TIERS.length]; ed.dirty=true; paintEditor(); };
 /* ---- supersets / giant sets: link consecutive exercises so the athlete alternates them (migration 42) ---- */
 // consecutive runs of exercises sharing a non-null superset_group (length ≥2 = a real superset)
 function ssRuns(list){ const runs=[]; let i=0; const a=list||[];
@@ -13915,7 +13950,7 @@ function paintEditor(){
           <button class="mv-btn" data-mv="dn" title="Move exercise down"${ei===ed.exercises.length-1?' disabled':''}>▼</button>
         </span>
         ${(SS_READY && ei>0)?`<span class="cvx-sslink${ssLinkedAbove?' on':''}" onclick="event.stopPropagation();ssToggleLink(${ei})" title="${ssLinkedAbove?'Supersetted with the exercise above — click to separate':'Link into a superset with the exercise above (the athlete alternates them)'}">⛓${ssLinkedAbove?' superset':' link ↑'}</span>`:''}
-        <span class="pill ${exIsAcc(ex)?'accessory':'primary'} cvx-cat" onclick="event.stopPropagation();cvxToggleCat(${ei})" title="Main lift or accessory? Drives the volume/ARI split. Auto by name (snatch/clean/jerk/squat/pull = main) — click to override.">${exIsMain(ex)?'main':'accessory'} ⇄</span>
+        <span class="pill ${exIsAcc(ex)?'accessory':'primary'} cvx-cat" onclick="event.stopPropagation();cvxToggleCat(${ei})" title="Bondarchuk tier — CE competition lift · SPE variation/pull/complex · SDE squat/strength · GE general accessory. Drives the volume/ARI split (CE+SPE+SDE count, GE is separate). Auto by name — click to cycle.">${exClassOf(ex).toUpperCase()} ⇄</span>
         <input class="cvx-name" data-f="name" value="${esc(ex.name)}" placeholder="Exercise name">
         <span class="cvx-orm">${(orm&&type==='percentage')?`1RM <b>${orm}</b> · ${esc((bi&&bi.lift)||'maxes')}${bi&&bi.override?' <span style="color:var(--warn)">override</span>':''}`:(type==='percentage'&&cw.maxes?(bi&&bi.missing?'<span class="cv-nolog" style="color:var(--warn)">override “'+esc(bi.lift)+'” has no max</span>':'<span class="cv-nolog">no 1RM link</span>'):'')}</span>
         ${OVR_READY?`<input class="cvx-ovr" data-f="baseovr" value="${esc(ex.baseOverride||'')}" placeholder="⚖ base" title="Price % off a specific number (e.g. 180) or a named lift (e.g. Snatch DL) instead of the auto 1RM. Blank = auto.">`:''}
@@ -14072,7 +14107,8 @@ function wireEditor(){
     const ex=ed.exercises[+cvx.dataset.ei]; if(!ex) return;
     if(t.dataset.f==='name'){ ex.name=t.value; ed.dirty=true;
       cvxRefreshBase(cvx, ex);
-      const cat=cvx.querySelector('.cvx-cat'); if(cat && (ex.category!=='accessory'&&ex.category!=='main')){ const main=exIsMain(ex); cat.textContent=(main?'main':'accessory')+' ⇄'; cat.classList.toggle('accessory',!main); cat.classList.toggle('primary',main); }   // live re-classify by name (unless coach forced it)
+      const cat=cvx.querySelector('.cvx-cat'); const pinned=EX_TIERS.includes((ex.category||'').toLowerCase())||ex.category==='accessory'||ex.category==='main';
+      if(cat && !pinned){ const tier=exClass(ex.name); cat.textContent=tier.toUpperCase()+' ⇄'; cat.classList.toggle('accessory',tier==='ge'); cat.classList.toggle('primary',tier!=='ge'); }   // live re-classify by name (unless coach pinned a tier)
       cvx.querySelectorAll('[data-f="tgt"]').forEach(p=>{ p.disabled=false; });   // % always editable — it records + drives metrics even w/o a 1RM
       showExDrop(t, +cvx.dataset.ei);
       scheduleDraftSave(); return; }
