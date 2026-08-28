@@ -12920,7 +12920,7 @@ const PG_KINDS=['exposure','comprehension','ascension','summit','realization','t
 const PG_KIND_LBL={exposure:'Exposure',comprehension:'Comprehension',ascension:'Ascension',summit:'Summit',realization:'Realization',transition:'Transition'};
 
 let pgState={ athleteId:null, macroId:null, loaded:false, phases:[], readiness:null, profile:null,
-              annual:null, annualEdit:null, maxes:{}, maxRows:[], busy:false, open:{}, msg:'' };
+              annual:null, annualEdit:null, maxes:{}, maxRows:[], busy:false, open:{}, msg:'', unlocked:false };
 
 /* ---------- load ---------- */
 async function pgLoad(){
@@ -13016,9 +13016,26 @@ function pgAge(){ const b=pgState.profile&&pgState.profile.birthdate; if(!b) ret
   try{ return qtCompAge(b); }catch(e){ return null; } }
 
 /* ---------- writes (volume columns only — never the Annual Plan's dates) ---------- */
+// A plan_phases row with no athlete_id is a gym/team band INHERITED by everyone on that
+// plan -- which is how most real plans are stored. Editing its volume, phase or scheme changes
+// it for every athlete who inherits it. The Program Builder therefore treats shared rows as
+// read-only until the coach explicitly unlocks them, so a plan can never be altered for a live
+// athlete by accident while someone is experimenting on another.
+function pgIsShared(row){ return !!row && !row.athlete_id; }
+function pgSharedCount(row){
+  if(!pgIsShared(row)) return 0;
+  const all=(coachState.athletes||[]);
+  if(row.team_id) return all.filter(a=>a.team_id===row.team_id).length;
+  return all.length;                                   // legacy gym-wide band
+}
 async function pgSave(id, patch){
   if(id==='__all'){ pgState.msg='This plan has no macrocycle band to hang volume on — add one on the Annual Plan.'; renderConBody(); return; }
   if(!PGPLAN_READY){ pgState.msg='Run migration 58 to save volume numbers.'; renderConBody(); return; }
+  const row0=pgState.phases.find(p=>p.id===id);
+  if(pgIsShared(row0) && !pgState.unlocked){
+    const n=pgSharedCount(row0);
+    pgState.msg='“'+((row0&&row0.name)||'That block')+'” is a shared block on '+n+' athlete'+(n===1?'':'s')+'\u2019 plans — editing it changes all of them. Unlock shared editing above if you meant to.';
+    renderConBody(); return; }
   const row=pgState.phases.find(p=>p.id===id); if(row) Object.assign(row,patch);   // optimistic
   renderConBody();
   const r=await sb.from('plan_phases').update(patch).eq('id',id).select('id');
@@ -13032,6 +13049,8 @@ window.pgPickAth=(id)=>{ pgState.athleteId=id; pgState.macroId=null; pgState.loa
 window.pgPickMacro=(id)=>{ pgState.macroId=id; renderConBody(); };
 window.pgSetAnnual=(v)=>{ const n=parseFloat(v); pgState.annualEdit=isNaN(n)?null:n; renderConBody(); };
 window.pgToggle=(id)=>{ pgState.open[id]=!pgState.open[id]; renderConBody(); };
+window.pgToggleLock=()=>{ pgState.unlocked=!pgState.unlocked;
+  pgState.msg=pgState.unlocked?'Shared blocks unlocked — changes here affect every athlete inheriting them.':''; renderConBody(); };
 window.pgBalance=async(macroId)=>{
   const ms=pgMesos(pgState.phases.find(p=>p.id===macroId));
   const pinned=ms.filter(m=>m.volume_share!=null), free=ms.filter(m=>m.volume_share==null);
@@ -13092,6 +13111,9 @@ async function renderProgramBuilder(host){
     ${cls.tier?`<span class="pg-cls" title="Development ladder — this is what drives annual volume${cls.nextTier?`. Next: ${esc(cls.nextTier)} at ${cls.nextTotal}kg`:''}">${esc(cls.tier)}${cls.progress!=null?` · ${Math.round(cls.progress*100)}%`:''}${cls.below?' (below)':''}</span>`
        :`<span class="pg-flag warn" title="Readiness cannot score without a classification">no class — ${esc(cls.why||'')}</span>`}
     ${cls.abBelow&&cls.tier?`<span class="pg-flag warn" title="USAW A/B's senior ladder starts at a 343 total, so it can't rank this athlete. Volume uses the development ladder instead.">A/B: below senior ladder</span>`:''}
+    ${(()=>{ const sh=pgState.phases.filter(pgIsShared).length; if(!sh) return '';
+       return `<span class="pg-flag ${pgState.unlocked?'warn':''}" title="Blocks with no athlete of their own are inherited from a team or gym plan. Editing one changes it for everyone on that plan.">${sh} shared block${sh===1?'':'s'} ${pgState.unlocked?'UNLOCKED':'read-only'}</span>
+         <button class="act" onclick="pgToggleLock()" style="background:none;border:none;cursor:pointer">${pgState.unlocked?'re-lock':'unlock shared editing'}</button>`; })()}
     <span class="pg-flag ${PGPLAN_READY?'ok':'warn'}">${PGPLAN_READY?'plan columns live':'run migration 58 to save'}</span>
     ${pgState.msg?`<span class="pg-flag warn">${esc(pgState.msg)}</span>`:''}</div>`;
 
