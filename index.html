@@ -2154,6 +2154,16 @@
   @media(max-width:760px){ .pg-tbl{font-size:12px} .pg-tbl td,.pg-tbl th{padding:5px} .pg-kind,.pg-sch{min-width:104px} .pg-in{width:54px} }
   /* the block NAME distinguishes rows that share a kind (Ascension / Ascension I / II) */
   .pg-nmMain{font-weight:700;font-size:13px;margin-bottom:5px}
+  /* exercise library: Bondarchuk tier chips */
+  .ex-tierbar{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-bottom:10px}
+  .ex-tierbar .cchip i{font-style:normal;opacity:.6;font-size:10px;margin-left:3px}
+  .ex-tier{flex:0 0 auto;min-width:52px;text-align:center;font-size:10px;font-weight:800;letter-spacing:.05em;
+    border-radius:5px;padding:3px 6px;cursor:pointer;user-select:none;border:1px solid transparent;color:#fff}
+  .ex-tier i{font-style:normal;font-weight:600;opacity:.7;font-size:8.5px;display:block;letter-spacing:0}
+  .ex-tier.pinned{box-shadow:0 0 0 2px var(--text) inset}
+  .tier-ce{background:#3f6fd0}.tier-spe{background:#2f9e8f}.tier-sde{background:#b3801a}.tier-ge{background:#6b7b8d}
+  .cchip.tier-ce.on{border-color:#3f6fd0;color:#7fb0ff}.cchip.tier-spe.on{border-color:#2f9e8f;color:#5fd3c2}
+  .cchip.tier-sde.on{border-color:#b3801a;color:#e0b455}.cchip.tier-ge.on{border-color:#6b7b8d;color:#9fb0c2}
 </style>
 </head>
 <body>
@@ -11173,12 +11183,35 @@ function renderExLibList(){
   const host=document.getElementById('exLibList'); if(!host) return;
   const q=(conState.exQ||'').toLowerCase();
   const filtered=(EXLIB||[]).filter(e=>(conState.exGroup==='All'||e.grp===conState.exGroup) && (!q||e.name.toLowerCase().indexOf(q)>-1));
-  host.innerHTML=`<div class="note sub" style="margin:0 0 8px">${filtered.length} of ${(EXLIB||[]).length} exercises</div>
-    <div class="exlist">${filtered.slice(0,300).map(e=>`<div class="exrow">
+  const tf=conState.exTier||'All';
+  const shown=filtered.filter(e=>tf==='All'||exClass(e.name)===tf);
+  const counts={}; EX_TIERS.forEach(t=>counts[t]=(EXLIB||[]).filter(e=>exClass(e.name)===t).length);
+  host.innerHTML=`<div class="ex-tierbar">
+      <span class="cchip ${tf==='All'?'on':''}" onclick="setExTier('All')">All tiers</span>
+      ${EX_TIERS.map(t=>`<span class="cchip tier-${t} ${tf===t?'on':''}" onclick="setExTier('${t}')">${t.toUpperCase()} <i>${counts[t]}</i></span>`).join('')}
+      ${EXTIER_READY?'':'<span class="note sub" style="margin-left:auto">run migration 59 to pin tiers</span>'}
+    </div>
+    <div class="note sub" style="margin:0 0 8px">${shown.length} of ${(EXLIB||[]).length} exercises · click a tier chip on a row to change it</div>
+    <div class="exlist">${shown.slice(0,300).map(e=>{ const t=exClass(e.name), pinned=!!exLibTier(e.name);
+      const nm=esc(e.name).replace(/'/g,"\\'");
+      return `<div class="exrow">
+      <span class="ex-tier tier-${t} ${pinned?'pinned':''}" title="${pinned?'Pinned by you — click to cycle, or cycle past GE to go back to automatic':'Classified automatically from the name — click to pin a different tier'}"
+        onclick="exCycleTier('${nm}')">${t.toUpperCase()}${pinned?'':'<i>auto</i>'}</span>
       <span class="exn">${esc(e.name)}</span>${e.grp?`<span class="exg">${esc(e.grp)}</span>`:''}
-      <span class="extools"><span class="extool del" onclick="conDelExercise('${esc(e.name).replace(/'/g,"\\'")}')">✕ remove</span></span>
-    </div>`).join('')}${filtered.length>300?`<div class="note sub" style="padding:8px">…${filtered.length-300} more — refine the search</div>`:''}</div>`;
+      <span class="extools"><span class="extool del" onclick="conDelExercise('${nm}')">✕ remove</span></span>
+    </div>`;}).join('')}${shown.length>300?`<div class="note sub" style="padding:8px">…${shown.length-300} more — refine the search</div>`:''}</div>`;
 }
+window.setExTier=(t)=>{ conState.exTier=t; renderExLibList(); };
+// cycle CE -> SPE -> SDE -> GE -> automatic. Writes exercises.tier; null means "decide by name".
+window.exCycleTier=async(name)=>{
+  if(!EXTIER_READY){ toast('Run migration 59 to pin exercise tiers.'); return; }
+  const row=(EXLIB||[]).find(e=>e.name===name); if(!row) return;
+  const cur=row.tier||null;
+  const next = cur===null ? 'ce' : (EX_TIERS[EX_TIERS.indexOf(cur)+1]||null);
+  row.tier=next; exTierIndex(); renderExLibList();
+  const r=await sb.from('exercises').update({tier:next}).eq('gym_id',me_.gym_id).eq('name',name);
+  if(r.error){ row.tier=cur; exTierIndex(); renderExLibList(); toast('Could not change that tier — '+r.error.message); }
+};
 window.setExGroup=(g)=>{ conState.exGroup=g; const f=document.getElementById('exLibFilters'); if(f){ [].forEach.call(f.querySelectorAll('.cchip'),c=>c.classList.toggle('on', c.getAttribute('data-g')===g)); } renderExLibList(); };
 window.conSaveExercise=async()=>{
   const name=(document.getElementById('exNewName').value||'').trim();
@@ -13244,6 +13277,10 @@ function classifyLift(seg){
 function exClass(name){
   const s=(name||'').toLowerCase().replace(/\s+/g,' ').trim();
   if(!s) return 'ge';
+  // A tier set on the exercise LIBRARY is a deliberate coach override and wins over every
+  // rule below -- one place to reclassify an exercise for every block, chart and recount.
+  // Only a per-prescription pin (prescribed_exercises.category, handled in exClassOf) beats it.
+  const pin=exLibTier(s); if(pin) return pin;
   // 1) equipment / clearly-general markers win first — a KB/DB/flywheel "snatch" is GPP, not the barbell lift; Kboxx family = GE
   if(/\bkboxx?\b|\bk ?box\b|flywheel|\bkb\b|kettlebell|\bdb\b|dumbbell|dumbell|\bmachine\b|leg press|\bsled\b|\bband\b|\bcable\b|cossack/.test(s)) return 'ge';
   // 2) competition family
@@ -13830,12 +13867,20 @@ function cueChipsHtml(ex,ei){
 }
 /* ---------------- exercise library autocomplete ---------------- */
 let EXLIB=null;
+let EXTIER_READY=false;                 // exercises.tier (migration 59)
 async function loadExLib(){
   if(EXLIB!==null) return EXLIB;
-  const { data, error } = await sb.from('exercises').select('name,grp,cat').order('name');
-  EXLIB = error ? [] : (data||[]);
+  let r=await sb.from('exercises').select('name,grp,cat,tier').order('name');
+  if(r.error){ EXTIER_READY=false; r=await sb.from('exercises').select('name,grp,cat').order('name'); }
+  else EXTIER_READY=true;
+  EXLIB = r.error ? [] : (r.data||[]);
+  exTierIndex();
   return EXLIB;
 }
+// name -> pinned tier, so exClass() can consult the library without scanning it every call
+let EXTIER={};
+function exTierIndex(){ EXTIER={}; (EXLIB||[]).forEach(e=>{ if(e.tier) EXTIER[(e.name||'').toLowerCase().trim()]=e.tier; }); }
+function exLibTier(name){ return EXTIER[(name||'').toLowerCase().trim()]||null; }
 let exDropInput=null, exDropEi=null, exDropIdx=-1;
 function exMatches(q){
   if(!EXLIB||!EXLIB.length) return [];
