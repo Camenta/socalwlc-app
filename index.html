@@ -2164,6 +2164,34 @@
   .tier-ce{background:#3f6fd0}.tier-spe{background:#2f9e8f}.tier-sde{background:#b3801a}.tier-ge{background:#6b7b8d}
   .cchip.tier-ce.on{border-color:#3f6fd0;color:#7fb0ff}.cchip.tier-spe.on{border-color:#2f9e8f;color:#5fd3c2}
   .cchip.tier-sde.on{border-color:#b3801a;color:#e0b455}.cchip.tier-ge.on{border-color:#6b7b8d;color:#9fb0c2}
+  /* Program Builder canvas */
+  .pg-chartbox{overflow-x:auto;padding-top:4px}
+  #pgCv{display:block;width:100%;height:320px;cursor:crosshair}
+  .pg-read{min-height:20px;margin-top:8px;font-size:12.5px;color:var(--muted)}
+  .pg-read b{color:var(--text)} .pg-read i{font-style:italic}
+  .pg-macros{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-left:auto}
+  .pg-mchip{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:10px;
+    padding:5px 10px;cursor:pointer;font-size:12px}
+  .pg-mchip.on{border-color:var(--accent)}
+  .pg-mchip input{width:52px;padding:3px 5px;font-size:12px}
+  .pg-mchip i{font-style:normal;color:var(--muted);font-size:10px}
+  .pg-mchip .v{font-weight:700;font-variant-numeric:tabular-nums}
+  .pg-days{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:9px;margin-top:10px}
+  .pg-day{border:1px solid var(--line);border-radius:9px;padding:10px;background:var(--panel)}
+  .pg-day h5{margin:0 0 3px;font-size:12px;font-weight:700}
+  .pg-day .dv{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums}
+  .pg-day .dl{font-size:10.5px;color:var(--muted)}
+  .pg-tops{display:flex;flex-direction:column;gap:3px;min-width:150px}
+  .pg-tops .cw-sel{min-width:132px}
+  .pg-pct{font-size:10.5px;color:var(--warn);font-variant-numeric:tabular-nums}
+  .pg-ck{font-size:11.5px;font-weight:700;font-variant-numeric:tabular-nums}
+  .pg-ck i{font-style:normal;font-weight:400;color:var(--muted);font-size:10.5px;display:block}
+  .pg-sub{font-size:10.5px;color:var(--muted)} .pg-sub.bad{color:var(--warn)}
+  .pg-shared{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);
+    border:1px solid var(--line);border-radius:8px;padding:1px 5px;margin-left:6px;vertical-align:1px}
+  .pg-mrow.locked input,.pg-mrow.locked select{opacity:.5}
+  .act-lnk{background:none;border:none;color:var(--accent);font:inherit;font-size:12px;font-weight:600;
+    cursor:pointer;border-bottom:1px dashed currentColor;padding:0}
 </style>
 </head>
 <body>
@@ -12809,135 +12837,6 @@ function peFanOut(plan, athletes){
   });
 }
 
-let beState={ scope:'athlete', athleteId:null, teamId:null, lift:'Snatch off Blocks', reps:5,
-              phase:'Accumulation', schemeKey:null, patternKey:null, peakTier:'Very Heavy',
-              annual:14781, macroShare:0.50, mesoShare:0.22, inc:1, annualBy:{}, loaded:false, maxesBy:{} };
-
-async function beLoad(){
-  await ensureDashRoster();          // guarantees roster carries team_id AND conState._teams is loaded
-  const ids=(coachState.athletes||[]).map(a=>a.id);
-  beState.maxesBy={};
-  if(ids.length){
-    const {data}=await sb.from('maxes').select('athlete_id,lift,kg,tested_at').in('athlete_id',ids);
-    (data||[]).forEach(r=>{ (beState.maxesBy[r.athlete_id]=beState.maxesBy[r.athlete_id]||[]).push(r); });
-  }
-  beState.loaded=true;
-}
-function beRoster(){
-  const all=(coachState.athletes||[]);
-  if(beState.scope==='team' && beState.teamId) return all.filter(a=>a.team_id===beState.teamId);
-  if(beState.scope==='athlete') return all.filter(a=>a.id===beState.athleteId);
-  return all;
-}
-function beScheme(){ const s=peSchemes(); return s.find(x=>x.key===beState.schemeKey)||s.find(x=>x.key==='4wk · Plateau Pyramid (20/30/30/20)')||s[0]; }
-function bePattern(){ const wk=(beScheme()||{}).weeks||4; const p=pePatterns().filter(x=>x.offsets.length===wk);
-  return p.find(x=>x.key===beState.patternKey)||p[0]||pePatterns()[0]; }
-
-window.beSet=(k,v)=>{ beState[k]=(k==='reps'||k==='inc')?+v:((k==='annual')?+v:((k==='macroShare'||k==='mesoShare')?+v/100:v));
-  if(k==='schemeKey') beState.patternKey=null;              // week count may have changed
-  renderConBody(); };
-window.beSetAnnual=(id,v)=>{ const n=parseFloat(v); if(isNaN(n)) delete beState.annualBy[id]; else beState.annualBy[id]=n; renderConBody(); };
-window.beReset=()=>{ beState.annualBy={}; renderConBody(); };
-
-function beStatusLine(){
-  const edited=gymPeRef?Object.keys(gymPeRef).reduce((n,k)=>n+Object.keys(gymPeRef[k]||{}).length,0):0;
-  const t=peSelfTest();
-  const dot=(good)=>`<span style="color:var(--${good?'good':'bad'})">●</span>`;
-  return `<div class="be-status">${dot(PEREF_READY)} reference tables ${PEREF_READY?'live':'defaults only (run migration 57)'}
-    · ${edited} gym edit${edited===1?'':'s'} · ${dot(t.failed===0)} engine self-test ${t.passed}/${t.total}
-    ${t.failed?`<b style="color:var(--bad)">— ${t.failures.map(f=>esc(f.t)).join(', ')}</b>`:''}</div>`;
-}
-
-function beControls(){
-  const lifts=peLifts(), schemes=peSchemes(), pats=pePatterns();
-  const sc=beScheme(), pt=bePattern(), wk=sc?sc.weeks:4;
-  const teams=(conState._teams||[]);
-  const opt=(v,l,on)=>`<option value="${esc(v)}"${on?' selected':''}>${esc(l)}</option>`;
-  const who = beState.scope==='team'
-    ? `<select class="cw-sel" onchange="beSet('teamId',this.value)">${teams.map(t=>opt(t.id,t.name,beState.teamId===t.id)).join('')||opt('','no teams yet')}</select>`
-    : `<select class="cw-sel" onchange="beSet('athleteId',this.value)">${(coachState.athletes||[]).map(a=>opt(a.id,a.full_name,beState.athleteId===a.id)).join('')||opt('','no athletes yet')}</select>`;
-  return `<div class="card be-ctrls">
-    <div class="be-row"><span class="be-f"><label>Apply to</label>
-        <select class="cw-sel" onchange="beSet('scope',this.value)">${opt('athlete','One athlete',beState.scope==='athlete')}${opt('team','A team',beState.scope==='team')}${opt('all','Whole roster',beState.scope==='all')}</select></span>
-      ${beState.scope!=='all'?`<span class="be-f"><label>&nbsp;</label>${who}</span>`:''}</div>
-
-    <div class="be-row"><span class="be-hd">Checkpoint</span>
-      <span class="be-f"><label>Lift</label><select class="cw-sel" onchange="beSet('lift',this.value)">${lifts.map(l=>opt(l.key,l.key,beState.lift===l.key)).join('')}</select></span>
-      <span class="be-f"><label>Reps</label><select class="cw-sel" onchange="beSet('reps',this.value)">${[1,2,3,4,5,6,7,8,9,10].map(r=>opt(r,r+(PE_DEFAULTS.riReps.indexOf(r)<0?' (interpolated)':''),beState.reps===r)).join('')}</select></span>
-      <span class="be-f"><label>Phase</label><select class="cw-sel" onchange="beSet('phase',this.value)">${Object.keys(pePhaseDisc()).map(p=>opt(p,p,beState.phase===p)).join('')}</select></span></div>
-
-    <div class="be-row"><span class="be-hd">Shape</span>
-      <span class="be-f" style="flex:2"><label>Volume scheme</label><select class="cw-sel" style="width:100%" onchange="beSet('schemeKey',this.value)">${schemes.map(s=>opt(s.key,s.key,sc&&sc.key===s.key)).join('')}</select></span>
-      <span class="be-f"><label>Intensity pattern (${wk} wk)</label><select class="cw-sel" onchange="beSet('patternKey',this.value)">${pats.filter(p=>p.offsets.length===wk).map(p=>opt(p.key,p.key,pt&&pt.key===p.key)).join('')||opt('','none for '+wk+' weeks')}</select></span>
-      <span class="be-f"><label>Peak tier</label><select class="cw-sel" onchange="beSet('peakTier',this.value)">${peRiChart().map(r=>opt(r.tier,r.tier,beState.peakTier===r.tier)).join('')}</select></span></div>
-
-    <div class="be-row"><span class="be-hd">Volume</span>
-      <span class="be-f"><label>Annual reps</label><input class="cw-sel" type="number" step="1" value="${beState.annual}" onchange="beSet('annual',this.value)"></span>
-      <span class="be-f"><label>Macro share %</label><input class="cw-sel" type="number" step="1" value="${Math.round(beState.macroShare*100)}" onchange="beSet('macroShare',this.value)"></span>
-      <span class="be-f"><label>Meso share %</label><input class="cw-sel" type="number" step="1" value="${Math.round(beState.mesoShare*100)}" onchange="beSet('mesoShare',this.value)"></span>
-      <span class="be-f"><label>Round to</label><select class="cw-sel" onchange="beSet('inc',this.value)">${[1,2.5,5].map(i=>opt(i,i+' kg',beState.inc===i)).join('')}</select></span></div>
-    <div class="note sub" style="padding:6px 2px 0">Annual reps come from the readiness questionnaire once it's built; until then type it, or override per athlete below. Nothing here is stored as kilos — a retest re-prices the whole block.</div>
-  </div>`;
-}
-
-function beBlockCard(name, block, athId){
-  if(block.cycleError) return `<div class="card"><h2 style="margin:0 0 6px">${esc(name)}</h2><div class="be-empty bad">${esc(block.cycleError)}</div></div>`;
-  if(block.needsTest)  return `<div class="card"><h2 style="margin:0 0 6px">${esc(name)}</h2>
-      <div class="be-empty">No tested max upstream of <b>${esc(block.checkpointLift)}</b>. Test <b>${esc(block.needsTest)}</b> to price this block.</div></div>`;
-  const inc=beState.inc, ck=block.checkpoint;
-  const pct=(p)=>p==null?'—':(p.pct*100).toFixed(1)+'%';
-  const rows=block.weeks.map(w=>`<tr>
-      <td class="be-wk">${w.week}</td>
-      <td class="be-vol tnum">${w.volumeReps}</td>
-      <td>${esc(w.tier)}${w.interpolated?`<span class="be-interp" title="No ${w.intensityReps}-rep column in the chart — interpolated between ${w.between?w.between.join(' and '):''}">interp</span>`:''}</td>
-      <td class="tnum be-ck">${pct(w.pctLow)}${w.singleValue?'':' – '+pct(w.pctHigh)}</td>
-      <td class="tnum be-ck"><b>${peRound(w.kgLow,inc)}${w.singleValue?'':' – '+peRound(w.kgHigh,inc)}</b></td>
-    </tr>`).join('');
-  const v=block.verdict, vc=v.status==='reachable'?'good':(v.status==='undecided'?'muted':'warn');
-  const annualUsed=block.annualInUse;
-  return `<div class="card be-block">
-    <div class="be-bhd"><h2 style="margin:0">${esc(name)}</h2>
-      <span class="sub">${esc(block.checkpointLift)} 1RM <b>${peRound(block.ownMax.kg,inc)} kg</b>
-        ${block.ownMax.source==='derived'?`<i class="be-derived" title="Not tested — derived from ${esc(block.ownMax.derivedFrom)} × ${block.ownMax.ratio}">derived from ${esc(block.ownMax.derivedFrom)}</i>`:'<i class="be-tested">tested</i>'}</span></div>
-    <div class="be-annual">Annual <input type="number" step="1" value="${annualUsed}" onchange="beSetAnnual('${athId}',this.value)" title="Override this athlete's annual reps">
-      <span class="sub">meso ${Math.round(block.mesoVolume)} reps</span></div>
-    <table class="be-tbl"><thead>
-      <tr><th rowspan="2">WK</th><th rowspan="2" class="be-grp1">TOTAL REPS<br><i>whole program · every exercise</i></th>
-          <th rowspan="2">TIER</th><th colspan="2" class="be-grp2">${esc(block.checkpointLift).toUpperCase()} ONLY</th></tr>
-      <tr><th class="be-grp2"><i>% of its own 1RM</i></th><th class="be-grp2"><i>kg</i></th></tr>
-      </thead><tbody>${rows}</tbody></table>
-    <div class="be-ck-line"><b>Checkpoint</b> ${block.checkpoint.reps}RM ${esc(block.checkpoint.phaseKey)} =
-      <b>${peRound(ck.kg,inc)} kg</b>
-      <span class="be-den">${pct(ck.pctOfOwn)} of ${esc(block.checkpointLift)}</span>
-      <span class="be-den">${pct(ck.pctOfParent)} of ${esc(ck.parentKey)}</span></div>
-    <div class="be-verdict ${vc}">${esc(v.note||v.reason||'')}
-      ${v.ratio!=null?`<span class="sub">peak band ${(v.ratio*100).toFixed(1)}% of checkpoint</span>`:''}</div>
-    ${block.warnings.map(w=>`<div class="be-warn">⚠ ${esc(w.msg)}</div>`).join('')}
-  </div>`;
-}
-
-async function renderBlockBuilder(host){
-  if(!beState.loaded){ host.innerHTML='<div class="card"><div class="spin" style="padding:14px">loading maxes…</div></div>'; await beLoad(); }
-  if(!beState.athleteId && (coachState.athletes||[]).length) beState.athleteId=coachState.athletes[0].id;
-  if(!beState.teamId && (conState._teams||[]).length) beState.teamId=conState._teams[0].id;
-  const sc=beScheme(), pt=bePattern();
-  const roster=beRoster();
-  let body='';
-  if(!sc||!pt) body=`<div class="card"><div class="be-empty">Pick a volume scheme and an intensity pattern with matching week counts.</div></div>`;
-  else if(!roster.length) body=`<div class="card"><div class="be-empty">No athletes in that selection.</div></div>`;
-  else {
-    const plan={ checkpointLift:beState.lift, checkpointReps:beState.reps, phaseKey:beState.phase,
-                 scheme:sc, pattern:pt, peakTier:beState.peakTier,
-                 annualVolume:beState.annual, macroShare:beState.macroShare, mesoShare:beState.mesoShare };
-    const athletes=roster.map(a=>({ id:a.id, full_name:a.full_name,
-        maxesByLift: peMaxMap(beState.maxesBy[a.id]||[]),
-        annualVolume: beState.annualBy[a.id] }));
-    body=peFanOut(plan, athletes).map(r=>beBlockCard(r.athlete.full_name||'Athlete', r.block, r.athlete.id)).join('');
-  }
-  host.innerHTML=beStatusLine()+beControls()+body;
-}
-
-
 /* ==================================================================================
    PROGRAM BUILDER — the volume-distribution tree (slices 1 + 2).
    Mirrors Chris's "Annual Volume Distribution Tool":
@@ -12953,7 +12852,7 @@ const PG_KINDS=['exposure','comprehension','ascension','summit','realization','t
 const PG_KIND_LBL={exposure:'Exposure',comprehension:'Comprehension',ascension:'Ascension',summit:'Summit',realization:'Realization',transition:'Transition'};
 
 let pgState={ athleteId:null, macroId:null, loaded:false, phases:[], readiness:null, profile:null,
-              annual:null, annualEdit:null, maxes:{}, maxRows:[], busy:false, open:{}, msg:'', unlocked:false };
+              annual:null, annualEdit:null, maxes:{}, maxRows:[], busy:false, open:{}, msg:'', unlocked:false, selWk:-1, hoverWk:-1 };
 
 /* ---------- load ---------- */
 async function pgLoad(){
@@ -13092,44 +12991,155 @@ window.pgBalance=async(macroId)=>{
   for(const m of free) await pgSave(m.id,{volume_share:each});
 };
 
-/* ---------- render ---------- */
-function pgNum(n,d){ return n==null?'—':(+n).toFixed(d==null?0:d); }
+/* ---------- render: the canvas ---------- */
+const PG_MICRO=[['Session 1',.22],['Session 2',.20],['Session 3',.22],['Session 4',.18],['Session 5',.18]];
 function pgTotalsBar(items, label){
   const sum=items.reduce((s,m)=>s+(+m.volume_share||0),0);
   const pct=sum*100, ok=Math.abs(pct-100)<0.5;
   return { sum, pct, ok, html:`<span class="pg-tot ${ok?'ok':'warn'}">${label} ${pct.toFixed(0)}%${ok?' ✓':' ⚠ should be 100%'}</span>` };
 }
+function pgSchemeOf(m){ const all=peSchemes().filter(s=>s.weeks===pgWeeks(m));
+  return all.find(s=>s.key===m.scheme_key)||null; }
+function pgPatternOf(m){ const w=pgWeeks(m), all=pePatterns().filter(p=>p.offsets.length===w);
+  return all.find(p=>p.key===m.pattern_key)||all[0]||null; }
+/* every week of the current macro, with its volume and the tier the pattern produces */
+function pgWeekRows(macro){
+  const out=[], annual=pgAnnual();
+  const macroVol=(annual!=null&&macro&&macro.volume_share!=null)?annual*macro.volume_share:null;
+  pgMesos(macro).forEach(m=>{
+    const wk=pgWeeks(m), sc=pgSchemeOf(m), pat=pgPatternOf(m);
+    const vol=(macroVol!=null&&m.volume_share!=null)?macroVol*m.volume_share:null;
+    const split=sc?sc.split:Array.from({length:wk},()=>1/wk);
+    const peak=peTierRank(m.peak_tier||'Very Heavy');
+    for(let i=0;i<wk;i++){
+      const rank=(peak!=null&&pat)?Math.min(8,peak+(pat.offsets[i]||0)):null;
+      const row=rank!=null?peRiRow(rank):null;
+      out.push({ meso:m, wk:i+1, of:wk, reps:vol!=null?vol*split[i]:null,
+                 share:split[i], tier:row?row.tier:null, rank, evenSplit:!sc });
+    }
+  });
+  return out;
+}
+function pgDraw(){
+  const cv=document.getElementById('pgCv'); if(!cv) return;
+  const macro=pgCurMacro(), ws=pgWeekRows(macro);
+  const dpr=window.devicePixelRatio||1, W=cv.clientWidth||900, H=320;
+  cv.width=W*dpr; cv.height=H*dpr;
+  const g=cv.getContext('2d'); g.scale(dpr,dpr); g.clearRect(0,0,W,H);
+  const cs=getComputedStyle(document.documentElement), col=n=>cs.getPropertyValue(n).trim()||'#888';
+  if(!ws.length){ g.fillStyle=col('--muted'); g.font='13px sans-serif';
+    g.fillText('No mesocycles in this macrocycle yet.',14,H/2); return; }
+  const haveVol=ws.some(w=>w.reps!=null);
+  const padL=46,padR=58,padT=16,padB=44;
+  const cw=(W-padL-padR)/ws.length;
+  const maxR=haveVol?Math.max(...ws.map(w=>w.reps||0))*1.18:1;
+  const y=v=>padT+(H-padT-padB)*(1-v/maxR);
+  g.strokeStyle=col('--line'); g.fillStyle=col('--muted'); g.font='10px sans-serif'; g.lineWidth=1;
+  if(haveVol) for(let i=0;i<=4;i++){ const v=maxR*i/4, yy=Math.round(y(v))+.5;
+    g.beginPath(); g.moveTo(padL,yy); g.lineTo(W-padR,yy); g.stroke();
+    g.textAlign='right'; g.fillText(Math.round(v),padL-7,yy+3); }
+  /* volume bars, one colour per block so the blocks read apart */
+  ws.forEach((w,i)=>{
+    if(w.reps==null) return;
+    const bx=padL+i*cw+1.5, bw=Math.max(2,cw-3), yy=y(w.reps);
+    const hot=pgState.hoverWk===i, sel=pgState.selWk===i;
+    g.fillStyle=col('--'+(PG_KIND_COL[w.meso.kind]||'accent'));
+    g.globalAlpha=hot||sel?1:.82; g.fillRect(bx,yy,bw,(H-padB)-yy); g.globalAlpha=1;
+    if(hot||sel){ g.strokeStyle=col('--text'); g.lineWidth=sel?2:1.2; g.strokeRect(bx,yy,bw,(H-padB)-yy); }
+  });
+  /* block dividers + labels */
+  let x=padL; g.textAlign='left';
+  pgMesos(macro).forEach(m=>{ const w=pgWeeks(m)*cw;
+    g.strokeStyle=col('--line'); g.beginPath(); g.moveTo(Math.round(x)+.5,padT); g.lineTo(Math.round(x)+.5,H-padB); g.stroke();
+    g.fillStyle=col('--muted'); g.font='600 10px sans-serif';
+    if(w>62){ g.fillText((m.name||'Block').toUpperCase().slice(0,18),x+4,H-padB+14);
+      const v=pgMesoVol(m); g.fillText(pgWeeks(m)+' wk'+(v!=null?' · '+Math.round(v):''),x+4,H-padB+26); }
+    x+=w; });
+  g.strokeStyle=col('--line'); g.beginPath(); g.moveTo(padL,H-padB+.5); g.lineTo(W-padR,H-padB+.5); g.stroke();
+  /* intensity — always on. Right axis is the tier ladder, heavier sits higher. */
+  const ranked=ws.filter(w=>w.rank!=null);
+  if(ranked.length){
+    const ty=r=>padT+6+((H-padT-padB-14)*((r-1)/7));
+    g.strokeStyle=col('--warn'); g.lineWidth=2; g.beginPath();
+    ws.forEach((w,i)=>{ if(w.rank==null) return; const xx=padL+i*cw+cw/2, yy=ty(w.rank);
+      g.lineWidth=2; if(i===0||ws[i-1].rank==null) g.moveTo(xx,yy); else g.lineTo(xx,yy); });
+    g.stroke();
+    ws.forEach((w,i)=>{ if(w.rank==null) return; const xx=padL+i*cw+cw/2, yy=ty(w.rank);
+      g.fillStyle=col('--warn'); g.beginPath(); g.arc(xx,yy,2.6,0,7); g.fill(); });
+    g.fillStyle=col('--warn'); g.font='600 9px sans-serif'; g.textAlign='left';
+    [1,3,5,8].forEach(r=>{ const row=peRiRow(r); if(row) g.fillText(row.tier.toUpperCase(),W-padR+5,ty(r)+3); });
+  }
+}
+const PG_KIND_COL={exposure:'accent',comprehension:'accent',ascension:'warn',summit:'heat',realization:'bad',transition:'muted'};
+function pgMesoVol(m){ const macro=pgCurMacro(), annual=pgAnnual();
+  const mv=(annual!=null&&macro&&macro.volume_share!=null)?annual*macro.volume_share:null;
+  return (mv!=null&&m.volume_share!=null)?mv*m.volume_share:null; }
+function pgDayPanel(){
+  const host=document.getElementById('pgDays'); if(!host) return;
+  const ws=pgWeekRows(pgCurMacro()), i=pgState.selWk;
+  if(i==null||i<0||i>=ws.length){ host.innerHTML=''; return; }
+  const w=ws[i];
+  if(w.reps==null){ host.innerHTML=`<div class="pg-empty">Set an annual number and this block's share to see the days.</div>`; return; }
+  host.innerHTML=`<div class="pg-sec" style="margin-top:16px">${esc(w.meso.name||'Block')} · week ${w.wk} of ${w.of}
+      · ${Math.round(w.reps)} reps${w.tier?' · '+esc(w.tier):''}</div>
+    <div class="pg-days">${PG_MICRO.map(([nm,sh])=>`<div class="pg-day"><h5>${nm}</h5>
+      <div class="dv">${Math.round(w.reps*sh)}</div><div class="dl">reps · ${(sh*100).toFixed(0)}% of the week</div></div>`).join('')}</div>
+    <div class="pg-note">Placeholder microcycle — five sessions at 22/20/22/18/18. Exercises land here in the next phase.</div>`;
+}
+window.pgPickWeek=(i)=>{ pgState.selWk=(pgState.selWk===i?-1:i); pgDraw(); pgDayPanel(); };
+function pgWireCanvas(){
+  const cv=document.getElementById('pgCv'); if(!cv||cv._wired) return; cv._wired=true;
+  const at=ev=>{ const r=cv.getBoundingClientRect(), n=pgWeekRows(pgCurMacro()).length; if(!n) return -1;
+    const cw=(r.width-46-58)/n, i=Math.floor((ev.clientX-r.left-46)/cw); return (i>=0&&i<n)?i:-1; };
+  cv.addEventListener('mousemove',ev=>{ const i=at(ev); if(i===pgState.hoverWk) return; pgState.hoverWk=i;
+    const ws=pgWeekRows(pgCurMacro()), r=document.getElementById('pgRead');
+    if(r) r.innerHTML = i<0?'Hover a week. Click one to open its days.'
+      : `<b>${esc(ws[i].meso.name||'Block')}</b> · week ${ws[i].wk}/${ws[i].of}${ws[i].reps!=null?` — <b>${Math.round(ws[i].reps)}</b> reps`:''}${ws[i].tier?` · ${esc(ws[i].tier)}`:''}${ws[i].evenSplit?' · <i>no scheme yet — split evenly</i>':''}`;
+    pgDraw(); });
+  cv.addEventListener('mouseleave',()=>{ pgState.hoverWk=-1; pgDraw(); });
+  cv.addEventListener('click',ev=>pgPickWeek(at(ev)));
+}
+/* the block row */
 function pgMesoRow(m, macroVol, idx){
   const wks=pgWeeks(m), share=m.volume_share, vol=(macroVol!=null&&share!=null)?macroVol*share:null;
-  const scheme=peSchemes().find(s=>s.key===m.scheme_key);
-  const fits=scheme?scheme.weeks===wks:null;
-  const schemeOpts=peSchemes().filter(s=>s.weeks===wks);
-  const open=!!pgState.open[m.id];
-  let detail='';
-  if(open){
-    if(!scheme) detail=`<tr class="pg-det"><td colspan="8"><div class="pg-empty">Pick a ${wks}-week loading scheme to split this mesocycle across its weeks.</div></td></tr>`;
-    else if(vol==null) detail=`<tr class="pg-det"><td colspan="8"><div class="pg-empty">Set a volume share to see the weekly split.</div></td></tr>`;
-    else {
-      const wk=scheme.split.map((s,i)=>`<div class="pg-wk"><span class="pg-wkn">W${i+1}</span><span class="pg-wkp">${(s*100).toFixed(0)}%</span><b>${Math.round(vol*s)}</b><span class="pg-wku">reps</span></div>`).join('');
-      detail=`<tr class="pg-det"><td colspan="8"><div class="pg-wks">${wk}</div>
-        <div class="pg-note">Whole-program reps for this week — every exercise, not one lift. Intensity bands come in the next slice.</div></td></tr>`;
-    }
-  }
-  return `<tr class="pg-mrow">
+  const schemes=peSchemes().filter(s=>s.weeks===wks), pats=pePatterns().filter(p=>p.offsets.length===wks);
+  const shared=pgIsShared(m), lock=shared&&!pgState.unlocked;
+  const dis=lock?' disabled':'';
+  const reps=m.checkpoint_reps||5, tier=m.peak_tier||'Very Heavy';
+  const rr=peTierRank(tier), row=rr!=null?peRiRow(rr):null;
+  const cell=row?peRiCell(row,reps):null;
+  const band=cell&&cell.high!=null?`${((cell.low!=null?cell.low:cell.high)*100).toFixed(0)}–${(cell.high*100).toFixed(0)}% at ${reps} reps`:'';
+  return `<tr class="pg-mrow${lock?' locked':''}">
     <td class="pg-ord">${idx+1}</td>
-    <td><div class="pg-nmMain">${esc(m.name||PG_KIND_LBL[m.kind]||'Block')}</div>
-        <select class="cw-sel pg-kind" onchange="pgSetKind('${m.id}',this.value)">${PG_KINDS.map(k=>`<option value="${k}"${(m.kind||'comprehension')===k?' selected':''}>${PG_KIND_LBL[k]}</option>`).join('')}</select></td>
+    <td><div class="pg-nmMain">${esc(m.name||PG_KIND_LBL[m.kind]||'Block')}${shared?'<span class="pg-shared" title="Inherited from a team or gym plan">shared</span>':''}</div>
+        <select class="cw-sel pg-kind"${dis} onchange="pgSetKind('${m.id}',this.value)">${PG_KINDS.map(k=>`<option value="${k}"${(m.kind||'comprehension')===k?' selected':''}>${PG_KIND_LBL[k]}</option>`).join('')}</select></td>
     <td class="tnum">${wks}</td>
-    <td><input class="pg-in" type="number" step="1" min="0" max="100" value="${share!=null?+(share*100).toFixed(0):''}" placeholder="—" onchange="pgSetShare('${m.id}',this.value)"></td>
+    <td><input class="pg-in" type="number" min="0" max="100" value="${share!=null?+(share*100).toFixed(0):''}" placeholder="—"${dis} onchange="pgSetShare('${m.id}',this.value)"></td>
     <td class="tnum pg-vol"><b>${vol==null?'—':Math.round(vol)}</b></td>
     <td class="tnum">${vol==null||!wks?'—':Math.round(vol/wks)}</td>
-    <td><select class="cw-sel pg-sch" onchange="pgSetScheme('${m.id}',this.value)">
-        <option value="">— scheme —</option>${schemeOpts.map(s=>`<option value="${esc(s.key)}"${m.scheme_key===s.key?' selected':''}>${esc(s.key)}</option>`).join('')}</select>
-        ${(m.scheme_key&&fits===false)?`<span class="pg-bad" title="That scheme is not ${wks} weeks long">✕ ${wks}wk?</span>`:''}</td>
-    <td><input class="pg-in wide" type="text" value="${esc(m.goal||'')}" placeholder="goal…" onchange="pgSetGoal('${m.id}',this.value)"></td>
-    <td class="pg-exp"><span onclick="pgToggle('${m.id}')" title="Weekly split">${open?'▾':'▸'}</span></td>
-  </tr>${detail}`;
+    <td><select class="cw-sel pg-sch"${dis} onchange="pgSetScheme('${m.id}',this.value)">
+        <option value="">— even split —</option>${schemes.map(s=>`<option value="${esc(s.key)}"${m.scheme_key===s.key?' selected':''}>${esc(s.key)}</option>`).join('')}</select></td>
+    <td><div class="pg-tops"><select class="cw-sel"${dis} onchange="pgSetPeak('${m.id}',this.value)">${peRiChart().map(r=>`<option${r.tier===tier?' selected':''}>${esc(r.tier)}</option>`).join('')}</select>
+        <span class="pg-pct">${band}</span>
+        <select class="cw-sel pg-pat"${dis} onchange="pgSetPattern('${m.id}',this.value)">${pats.map(p=>`<option value="${esc(p.key)}"${(m.pattern_key||(pats[0]&&pats[0].key))===p.key?' selected':''}>${esc(p.key)}</option>`).join('')}</select></div></td>
+    <td><div class="pg-tops"><select class="cw-sel"${dis} onchange="pgSetCkLift('${m.id}',this.value)"><option value="">— lift —</option>${peLifts().map(l=>`<option${m.checkpoint_lift===l.key?' selected':''}>${esc(l.key)}</option>`).join('')}</select>
+        <span><input class="pg-in" style="width:48px" type="number" min="1" max="10" value="${reps}"${dis} onchange="pgSetCkReps('${m.id}',this.value)">
+        <select class="cw-sel" style="min-width:104px"${dis} onchange="pgSetCkPhase('${m.id}',this.value)">${Object.keys(pePhaseDisc()).map(p=>`<option${m.checkpoint_phase===p?' selected':''}>${esc(p)}</option>`).join('')}</select></span>
+        ${pgCkKg(m)}</div></td>
+    <td><input class="pg-in wide" type="text" value="${esc(m.goal||'')}" placeholder="note…"${dis} onchange="pgSetGoal('${m.id}',this.value)"></td>
+  </tr>`;
 }
+function pgCkKg(m){
+  if(!m.checkpoint_lift) return '<span class="pg-sub">no checkpoint set</span>';
+  const t=peCheckpointTarget(pgState.maxes, m.checkpoint_lift, m.checkpoint_reps||5, m.checkpoint_phase||'Accumulation');
+  if(t.kg==null) return `<span class="pg-sub bad">${esc(t.error||'needs a max')}</span>`;
+  return `<span class="pg-ck">${peRound(t.kg,1)} kg <i>${(t.pctOfOwn.pct*100).toFixed(1)}% of ${esc(m.checkpoint_lift)}</i></span>`;
+}
+window.pgSetPeak    =(id,v)=>pgSave(id,{peak_tier:v});
+window.pgSetPattern =(id,v)=>pgSave(id,{pattern_key:v||null});
+window.pgSetCkLift  =(id,v)=>pgSave(id,{checkpoint_lift:v||null});
+window.pgSetCkReps  =(id,v)=>pgSave(id,{checkpoint_reps:parseInt(v,10)||null});
+window.pgSetCkPhase =(id,v)=>pgSave(id,{checkpoint_phase:v||null});
 
 async function renderProgramBuilder(host){
   if(!pgState.athleteId && (coachState.athletes||[]).length) pgState.athleteId=coachState.athletes[0].id;
@@ -13137,67 +13147,58 @@ async function renderProgramBuilder(host){
   const a=pgAth(), annual=pgAnnual(), macros=pgMacros(), macro=pgCurMacro();
   const cls=pgClassOf();
   const bench=annual!=null&&cls.tier?peBenchmarkCheck(cls.tier,annual):null;
+  const sh=pgState.phases.filter(pgIsShared).length;
 
   const head=`<div class="pg-head">
     <span class="be-f"><label>Athlete</label><select class="cw-sel" onchange="pgPickAth(this.value)">${(coachState.athletes||[]).map(x=>`<option value="${x.id}"${pgState.athleteId===x.id?' selected':''}>${esc(x.full_name)}</option>`).join('')||'<option>no athletes</option>'}</select></span>
     ${cls.label?`<span class="pg-cls" title="USAW A/B — the athlete-facing classification">${esc(cls.label)}</span>`:''}
-    ${cls.tier?`<span class="pg-cls" title="Development ladder — this is what drives annual volume${cls.nextTier?`. Next: ${esc(cls.nextTier)} at ${cls.nextTotal}kg`:''}">${esc(cls.tier)}${cls.progress!=null?` · ${Math.round(cls.progress*100)}%`:''}${cls.below?' (below)':''}</span>`
-       :`<span class="pg-flag warn" title="Readiness cannot score without a classification">no class — ${esc(cls.why||'')}</span>`}
-    ${cls.abBelow&&cls.tier?`<span class="pg-flag warn" title="USAW A/B's senior ladder starts at a 343 total, so it can't rank this athlete. Volume uses the development ladder instead.">A/B: below senior ladder</span>`:''}
-    ${(()=>{ const sh=pgState.phases.filter(pgIsShared).length; if(!sh) return '';
-       return `<span class="pg-flag ${pgState.unlocked?'warn':''}" title="Blocks with no athlete of their own are inherited from a team or gym plan. Editing one changes it for everyone on that plan.">${sh} shared block${sh===1?'':'s'} ${pgState.unlocked?'UNLOCKED':'read-only'}</span>
-         <button class="act" onclick="pgToggleLock()" style="background:none;border:none;cursor:pointer">${pgState.unlocked?'re-lock':'unlock shared editing'}</button>`; })()}
-    <span class="pg-flag ${PGPLAN_READY?'ok':'warn'}">${PGPLAN_READY?'plan columns live':'run migration 58 to save'}</span>
+    ${cls.tier?`<span class="pg-cls" title="Development ladder — drives annual volume${cls.nextTier?`. Next: ${esc(cls.nextTier)} at ${cls.nextTotal}kg`:''}">${esc(cls.tier)}${cls.progress!=null?` · ${Math.round(cls.progress*100)}%`:''}</span>`
+      :`<span class="pg-flag warn">no class — ${esc(cls.why||'')}</span>`}
+    <span class="pg-flag ${PGPLAN_READY?'ok':'warn'}">${PGPLAN_READY?'saving on':'run migration 58'}</span>
+    ${sh?`<span class="pg-flag ${pgState.unlocked?'warn':''}" title="Blocks inherited from a team or gym plan. Editing one changes it for everyone on that plan.">${sh} shared ${pgState.unlocked?'UNLOCKED':'read-only'}</span>
+      <button class="act-lnk" onclick="pgToggleLock()">${pgState.unlocked?'re-lock':'unlock shared editing'}</button>`:''}
     ${pgState.msg?`<span class="pg-flag warn">${esc(pgState.msg)}</span>`:''}</div>`;
 
   const annualCard=`<div class="card pg-annual">
-    <div class="pg-sec">Annual</div>
     <div class="pg-arow">
-      <span class="be-f"><label>Annual reps</label><input class="pg-in big" type="number" step="1" value="${annual!=null?annual:''}" placeholder="—" onchange="pgSetAnnual(this.value)"></span>
+      <span class="be-f"><label>Annual reps</label><input class="pg-in big" type="number" step="100" value="${annual!=null?annual:''}" placeholder="—" onchange="pgSetAnnual(this.value)"></span>
       <span class="pg-stat"><label>avg / week</label><b>${annual!=null?Math.round(annual/52):'—'}</b></span>
       ${bench?`<span class="pg-stat"><label>${esc(cls.tier)} benchmark</label><b>${esc(bench.band)}</b>
         <i class="pg-${bench.status==='inside'?'ok':'warn'}">${bench.status==='inside'?'inside':(bench.status==='over'?((bench.pctOfHigh-1)*100).toFixed(0)+'% over':'under')}</i></span>`:''}
-      <span class="pg-src">${pgState.annualEdit!=null?'typed (unsaved)':(pgState.readiness?(pgState.readiness.annual_override!=null?'coach override':'from readiness answers'):'no readiness yet — type it')}</span>
-    </div></div>`;
+      <span class="pg-src">${pgState.annualEdit!=null?'typed — not saved yet':(pgState.readiness?'from readiness answers':'no readiness yet — type it')}</span>
+      ${macros.length?`<span class="pg-macros">${macros.map(m=>{const v=(annual!=null&&m.volume_share!=null)?annual*m.volume_share:null;
+        return `<span class="pg-mchip ${macro&&macro.id===m.id?'on':''}" onclick="pgPickMacro('${m.id}')">
+          <b>${esc(m.name||PG_KIND_LBL[m.kind]||'Macro')}</b>
+          <input class="pg-in" type="number" min="0" max="100" value="${m.volume_share!=null?+(m.volume_share*100).toFixed(0):''}" placeholder="—"
+            ${pgIsShared(m)&&!pgState.unlocked?'disabled':''} onclick="event.stopPropagation()" onchange="pgSetShare('${m.id}',this.value)"><i>%</i>
+          <span class="v">${v==null?'—':Math.round(v)}</span></span>`;}).join('')}
+        ${pgTotalsBar(macros,'Total').html}</span>`:''}
+    </div>
+    ${macros.length?'':'<div class="pg-empty">No macrocycles on this plan. Build the phase bands on the <b>Annual Plan</b> — it owns the dates — then set their volume here.</div>'}
+  </div>`;
 
-  let macroCard;
-  if(!macros.length){
-    macroCard=`<div class="card"><div class="pg-sec">Macrocycles</div>
-      <div class="pg-empty">No macrocycles on ${esc((a&&a.full_name)||'this athlete')}'s plan yet. Build the phase bands on the <b>Annual Plan</b> (it owns the dates), then set their volume shares here.</div></div>`;
-  } else {
-    const t=pgTotalsBar(macros,'Total');
-    macroCard=`<div class="card"><div class="pg-sec">Macrocycles <span class="pg-subtle">${macros.length} this year</span> ${t.html}</div>
-      <table class="pg-tbl"><thead><tr><th>#</th><th>Macrocycle</th><th>Vol %</th><th class="tnum">Volume</th><th></th></tr></thead><tbody>
-      ${macros.map((m,i)=>{ const v=(annual!=null&&m.volume_share!=null)?annual*m.volume_share:null;
-        return `<tr class="${macro&&macro.id===m.id?'on':''}">
-          <td class="pg-ord">${i+1}</td>
-          <td>${esc(m.name||PG_KIND_LBL[m.kind]||'Macro')}<div class="pg-dates">${esc(m.start_date)} → ${esc(m.end_date)}</div></td>
-          <td><input class="pg-in" type="number" step="1" min="0" max="100" value="${m.volume_share!=null?+(m.volume_share*100).toFixed(0):''}" placeholder="—" onchange="pgSetShare('${m.id}',this.value)"></td>
-          <td class="tnum pg-vol"><b>${v==null?'—':Math.round(v)}</b></td>
-          <td>${macro&&macro.id===m.id?'<span class="pg-cur">current</span>':`<span class="pg-pick" onclick="pgPickMacro('${m.id}')">view</span>`}</td></tr>`; }).join('')}
-      </tbody></table></div>`;
-  }
-
-  let mesoCard='';
+  let canvas='', table='';
   if(macro){
-    const ms=pgMesos(macro);
+    const ms=pgMesos(macro), t=pgTotalsBar(ms,'Total'), wkSum=ms.reduce((s,m)=>s+pgWeeks(m),0);
     const macroVol=(annual!=null&&macro.volume_share!=null)?annual*macro.volume_share:null;
-    const t=pgTotalsBar(ms,'Total');
-    const wkSum=ms.reduce((s,m)=>s+pgWeeks(m),0);
-    mesoCard=`<div class="card"><div class="pg-sec">Mesocycles — ${esc(macro.name||'Macro')}
-        <span class="pg-subtle">${ms.length} blocks · ${wkSum} wks · ${macroVol==null?'—':Math.round(macroVol)+' reps'}</span>
-        ${t.html}${!t.ok&&ms.length?`<span class="pg-bal" onclick="pgBalance('${macro.id}')" title="Spread the remainder across mesocycles with no share set">balance →</span>`:''}</div>
-      ${ms.length?`<table class="pg-tbl pg-meso"><thead><tr>
-          <th>#</th><th>Phase</th><th>Wks</th><th>Vol %</th><th class="tnum">Volume</th><th class="tnum">Avg/wk</th><th>Loading scheme</th><th>Goal</th><th></th>
-        </tr></thead><tbody>${ms.map((m,i)=>pgMesoRow(m,macroVol,i)).join('')}
-        <tr class="pg-totrow"><td></td><td>Totals</td><td class="tnum">${wkSum}</td><td class="tnum">${(t.pct).toFixed(0)}%</td>
-          <td class="tnum"><b>${macroVol==null?'—':Math.round(macroVol*t.sum)}</b></td><td colspan="4"></td></tr>
-        </tbody></table>`
-        :`<div class="pg-empty">No mesocycles inside this macrocycle. Add the blocks on the <b>Annual Plan</b>, then distribute volume here.</div>`}
-      <div class="pg-note">Volume shares warn but never block — a plan is normally half-filled while you're working on it.</div>
-    </div>`;
+    canvas=`<div class="card">
+      <div class="pg-sec">${esc(macro.name||'Macro')} <span class="pg-subtle">${ms.length} blocks · ${wkSum} wks${macroVol!=null?' · '+Math.round(macroVol)+' reps':''}</span></div>
+      <div class="pg-chartbox"><canvas id="pgCv" height="320"></canvas></div>
+      <div class="pg-read" id="pgRead">Hover a week. Click one to open its days.</div>
+      <div id="pgDays"></div></div>`;
+    table=`<div class="card"><div class="pg-sec">Blocks ${t.html}
+        ${!t.ok&&ms.length?`<span class="pg-bal" onclick="pgBalance('${macro.id}')">balance →</span>`:''}</div>
+      ${ms.length?`<div style="overflow-x:auto"><table class="pg-tbl pg-meso"><thead><tr>
+          <th>#</th><th>Block</th><th>Wks</th><th>Vol %</th><th class="tnum">Volume</th><th class="tnum">Avg/wk</th>
+          <th>Loading scheme</th><th>Tops out at</th><th>Checkpoint</th><th>Note</th></tr></thead>
+        <tbody>${ms.map((m,i)=>pgMesoRow(m,macroVol,i)).join('')}
+        <tr class="pg-totrow"><td></td><td>Totals</td><td class="tnum">${wkSum}</td><td class="tnum">${t.pct.toFixed(0)}%</td>
+          <td class="tnum"><b>${macroVol==null?'—':Math.round(macroVol*t.sum)}</b></td><td colspan="5"></td></tr>
+        </tbody></table></div>`:'<div class="pg-empty">No mesocycles in this macrocycle. Add the blocks on the <b>Annual Plan</b>, then distribute volume here.</div>'}
+      <div class="pg-note">Shares warn but never block. Volume is whole-program reps — every exercise, not one lift.</div></div>`;
   }
-  host.innerHTML=head+annualCard+macroCard+mesoCard;
+  host.innerHTML=head+annualCard+canvas+table;
+  pgWireCanvas(); pgDraw(); pgDayPanel();
 }
 
 /* ---------------- methodology engine (methodology-spec §3) ---------------- */
