@@ -2194,6 +2194,30 @@
     cursor:pointer;border-bottom:1px dashed currentColor;padding:0}
   .pg-hand{font-size:10px;color:var(--good);margin-top:3px}
   .pg-hand span{color:var(--muted);cursor:pointer;border-bottom:1px dashed currentColor;margin-left:5px}
+  /* Program Builder: block exercises + tier split */
+  .pg-drawer>td{background:var(--panel);border-bottom:2px solid var(--line);padding:14px 12px}
+  .pg-tbar{display:flex;height:24px;border-radius:6px;overflow:hidden;margin:2px 0 13px}
+  .pg-tbar div{display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800;color:#0b0f14}
+  .pg-tgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(196px,1fr));gap:11px}
+  .pg-tcard{border:1px solid var(--line);border-left-width:4px;border-radius:9px;padding:10px 11px;background:var(--panel2,rgba(255,255,255,.02))}
+  .pg-th{display:flex;align-items:baseline;gap:7px}
+  .pg-th b{font-size:13px} .pg-th span{font-size:10.5px;color:var(--muted)}
+  .pg-tv{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:1px}
+  .pg-tv i{font-style:normal;font-size:11px;font-weight:400;color:var(--muted)}
+  .pg-trow{display:flex;align-items:center;gap:7px;margin:7px 0 4px}
+  .pg-trow input[type=range]{flex:1;min-width:60px;accent-color:var(--accent)}
+  .pg-exline{display:flex;align-items:center;gap:7px;padding:5px 0;border-top:1px solid var(--line);font-size:12.5px}
+  .pg-exn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pg-exr{font-weight:700;font-variant-numeric:tabular-nums;min-width:38px;text-align:right}
+  .pg-exx{color:var(--bad);cursor:pointer;font-size:11px;opacity:.7}
+  .pg-exx:hover{opacity:1}
+  .pg-exadd{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
+  .pg-exadd input{flex:1;min-width:220px;background:var(--panel2,rgba(255,255,255,.03));border:1px solid var(--line);
+    border-radius:8px;color:var(--text);padding:7px 9px;font:inherit;font-size:13px}
+  .pg-exp{width:34px;text-align:center;white-space:nowrap}
+  .pg-exp span{cursor:pointer;color:var(--muted);font-size:14px;user-select:none}
+  .pg-exn-count{font-style:normal;font-size:9.5px;font-weight:800;color:var(--muted);
+    border:1px solid var(--line);border-radius:8px;padding:0 4px;margin-left:2px;vertical-align:2px}
 </style>
 </head>
 <body>
@@ -2270,6 +2294,7 @@ async function boot(){
   await loadPeRef();
   await probePgPlan();
   await probeMaxHist();
+  await probeBlockEx();
   await notifLoad();
   if(profile.role === 'coach') renderCoach();
   else if(athOnboardNeeded(profile)) renderOnboard();
@@ -12880,6 +12905,13 @@ async function pgLoad(){
     pgState.maxes=peMaxMap(pgState.maxRows);
     const pr=await sb.from('profiles').select('*').eq('id',A).maybeSingle();
     pgState.profile=(pr.error||!pr.data)?null:pr.data;
+    await loadExLib();                                   // the library decides every exercise's tier
+    const ids=pgState.phases.map(p=>p.id);
+    pgState.blockEx=[];
+    if(BLOCKEX_READY && ids.length){
+      const bx=await sb.from('block_exercises').select('*').in('phase_id',ids);
+      pgState.blockEx=bx.error?[]:(bx.data||[]);
+    }
   }
   pgState.loaded=true;
 }
@@ -13004,6 +13036,127 @@ function pgSchemeOf(m){ const all=peSchemes().filter(s=>s.weeks===pgWeeks(m));
   return all.find(s=>s.key===m.scheme_key)||null; }
 function pgPatternOf(m){ const w=pgWeeks(m), all=pePatterns().filter(p=>p.offsets.length===w);
   return all.find(p=>p.key===m.pattern_key)||all[0]||null; }
+/* ---------- block exercises + tier split (phase 5) ---------- */
+let BLOCKEX_READY=false;                  // block_exercises + plan_phases.tier_split (migration 61)
+async function probeBlockEx(){ try{ const {error}=await sb.from('block_exercises').select('id').limit(1); BLOCKEX_READY=!error; }catch(e){ BLOCKEX_READY=false; } }
+const PG_TIERS=[['ce','CE','competition'],['spe','SPE','special prep'],
+                ['sde','SDE','special developmental'],['ge','GE','general']];
+const PG_TIERCOL={ce:'--accent2',spe:'--good',sde:'--warn',ge:'--muted'};
+
+function pgTierSplit(m){
+  const t=m&&m.tier_split;
+  if(t&&typeof t==='object'){ const o={}; PG_TIERS.forEach(([k])=>o[k]=+t[k]||0); return o; }
+  return null;                            // not split yet -> solid bar, not a stack
+}
+function pgTierSum(s){ return s?PG_TIERS.reduce((a,[k])=>a+(s[k]||0),0):0; }
+// the block's exercises, grouped by the tier the LIBRARY says they are
+function pgBlockEx(id){ return (pgState.blockEx||[]).filter(x=>x.phase_id===id)
+  .sort((a,b)=>(a.sort_order-b.sort_order)||String(a.name).localeCompare(String(b.name))); }
+function pgExByTier(id){
+  const out={ce:[],spe:[],sde:[],ge:[]};
+  pgBlockEx(id).forEach(x=>{ const t=exClass(x.name); (out[t]||out.ge).push(x); });
+  return out;
+}
+// reps for one exercise in one week
+function pgExReps(m, weekReps){
+  const split=pgTierSplit(m), by=pgExByTier(m.id), sum=pgTierSum(split);
+  const out=[];
+  if(!split||!sum||weekReps==null) return out;
+  PG_TIERS.forEach(([k])=>{
+    const tierReps=weekReps*((split[k]||0)/sum), list=by[k]||[];
+    if(!list.length||tierReps<=0) return;
+    const shares=list.map(x=>x.share!=null?+x.share:null);
+    const known=shares.reduce((a,s)=>a+(s||0),0), blanks=shares.filter(s=>s==null).length;
+    list.forEach((x,i)=>{ const s=shares[i]!=null?shares[i]:(blanks?Math.max(0,1-known)/blanks:0);
+      out.push({ name:x.name, tier:k, reps:tierReps*s, share:s, row:x }); });
+  });
+  return out;
+}
+/* stacked parts for the chart: null when the block has no split yet */
+function pgWeekParts(m, weekReps){
+  const split=pgTierSplit(m), sum=pgTierSum(split);
+  if(!split||!sum||weekReps==null) return null;
+  const o={}; PG_TIERS.forEach(([k])=>o[k]=weekReps*((split[k]||0)/sum));
+  return o;
+}
+
+window.pgSetTier=async(id,k,v)=>{
+  const m=pgState.phases.find(p=>p.id===id); if(!m) return;
+  if(pgIsShared(m)&&!pgState.unlocked){ pgState.msg='That block is shared — unlock shared editing to change its tier split.'; renderConBody(); return; }
+  const cur=pgTierSplit(m)||{ce:0,spe:0,sde:0,ge:0};
+  cur[k]=Math.max(0,(parseFloat(v)||0)/100);
+  m.tier_split=cur; renderConBody();
+  if(!BLOCKEX_READY){ pgState.msg='Run migration 61 to save the tier split.'; renderConBody(); return; }
+  const r=await sb.from('plan_phases').update({tier_split:cur}).eq('id',id);
+  if(r.error){ pgState.msg='Could not save that split — '+r.error.message; renderConBody(); }
+};
+window.pgAddEx=async(id)=>{
+  const inp=document.getElementById('pgExAdd_'+id); if(!inp) return;
+  const name=(inp.value||'').trim(); if(!name) return;
+  const m=pgState.phases.find(p=>p.id===id);
+  if(pgIsShared(m)&&!pgState.unlocked){ pgState.msg='That block is shared — unlock shared editing to add exercises.'; renderConBody(); return; }
+  if(!BLOCKEX_READY){ pgState.msg='Run migration 61 to assign exercises to a block.'; renderConBody(); return; }
+  if(pgBlockEx(id).some(x=>x.name.toLowerCase()===name.toLowerCase())){ pgState.msg=name+' is already in this block.'; renderConBody(); return; }
+  const row={ gym_id:me_.gym_id, phase_id:id, name, share:null, sort_order:pgBlockEx(id).length };
+  const r=await sb.from('block_exercises').insert(row).select().single();
+  if(r.error){ pgState.msg='Could not add that — '+r.error.message; renderConBody(); return; }
+  (pgState.blockEx=pgState.blockEx||[]).push(r.data); inp.value=''; renderConBody();
+};
+window.pgDelEx=async(exId)=>{
+  const row=(pgState.blockEx||[]).find(x=>x.id===exId); if(!row) return;
+  const m=pgState.phases.find(p=>p.id===row.phase_id);
+  if(pgIsShared(m)&&!pgState.unlocked){ pgState.msg='That block is shared — unlock shared editing to remove exercises.'; renderConBody(); return; }
+  pgState.blockEx=(pgState.blockEx||[]).filter(x=>x.id!==exId); renderConBody();
+  const r=await sb.from('block_exercises').delete().eq('id',exId);
+  if(r.error){ pgState.msg='Could not remove that — '+r.error.message; renderConBody(); }
+};
+window.pgSetExShare=async(exId,v)=>{
+  const row=(pgState.blockEx||[]).find(x=>x.id===exId); if(!row) return;
+  const n=v===''?null:Math.max(0,(parseFloat(v)||0)/100);
+  row.share=n; renderConBody();
+  const r=await sb.from('block_exercises').update({share:n}).eq('id',exId);
+  if(r.error){ pgState.msg='Could not save that share — '+r.error.message; renderConBody(); }
+};
+window.pgToggleEx=(id)=>{ pgState.open[id]=!pgState.open[id]; renderConBody(); };
+
+/* the drawer under a block row */
+function pgExDrawer(m, macroVol){
+  const vol=(macroVol!=null&&m.volume_share!=null)?macroVol*m.volume_share:null;
+  const split=pgTierSplit(m), sum=pgTierSum(split), by=pgExByTier(m.id);
+  const lock=pgIsShared(m)&&!pgState.unlocked, dis=lock?' disabled':'';
+  const off=split&&Math.abs(sum-1)>.005;
+  const bar=split&&sum?`<div class="pg-tbar">${PG_TIERS.map(([k,L])=>{const f=(split[k]||0)/sum;
+      return f>0?`<div style="background:var(${PG_TIERCOL[k]});width:${f*100}%">${f>.09?L:''}</div>`:'';}).join('')}</div>`:'';
+  return `<tr class="pg-drawer"><td colspan="11">
+    <div class="pg-sec" style="margin-bottom:6px">Volume by exercise tier
+      ${split?`<span class="pg-tot ${off?'warn':'ok'}">${(sum*100).toFixed(0)}%${off?' ⚠':' ✓'}</span>`:'<span class="pg-subtle">not split yet — the chart draws this block solid</span>'}</div>
+    ${bar}
+    <div class="pg-tgrid">${PG_TIERS.map(([k,L,desc])=>{
+      const pct=split?(split[k]||0):0, tv=(vol!=null&&split&&sum)?vol*(pct/sum):null, list=by[k]||[];
+      return `<div class="pg-tcard" style="border-left-color:var(${PG_TIERCOL[k]})">
+        <div class="pg-th"><b style="color:var(${PG_TIERCOL[k]})">${L}</b><span>${desc}</span></div>
+        <div class="pg-tv">${tv==null?'—':Math.round(tv)}<i> reps</i></div>
+        <div class="pg-trow"><input type="range" min="0" max="70" value="${Math.round(pct*100)}"${dis}
+            oninput="pgSetTier('${m.id}','${k}',this.value)">
+          <input class="pg-in" style="width:52px" type="number" min="0" max="100" value="${Math.round(pct*100)}"${dis}
+            onchange="pgSetTier('${m.id}','${k}',this.value)"><span class="pg-subtle">%</span></div>
+        ${list.map(x=>{ const ex=pgExReps(m, vol).find(e=>e.row&&e.row.id===x.id);
+          return `<div class="pg-exline"><span class="pg-exn">${esc(x.name)}</span>
+            <input class="pg-in" style="width:46px" type="number" min="0" max="100" placeholder="auto"
+              value="${x.share!=null?Math.round(x.share*100):''}"${dis} title="Share of ${L} volume — blank splits evenly"
+              onchange="pgSetExShare('${x.id}',this.value)">
+            <span class="pg-exr">${ex&&ex.reps!=null?Math.round(ex.reps):'—'}</span>
+            ${lock?'':`<span class="pg-exx" onclick="pgDelEx('${x.id}')" title="Remove from this block">✕</span>`}</div>`;}).join('')
+          ||'<div class="pg-exline pg-subtle">no exercises yet</div>'}
+      </div>`;}).join('')}</div>
+    ${lock?'':`<div class="pg-exadd">
+      <input id="pgExAdd_${m.id}" list="pgExList" placeholder="Add an exercise from the library…"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();pgAddEx('${m.id}')}">
+      <button class="btn ghost" style="padding:6px 12px" onclick="pgAddEx('${m.id}')">Add</button>
+      <span class="pg-subtle">tier comes from the library — change it there and it moves everywhere</span></div>`}
+  </td></tr>`;
+}
+
 /* ---------- the shape of a block: split + per-week tier ---------- */
 // custom hand-drawn split wins, then the named scheme, then even
 function pgSplit(m){
@@ -13179,8 +13332,18 @@ function pgDraw(){
     if(w.reps==null) return;
     const bx=G.padL+i*G.cw+1.5, bw=Math.max(2,G.cw-3), yy=G.y(w.reps);
     const on=w.macro.id===curId, hot=pgState.hoverWk===i, sel=pgState.selWk===i;
-    g.fillStyle=col(PG_KIND_COL[w.meso.kind]||'--accent');
-    g.globalAlpha=hot||sel?1:(on?.85:.32); g.fillRect(bx,yy,bw,(G.H-G.padB)-yy); g.globalAlpha=1;
+    g.globalAlpha=hot||sel?1:(on?.85:.32);
+    const parts=pgWeekParts(w.meso,w.reps);
+    if(parts){                                            // split by Bondarchuk tier, CE at the base
+      let acc=0;
+      PG_TIERS.forEach(([k])=>{ const v=parts[k]||0; if(v<=0) return;
+        const y0=G.y(acc+v), y1=G.y(acc);
+        g.fillStyle=col(PG_TIERCOL[k]); g.fillRect(bx,y0,bw,Math.max(.6,y1-y0)); acc+=v; });
+    } else {                                              // no tier split yet -> solid, block-coloured
+      g.fillStyle=col(PG_KIND_COL[w.meso.kind]||'--accent');
+      g.fillRect(bx,yy,bw,(G.H-G.padB)-yy);
+    }
+    g.globalAlpha=1;
     if(w.custom){ g.fillStyle=col('--good'); g.fillRect(bx,yy-3,bw,2); }   // hand-drawn marker
     if(hot||sel){ g.strokeStyle=col('--text'); g.lineWidth=sel?2:1.2; g.strokeRect(bx,yy,bw,(G.H-G.padB)-yy); }
   });
@@ -13313,7 +13476,9 @@ function pgMesoRow(m, macroVol, idx){
         <select class="cw-sel" style="min-width:104px"${dis} onchange="pgSetCkPhase('${m.id}',this.value)">${Object.keys(pePhaseDisc()).map(p=>`<option${m.checkpoint_phase===p?' selected':''}>${esc(p)}</option>`).join('')}</select></span>
         ${pgCkKg(m)}</div></td>
     <td><input class="pg-in wide" type="text" value="${esc(m.goal||'')}" placeholder="note…"${dis} onchange="pgSetGoal('${m.id}',this.value)"></td>
-  </tr>`;
+    <td class="pg-exp"><span onclick="pgToggleEx('${m.id}')" title="Exercises and tier split">${pgState.open[m.id]?'▾':'▸'}</span>
+      ${(()=>{const n=pgBlockEx(m.id).length; return n?`<i class="pg-exn-count">${n}</i>`:'';})()}</td>
+  </tr>${pgState.open[m.id]?pgExDrawer(m,macroVol):''}`;
 }
 function pgCkKg(m){
   if(!m.checkpoint_lift) return '<span class="pg-sub">no checkpoint set</span>';
@@ -13380,14 +13545,14 @@ async function renderProgramBuilder(host){
         ${!t.ok&&ms.length?`<span class="pg-bal" onclick="pgBalance('${macro.id}')">balance →</span>`:''}</div>
       ${ms.length?`<div style="overflow-x:auto"><table class="pg-tbl pg-meso"><thead><tr>
           <th>#</th><th>Block</th><th>Wks</th><th>Vol %</th><th class="tnum">Volume</th><th class="tnum">Avg/wk</th>
-          <th>Loading scheme</th><th>Tops out at</th><th>Checkpoint</th><th>Note</th></tr></thead>
+          <th>Loading scheme</th><th>Tops out at</th><th>Checkpoint</th><th>Note</th><th></th></tr></thead>
         <tbody>${ms.map((m,i)=>pgMesoRow(m,macroVol,i)).join('')}
         <tr class="pg-totrow"><td></td><td>Totals</td><td class="tnum">${wkSum}</td><td class="tnum">${t.pct.toFixed(0)}%</td>
-          <td class="tnum"><b>${macroVol==null?'—':Math.round(macroVol*t.sum)}</b></td><td colspan="5"></td></tr>
+          <td class="tnum"><b>${macroVol==null?'—':Math.round(macroVol*t.sum)}</b></td><td colspan="6"></td></tr>
         </tbody></table></div>`:'<div class="pg-empty">No mesocycles in this macrocycle. Add the blocks on the <b>Annual Plan</b>, then distribute volume here.</div>'}
       <div class="pg-note">Shares warn but never block. Volume is whole-program reps — every exercise, not one lift.</div></div>`;
   }
-  host.innerHTML=head+annualCard+canvas+table;
+  host.innerHTML=head+annualCard+canvas+table+`<datalist id="pgExList">${(EXLIB||[]).slice(0,600).map(e=>`<option value="${esc(e.name)}"></option>`).join('')}</datalist>`;
   pgWireCanvas(); pgDraw(); pgDayPanel();
 }
 
