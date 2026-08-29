@@ -2251,6 +2251,9 @@
   .pg-micro label{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
   .pg-daytier{font-size:10px;color:var(--warn);margin-top:4px}
   .pg-day h5 i{font-style:normal;font-weight:400;color:var(--muted);font-size:10.5px}
+  .pg-fork{font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--good);
+    border:1px solid var(--good);border-radius:8px;padding:1px 6px;margin-left:5px;cursor:pointer;vertical-align:1px}
+  .pg-fork:hover{background:var(--good);color:#0b0f14}
 </style>
 </head>
 <body>
@@ -10479,8 +10482,13 @@ window.planDoFork=async(athId)=>{
   const np=await sb.from('plans').insert({gym_id:me_.gym_id, name:first+' — '+src.name}).select();
   if(np.error||!np.data||!np.data.length){ if(msg){ msg.style.color='var(--bad)'; msg.textContent='Failed — '+(np.error?np.error.message:'try again'); } return; }
   const newId=np.data[0].id;
-  const phRows=planState.phases.filter(p=>p.plan_id===pid).map(p=>({gym_id:me_.gym_id,plan_id:newId,name:p.name,kind:p.kind,level:p.level,pattern:p.pattern,start_date:p.start_date,end_date:p.end_date}));
-  if(phRows.length){ const r=await sb.from('plan_phases').insert(phRows); if(r.error){ if(msg){msg.style.color='var(--bad)';msg.textContent='Failed on blocks — '+r.error.message;} return; } }
+  const srcPh=planState.phases.filter(p=>p.plan_id===pid);
+  const phRows=srcPh.map(p=>Object.assign({gym_id:me_.gym_id,plan_id:newId,name:p.name,kind:p.kind,level:p.level,pattern:p.pattern,start_date:p.start_date,end_date:p.end_date}, planCopyExtras(p)));
+  if(phRows.length){ const r=await sb.from('plan_phases').insert(phRows).select('id,name,start_date');
+    if(r.error){ if(msg){msg.style.color='var(--bad)';msg.textContent='Failed on blocks — '+r.error.message;} return; }
+    // carry each block's exercise assignments across, matched on name + start date
+    for(const src of srcPh){ const made=(r.data||[]).find(x=>x.name===src.name && x.start_date===src.start_date);
+      if(made) await planCopyBlockEx(src.id, made.id); } }
   const cpRows=planState.comps.filter(c=>c.plan_id===pid).map(c=>({gym_id:me_.gym_id,plan_id:newId,name:c.name,kind:c.kind,comp_date:c.comp_date}));
   if(cpRows.length) await sb.from('competitions').insert(cpRows);
   const evRows=planState.events.filter(e=>e.plan_id===pid).map(e=>Object.assign({gym_id:me_.gym_id,plan_id:newId,title:e.title,kind:e.kind,start_date:e.start_date,days:e.days,recur_unit:e.recur_unit,recur_interval:e.recur_interval,recur_until:e.recur_until}, CALX_READY?{start_time:e.start_time||null,end_time:e.end_time||null,notes:e.notes||null}:{}));
@@ -10991,6 +10999,22 @@ window.planSavePhase=async(id,level)=>{
 };
 window.planDelPhase=async(id)=>{ const res=await sb.from('plan_phases').delete().eq('id',id).select(); if(res.error){ toast('Delete failed — '+res.error.message); return; } const m=document.getElementById('phaseModal'); if(m) m.style.display='none'; await loadPlan(); paintPlan(); };
 /* ---- Slice 2: per-block override — hide or replace one inherited team block for a single athlete (writes plan_overrides) ---- */
+// Every column the Program Builder owns. Any path that COPIES a plan_phases row must
+// carry these or it silently discards the coach's volume/intensity work -- which is what
+// planOverrideReplace and planDoFork were doing after migrations 58/60/61/62 added them.
+const PLAN_COPY_COLS=['volume_share','scheme_key','pattern_key','peak_tier',
+  'checkpoint_lift','checkpoint_reps','checkpoint_phase','goal','sort_order',
+  'week_split','week_tiers','tier_split','microcycle_id','week_micros'];
+function planCopyExtras(p){ const o={}; PLAN_COPY_COLS.forEach(k=>{ if(p[k]!==undefined && p[k]!==null) o[k]=p[k]; }); return o; }
+// copy a block's exercise assignments too (block_exercises has no cascade from a copy)
+async function planCopyBlockEx(fromId, toId){
+  try{
+    if(typeof BLOCKEX_READY!=='undefined' && !BLOCKEX_READY) return;
+    const r=await sb.from('block_exercises').select('name,share,sort_order,note').eq('phase_id',fromId);
+    const rows=(r.error?[]:(r.data||[])).map(x=>({gym_id:me_.gym_id, phase_id:toId, name:x.name, share:x.share, sort_order:x.sort_order, note:x.note}));
+    if(rows.length) await sb.from('block_exercises').insert(rows);
+  }catch(e){}
+}
 window.planOverrideOpen=(itemType,id)=>{
   const A=planState.athleteId; if(!A) return;
   if(!PLANS_READY){ toast('Run migration 41 to customize a team block for one athlete.'); return; }
@@ -11022,11 +11046,13 @@ window.planOverrideReplace=async(itemType,id)=>{
   if(itemType==='phase'){
     const p=planState.phases.find(x=>x.id===id); if(!p){ toast('Block not found — reload the plan.'); return; }
     // create an OWN copy over the same weeks; own overrides inherited on overlap, so it visually replaces the team block
-    const payload={ gym_id:me_.gym_id, athlete_id:A, team_id:null, name:p.name, kind:p.kind, level:p.level||'meso', start_date:p.start_date, end_date:p.end_date };
+    const payload=Object.assign({ gym_id:me_.gym_id, athlete_id:A, team_id:null, name:p.name, kind:p.kind,
+      level:p.level||'meso', start_date:p.start_date, end_date:p.end_date }, planCopyExtras(p));
     if((p.level||'meso')==='meso') payload.pattern=p.pattern||'Linear Ascending';
     const res=await sb.from('plan_phases').insert(payload).select();
     if(res.error||!res.data||!res.data.length){ if(msg){msg.style.color='var(--bad)';msg.textContent='Failed — '+(res.error?res.error.message:'try again');} return; }
     const newId=res.data[0].id;
+    await planCopyBlockEx(id, newId);
     const m=document.getElementById('planOvrModal'); if(m) m.style.display='none';
     await loadPlan(); paintPlan();
     planEditPhase(newId);   // open the fresh own block so the coach can adjust it right away
@@ -12966,7 +12992,13 @@ function pgCurMacro(){ const m=pgMacros(); return m.find(x=>x.id===pgState.macro
 // mesos belong to a macro by parent_id; rows written by the older Annual Plan have no
 // parent, so fall back to date containment rather than hiding them.
 function pgMesos(macro){
-  const all=pgState.phases.filter(p=>(p.level||'meso')==='meso');
+  let all=pgState.phases.filter(p=>(p.level||'meso')==='meso');
+  // An athlete-owned copy SHADOWS the inherited team block it was forked from, matched on
+  // the dates it covers -- otherwise forking a block would show it twice, once from the
+  // team plan and once from the athlete's own.
+  const owned=all.filter(p=>p.athlete_id);
+  if(owned.length) all=all.filter(p=>p.athlete_id ||
+    !owned.some(o=>o.start_date===p.start_date && o.end_date===p.end_date));
   if(!macro) return all.sort(pgBySort);
   return all.filter(p=> p.parent_id ? p.parent_id===macro.id
       : (p.start_date>=macro.start_date && p.start_date<=macro.end_date)).sort(pgBySort);
@@ -13282,6 +13314,28 @@ window.pgSetExShare=async(exId,v)=>{
   row.share=n; renderConBody();
   const r=await sb.from('block_exercises').update({share:n}).eq('id',exId);
   if(r.error){ pgState.msg='Could not save that share — '+r.error.message; renderConBody(); }
+};
+// Take a shared team/gym block and make an editable copy that belongs to THIS athlete,
+// carrying every volume/intensity column and its exercises. The copy shadows the inherited
+// block (see pgMesos), so the coach edits their own version and nobody else's plan moves.
+window.pgForkBlock=async(id)=>{
+  const p=pgState.phases.find(x=>x.id===id), A=pgState.athleteId;
+  if(!p||!A) return;
+  if(!pgIsShared(p)){ pgState.msg='That block already belongs to this athlete.'; renderConBody(); return; }
+  pgState.msg='Making a private copy\u2026'; renderConBody();
+  const payload=Object.assign({ gym_id:me_.gym_id, athlete_id:A, team_id:null, plan_id:null,
+    name:p.name, kind:p.kind, level:p.level||'meso', start_date:p.start_date, end_date:p.end_date,
+    pattern:p.pattern||null }, planCopyExtras(p));
+  const r=await sb.from('plan_phases').insert(payload).select().single();
+  if(r.error){ pgState.msg='Could not copy that block \u2014 '+r.error.message; renderConBody(); return; }
+  await planCopyBlockEx(id, r.data.id);
+  pgState.phases.push(r.data);
+  if(typeof BLOCKEX_READY!=='undefined' && BLOCKEX_READY){
+    const bx=await sb.from('block_exercises').select('*').eq('phase_id',r.data.id);
+    if(!bx.error) pgState.blockEx=(pgState.blockEx||[]).concat(bx.data||[]);
+  }
+  pgState.msg='\u201c'+(p.name||'Block')+'\u201d is now yours to edit \u2014 the team\u2019s copy is untouched.';
+  renderConBody();
 };
 window.pgSetMicro=async(id,v)=>{
   const m=pgState.phases.find(p=>p.id===id); if(!m) return;
@@ -13669,7 +13723,7 @@ function pgMesoRow(m, macroVol, idx){
   const band=cell&&cell.high!=null?`${((cell.low!=null?cell.low:cell.high)*100).toFixed(0)}–${(cell.high*100).toFixed(0)}% at ${reps} reps`:'';
   return `<tr class="pg-mrow${lock?' locked':''}">
     <td class="pg-ord">${idx+1}</td>
-    <td><div class="pg-nmMain"><span class="pg-exp" onclick="pgToggleEx('${m.id}')" title="Exercises, tier split and microcycle">${pgState.open[m.id]?'▾':'▸'}</span>${esc(m.name||PG_KIND_LBL[m.kind]||'Block')}${shared?'<span class="pg-shared" title="Inherited from a team or gym plan">shared</span>':''}${(()=>{const n=pgBlockEx(m.id).length; return n?`<i class="pg-exn-count" title="${n} exercise${n===1?'':'s'} assigned">${n}</i>`:'';})()}</div>
+    <td><div class="pg-nmMain"><span class="pg-exp" onclick="pgToggleEx('${m.id}')" title="Exercises, tier split and microcycle">${pgState.open[m.id]?'▾':'▸'}</span>${esc(m.name||PG_KIND_LBL[m.kind]||'Block')}${shared?`<span class="pg-shared" title="Inherited from a team or gym plan \u2014 editing it changes every athlete on that plan">shared</span><span class="pg-fork" onclick="pgForkBlock('${m.id}')" title="Make a private copy for this athlete, carrying its volume, intensity and exercises. The team\u2019s block is untouched.">make mine</span>`:''}${(()=>{const n=pgBlockEx(m.id).length; return n?`<i class="pg-exn-count" title="${n} exercise${n===1?'':'s'} assigned">${n}</i>`:'';})()}</div>
         <select class="cw-sel pg-kind"${dis} onchange="pgSetKind('${m.id}',this.value)">${PG_KINDS.map(k=>`<option value="${k}"${(m.kind||'comprehension')===k?' selected':''}>${PG_KIND_LBL[k]}</option>`).join('')}</select></td>
     <td><input class="pg-in" style="width:46px" type="number" min="1" max="26" value="${wks}"${dis}
         title="How many weeks this block runs. Changing it moves every block after it and stretches the macrocycle."
