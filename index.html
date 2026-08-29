@@ -9002,7 +9002,7 @@ function renderConBody(){
   if(conState.tab==='templates') return renderTemplates(host);
   if(conState.tab==='teams') return (conState._teams===null) ? host.innerHTML=conSoon('Teams','group athletes to assign programs and compare at the group level','the teams table — run 13_teams.sql') : renderTeams(host);
   if(conState.tab==='programs') return renderPrograms(host);
-  if(conState.tab==='builder') return renderProgramBuilder(host);
+  if(conState.tab==='builder') return renderPlanCanvas(host);
   if(conState.tab==='hub') return renderHub(host);
 }
 /* ---- Surface A: roster "Needs attention" overview (Training Response across the roster) ---- */
@@ -13702,7 +13702,10 @@ window.pgSetCkLift  =(id,v)=>pgSave(id,{checkpoint_lift:v||null});
 window.pgSetCkReps  =(id,v)=>pgSave(id,{checkpoint_reps:parseInt(v,10)||null});
 window.pgSetCkPhase =(id,v)=>pgSave(id,{checkpoint_phase:v||null});
 
-async function renderProgramBuilder(host){
+// NAMED renderPlanCanvas, NOT renderProgramBuilder: the older week/day template builder
+// already owns that name (line ~9915) and calls it from six places. Defining a second one
+// later in the file silently replaced it and broke "+ New template" entirely.
+async function renderPlanCanvas(host){
   if(!pgState.athleteId && (coachState.athletes||[]).length) pgState.athleteId=coachState.athletes[0].id;
   if(!pgState.loaded){ host.innerHTML='<div class="card"><div class="spin" style="padding:14px">loading plan…</div></div>'; await pgLoad(); }
   const a=pgAth(), annual=pgAnnual(), macros=pgMacros(), macro=pgCurMacro();
