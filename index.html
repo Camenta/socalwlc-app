@@ -13127,6 +13127,30 @@ function pgGeo(cv){ const W=cv.clientWidth||900, ws=pgWeekRows();
   g.rankAt=py=>Math.max(1,Math.min(8,Math.round(1+((py-g.padT-6)/(g.H-g.padT-g.padB-14))*7)));
   return g;
 }
+// Monotone cubic Hermite (Fritsch-Carlson) through the weekly intensity points.
+// A plain Catmull-Rom spline would OVERSHOOT the turns -- arcing above Maximal or below
+// Very Light -- drawing intensities that do not exist. Monotone tangents cannot overshoot:
+// the curve stays inside the values it connects, so the rounded line is still honest.
+// The dots remain the data; the curve is how it reads between them.
+function pgSmooth(g, pts){
+  const n=pts.length;
+  if(n===0) return;
+  if(n===1){ return; }
+  if(n===2){ g.moveTo(pts[0].x,pts[0].y); g.lineTo(pts[1].x,pts[1].y); return; }
+  const d=[], m=[];
+  for(let i=0;i<n-1;i++){ const dx=pts[i+1].x-pts[i].x; d.push(dx?(pts[i+1].y-pts[i].y)/dx:0); }
+  m[0]=d[0]; m[n-1]=d[n-2];
+  for(let i=1;i<n-1;i++){
+    if(d[i-1]*d[i]<=0) m[i]=0;                                  // a turning point stays a turning point
+    else { const t=(d[i-1]+d[i])/2, lim=3*Math.min(Math.abs(d[i-1]),Math.abs(d[i]));
+           m[i]=Math.sign(t)*Math.min(Math.abs(t),lim); }       // clamp so the arc cannot bulge past a neighbour
+  }
+  g.moveTo(pts[0].x,pts[0].y);
+  for(let i=0;i<n-1;i++){ const dx=pts[i+1].x-pts[i].x;
+    g.bezierCurveTo(pts[i].x+dx/3, pts[i].y+m[i]*dx/3,
+                    pts[i+1].x-dx/3, pts[i+1].y-m[i+1]*dx/3,
+                    pts[i+1].x, pts[i+1].y); }
+}
 function pgDraw(){
   const cv=document.getElementById('pgCv'); if(!cv) return;
   const ws=pgWeekRows(), G=pgGeo(cv), dpr=window.devicePixelRatio||1;
@@ -13174,11 +13198,13 @@ function pgDraw(){
   /* intensity line */
   const ranked=ws.filter(w=>w.rank!=null);
   if(ranked.length){
-    g.strokeStyle=col('--warn'); g.lineWidth=2; g.beginPath(); let started=false;
-    ws.forEach((w,i)=>{ if(w.rank==null){ started=false; return; }
-      const xx=G.padL+i*G.cw+G.cw/2, yy=G.ty(w.rank);
-      if(!started){ g.moveTo(xx,yy); started=true; } else g.lineTo(xx,yy); });
-    g.stroke();
+    // split into runs of consecutive weeks that have a tier, and curve each run
+    const runs=[]; let run=[];
+    ws.forEach((w,i)=>{ if(w.rank==null){ if(run.length) runs.push(run); run=[]; return; }
+      run.push({x:G.padL+i*G.cw+G.cw/2, y:G.ty(w.rank)}); });
+    if(run.length) runs.push(run);
+    g.strokeStyle=col('--warn'); g.lineWidth=2.2; g.lineJoin='round'; g.lineCap='round';
+    runs.forEach(r=>{ g.beginPath(); pgSmooth(g,r); g.stroke(); });
     ws.forEach((w,i)=>{ if(w.rank==null) return;
       const xx=G.padL+i*G.cw+G.cw/2, yy=G.ty(w.rank);
       const pinned=Array.isArray(w.meso.week_tiers)&&w.meso.week_tiers[w.wk-1]!=null;
