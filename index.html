@@ -2214,8 +2214,9 @@
   .pg-exadd{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
   .pg-exadd input{flex:1;min-width:220px;background:var(--panel2,rgba(255,255,255,.03));border:1px solid var(--line);
     border-radius:8px;color:var(--text);padding:7px 9px;font:inherit;font-size:13px}
-  .pg-exp{width:34px;text-align:center;white-space:nowrap}
-  .pg-exp span{cursor:pointer;color:var(--muted);font-size:14px;user-select:none}
+  .pg-nmMain .pg-exp{display:inline-block;width:16px;cursor:pointer;color:var(--muted);font-size:13px;
+    user-select:none;margin-right:3px}
+  .pg-nmMain .pg-exp:hover{color:var(--text)}
   .pg-exn-count{font-style:normal;font-size:9.5px;font-weight:800;color:var(--muted);
     border:1px solid var(--line);border-radius:8px;padding:0 4px;margin-left:2px;vertical-align:2px}
   /* microcycle catalogue */
@@ -13300,7 +13301,7 @@ function pgExDrawer(m, macroVol){
   const off=split&&Math.abs(sum-1)>.005;
   const bar=split&&sum?`<div class="pg-tbar">${PG_TIERS.map(([k,L])=>{const f=(split[k]||0)/sum;
       return f>0?`<div style="background:var(${PG_TIERCOL[k]});width:${f*100}%">${f>.09?L:''}</div>`:'';}).join('')}</div>`:'';
-  return `<tr class="pg-drawer"><td colspan="11">
+  return `<tr class="pg-drawer"><td colspan="10">
     <div class="pg-sec" style="margin-bottom:6px">Volume by exercise tier
       ${split?`<span class="pg-tot ${off?'warn':'ok'}">${(sum*100).toFixed(0)}%${off?' ⚠':' ✓'}</span>`:'<span class="pg-subtle">not split yet — the chart draws this block solid</span>'}</div>
     ${bar}
@@ -13565,29 +13566,47 @@ function pgMesoVolOf(m){
   const mv=(annual!=null&&mac&&mac.volume_share!=null)?annual*mac.volume_share:null;
   return (mv!=null&&m.volume_share!=null)?mv*m.volume_share:null;
 }
-function pgWireCanvas(){
-  const cv=document.getElementById('pgCv'); if(!cv||cv._wired) return; cv._wired=true;
-  const idx=ev=>{ const r=cv.getBoundingClientRect(), G=pgGeo(cv);
-    if(!G.n) return -1; const i=Math.floor((ev.clientX-r.left-G.padL)/G.cw); return (i>=0&&i<G.n)?i:-1; };
-  const localY=ev=>ev.clientY-cv.getBoundingClientRect().top;
+// The canvas is destroyed and rebuilt on every render (host.innerHTML), so the window
+// listeners are attached ONCE at module level and look the live canvas up by id. Wiring
+// them per-canvas stacked a new pair on every render; the stale ones closed over detached
+// canvases whose clientWidth is 0, so pgGeo returned an infinite column width and the
+// first (oldest) listener corrupted the drag before the real one ran.
+let pgWindowWired=false;
+function pgCanvas(){ return document.getElementById('pgCv'); }
+function pgIdxAt(ev){ const cv=pgCanvas(); if(!cv) return -1;
+  const r=cv.getBoundingClientRect(), G=pgGeo(cv);
+  if(!G.n||!isFinite(G.cw)||G.cw<=0) return -1;
+  const i=Math.floor((ev.clientX-r.left-G.padL)/G.cw); return (i>=0&&i<G.n)?i:-1; }
+function pgLocalY(ev){ const cv=pgCanvas(); return cv?ev.clientY-cv.getBoundingClientRect().top:0; }
 
-  cv.addEventListener('mousedown',ev=>{
-    const i=idx(ev); if(i<0) return;
-    const ws=pgWeekRows(), w=ws[i], G=pgGeo(cv), py=localY(ev);
-    if(pgIsShared(w.meso)&&!pgState.unlocked){
-      pgState.msg='“'+(w.meso.name||'That block')+'” is shared — unlock shared editing to reshape it.'; renderConBody(); return; }
-    // near the intensity dot -> drag the tier; otherwise drag the volume
-    const near = w.rank!=null && Math.abs(py-G.ty(w.rank))<14;
-    pgDrag={ i, meso:w.meso, mode:near?'tier':'vol',
-             split:pgSplit(w.meso).slice(), ranks:pgRanks(w.meso).slice(), wk:w.wk-1 };
-    cv.style.cursor=near?'ns-resize':'row-resize';
-    ev.preventDefault();
-  });
+function pgWireCanvas(){
+  const cv=pgCanvas(); if(!cv) return;
+  if(!cv._wired){
+    cv._wired=true;
+    cv.addEventListener('mousedown',ev=>{
+      const i=pgIdxAt(ev); if(i<0) return;
+      const ws=pgWeekRows(), w=ws[i], G=pgGeo(cv), py=pgLocalY(ev);
+      if(pgIsShared(w.meso)&&!pgState.unlocked){
+        pgState.msg='\u201c'+(w.meso.name||'That block')+'\u201d is a shared block \u2014 unlock shared editing above to reshape it.';
+        renderConBody(); return; }
+      const near = w.rank!=null && Math.abs(py-G.ty(w.rank))<14;
+      pgDrag={ i, meso:w.meso, mode:near?'tier':'vol',
+               split:pgSplit(w.meso).slice(), ranks:pgRanks(w.meso).slice(), wk:w.wk-1 };
+      cv.style.cursor=near?'ns-resize':'row-resize';
+      ev.preventDefault();
+    });
+    cv.addEventListener('mouseleave',()=>{ if(!pgDrag){ pgState.hoverWk=-1; pgDraw(); } });
+    cv.addEventListener('click',ev=>{ if(pgDrag) return; const i=pgIdxAt(ev);
+      pgState.selWk=(pgState.selWk===i?-1:i); pgDraw(); pgDayPanel(); });
+  }
+  if(pgWindowWired) return;
+  pgWindowWired=true;
   window.addEventListener('mousemove',ev=>{
-    if(!pgDrag){ const i=idx(ev); if(i!==pgState.hoverWk){ pgState.hoverWk=i; pgReadout(i); pgDraw(); } return; }
-    const G=pgGeo(cv), py=localY(ev), m=pgDrag.meso;
+    const cv=pgCanvas(); if(!cv) return;
+    if(!pgDrag){ const i=pgIdxAt(ev); if(i!==pgState.hoverWk){ pgState.hoverWk=i; pgReadout(i); pgDraw(); } return; }
+    const G=pgGeo(cv), py=pgLocalY(ev), m=pgDrag.meso;
     if(pgDrag.mode==='tier'){ pgDrag.ranks[pgDrag.wk]=G.rankAt(py); m.week_tiers=pgDrag.ranks.slice(); }
-    else { const vol=pgMesoVolOf(m); if(vol==null||!G.haveVol) return;
+    else { const vol=pgMesoVolOf(m); if(vol==null||!G.haveVol||!isFinite(G.maxR)) return;
       const want=Math.max(0,(G.maxR*(1-(py-G.padT)/(G.H-G.padT-G.padB))))/vol;
       m.week_split=pgReshape(pgDrag.split, pgDrag.wk, want); }
     pgDraw(); pgReadout(pgDrag.i);
@@ -13595,10 +13614,9 @@ function pgWireCanvas(){
   window.addEventListener('mouseup',()=>{
     if(!pgDrag) return; const m=pgDrag.meso, mode=pgDrag.mode;
     const patch = mode==='tier' ? {week_tiers:m.week_tiers} : {week_split:m.week_split};
-    pgDrag=null; cv.style.cursor='crosshair'; pgCommitShape(m,patch);
+    pgDrag=null; const cv=pgCanvas(); if(cv) cv.style.cursor='crosshair';
+    pgCommitShape(m,patch);
   });
-  cv.addEventListener('mouseleave',()=>{ if(!pgDrag){ pgState.hoverWk=-1; pgDraw(); } });
-  cv.addEventListener('click',ev=>{ if(pgDrag) return; const i=idx(ev); pgState.selWk=(pgState.selWk===i?-1:i); pgDraw(); pgDayPanel(); });
 }
 function pgReadout(i){
   const el=document.getElementById('pgRead'); if(!el) return;
@@ -13651,7 +13669,7 @@ function pgMesoRow(m, macroVol, idx){
   const band=cell&&cell.high!=null?`${((cell.low!=null?cell.low:cell.high)*100).toFixed(0)}–${(cell.high*100).toFixed(0)}% at ${reps} reps`:'';
   return `<tr class="pg-mrow${lock?' locked':''}">
     <td class="pg-ord">${idx+1}</td>
-    <td><div class="pg-nmMain">${esc(m.name||PG_KIND_LBL[m.kind]||'Block')}${shared?'<span class="pg-shared" title="Inherited from a team or gym plan">shared</span>':''}</div>
+    <td><div class="pg-nmMain"><span class="pg-exp" onclick="pgToggleEx('${m.id}')" title="Exercises, tier split and microcycle">${pgState.open[m.id]?'▾':'▸'}</span>${esc(m.name||PG_KIND_LBL[m.kind]||'Block')}${shared?'<span class="pg-shared" title="Inherited from a team or gym plan">shared</span>':''}${(()=>{const n=pgBlockEx(m.id).length; return n?`<i class="pg-exn-count" title="${n} exercise${n===1?'':'s'} assigned">${n}</i>`:'';})()}</div>
         <select class="cw-sel pg-kind"${dis} onchange="pgSetKind('${m.id}',this.value)">${PG_KINDS.map(k=>`<option value="${k}"${(m.kind||'comprehension')===k?' selected':''}>${PG_KIND_LBL[k]}</option>`).join('')}</select></td>
     <td><input class="pg-in" style="width:46px" type="number" min="1" max="26" value="${wks}"${dis}
         title="How many weeks this block runs. Changing it moves every block after it and stretches the macrocycle."
@@ -13670,8 +13688,6 @@ function pgMesoRow(m, macroVol, idx){
         <select class="cw-sel" style="min-width:104px"${dis} onchange="pgSetCkPhase('${m.id}',this.value)">${Object.keys(pePhaseDisc()).map(p=>`<option${m.checkpoint_phase===p?' selected':''}>${esc(p)}</option>`).join('')}</select></span>
         ${pgCkKg(m)}</div></td>
     <td><input class="pg-in wide" type="text" value="${esc(m.goal||'')}" placeholder="note…"${dis} onchange="pgSetGoal('${m.id}',this.value)"></td>
-    <td class="pg-exp"><span onclick="pgToggleEx('${m.id}')" title="Exercises and tier split">${pgState.open[m.id]?'▾':'▸'}</span>
-      ${(()=>{const n=pgBlockEx(m.id).length; return n?`<i class="pg-exn-count">${n}</i>`:'';})()}</td>
   </tr>${pgState.open[m.id]?pgExDrawer(m,macroVol):''}`;
 }
 function pgCkKg(m){
@@ -13739,10 +13755,10 @@ async function renderProgramBuilder(host){
         ${!t.ok&&ms.length?`<span class="pg-bal" onclick="pgBalance('${macro.id}')">balance →</span>`:''}</div>
       ${ms.length?`<div style="overflow-x:auto"><table class="pg-tbl pg-meso"><thead><tr>
           <th>#</th><th>Block</th><th>Wks</th><th>Vol %</th><th class="tnum">Volume</th><th class="tnum">Avg/wk</th>
-          <th>Loading scheme</th><th>Tops out at</th><th>Checkpoint</th><th>Note</th><th></th></tr></thead>
+          <th>Loading scheme</th><th>Tops out at</th><th>Checkpoint</th><th>Note</th></tr></thead>
         <tbody>${ms.map((m,i)=>pgMesoRow(m,macroVol,i)).join('')}
         <tr class="pg-totrow"><td></td><td>Totals</td><td class="tnum">${wkSum}</td><td class="tnum">${t.pct.toFixed(0)}%</td>
-          <td class="tnum"><b>${macroVol==null?'—':Math.round(macroVol*t.sum)}</b></td><td colspan="6"></td></tr>
+          <td class="tnum"><b>${macroVol==null?'—':Math.round(macroVol*t.sum)}</b></td><td colspan="5"></td></tr>
         </tbody></table></div>`:'<div class="pg-empty">No mesocycles in this macrocycle. Add the blocks on the <b>Annual Plan</b>, then distribute volume here.</div>'}
       <div class="pg-note">Shares warn but never block. Volume is whole-program reps — every exercise, not one lift.</div></div>`;
   }
