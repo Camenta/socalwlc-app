@@ -2218,6 +2218,38 @@
   .pg-exp span{cursor:pointer;color:var(--muted);font-size:14px;user-select:none}
   .pg-exn-count{font-style:normal;font-size:9.5px;font-weight:800;color:var(--muted);
     border:1px solid var(--line);border-radius:8px;padding:0 4px;margin-left:2px;vertical-align:2px}
+  /* microcycle catalogue */
+  .mcy-dayhd{font-size:10.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:16px 0 8px}
+  .mcy-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(268px,1fr));gap:11px}
+  .mcy-card{border:1px solid var(--line);border-radius:11px;padding:12px 13px;background:var(--panel,rgba(255,255,255,.02))}
+  .mcy-card.on{border-color:var(--accent)}
+  .mcy-hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .mcy-hd b{font-size:14px}
+  .mcy-tools{margin-left:auto;display:flex;gap:9px;font-size:11px}
+  .mcy-tools span{color:var(--accent2);cursor:pointer;border-bottom:1px dashed currentColor}
+  .mcy-tools .del{color:var(--bad)}
+  .mcy-bars{display:flex;align-items:flex-end;gap:5px;margin-top:11px;min-height:74px}
+  .mcy-bar{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px}
+  .mcy-bar .b{width:100%;background:var(--accent);border-radius:3px 3px 0 0}
+  .mcy-bar .p{font-size:10px;font-weight:700;font-variant-numeric:tabular-nums}
+  .mcy-bar .f{font-size:8.5px;color:var(--muted);white-space:nowrap;overflow:hidden;max-width:100%}
+  .mcy-note{font-size:11.5px;color:var(--muted);margin-top:9px}
+  .mcy-edit{margin-top:12px;padding-top:11px;border-top:1px solid var(--line)}
+  .mcy-erow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:9px}
+  .mcy-erow label{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+  .mcy-erow input{background:var(--panel2,rgba(255,255,255,.03));border:1px solid var(--line);border-radius:7px;
+    color:var(--text);padding:6px 8px;font:inherit;font-size:13px}
+  .mcy-erow input#mcName,.mcy-erow input#mcNotes{flex:1;min-width:140px}
+  .mcy-erow input#mcDays{width:64px}
+  .mcy-etbl{width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:10px}
+  .mcy-etbl th{font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);text-align:left;
+    padding:5px 6px;border-bottom:1px solid var(--line)}
+  .mcy-etbl td{padding:5px 6px;border-bottom:1px solid var(--line)}
+  .mcy-etbl select{min-width:104px;padding:4px 6px;font-size:12px}
+  .pg-micro{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin-top:13px;padding-top:11px;border-top:1px solid var(--line)}
+  .pg-micro label{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+  .pg-daytier{font-size:10px;color:var(--warn);margin-top:4px}
+  .pg-day h5 i{font-style:normal;font-weight:400;color:var(--muted);font-size:10.5px}
 </style>
 </head>
 <body>
@@ -2295,6 +2327,7 @@ async function boot(){
   await probePgPlan();
   await probeMaxHist();
   await probeBlockEx();
+  await probeMicros();
   await notifLoad();
   if(profile.role === 'coach') renderCoach();
   else if(athOnboardNeeded(profile)) renderOnboard();
@@ -11167,11 +11200,13 @@ function renderTemplates(host){
       <button class="${conState.libTab==='programs'?'on':''}" onclick="conState.libTab='programs';renderConBody()">Program templates</button>
       <button class="${conState.libTab==='schemes'?'on':''}" onclick="conState.libTab='schemes';renderConBody()">Set / Rep schemes</button>
       <button class="${conState.libTab==='exercises'?'on':''}" onclick="conState.libTab='exercises';renderConBody()">Exercises</button>
+      <button class="${conState.libTab==='micros'?'on':''}" onclick="conState.libTab='micros';renderConBody()">Microcycles</button>
     </div>
     <div id="libBody"></div>`;
   const lb=document.getElementById('libBody');
   if(conState.libTab==='exercises') renderExLibMgr(lb);
   else if(conState.libTab==='schemes') renderSchemeMgr(lb);
+  else if(conState.libTab==='micros') renderMicroMgr(lb);
   else renderProgramTemplates(lb);
 }
 /* ---- Program templates: grid (card) / list views ---- */
@@ -13036,6 +13071,136 @@ function pgSchemeOf(m){ const all=peSchemes().filter(s=>s.weeks===pgWeeks(m));
   return all.find(s=>s.key===m.scheme_key)||null; }
 function pgPatternOf(m){ const w=pgWeeks(m), all=pePatterns().filter(p=>p.offsets.length===w);
   return all.find(p=>p.key===m.pattern_key)||all[0]||null; }
+/* ==================== MICROCYCLE CATALOGUE (migration 62) ====================
+   A microcycle is a reusable weekly SHAPE: how many days, each day's share of the
+   week's volume, each day's intensity offset from the week's tier, and what each day
+   emphasises. Catalogued like set/rep schemes and loading patterns, because Chris's
+   microcycles run 2-5+ days and undulate differently every time. */
+let MICRO_READY=false, MICROS=null;
+async function probeMicros(){ try{ const {error}=await sb.from('microcycles').select('id').limit(1); MICRO_READY=!error; }catch(e){ MICRO_READY=false; } }
+async function loadMicros(force){
+  if(MICROS!==null && !force) return MICROS;
+  if(!MICRO_READY){ MICROS=[]; return MICROS; }
+  const r=await sb.from('microcycles').select('*').is('archived_at',null).order('days').order('name');
+  MICROS=r.error?[]:(r.data||[]);
+  return MICROS;
+}
+function microById(id){ return (MICROS||[]).find(m=>m.id===id)||null; }
+// normalise to `days` long, so editing the day count never throws on a stale array
+function microArr(mc, key, dflt){
+  const n=Math.max(1,mc.days||1), a=Array.isArray(mc[key])?mc[key].slice(0,n):[];
+  while(a.length<n) a.push(dflt);
+  return a;
+}
+const microSplit  =mc=>{ const a=microArr(mc,'split',null).map(x=>typeof x==='number'?x:null);
+  const known=a.reduce((s,x)=>s+(x||0),0), blank=a.filter(x=>x==null).length;
+  return a.map(x=>x!=null?x:(blank?Math.max(0,1-known)/blank:0)); };
+const microOffsets=mc=>microArr(mc,'offsets',0).map(x=>typeof x==='number'?x:0);
+const microFocus  =mc=>microArr(mc,'focus',null).map(x=>x||null);
+const microSum    =mc=>microSplit(mc).reduce((a,b)=>a+b,0);
+// which microcycle governs week `wi` of a block: the per-week override, else the block default
+function microForWeek(m, wi){
+  const ov=Array.isArray(m.week_micros)?m.week_micros[wi]:null;
+  return microById(ov||m.microcycle_id);
+}
+/* the movement groups a day can emphasise come from the exercise library, not a
+   second vocabulary — so the stamp can match a day's focus to real exercises */
+function microFocusOpts(){ return Array.from(new Set((EXLIB||[]).map(e=>e.grp).filter(Boolean))).sort(); }
+
+/* ---------- catalogue manager (Console → Template Library → Microcycles) ---------- */
+let mcState={ q:'', form:false, editId:null };
+async function renderMicroMgr(host){
+  await loadExLib(); await loadMicros();
+  if(!MICRO_READY){ host.innerHTML='<div class="con-empty">Run migration 62 to build a microcycle catalogue.</div>'; return; }
+  const q=(mcState.q||'').toLowerCase();
+  const list=(MICROS||[]).filter(m=>!q||(m.name||'').toLowerCase().indexOf(q)>-1);
+  const byDays={}; list.forEach(m=>{ (byDays[m.days]=byDays[m.days]||[]).push(m); });
+  host.innerHTML=`
+    <div class="ctoolbar">
+      <input class="csearch" placeholder="Search microcycles…" value="${esc(mcState.q)}"
+        oninput="mcState.q=this.value;renderConBody()">
+      <span class="cbtn alt" onclick="mcNew()">+ New microcycle</span>
+    </div>
+    <div class="note sub" style="margin:0 0 10px">${list.length} shape${list.length===1?'':'s'} ·
+      a microcycle is a week: how many days, how the volume splits across them, how hard each day is,
+      and what each day emphasises. Assign one to a block in the Program Builder.</div>
+    ${Object.keys(byDays).sort((a,b)=>a-b).map(d=>`
+      <div class="mcy-dayhd">${d} day${d==='1'?'':'s'} a week</div>
+      <div class="mcy-grid">${byDays[d].map(mcCard).join('')}</div>`).join('')
+      ||'<div class="con-empty">No microcycles yet. Build your common weeks once and reuse them.</div>'}`;
+}
+function mcCard(m){
+  const sp=microSplit(m), off=microOffsets(m), fo=microFocus(m), sum=microSum(m);
+  const off2=Math.abs(sum-1)>.005;
+  const max=Math.max(...sp,0.0001);
+  return `<div class="mcy-card${mcState.editId===m.id?' on':''}">
+    <div class="mcy-hd"><b>${esc(m.name)}</b>
+      ${off2?`<span class="pg-tot warn">${(sum*100).toFixed(0)}% ⚠</span>`:''}
+      <span class="mcy-tools"><span onclick="mcEdit('${m.id}')">edit</span><span onclick="mcDup('${m.id}')">duplicate</span><span class="del" onclick="mcArchive('${m.id}')">remove</span></span></div>
+    <div class="mcy-bars">${sp.map((s,i)=>`<div class="mcy-bar" title="Day ${i+1} — ${(s*100).toFixed(0)}% of the week${fo[i]?' · '+esc(fo[i]):''}${off[i]?` · ${off[i]} tier${off[i]===1?'':'s'} lighter`:' · hardest day'}">
+        <div class="b" style="height:${Math.round(8+(s/max)*46)}px;opacity:${1-Math.min(.6,off[i]*.16)}"></div>
+        <span class="p">${(s*100).toFixed(0)}</span>
+        <span class="f">${fo[i]?esc(fo[i]).slice(0,7):'—'}</span></div>`).join('')}</div>
+    ${m.notes?`<div class="mcy-note">${esc(m.notes)}</div>`:''}
+    ${mcState.editId===m.id?mcEditor(m):''}</div>`;
+}
+function mcEditor(m){
+  const sp=microSplit(m), off=microOffsets(m), fo=microFocus(m), opts=microFocusOpts();
+  return `<div class="mcy-edit">
+    <div class="mcy-erow"><label>Name</label><input id="mcName" value="${esc(m.name)}">
+      <label>Days</label><input id="mcDays" type="number" min="1" max="14" value="${m.days}"
+        title="Changing this keeps what fits and pads the rest" onchange="mcSetDays('${m.id}',this.value)"></div>
+    <table class="mcy-etbl"><thead><tr><th>Day</th><th>Volume %</th><th>Intensity</th><th>Focus</th></tr></thead><tbody>
+      ${sp.map((s,i)=>`<tr>
+        <td>${i+1}</td>
+        <td><input class="pg-in" style="width:56px" type="number" min="0" max="100" data-mcs="${i}" value="${Math.round(s*100)}"></td>
+        <td><select class="cw-sel" data-mco="${i}">${[0,1,2,3,4,5].map(o=>`<option value="${o}"${off[i]===o?' selected':''}>${o?o+' tier'+(o===1?'':'s')+' lighter':'hardest day'}</option>`).join('')}</select></td>
+        <td><select class="cw-sel" data-mcf="${i}"><option value="">— any —</option>${opts.map(g=>`<option${fo[i]===g?' selected':''}>${esc(g)}</option>`).join('')}</select></td>
+      </tr>`).join('')}
+    </tbody></table>
+    <div class="mcy-erow"><label>Notes</label><input id="mcNotes" value="${esc(m.notes||'')}" placeholder="when you'd use this week…"></div>
+    <div class="mcy-erow"><button class="btn" onclick="mcSave('${m.id}')">Save</button>
+      <button class="btn ghost" onclick="mcState.editId=null;renderConBody()">Cancel</button>
+      <span class="sub" id="mcMsg"></span></div></div>`;
+}
+window.mcEdit=(id)=>{ mcState.editId=(mcState.editId===id?null:id); renderConBody(); };
+window.mcSetDays=async(id,v)=>{ const m=microById(id); if(!m) return;
+  m.days=Math.max(1,Math.min(14,parseInt(v,10)||1));
+  m.split=microSplit(m); m.offsets=microOffsets(m); m.focus=microFocus(m); renderConBody(); };
+window.mcNew=async()=>{
+  if(!MICRO_READY){ toast('Run migration 62 first.'); return; }
+  const r=await sb.from('microcycles').insert({ gym_id:me_.gym_id, name:'New microcycle', days:4,
+    split:[0.25,0.25,0.25,0.25], offsets:[0,2,1,3], focus:[null,null,null,null] }).select().single();
+  if(r.error){ toast('Could not create — '+r.error.message); return; }
+  MICROS.push(r.data); mcState.editId=r.data.id; renderConBody();
+};
+window.mcDup=async(id)=>{ const m=microById(id); if(!m) return;
+  const r=await sb.from('microcycles').insert({ gym_id:me_.gym_id, name:m.name+' (copy)', days:m.days,
+    split:microSplit(m), offsets:microOffsets(m), focus:microFocus(m), notes:m.notes }).select().single();
+  if(r.error){ toast('Could not duplicate — '+r.error.message); return; }
+  MICROS.push(r.data); mcState.editId=r.data.id; renderConBody(); };
+window.mcArchive=async(id)=>{
+  const r=await sb.from('microcycles').update({archived_at:new Date().toISOString()}).eq('id',id);
+  if(r.error){ toast('Could not remove — '+r.error.message); return; }
+  MICROS=(MICROS||[]).filter(m=>m.id!==id); if(mcState.editId===id) mcState.editId=null; renderConBody(); };
+window.mcSave=async(id)=>{
+  const m=microById(id); if(!m) return;
+  const days=m.days, split=[], offsets=[], focus=[];
+  for(let i=0;i<days;i++){
+    const s=document.querySelector(`[data-mcs="${i}"]`), o=document.querySelector(`[data-mco="${i}"]`), f=document.querySelector(`[data-mcf="${i}"]`);
+    split.push(Math.max(0,(parseFloat(s&&s.value)||0)/100));
+    offsets.push(parseInt(o&&o.value,10)||0);
+    focus.push((f&&f.value)||null);
+  }
+  const patch={ name:(document.getElementById('mcName')||{}).value||m.name, days, split, offsets, focus,
+                notes:(document.getElementById('mcNotes')||{}).value||null };
+  Object.assign(m,patch);
+  const msg=document.getElementById('mcMsg');
+  const r=await sb.from('microcycles').update(patch).eq('id',id);
+  if(r.error){ if(msg){ msg.style.color='var(--bad)'; msg.textContent='Save failed — '+r.error.message; } return; }
+  mcState.editId=null; renderConBody();
+};
+
 /* ---------- block exercises + tier split (phase 5) ---------- */
 let BLOCKEX_READY=false;                  // block_exercises + plan_phases.tier_split (migration 61)
 async function probeBlockEx(){ try{ const {error}=await sb.from('block_exercises').select('id').limit(1); BLOCKEX_READY=!error; }catch(e){ BLOCKEX_READY=false; } }
@@ -13117,6 +13282,14 @@ window.pgSetExShare=async(exId,v)=>{
   const r=await sb.from('block_exercises').update({share:n}).eq('id',exId);
   if(r.error){ pgState.msg='Could not save that share — '+r.error.message; renderConBody(); }
 };
+window.pgSetMicro=async(id,v)=>{
+  const m=pgState.phases.find(p=>p.id===id); if(!m) return;
+  if(pgIsShared(m)&&!pgState.unlocked){ pgState.msg='That block is shared — unlock shared editing to change its microcycle.'; renderConBody(); return; }
+  m.microcycle_id=v||null; renderConBody();
+  if(!MICRO_READY){ pgState.msg='Run migration 62 to save a microcycle.'; renderConBody(); return; }
+  const r=await sb.from('plan_phases').update({microcycle_id:m.microcycle_id}).eq('id',id);
+  if(r.error){ pgState.msg='Could not save that — '+r.error.message; renderConBody(); }
+};
 window.pgToggleEx=(id)=>{ pgState.open[id]=!pgState.open[id]; renderConBody(); };
 
 /* the drawer under a block row */
@@ -13149,6 +13322,16 @@ function pgExDrawer(m, macroVol){
             ${lock?'':`<span class="pg-exx" onclick="pgDelEx('${x.id}')" title="Remove from this block">✕</span>`}</div>`;}).join('')
           ||'<div class="pg-exline pg-subtle">no exercises yet</div>'}
       </div>`;}).join('')}</div>
+    <div class="pg-micro">
+      <label>Microcycle</label>
+      <select class="cw-sel"${dis} onchange="pgSetMicro('${m.id}',this.value)">
+        <option value="">— none —</option>${(MICROS||[]).map(x=>`<option value="${x.id}"${m.microcycle_id===x.id?' selected':''}>${esc(x.name)} · ${x.days}d</option>`).join('')}</select>
+      ${(()=>{ const mc=microById(m.microcycle_id); if(!mc) return '<span class="pg-subtle">the block\u2019s weekly shape — set one to split volume across days</span>';
+        const sp=microSplit(mc), sum=sp.reduce((a,b)=>a+b,0)||1;
+        return `<span class="pg-subtle">${sp.map(s=>(s/sum*100).toFixed(0)).join(' / ')} across ${mc.days} days${Math.abs(sum-1)>.005?' \u26a0 shares don\u2019t total 100%':''}</span>`; })()}
+      ${(()=>{ const n=(Array.isArray(m.week_micros)?m.week_micros:[]).filter(Boolean).length;
+        return n?`<span class="pg-tot">${n} week${n===1?'':'s'} overridden</span>`:''; })()}
+    </div>
     ${lock?'':`<div class="pg-exadd">
       <input id="pgExAdd_${m.id}" list="pgExList" placeholder="Add an exercise from the library…"
         onkeydown="if(event.key==='Enter'){event.preventDefault();pgAddEx('${m.id}')}">
@@ -13438,11 +13621,22 @@ function pgDayPanel(){
   if(i==null||i<0||i>=ws.length){ host.innerHTML=''; return; }
   const w=ws[i];
   if(w.reps==null){ host.innerHTML=`<div class="pg-empty">Set an annual number and this block's share to see the days.</div>`; return; }
+  const mc=microForWeek(w.meso, w.wk-1);
+  const sp=mc?microSplit(mc):PG_MICRO.map(x=>x[1]);
+  const off=mc?microOffsets(mc):sp.map(()=>0);
+  const fo=mc?microFocus(mc):sp.map(()=>null);
+  const sum=sp.reduce((a,b)=>a+b,0)||1;
+  const ovr=Array.isArray(w.meso.week_micros)&&w.meso.week_micros[w.wk-1];
   host.innerHTML=`<div class="pg-sec" style="margin-top:16px">${esc(w.meso.name||'Block')} · week ${w.wk} of ${w.of}
-      · ${Math.round(w.reps)} reps${w.tier?' · '+esc(w.tier):''}</div>
-    <div class="pg-days">${PG_MICRO.map(([nm,sh])=>`<div class="pg-day"><h5>${nm}</h5>
-      <div class="dv">${Math.round(w.reps*sh)}</div><div class="dl">reps · ${(sh*100).toFixed(0)}% of the week</div></div>`).join('')}</div>
-    <div class="pg-note">Placeholder microcycle — five sessions at 22/20/22/18/18. Exercises land here in the next phase.</div>`;
+      · ${Math.round(w.reps)} reps${w.tier?' · '+esc(w.tier):''}
+      <span class="pg-subtle">${mc?esc(mc.name)+(ovr?' (this week only)':''):'no microcycle assigned'}</span></div>
+    <div class="pg-days">${sp.map((sh,i)=>{
+      const dayTier=(w.rank!=null)?(peRiRow(Math.min(8,w.rank+(off[i]||0)))||{}).tier:null;
+      return `<div class="pg-day"><h5>Day ${i+1}${fo[i]?` <i>${esc(fo[i])}</i>`:''}</h5>
+        <div class="dv">${Math.round(w.reps*(sh/sum))}</div>
+        <div class="dl">reps · ${(sh/sum*100).toFixed(0)}% of the week</div>
+        ${dayTier?`<div class="pg-daytier">${esc(dayTier)}</div>`:''}</div>`;}).join('')}</div>
+    ${mc?'':'<div class="pg-note">Assign a microcycle to this block to shape its days — Console → Template Library → Microcycles.</div>'}`;
 }
 
 /* the block row */
