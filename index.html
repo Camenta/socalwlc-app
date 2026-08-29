@@ -2267,6 +2267,11 @@
   .pg-stday .e i{font-style:normal;font-size:8.5px;font-weight:800;letter-spacing:.05em;color:#fff;
     border-radius:4px;padding:1px 4px}
   .pg-stday .e b{margin-left:auto;font-variant-numeric:tabular-nums}
+  /* native number spinners sat on top of the digits in these narrow fields */
+  .pg-in[type=number]{padding-right:3px}
+  .pg-in.num{width:64px;padding-right:3px}
+  .pg-tcard .pg-trow input[type=number]{width:64px}
+  .pg-tbl input[type=number]{min-width:56px}
 </style>
 </head>
 <body>
@@ -13291,6 +13296,26 @@ function pgWeekParts(m, weekReps){
   return o;
 }
 
+// Dragging a tier slider used to call renderConBody on every pixel: a full re-render per
+// mouse-move, which reset the scroll and made the page jump. Live input now updates state,
+// redraws the chart and patches the affected numbers in place; the save happens on change.
+window.pgTierLive=(id,k,v)=>{
+  const m=pgState.phases.find(p=>p.id===id); if(!m) return;
+  if(pgIsShared(m)&&!pgState.unlocked) return;
+  const cur=pgTierSplit(m)||{ce:0,spe:0,sde:0,ge:0};
+  cur[k]=Math.max(0,(parseFloat(v)||0)/100); m.tier_split=cur;
+  const box=document.querySelector(`[data-grp="${id}"][data-g="${k}"]`);
+  const card=box?box.closest('.pg-tcard'):null;
+  if(card){ const n=card.querySelector('input[type=number]'); if(n) n.value=Math.round(cur[k]*100);
+    const r=card.querySelector('input[type=range]'); if(r&&r.value!=Math.round(cur[k]*100)) r.value=Math.round(cur[k]*100); }
+  const vol=pgMesoVolOf(m), sum=pgTierSum(cur);
+  document.querySelectorAll(`.pg-tcard`).forEach(c=>{
+    const rng=c.querySelector('input[type=range]'); if(!rng||rng.dataset.grp!==id) return;
+    const kk=rng.dataset.g, tv=(vol!=null&&sum)?vol*((cur[kk]||0)/sum):null;
+    const out=c.querySelector('.pg-tv'); if(out) out.innerHTML=(tv==null?'—':Math.round(tv))+'<i> reps</i>';
+  });
+  pgDraw();
+};
 window.pgSetTier=async(id,k,v)=>{
   const m=pgState.phases.find(p=>p.id===id); if(!m) return;
   if(pgIsShared(m)&&!pgState.unlocked){ pgState.msg='That block is shared — unlock shared editing to change its tier split.'; renderConBody(); return; }
@@ -13377,9 +13402,9 @@ function pgExDrawer(m, macroVol){
       return `<div class="pg-tcard" style="border-left-color:var(${PG_TIERCOL[k]})">
         <div class="pg-th"><b style="color:var(${PG_TIERCOL[k]})">${L}</b><span>${desc}</span></div>
         <div class="pg-tv">${tv==null?'—':Math.round(tv)}<i> reps</i></div>
-        <div class="pg-trow"><input type="range" min="0" max="70" value="${Math.round(pct*100)}"${dis}
-            oninput="pgSetTier('${m.id}','${k}',this.value)">
-          <input class="pg-in" style="width:52px" type="number" min="0" max="100" value="${Math.round(pct*100)}"${dis}
+        <div class="pg-trow"><input type="range" min="0" max="70" data-grp="${m.id}" data-g="${k}" value="${Math.round(pct*100)}"${dis}
+            oninput="pgTierLive('${m.id}','${k}',this.value)" onchange="pgSetTier('${m.id}','${k}',this.value)">
+          <input class="pg-in num" type="number" min="0" max="100" value="${Math.round(pct*100)}"${dis}
             onchange="pgSetTier('${m.id}','${k}',this.value)"><span class="pg-subtle">%</span></div>
         ${list.map(x=>{ const ex=pgExReps(m, vol).find(e=>e.row&&e.row.id===x.id);
           return `<div class="pg-exline"><span class="pg-exn">${esc(x.name)}</span>
@@ -14005,7 +14030,7 @@ async function renderPlanCanvas(host){
       <div id="pgDays"></div></div>`;
     table=`<div class="card"><div class="pg-sec">Blocks ${t.html}
         ${!t.ok&&ms.length?`<span class="pg-bal" onclick="pgBalance('${macro.id}')">balance →</span>`:''}</div>
-      ${ms.length?`<div style="overflow-x:auto"><table class="pg-tbl pg-meso"><thead><tr>
+      ${ms.length?`<div id="pgTblWrap" style="overflow-x:auto"><table class="pg-tbl pg-meso"><thead><tr>
           <th>#</th><th>Block</th><th>Wks</th><th>Vol %</th><th class="tnum">Volume</th><th class="tnum">Avg/wk</th>
           <th>Loading scheme</th><th>Tops out at</th><th>Checkpoint</th><th>Note</th></tr></thead>
         <tbody>${ms.map((m,i)=>pgMesoRow(m,macroVol,i)).join('')}
@@ -14014,7 +14039,13 @@ async function renderPlanCanvas(host){
         </tbody></table></div>`:'<div class="pg-empty">No mesocycles in this macrocycle. Add the blocks on the <b>Annual Plan</b>, then distribute volume here.</div>'}
       <div class="pg-note">Shares warn but never block. Volume is whole-program reps — every exercise, not one lift.</div></div>`;
   }
+  // innerHTML throws the old DOM away, taking the window scroll and the block table's
+  // horizontal scroll with it. Capture both and put them back, or every click on a
+  // spinner or slider snaps the page back to the left.
+  const _sy=window.scrollY, _sx=(document.getElementById('pgTblWrap')||{}).scrollLeft||0;
   host.innerHTML=head+annualCard+canvas+table+`<datalist id="pgExList">${(EXLIB||[]).slice(0,600).map(e=>`<option value="${esc(e.name)}"></option>`).join('')}</datalist>`;
+  const _w=document.getElementById('pgTblWrap'); if(_w&&_sx) _w.scrollLeft=_sx;
+  if(_sy) window.scrollTo({top:_sy});
   pgWireCanvas(); pgDraw(); pgDayPanel();
 }
 
