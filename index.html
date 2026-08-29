@@ -13394,7 +13394,7 @@ function pgExDrawer(m, macroVol){
       <label>Microcycle</label>
       <select class="cw-sel"${dis} onchange="pgSetMicro('${m.id}',this.value)">
         <option value="">— none —</option>${(MICROS||[]).map(x=>`<option value="${x.id}"${m.microcycle_id===x.id?' selected':''}>${esc(x.name)} · ${x.days}d</option>`).join('')}</select>
-      ${(()=>{ const mc=microById(m.microcycle_id); if(!mc) return '<span class="pg-subtle">the block\u2019s weekly shape — set one to split volume across days</span>';
+      ${(()=>{ const mc=microById(m.microcycle_id); if(!mc) return '<span class="pg-flag warn">no microcycle — a template written now would put every exercise on one day</span>';
         const sp=microSplit(mc), sum=sp.reduce((a,b)=>a+b,0)||1;
         return `<span class="pg-subtle">${sp.map(s=>(s/sum*100).toFixed(0)).join(' / ')} across ${mc.days} days${Math.abs(sum-1)>.005?' \u26a0 shares don\u2019t total 100%':''}</span>`; })()}
       ${(()=>{ const n=(Array.isArray(m.week_micros)?m.week_micros:[]).filter(Boolean).length;
@@ -13482,7 +13482,7 @@ function stBuildBlock(m){
   const macroVol=(annual!=null&&macro&&macro.volume_share!=null)?annual*macro.volume_share:null;
   const blockVol=(macroVol!=null&&m.volume_share!=null)?macroVol*m.volume_share:null;
   const tiers=pgTierSplit(m), tsum=pgTierSum(tiers), byTier=pgExByTier(m.id);
-  const notes=[], tooMany=[];
+  const notes=[], tooMany=[]; let noMicro=0;
   if(blockVol==null) notes.push('This block has no volume yet — set the annual number and its share.');
   if(!tiers||!tsum) notes.push('No tier split — every exercise would get an equal slice.');
   if(!pgBlockEx(m.id).length) notes.push('No exercises assigned to this block.');
@@ -13490,6 +13490,9 @@ function stBuildBlock(m){
   let planned=0, prescribed=0, usedSchemes=0, computed=0;
   for(let w=0; w<weeks; w++){
     const micro=microForWeek(m,w);
+    if(!micro) noMicro++;
+    // With no microcycle there is no week SHAPE, so everything would land on a single day --
+    // which is exactly what happened to Chris. Counted here and refused in the preview.
     const dayShares=micro?microSplit(micro):[1];
     const dayOff=micro?microOffsets(micro):[0];
     const dsum=dayShares.reduce((a,b)=>a+b,0)||1;
@@ -13531,9 +13534,12 @@ function stBuildBlock(m){
       if(exs.length) days.push({ wk:w, dow:Math.min(6,d), title:(micro&&microFocus(micro)[d])||'Training', exercises:exs });
     }
   }
+  if(noMicro) notes.unshift('NO MICROCYCLE on '+(noMicro===weeks?'this block':noMicro+' of its '+weeks+' weeks')+
+    ' — without one there is no week shape, so every exercise would be written onto a single day. '+
+    'Assign a microcycle below (or build one in Console → Template Library → Microcycles) and try again.');
   if(tooMany.length) notes.push(tooMany.length+' exercise-session'+(tooMany.length===1?'':'s')+
     ' would need more than 12 sets (e.g. '+tooMany[0]+') \u2014 that usually means too much volume for too few exercises or too few training days.');
-  return { days, planned, prescribed, weeks, usedSchemes, computed, notes };
+  return { days, planned, prescribed, weeks, usedSchemes, computed, notes, noMicro };
 }
 window.pgStampBlock=async(id)=>{
   const m=pgState.phases.find(p=>p.id===id); if(!m) return;
@@ -13565,7 +13571,9 @@ window.pgStampBlock=async(id)=>{
           <b>${e.sets.length}&times;${e.sets[0].reps}${e.sets[0].pct!=null?' @ '+e.sets[0].pct+'%':''}</b></span>`).join('')}
       </div>`).join('')}</div>`).join('')||'<div class="pg-empty">Nothing to write — assign exercises and a microcycle first.</div>'}</div>
     <div class="bf-row" style="margin-top:14px">
-      ${built.days.length?`<button class="btn" onclick="pgStampCreate('${id}')">Create template</button>`:''}
+      ${built.noMicro?`<button class="btn" disabled title="Assign a microcycle first — otherwise every exercise lands on one day">Create template</button>
+          <span class="pg-subtle">blocked — assign a microcycle first</span>`
+        :(built.days.length?`<button class="btn" onclick="pgStampCreate('${id}')">Create template</button>`:'')}
       <span class="saved" id="pgStMsg"></span></div>`);
   window._pgBuilt=built;
 };
