@@ -2254,6 +2254,19 @@
   .pg-fork{font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--good);
     border:1px solid var(--good);border-radius:8px;padding:1px 6px;margin-left:5px;cursor:pointer;vertical-align:1px}
   .pg-fork:hover{background:var(--good);color:#0b0f14}
+  /* block -> template preview */
+  .pg-stwarn{border:1px solid var(--warn);color:var(--warn);border-radius:9px;padding:9px 11px;
+    font-size:12.5px;margin-bottom:12px;line-height:1.6}
+  .pg-strow{display:flex;flex-wrap:wrap;gap:22px;margin-bottom:12px}
+  .pg-stprev{max-height:340px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .pg-stwk{margin-bottom:12px}
+  .pg-stwk>b{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .pg-stday{border-left:2px solid var(--line);padding:5px 0 5px 10px;margin:6px 0}
+  .pg-stday .t{display:block;font-size:11.5px;font-weight:700;margin-bottom:3px}
+  .pg-stday .e{display:flex;align-items:center;gap:7px;font-size:12.5px;padding:2px 0}
+  .pg-stday .e i{font-style:normal;font-size:8.5px;font-weight:800;letter-spacing:.05em;color:#fff;
+    border-radius:4px;padding:1px 4px}
+  .pg-stday .e b{margin-left:auto;font-variant-numeric:tabular-nums}
 </style>
 </head>
 <body>
@@ -13386,6 +13399,9 @@ function pgExDrawer(m, macroVol){
         return `<span class="pg-subtle">${sp.map(s=>(s/sum*100).toFixed(0)).join(' / ')} across ${mc.days} days${Math.abs(sum-1)>.005?' \u26a0 shares don\u2019t total 100%':''}</span>`; })()}
       ${(()=>{ const n=(Array.isArray(m.week_micros)?m.week_micros:[]).filter(Boolean).length;
         return n?`<span class="pg-tot">${n} week${n===1?'':'s'} overridden</span>`:''; })()}
+      <button class="btn" style="margin-left:auto;padding:7px 13px" onclick="pgStampBlock('${m.id}')"
+        title="Write this block as a program template — exercises into the microcycle's days with sets, reps and %">
+        &#9654; Write as template</button>
     </div>
     ${lock?'':`<div class="pg-exadd">
       <input id="pgExAdd_${m.id}" list="pgExList" placeholder="Add an exercise from the library…"
@@ -13394,6 +13410,177 @@ function pgExDrawer(m, macroVol){
       <span class="pg-subtle">tier comes from the library — change it there and it moves everywhere</span></div>`}
   </td></tr>`;
 }
+
+/* ==================== PHASE 6b — BLOCK -> PROGRAM TEMPLATE ====================
+   Turns a planned block into a written program template: exercises placed into the
+   microcycle's days, with sets/reps/% chosen to hit the block's volume at each day's
+   intensity. The template lands in the builder Chris already reviews and stamps from,
+   so the existing stamp-to-team path (and its per-athlete %1RM repricing) is reused
+   rather than replaced. Chris's call: generate once, then it is independent. */
+
+// reps per set that suit a tier — heavier tiers get fewer reps
+const ST_TIER_REPS={1:1,2:2,3:3,4:3,5:4,6:5,7:5,8:6};
+function stTierReps(rank){ return ST_TIER_REPS[rank]||3; }
+// the % band for a tier at a rep count, from the RI chart
+function stBand(rank, reps){
+  const row=peRiRow(rank); if(!row) return null;
+  const c=peRiCell(row, reps); if(!c||c.high==null) return null;
+  const lo=c.low!=null?c.low:c.high;
+  return { lo, hi:c.high, mid:(lo+c.high)/2 };
+}
+// a scheme week's shape: total reps and its volume-weighted average %
+function stSchemeWeek(s, wi){
+  const wk=(s.data||[])[Math.min(wi,(s.data||[]).length-1)];
+  if(!Array.isArray(wk)||!wk.length) return null;
+  let vol=0, pw=0, pv=0;
+  wk.forEach(r=>{ const st=+r.s||1, rp=+r.r||0, p=r.p==null?null:+r.p;
+    vol+=st*rp; if(p!=null&&rp){ pw+=p*st*rp; pv+=st*rp; } });
+  if(!vol) return null;
+  return { rows:wk, vol, pct: pv?pw/pv:null };
+}
+/* Pick the scheme that best fits a target volume at a target intensity, from Chris's
+   library. Volume distance dominates; intensity breaks ties. Returns null when nothing
+   lands close, and the caller computes a plain sets x reps instead — better an honest
+   generated set than a scheme bent out of shape to fit. */
+function stPickScheme(targetReps, band, wi, movement){
+  const rows=(schLib.rows||[]);
+  if(!rows.length||!targetReps) return null;
+  let best=null;
+  rows.forEach(s=>{
+    const w=stSchemeWeek(s,wi); if(!w) return;
+    const dv=Math.abs(w.vol-targetReps)/targetReps;
+    if(dv>0.28) return;                                   // more than ~a quarter out: not this one
+    let score=dv;
+    if(band&&w.pct!=null){ const mid=(band.lo+band.hi)/2; score+=Math.abs(w.pct-mid)*1.6; }
+    if(movement&&s.movement&&String(s.movement).toLowerCase()===String(movement).toLowerCase()) score-=0.06;
+    if(!best||score<best.score) best={score, scheme:s, wk:w};
+  });
+  return best;
+}
+/* How an exercise's WEEKLY volume spreads across the days. A day's focus BIASES the
+   distribution, it does not monopolise it: with one Snatch-focus day, sending every snatch
+   rep of the week into that one session produced things like "Snatch 29 x 3", which is not
+   programming. Focus-matched days get full weight, unfocused days a half share, days
+   focused elsewhere a small share -- so the snatch day is clearly the snatch day and the
+   rest of the week still touches it. */
+function stDayWeights(exName, micro, dayShares){
+  const grp=((EXLIB||[]).find(e=>e.name===exName)||{}).grp||null;
+  const focus=micro?microFocus(micro):dayShares.map(()=>null);
+  const w=dayShares.map((sh,i)=>{
+    const f=focus[i];
+    const bias = !f ? 0.5 : (grp && f===grp ? 1 : 0.15);
+    return sh*bias;
+  });
+  const tot=w.reduce((a,b)=>a+b,0);
+  return tot>0 ? w.map(x=>x/tot) : dayShares.map(()=>1/dayShares.length);
+}
+/* Build the template's days for one block. Returns {days, planned, prescribed, notes}. */
+function stBuildBlock(m){
+  const weeks=pgWeeks(m), split=pgSplit(m), ranks=pgRanks(m);
+  const macro=pgMacros().find(x=>pgMesos(x).some(y=>y.id===m.id));
+  const annual=pgAnnual();
+  const macroVol=(annual!=null&&macro&&macro.volume_share!=null)?annual*macro.volume_share:null;
+  const blockVol=(macroVol!=null&&m.volume_share!=null)?macroVol*m.volume_share:null;
+  const tiers=pgTierSplit(m), tsum=pgTierSum(tiers), byTier=pgExByTier(m.id);
+  const notes=[], tooMany=[];
+  if(blockVol==null) notes.push('This block has no volume yet — set the annual number and its share.');
+  if(!tiers||!tsum) notes.push('No tier split — every exercise would get an equal slice.');
+  if(!pgBlockEx(m.id).length) notes.push('No exercises assigned to this block.');
+  const days=[];
+  let planned=0, prescribed=0, usedSchemes=0, computed=0;
+  for(let w=0; w<weeks; w++){
+    const micro=microForWeek(m,w);
+    const dayShares=micro?microSplit(micro):[1];
+    const dayOff=micro?microOffsets(micro):[0];
+    const dsum=dayShares.reduce((a,b)=>a+b,0)||1;
+    const weekReps=blockVol!=null?blockVol*split[w]:null;
+    planned+=weekReps||0;
+    // exercise -> reps this week
+    const exWeek=[];
+    PG_TIERS.forEach(([k])=>{
+      const list=byTier[k]||[]; if(!list.length) return;
+      const tierReps=(weekReps!=null&&tiers&&tsum)?weekReps*((tiers[k]||0)/tsum):null;
+      const shares=list.map(x=>x.share!=null?+x.share:null);
+      const known=shares.reduce((a,s)=>a+(s||0),0), blanks=shares.filter(s=>s==null).length;
+      list.forEach((x,i)=>{ const sh=shares[i]!=null?shares[i]:(blanks?Math.max(0,1-known)/blanks:0);
+        exWeek.push({ name:x.name, tier:k, reps:tierReps!=null?tierReps*sh:null }); });
+    });
+    for(let d=0; d<dayShares.length; d++){
+      const rank=Math.min(8,(ranks[w]||3)+(dayOff[d]||0));
+      const exs=[];
+      exWeek.forEach(e=>{
+        const wts=stDayWeights(e.name, micro, dayShares);
+        const dayReps=e.reps!=null?e.reps*wts[d]:null;
+        if(dayReps==null||dayReps<3) return;          // below a working set: skip rather than write 1x1
+        const reps=stTierReps(rank), band=stBand(rank,reps);
+        const pick=stPickScheme(dayReps, band, w, ((EXLIB||[]).find(x=>x.name===e.name)||{}).grp);
+        let sets;
+        if(pick){ usedSchemes++;
+          sets=pick.wk.rows.map(r=>({ reps:(+r.s||1)>1?(+r.r||reps):(+r.r||reps), pct:r.p!=null?+r.p:(band?Math.round(band.lo*100):null), _s:+r.s||1 }));
+          sets=sets.flatMap(s=>Array.from({length:s._s},()=>({reps:s.reps, pct:s.pct})));
+        } else { computed++;
+          const n=Math.max(1,Math.round(dayReps/reps));
+          const p=band?Math.round(((band.lo+band.hi)/2)*100):null;
+          sets=Array.from({length:n},()=>({reps, pct:p}));
+        }
+        if(sets.length>12) tooMany.push(`${e.name} week ${w+1} day ${d+1}: ${sets.length} sets`);
+        prescribed+=sets.reduce((a,s)=>a+(s.reps||0),0);
+        exs.push({ name:e.name, category:e.tier, load_type:'percentage', cues:null,
+                   coach_note:(pick?pick.scheme.name:'') , sets });
+      });
+      if(exs.length) days.push({ wk:w, dow:Math.min(6,d), title:(micro&&microFocus(micro)[d])||'Training', exercises:exs });
+    }
+  }
+  if(tooMany.length) notes.push(tooMany.length+' exercise-session'+(tooMany.length===1?'':'s')+
+    ' would need more than 12 sets (e.g. '+tooMany[0]+') \u2014 that usually means too much volume for too few exercises or too few training days.');
+  return { days, planned, prescribed, weeks, usedSchemes, computed, notes };
+}
+window.pgStampBlock=async(id)=>{
+  const m=pgState.phases.find(p=>p.id===id); if(!m) return;
+  if(!schLib.loaded){ const {data}=await sb.from('schemes').select('*').limit(1000); schLib.rows=data||[]; schLib.loaded=true; }
+  await loadExLib(); await loadMicros();
+  const built=stBuildBlock(m);
+  const drift=built.planned?((built.prescribed-built.planned)/built.planned*100):0;
+  const byWk={}; built.days.forEach(d=>{ (byWk[d.wk]=byWk[d.wk]||[]).push(d); });
+  ovModal('pgStampModal', `
+    <div class="ov-hd"><h2 style="margin:0">Write &ldquo;${esc(m.name||'Block')}&rdquo; as a template</h2>
+      <span class="vid-x" onclick="document.getElementById('pgStampModal').style.display='none'">&#10005;</span></div>
+    <div class="sub" style="margin:6px 0 12px">Places this block&rsquo;s exercises into its microcycle&rsquo;s days and writes
+      sets, reps and percentages to hit the planned volume at each day&rsquo;s intensity. Creates a
+      <b>program template</b> you can review and edit, then stamp to the team as usual.</div>
+    ${built.notes.length?`<div class="pg-stwarn">${built.notes.map(n=>'&#9888; '+esc(n)).join('<br>')}</div>`:''}
+    <div class="pg-strow">
+      <span class="pg-stat"><label>weeks</label><b>${built.weeks}</b></span>
+      <span class="pg-stat"><label>sessions</label><b>${built.days.length}</b></span>
+      <span class="pg-stat"><label>planned</label><b>${Math.round(built.planned)}</b></span>
+      <span class="pg-stat"><label>prescribed</label><b>${Math.round(built.prescribed)}</b>
+        <i class="pg-${Math.abs(drift)<=8?'ok':'warn'}">${drift>=0?'+':''}${drift.toFixed(0)}%</i></span>
+      <span class="pg-stat"><label>from your schemes</label><b>${built.usedSchemes}</b>
+        <i class="pg-subtle">${built.computed} generated</i></span>
+    </div>
+    <div class="pg-stprev">${Object.keys(byWk).sort((a,b)=>a-b).map(w=>`
+      <div class="pg-stwk"><b>Week ${+w+1}</b>${byWk[w].map(d=>`<div class="pg-stday">
+        <span class="t">${esc(d.title)}</span>
+        ${d.exercises.map(e=>`<span class="e"><i class="tier-${e.category}">${e.category.toUpperCase()}</i>${esc(e.name)}
+          <b>${e.sets.length}&times;${e.sets[0].reps}${e.sets[0].pct!=null?' @ '+e.sets[0].pct+'%':''}</b></span>`).join('')}
+      </div>`).join('')}</div>`).join('')||'<div class="pg-empty">Nothing to write — assign exercises and a microcycle first.</div>'}</div>
+    <div class="bf-row" style="margin-top:14px">
+      ${built.days.length?`<button class="btn" onclick="pgStampCreate('${id}')">Create template</button>`:''}
+      <span class="saved" id="pgStMsg"></span></div>`);
+  window._pgBuilt=built;
+};
+window.pgStampCreate=async(id)=>{
+  const m=pgState.phases.find(p=>p.id===id), built=window._pgBuilt;
+  if(!m||!built) return;
+  const msg=document.getElementById('pgStMsg'); if(msg){ msg.style.color=''; msg.textContent='Writing…'; }
+  const r=await sb.from('programs').insert({ gym_id:me_.gym_id, name:(m.name||'Block')+' — from plan',
+    phase:PG_KIND_LBL[m.kind]||null, weeks:built.weeks, data:{days:built.days} }).select().single();
+  if(r.error){ if(msg){ msg.style.color='var(--bad)'; msg.textContent='Failed — '+r.error.message; } return; }
+  conState._programs=(conState._programs||[]).concat(r.data);
+  const mm=document.getElementById('pgStampModal'); if(mm) mm.style.display='none';
+  toast('Template written — review it, then stamp it to the team.');
+  openProgramBuilder(r.data.id);
+};
 
 /* ---------- the shape of a block: split + per-week tier ---------- */
 // custom hand-drawn split wins, then the named scheme, then even
