@@ -560,6 +560,31 @@
   .cw-delbar .cw-del-copy{background:var(--accent2);color:#0a0d11}
   .cw-delbar .cw-del-push{background:#8b5cf6;color:#fff}
   .cw-delbar .cw-copydate{background:#0e151c;border:1px solid var(--line);border-radius:8px;color:var(--text);font:inherit;font-size:12px;padding:6px 8px}
+  .cw-delbar .cw-del-tpl{background:var(--good);color:#0a0d11}
+  .cw-delbar .cw-del-tpl:disabled{background:#0e151c;color:var(--muted);cursor:not-allowed}
+  .cw-tplrow{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin:10px 0 4px}
+  .cw-tplrow label{display:block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-bottom:3px}
+  .cw-tplrow input{background:#0e151c;border:1px solid var(--line);border-radius:8px;color:var(--text);font:inherit;font-size:13px;padding:7px 9px}
+  .cw-tplstat{display:flex;gap:16px;flex-wrap:wrap;margin:8px 0 2px}
+  .cw-tplstat span{font-size:11px;color:var(--muted);font-weight:700}
+  .cw-tplstat span b{display:block;font-size:17px;color:var(--text);font-variant-numeric:tabular-nums}
+  .cw-tplwrap{max-height:38vh;overflow:auto;margin-top:10px;padding-right:2px}
+  .cw-tplwk{border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-bottom:8px;background:var(--panel2)}
+  .cw-tplwk>b{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--accent2)}
+  .cw-tplday{margin-top:6px;padding-top:6px;border-top:1px dashed var(--line)}
+  .cw-tplday .t{font-size:12px;font-weight:800;color:var(--text)}
+  .cw-tplday .e{display:block;font-size:11px;color:var(--muted);margin-top:2px;line-height:1.45}
+  .cw-tplday .e b{color:var(--text);font-weight:700}
+  .cw-tplday .e i{font-style:normal;font-size:8.5px;font-weight:800;letter-spacing:.3px;color:var(--accent2);background:rgba(56,160,255,.14);border-radius:5px;padding:1px 4px;margin-right:5px}
+  .cw-tplbox{border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin-top:10px;background:var(--panel2)}
+  .cw-tplbox.warn{border-color:var(--warn);background:rgba(232,158,60,.10)}
+  .cw-tplbox>h4{margin:0 0 2px;font-size:11.5px;font-weight:800;color:var(--text)}
+  .cw-tplbox>p{margin:0;font-size:11px;color:var(--muted);line-height:1.5}
+  .cw-tpltbl{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:6px}
+  .cw-tpltbl th{text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);padding:3px 6px;font-weight:800}
+  .cw-tpltbl td{padding:3px 6px;border-top:1px solid var(--line);color:var(--text)}
+  .cw-tpltbl td.num{text-align:right;font-variant-numeric:tabular-nums}
+  .cw-tpltbl td.sub{color:var(--muted)}
   .cwd-st{font-size:12px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
   .cwd-dchip{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--warn);background:rgba(232,158,60,.16);border-radius:6px;padding:1px 5px}
   .cwd-sx{font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.35}
@@ -9538,37 +9563,22 @@ window.saveBlockAsProgram=async function(){
     .eq('athlete_id', cw.athId).gte('session_date', block.start_date).lte('session_date', block.end_date)
     .order('session_date',{ascending:true}).order('created_at',{ascending:true});
   if(error){ toast('Could not read the block — '+error.message); return; }
-  const sessions=(sess||[]).filter(s=>(s.prescribed_exercises||[]).length);
-  if(!sessions.length){ toast('This block has no programmed sessions to save yet.'); return; }
-  const days=sessions.map(s=>({
-    wk: Math.max(0, weekIdxInBlock(block, s.session_date)),
-    dow: (new Date(s.session_date+'T00:00:00').getDay()+6)%7,
-    title: s.title||'Training',
-    exercises: (s.prescribed_exercises||[]).slice().sort(sortByPos).map(ex=>({
-      name: ex.name, category: ex.category||'primary', load_type: ex.load_type||'percentage',
-      cues: Array.isArray(ex.cues)?ex.cues:null, coach_note: ex.coach_note||null,
-      sets: (ex.prescribed_sets||[]).slice().sort(sortByPos).map(ps=>({
-        reps: ps.target_reps, pct: ps.target_pct!=null?parseFloat(ps.target_pct):null,
-        vel: ps.target_vel!=null?parseFloat(ps.target_vel):null, eff: ps.target_eff!=null?parseFloat(ps.target_eff):null,
-        kg: (ex.load_type==='weight' && ps.target_kg!=null)?parseFloat(ps.target_kg):null }))
-    }))
-  }));
-  const weeksN=Math.max.apply(null, days.map(d=>d.wk+1).concat([1]));
-  window._pgCapture={ name: block.name+' — program', phase: block.phase||null, weeks: weeksN, wave: block.wave||null, data:{days} };
-  ovModal('pgSaveModal', `
-    <div class="ov-hd"><h2 style="margin:0">⊞ Save block as program</h2><span class="vid-x" onclick="document.getElementById('pgSaveModal').style.display='none'">✕</span></div>
-    <div class="sub" style="margin:6px 0 12px">Captured <b>${sessions.length} day${sessions.length===1?'':'s'}</b> across <b>${weeksN} week${weeksN===1?'':'s'}</b> (reps, %1RM/velocity, cues & notes). Loads re-price off each athlete's maxes when you stamp it.</div>
-    <div class="bf-row"><input id="pgName" value="${esc(window._pgCapture.name)}" placeholder="Program name" style="flex:1;min-width:240px;font-weight:700;font-size:15px"></div>
-    <div class="bf-row" style="margin-top:12px"><button class="btn" onclick="doSaveProgram()">Save to program library</button>
-      <span class="saved" id="pgSaveMsg"></span></div>`);
-};
-window.doSaveProgram=async function(){
-  const name=(document.getElementById('pgName').value||'').trim(); if(!name){ document.getElementById('pgName').focus(); return; }
-  const c=window._pgCapture;
-  const res=await sb.from('programs').insert({ gym_id:me_.gym_id, name, phase:c.phase, weeks:c.weeks, wave:c.wave, data:c.data }).select();
-  if(res.error||!res.data||!res.data.length){ const m=document.getElementById('pgSaveMsg'); if(m){m.style.color='var(--bad)';m.textContent='Save failed — '+(res.error?res.error.message:'try again');} return; }
-  document.getElementById('pgSaveModal').style.display='none';
-  conState._programs=undefined; edMsgSet&&edMsgSet('✓ Saved "'+name+'" to your program library','var(--good)');
+  // Reads the block through the SAME builder the lasso uses (cwTplBuild), so both routes agree on
+  // what happens to the loads. This used to have its own inline capture, which kept a 'weight'
+  // exercise's kg literally — every athlete you stamped it to got THIS athlete's bar weights.
+  // Week 1 is now the first week that actually has a session, not the block's start date, so a
+  // template never opens on an empty week.
+  const built=cwTplBuild(sess||[], cw.maxes||{});
+  if(!built.days.length){ toast('This block has no programmed sessions to save yet.'); return; }
+  // carry the block's light/moderate/heavy/peak wave, shifted to the new week 1 — the template's
+  // first week is the first week that HAS a session, which need not be the block's first week
+  if(Array.isArray(block.wave)){
+    const dates=(sess||[]).map(s=>s.session_date).filter(Boolean).sort();
+    const off=Math.max(0, weekIdxInBlock(block, dates[0]));
+    built.wave=block.wave.slice(off);
+  }
+  const first=(((cw.ath&&cw.ath.full_name)||'Athlete').split(' ')[0]);
+  cwTplShow(built, block.name+' — program', block.phase||'', first);
 };
 /* ---- console: Active Programs + Program templates ---- */
 async function loadPrograms(){
@@ -9853,8 +9863,13 @@ window.doStamp=async function(id){
         for(const ex of (day.exercises||[])){
           const exIns={ gym_id:me_.gym_id, session_id:ns.id, position:pos++, name:ex.name, category:ex.category||'primary', coach_note:ex.coach_note||null };
           if(LT_READY){ exIns.load_type=ex.load_type||'percentage'; exIns.cues=ex.cues||null; }
+          if(OVR_READY) exIns.base_override=(ex.base_override||'').trim()||null;
+          if(SS_READY)  exIns.superset_group=ex.superset_group!=null?ex.superset_group:null;
           const { data: ne, error: ee } = await sb.from('prescribed_exercises').insert(exIns).select().single(); if(ee) throw ee;
-          const orm=(ex.load_type||'percentage')==='percentage'?ormLookup(ex.name, maxes):null;
+          // price % off the exercise's OWN base when it carries an override (a named lift or a flat
+          // number), not just the auto 1RM — otherwise the override is written but never applied.
+          const _b=(ex.load_type||'percentage')==='percentage'?resolveBase({name:ex.name, baseOverride:ex.base_override||''}, maxes):null;
+          const orm=_b&&_b.kg!=null?_b.kg:null;
           const rows=(ex.sets||[]).map((s,si)=>{ const kg=(s.kg!=null&&s.kg!=='')?s.kg:((s.pct!=null&&orm)?Math.round(orm*s.pct/100):null);
             const st={reps:s.reps,pct:s.pct,kg,vel:s.vel,eff:s.eff};
             const row={ gym_id:me_.gym_id, exercise_id:ne.id, position:si,
@@ -9913,8 +9928,15 @@ window.openProgramBuilder=async function(id, gotoWk, fromView){
     const p=(conState._programs||[]).find(x=>x.id===id); if(!p){ toast('Program not found — reload.'); return; }
     const days=JSON.parse(JSON.stringify((p.data&&p.data.days)||[])).map(d=>({
       wk:d.wk||0, dow:d.dow||0, title:d.title||'',
-      exercises:(d.exercises||[]).map(ex=>({ name:ex.name||'', category:ex.category||'primary', load_type:ex.load_type||'percentage', cues:ex.cues||null, coach_note:ex.coach_note||'',
-        sets:(ex.sets||[]).map(s=>({ reps:s.reps==null?'':s.reps, pct:s.pct==null?'':s.pct, vel:s.vel==null?'':s.vel, eff:s.eff==null?'':s.eff, kg:s.kg==null?'':s.kg })) })) }));
+      exercises:(d.exercises||[]).map(ex=>{
+        const o={ name:ex.name||'', category:ex.category||'primary', load_type:ex.load_type||'percentage', cues:ex.cues||null, coach_note:ex.coach_note||'',
+          sets:(ex.sets||[]).map(s=>({ reps:s.reps==null?'':s.reps, pct:s.pct==null?'':s.pct, vel:s.vel==null?'':s.vel, eff:s.eff==null?'':s.eff, kg:s.kg==null?'':s.kg })) };
+        // the builder has no UI for these two, but it must not EAT them: a template saved back off
+        // the calendar carries the coach's base override + supersets, and rebuilding the exercise
+        // field-by-field silently stripped both the moment the template was opened and re-saved.
+        if(ex.base_override) o.base_override=ex.base_override;
+        if(ex.superset_group!=null) o.superset_group=ex.superset_group;
+        return o; }) }));
     const wk=Math.max(0, Math.min((p.weeks||1)-1, gotoWk||0));
     pbState={ id:p.id, name:p.name||'', phase:p.phase||'', weeks:p.weeks||1, wave:pbNormWave(p.wave, p.weeks||1), team_id:p.team_id||'', days, wk, fromView:!!fromView };
   } else {
@@ -10118,11 +10140,13 @@ window.pbSave=async function(){
   if(!name){ if(msg){msg.style.color='var(--warn)';msg.textContent='Give the program a name.';} const n=document.getElementById('pbName'); if(n) n.focus(); return; }
   const days=pbState.days.map(d=>({
     wk:d.wk, dow:d.dow, title:(d.title||'Training').trim()||'Training',
-    exercises:(d.exercises||[]).filter(ex=>(ex.name||'').trim()).map(ex=>({
-      name:ex.name.trim(), category:ex.category||'primary', load_type:ex.load_type||'percentage',
-      cues:ex.cues||null, coach_note:(ex.coach_note||'').trim()||null,
-      sets:(ex.sets||[]).map(s=>({ reps:pbNum(s.reps), pct:pbNum(s.pct), vel:pbNum(s.vel), eff:pbNum(s.eff), kg:pbNum(s.kg) }))
-    }))
+    exercises:(d.exercises||[]).filter(ex=>(ex.name||'').trim()).map(ex=>{
+      const o={ name:ex.name.trim(), category:ex.category||'primary', load_type:ex.load_type||'percentage',
+        cues:ex.cues||null, coach_note:(ex.coach_note||'').trim()||null,
+        sets:(ex.sets||[]).map(s=>({ reps:pbNum(s.reps), pct:pbNum(s.pct), vel:pbNum(s.vel), eff:pbNum(s.eff), kg:pbNum(s.kg) })) };
+      if(ex.base_override) o.base_override=ex.base_override;      // pass-through, see openProgramBuilder
+      if(ex.superset_group!=null) o.superset_group=ex.superset_group;
+      return o; })
   })).filter(d=>d.exercises.length);
   if(!days.length){ if(msg){msg.style.color='var(--warn)';msg.textContent='Add at least one day with a named exercise.';} return; }
   days.sort((a,b)=>(a.wk-b.wk)||(a.dow-b.dow));
@@ -12127,7 +12151,11 @@ function cwShowDelBar(){
     line=`${sel.length} session${sel.length===1?'':'s'} selected`;
     if(logged) warn=`<small>⚠ ${logged} already logged by the athlete</small>`;
   }
+  const tplBtn = tm
+    ? `<button class="cw-del-tpl" disabled title="Pick a single athlete (top-right) to save a template — a team lasso has no one athlete's maxes to price the loads off.">💾 Save as template</button>`
+    : `<button class="cw-del-tpl" onclick="cwTplPrompt()">💾 Save as template</button>`;
   bar.innerHTML=`<span class="cw-delc">${line}${warn}</span>
+    ${tplBtn}
     <button class="cw-del-copy" onclick="cwCopyPrompt()">📋 Copy</button>
     <button class="cw-del-push" onclick="cwPushPrompt()">⤵ Push</button>
     <button class="cw-del-go" onclick="cwSelDelete()">🗑 Delete</button>
@@ -12262,6 +12290,195 @@ window.cwSelDelete=async()=>{
     console.error('bulk delete failed:', e);
     if(bar) bar.innerHTML=`<span class="cw-delc" style="color:var(--bad)">Delete failed — ${esc(e.message||String(e))}</span><button class="cw-del-x" onclick="cwClearDelBar()">Close</button>`;
   }
+};
+/* ---- lasso → Save as template: read written sessions back out as a reusable program ----
+   Stamping a template onto athletes has always existed; this is the way back, so a block written
+   by hand for one athlete can be reused on anyone. Only the PRESCRIPTION travels — nothing an
+   athlete logged ever does.
+
+   ⚠ THE LOAD RULE IS LOAD-BEARING. doStamp resolves a set's weight as
+        kg = (s.kg != null) ? s.kg : (pct × the NEW athlete's 1RM)
+   and every session on the calendar already carries a kg on every set (the stamp computed it when
+   it wrote the session). So a kg riding along in the template would BEAT the percentage and hand
+   every future athlete THIS athlete's bar weights. kg is therefore dropped wherever a percentage
+   can carry the intent:
+
+     set has a %          keep the %, drop the kg            → re-prices per athlete
+     kg-only set          → % of THIS athlete's 1RM (honouring the ⚖ base override), kg dropped,
+                            and a 'weight' exercise flips to '%1RM' — targetText renders no % under
+                            'weight', so without the flip the conversion would be invisible.
+                            All-or-nothing per exercise: a half-converted exercise can't flip.
+     kg-only, no max      left in kg and reported on the save screen — never guessed
+     VBT · RPE · RIR      carried exactly as written. The velocity/effort IS the prescription and is
+       · Open             already athlete-relative; any kg on them is a companion, not the load.
+*/
+const CW_TPL_WHY={ vbt:'VBT — the velocity is the prescription, not the bar weight',
+                   rpe:'RPE — the effort is the prescription',
+                   rir:'RIR — the effort is the prescription',
+                   open:'open set — no prescribed load' };
+function cwTplRound(n){ return Math.round(n*10)/10; }
+// sessions (SESSION_SELECT shape) + that athlete's maxes → the programs.data shape doStamp reads.
+// Pure: no DOM, no network — the acceptance tests drive it directly.
+function cwTplBuild(sessions, maxes){
+  const out={ days:[], weeks:0, sessions:0, empty:0, converted:[], kept:[] };
+  const rows=(sessions||[]).filter(s=>s&&s.session_date).slice()
+    .sort((a,b)=> a.session_date<b.session_date?-1 : a.session_date>b.session_date?1 : 0);
+  if(!rows.length) return out;
+  const mon0=mondayOfDate(new Date(rows[0].session_date+'T00:00:00')).getTime();
+  const conv={}, kept={};
+  rows.forEach(s=>{
+    const d=new Date(s.session_date+'T00:00:00');
+    const mon=mondayOfDate(new Date(s.session_date+'T00:00:00'));
+    const wk=Math.round((mon.getTime()-mon0)/(7*864e5));
+    const dow=Math.max(0, Math.min(6, Math.round((d.getTime()-mon.getTime())/864e5)));
+    const exercises=[];
+    (s.prescribed_exercises||[]).slice().sort((a,b)=>(a.position||0)-(b.position||0)).forEach(ex=>{
+      const name=(ex.name||'').trim(); if(!name) return;
+      let lt=ex.load_type||'percentage';
+      const ovr=(ex.base_override||'').trim();
+      const sets=(ex.prescribed_sets||[]).slice().sort((a,b)=>(a.position||0)-(b.position||0)).map(t=>({
+        reps: t.target_reps==null?null:+t.target_reps,
+        pct:  t.target_pct ==null?null:+t.target_pct,
+        vel:  t.target_vel ==null?null:+t.target_vel,
+        eff:  t.target_eff ==null?null:+t.target_eff,
+        kg:   t.target_kg  ==null?null:+t.target_kg }));
+      if(!sets.length) return;
+      if(lt==='vbt'||lt==='rpe'||lt==='rir'||lt==='open'){
+        const n=sets.filter(t=>t.kg!=null).length;                       // carried, but say so
+        if(n){ const k=name+'|'+lt; (kept[k]=kept[k]||{ex:name,why:CW_TPL_WHY[lt],n:0}).n+=n; }
+      } else {
+        sets.forEach(t=>{ if(t.pct!=null) t.kg=null; });                 // the % already carries it
+        const kgOnly=sets.filter(t=>t.pct==null&&t.kg!=null);
+        if(kgOnly.length){
+          const base=resolveBase({name:name, baseOverride:ovr}, maxes);
+          if(base && base.kg){
+            kgOnly.forEach(t=>{
+              const p=cwTplRound(t.kg/base.kg*100), k=name+'|'+t.kg;
+              (conv[k]=conv[k]||{ex:name,kg:t.kg,pct:p,base:base.kg,lift:base.lift,override:!!base.override,n:0}).n++;
+              t.pct=p; t.kg=null; });
+            if(lt==='weight') lt='percentage';                           // or the % never renders
+          } else {
+            const why=(base&&base.missing) ? ('base “'+base.lift+'” has no max on file')
+                                           : ('no 1RM on file for '+name);
+            const k=name+'|nomax';
+            (kept[k]=kept[k]||{ex:name,why:why,n:0}).n+=kgOnly.length;
+          }
+        }
+      }
+      const e={ name:name, category:ex.category||'primary', load_type:lt,
+                cues:ex.cues||null, coach_note:(ex.coach_note||'').trim()||null, sets:sets };
+      if(ovr) e.base_override=ovr;                                       // carried; see pbSave
+      if(ex.superset_group!=null) e.superset_group=ex.superset_group;
+      exercises.push(e);
+    });
+    if(!exercises.length){ out.empty++; return; }                        // a rest/empty day
+    out.sessions++;
+    out.days.push({ wk:wk, dow:dow, title:(s.title||'Training').trim()||'Training', exercises:exercises });
+  });
+  out.days.sort((a,b)=>(a.wk-b.wk)||(a.dow-b.dow));
+  out.weeks=out.days.length?Math.max.apply(null,out.days.map(d=>d.wk))+1:0;
+  out.converted=Object.keys(conv).map(k=>conv[k]).sort((a,b)=>a.ex<b.ex?-1:a.ex>b.ex?1:a.kg-b.kg);
+  out.kept=Object.keys(kept).map(k=>kept[k]).sort((a,b)=>a.ex<b.ex?-1:a.ex>b.ex?1:0);
+  return out;
+}
+// one-line summary of an exercise's sets for the preview
+function cwTplSetsLbl(e){
+  const s=e.sets||[]; if(!s.length) return '—';
+  const t=e.load_type||'percentage';
+  const one=(x)=>{ const r=x.reps==null?'':x.reps;
+    if(t==='vbt')  return r+(x.vel!=null?' @ ≥'+x.vel+' m/s':' · VBT');
+    if(t==='rpe')  return r+(x.eff!=null?' @ RPE '+x.eff:'');
+    if(t==='rir')  return r+(x.eff!=null?' @ '+x.eff+' RIR':'');
+    if(t==='open') return r+' open';
+    if(x.pct!=null) return r+' @ '+x.pct+'%';
+    if(x.kg!=null)  return r+' × '+x.kg+'kg';
+    return r+' reps'; };
+  const same=s.every(x=>x.reps===s[0].reps&&x.pct===s[0].pct&&x.kg===s[0].kg&&x.vel===s[0].vel&&x.eff===s[0].eff);
+  if(same) return s.length+'×'+one(s[0]);
+  const shown=s.slice(0,6).map(one).join(' / ');
+  return s.length+' sets · '+shown+(s.length>6?' …':'');
+}
+window.cwTplPrompt=async()=>{
+  const sel=[...document.querySelectorAll('#cwCalScroll .cwd-sess.cw-sel')];
+  if(!sel.length){ cwClearDelBar(); return; }
+  if(cw.teamMode){ toast('Pick a single athlete to save a template — a team lasso has no one athlete’s maxes to price the loads off.'); return; }
+  const bar=document.getElementById('cwDelBar');
+  if(bar) bar.innerHTML='<span class="cw-delc">Reading sessions…</span>';
+  try{
+    const ids=sel.map(c=>c.dataset.sid).filter(Boolean);
+    const { data: full, error } = await sb.from('sessions').select(SESSION_SELECT).in('id', ids);
+    if(error) throw error;
+    const built=cwTplBuild(full||[], cw.maxes||{});
+    window._cwTpl=built;
+    cwClearDelBar();
+    if(!built.days.length){ toast('Nothing to save — the days you picked have no exercises on them.'); return; }
+    const first=(((cw.ath&&cw.ath.full_name)||'Athlete').split(' ')[0]);
+    const ds=(full||[]).map(s=>s.session_date).sort();
+    cwTplShow(built, first+' — '+fmtShort(ds[0])+' to '+fmtShort(ds[ds.length-1]), '', first);
+  }catch(e){
+    console.error('save as template failed:', e);
+    const b=document.getElementById('cwDelBar');
+    if(b) b.innerHTML=`<span class="cw-delc" style="color:var(--bad)">Could not read those sessions — ${esc(e.message||String(e))}</span><button class="cw-del-x" onclick="cwClearDelBar()">Close</button>`;
+  }
+};
+// the review screen, shared by the lasso and by ⊞ save as program on the block banner, so there is
+// exactly ONE definition of what a written session becomes as a template. Two of these drifting apart
+// is how the app ended up with two different meanings of "reviewed" once already.
+function cwTplShow(built, defName, defPhase, who){
+    window._cwTpl=built;
+    const first=who||'this athlete';
+    const byWk={}; built.days.forEach(d=>{ (byWk[d.wk]=byWk[d.wk]||[]).push(d); });
+    const prev=Object.keys(byWk).map(Number).sort((a,b)=>a-b).map(w=>`
+      <div class="cw-tplwk"><b>Week ${w+1}</b>${byWk[w].map(d=>`<div class="cw-tplday">
+        <span class="t">${PB_DOW[d.dow]||''} · ${esc(d.title)}</span>
+        ${d.exercises.map(e=>`<span class="e"><i>${esc(String(e.category||'primary').toUpperCase())}</i>${esc(e.name)} — <b>${esc(cwTplSetsLbl(e))}</b></span>`).join('')}
+      </div>`).join('')}</div>`).join('');
+    const conv=built.converted, kept=built.kept;
+    const convBox = conv.length ? `<div class="cw-tplbox"><h4>Converted to %1RM · ${conv.length}</h4>
+      <p>Written in kilos, saved as a percentage of ${esc(first)}’s max so it re-prices for whoever you stamp it to. Check the 1RM each one used — if a max is out of date, fix it and save again.</p>
+      <table class="cw-tpltbl"><tr><th>Exercise</th><th>Written</th><th>Saved as</th><th>1RM it used</th><th>sets</th></tr>
+      ${conv.map(c=>`<tr><td>${esc(c.ex)}</td><td class="num">${c.kg}kg</td><td class="num">${c.pct}%</td><td class="sub">${c.base}kg · ${esc(String(c.lift))}${c.override?' (override)':''}</td><td class="sub num">×${c.n}</td></tr>`).join('')}</table></div>` : '';
+    const keptBox = kept.length ? `<div class="cw-tplbox warn"><h4>Kept exactly as written · ${kept.length}</h4>
+      <p>These carry their own number, so every athlete gets the same one. Change them in the template builder before you stamp if that isn’t what you want.</p>
+      <table class="cw-tpltbl"><tr><th>Exercise</th><th>Why</th><th>sets</th></tr>
+      ${kept.map(k=>`<tr><td>${esc(k.ex)}</td><td class="sub">${esc(k.why)}</td><td class="sub num">×${k.n}</td></tr>`).join('')}</table></div>` : '';
+    const emptyBox = built.empty ? `<div class="cw-tplbox"><p>${built.empty} selected day${built.empty===1?'':'s'} had no exercises on it and was skipped.</p></div>` : '';
+    ovModal('cwTplModal', `
+      <div class="ov-hd"><h2 style="margin:0">💾 Save as template</h2><span class="vid-x" onclick="document.getElementById('cwTplModal').style.display='none'">✕</span></div>
+      <div class="sub" style="margin:6px 0 2px">Saves what you wrote for ${esc(first)} as a reusable program. Only the prescription travels — nothing anyone logged comes along. It opens in the template builder so you can review it, then stamp it to whoever you want.</div>
+      <div class="cw-tplrow">
+        <span><label>Template name</label><input id="cwTplName" value="${esc(defName)}" style="min-width:290px"></span>
+        <span><label>Phase (optional)</label><input id="cwTplPhase" value="${esc(defPhase||'')}" placeholder="e.g. Ascension" style="min-width:150px"></span>
+      </div>
+      <div class="cw-tplstat">
+        <span>weeks<b>${built.weeks}</b></span>
+        <span>sessions<b>${built.sessions}</b></span>
+        <span>exercises<b>${built.days.reduce((a,d)=>a+d.exercises.length,0)}</b></span>
+        <span>converted to %<b>${conv.reduce((a,c)=>a+c.n,0)}</b></span>
+        <span>kept as written<b>${kept.reduce((a,k)=>a+k.n,0)}</b></span>
+      </div>
+      <div class="cw-tplwrap">${prev}</div>
+      ${convBox}${keptBox}${emptyBox}
+      <div class="bf-row" style="margin-top:14px"><button class="btn" id="cwTplGo" onclick="cwTplSave()">Save template</button><span class="saved" id="cwTplMsg"></span></div>`);
+}
+window.cwTplSave=async()=>{
+  const built=window._cwTpl; if(!built||!built.days.length) return;
+  const msg=document.getElementById('cwTplMsg');
+  const name=((document.getElementById('cwTplName')||{}).value||'').trim();
+  if(!name){ if(msg){ msg.style.color='var(--warn)'; msg.textContent='Give the template a name.'; } return; }
+  const phase=((document.getElementById('cwTplPhase')||{}).value||'').trim()||null;
+  const btn=document.getElementById('cwTplGo'); if(btn) btn.disabled=true;
+  if(msg){ msg.style.color=''; msg.textContent='Saving…'; }
+  const payload={ gym_id:me_.gym_id, name:name, phase:phase, weeks:built.weeks, data:{days:built.days} };
+  if(Array.isArray(built.wave)) payload.wave=built.wave;
+  if(PROG_META_READY) payload.updated_at=new Date().toISOString();
+  const r=await sb.from('programs').insert(payload).select().single();
+  if(r.error){ if(btn) btn.disabled=false; if(msg){ msg.style.color='var(--bad)'; msg.textContent='Save failed — '+r.error.message; } return; }
+  conState._programs=undefined; await loadPrograms();
+  const m=document.getElementById('cwTplModal'); if(m) m.style.display='none';
+  window._cwTpl=null;
+  toast('Saved “'+name+'” — review it, then stamp it to whoever you want.');
+  openProgramBuilder(r.data.id);
 };
 /* ---- Annual Plan calendar: lasso-select + bulk delete (coach only; athlete-scoped because the overlay is one athlete's sessions) ---- */
 let _plDrag=null;
