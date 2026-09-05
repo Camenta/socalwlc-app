@@ -12098,26 +12098,55 @@ function cwWireDrag(){
   // swallow the click that fires right after a real drag so a card doesn't open
   document.addEventListener('click', (e)=>{ if(window._cwJustDragged){ e.stopPropagation(); e.preventDefault(); window._cwJustDragged=false; } }, true);
 }
+const CW_DRAG_EDGE=70;    // px from the top/bottom of the window where auto-scroll kicks in
+const CW_DRAG_SPEED=24;   // px per frame at the very edge, eased down to 0 across the band
 function cwDragDown(e){
   window._cwJustDragged=false;
   if(!cwDragActive() || e.button!==0) return;
   const scroll=document.getElementById('cwCalScroll'); if(!scroll || !scroll.contains(e.target)) return;
   if(!e.target.closest('.cwd-grid')) return;          // only start inside the day grid, not on header buttons
-  _cwDrag={ x0:e.clientX, y0:e.clientY, started:false, scroll };
+  // The anchor is kept in PAGE coords, not viewport coords. #cwCalScroll has no overflow of its own
+  // — the WINDOW scrolls — so once auto-scroll moves the calendar, a viewport anchor would slide off
+  // the day the drag started on and the selection would come out shifted by however far it scrolled.
+  _cwDrag={ ax:e.clientX+window.scrollX, ay:e.clientY+window.scrollY,
+            cx:e.clientX, cy:e.clientY, started:false, scroll, raf:0 };
 }
 function cwDragMove(e){
   if(!_cwDrag) return;
-  const dx=e.clientX-_cwDrag.x0, dy=e.clientY-_cwDrag.y0;
+  _cwDrag.cx=e.clientX; _cwDrag.cy=e.clientY;
   if(!_cwDrag.started){
+    const dx=(e.clientX+window.scrollX)-_cwDrag.ax, dy=(e.clientY+window.scrollY)-_cwDrag.ay;
     if(Math.hypot(dx,dy)<6) return;                    // tiny moves = a click, let it through
     _cwDrag.started=true;
     cwClearSel();
     const r=document.createElement('div'); r.id='cwRubber'; r.className='cw-rubber'; document.body.appendChild(r);
     _cwDrag.scroll.classList.add('cw-dragging');
+    _cwDrag.raf=requestAnimationFrame(cwDragTick);     // start the edge auto-scroll loop
   }
   e.preventDefault();
-  const L=Math.min(_cwDrag.x0,e.clientX), R=Math.max(_cwDrag.x0,e.clientX);
-  const T=Math.min(_cwDrag.y0,e.clientY), B=Math.max(_cwDrag.y0,e.clientY);
+  cwDragPaint();
+}
+// One frame of a live drag: if the pointer is parked near the top or bottom of the window, scroll the
+// page and repaint. A 4-week block is taller than the viewport, so without this the lasso simply stops
+// at the fold and there is no way to select the whole block.
+function cwDragTick(){
+  if(!_cwDrag || !_cwDrag.started) return;
+  const h=window.innerHeight, y=_cwDrag.cy;
+  let dy=0;
+  if(y<CW_DRAG_EDGE)             dy=-CW_DRAG_SPEED*Math.min(1,(CW_DRAG_EDGE-y)/CW_DRAG_EDGE);
+  else if(y>h-CW_DRAG_EDGE)      dy= CW_DRAG_SPEED*Math.min(1,(y-(h-CW_DRAG_EDGE))/CW_DRAG_EDGE);
+  if(dy){
+    const before=window.scrollY;
+    window.scrollBy(0, dy);
+    if(window.scrollY!==before) cwDragPaint();          // the calendar moved under a stationary pointer
+  }
+  _cwDrag.raf=requestAnimationFrame(cwDragTick);
+}
+function cwDragPaint(){
+  if(!_cwDrag || !_cwDrag.started) return;
+  const ax=_cwDrag.ax-window.scrollX, ay=_cwDrag.ay-window.scrollY;   // the anchor, in view coords NOW
+  const L=Math.min(ax,_cwDrag.cx), R=Math.max(ax,_cwDrag.cx);
+  const T=Math.min(ay,_cwDrag.cy), B=Math.max(ay,_cwDrag.cy);
   const rub=document.getElementById('cwRubber');
   if(rub){ rub.style.left=L+'px'; rub.style.top=T+'px'; rub.style.width=(R-L)+'px'; rub.style.height=(B-T)+'px'; }
   _cwDrag.scroll.querySelectorAll('.cwd-sess').forEach(card=>{
@@ -12128,7 +12157,9 @@ function cwDragMove(e){
 }
 function cwDragUp(){
   if(!_cwDrag) return;
-  const wasDrag=_cwDrag.started; const sc=_cwDrag.scroll; _cwDrag=null;
+  const wasDrag=_cwDrag.started, sc=_cwDrag.scroll;
+  if(_cwDrag.raf) cancelAnimationFrame(_cwDrag.raf);
+  _cwDrag=null;
   const rub=document.getElementById('cwRubber'); if(rub) rub.remove();
   if(sc) sc.classList.remove('cw-dragging');
   if(wasDrag){ window._cwJustDragged=true; cwShowDelBar(); }
