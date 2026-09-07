@@ -560,6 +560,10 @@
   .cw-delbar .cw-del-copy{background:var(--accent2);color:#0a0d11}
   .cw-delbar .cw-del-push{background:#8b5cf6;color:#fff}
   .cw-delbar .cw-copydate{background:#0e151c;border:1px solid var(--line);border-radius:8px;color:var(--text);font:inherit;font-size:12px;padding:6px 8px}
+  .ru-ge{font-style:normal;font-size:9.5px;font-weight:700;color:var(--muted);margin-left:5px}
+  .ru-sub{display:block;font-style:normal;font-size:8.5px;font-weight:700;letter-spacing:.3px;color:var(--muted);text-transform:none}
+  .av-wknav{display:flex;align-items:center;gap:6px;margin-left:auto}
+  .av-arrow.sm{font-size:12px;font-weight:800;padding:3px 9px;min-width:0;line-height:1.5}
   .cw-delbar .cw-del-tpl{background:var(--good);color:#0a0d11}
   .cw-delbar .cw-del-tpl:disabled{background:#0e151c;color:var(--muted);cursor:not-allowed}
   .cw-tplrow{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin:10px 0 4px}
@@ -5473,7 +5477,7 @@ async function renderAthHome(){
   const trR=await sb.from('readiness').select('*').eq('athlete_id', me_.id).gte('check_date', trStart).lte('check_date', trEnd).order('check_date',{ascending:true});
   const weeks=W8.map((m,i)=>({ lbl:'Wk'+(i+1), vol:0, rdSum:0, rdN:0, rd:null }));
   const widx=ds=>Math.floor((D(ds)-W8[0])/(7*864e5));
-  (tvR.data||[]).forEach(s=>{ const i=widx(s.session_date); if(i<0||i>7) return; let v=0; (s.prescribed_exercises||[]).forEach(ex=>(ex.prescribed_sets||[]).forEach(ps=>v+=ps.target_reps||0)); weeks[i].vol+=v; });
+  (tvR.data||[]).forEach(s=>{ const i=widx(s.session_date); if(i<0||i>7) return; weeks[i].vol+=sessVolNL(s); });
   (trR.data||[]).forEach(r=>{ const i=widx(r.check_date); if(i<0||i>7) return; const sc=rdScoreOf(r); if(sc!=null){ weeks[i].rdSum+=sc; weeks[i].rdN++; } });
   weeks.forEach(w=>{ w.rd = w.rdN? w.rdSum/w.rdN : null; });
   const allScores=(trR.data||[]).map(rdScoreOf).filter(v=>v!=null);
@@ -5823,6 +5827,21 @@ function dashHeatmap(trainedSet){
 const VBT_MVT={ 'back squat':0.30,'front squat':0.32,'squat':0.30,'deadlift':0.18,'bench press':0.15,'bench':0.15,'press':0.19,'snatch':0.62,'clean':0.50,'jerk':0.55,'default':0.30 };
 function vbtMvt(ex){ const k=(ex||'').toLowerCase(); for(const key in VBT_MVT){ if(k.includes(key)) return VBT_MVT[key]; } return VBT_MVT.default; }
 // which velocity metric a lift is tracked by: squats + pulls -> mean (avg); competition lifts -> peak.
+// Read every velocity rep in a window, 1000 at a time. Ordered by (lift_date, id) so the pages can't
+// overlap or skip — lift_date alone is not unique and Postgres gives no stable tiebreak without it.
+async function vbtFetchAll(athId, fromIso, toIso){
+  const out=[], PAGE=1000;
+  for(let i=0;i<50;i++){
+    const r=await sb.from('vbt_reps').select('*').eq('athlete_id', athId)
+      .gte('lift_date', fromIso).lte('lift_date', toIso)
+      .order('lift_date',{ascending:true}).order('id',{ascending:true})
+      .range(i*PAGE, i*PAGE+PAGE-1);
+    if(r.error) return { error:r.error, data:out };
+    const rows=r.data||[]; out.push(...rows);
+    if(rows.length<PAGE) break;
+  }
+  return { error:null, data:out };
+}
 function vbtMetricFor(ex){ const k=(ex||'').toLowerCase();
   if(/pull|deadlift|\bdl\b|rdl|high\s*pull/.test(k)) return 'mean';   // pulls
   if(/snatch|clean|jerk/.test(k)) return 'peak';                      // snatch / clean & jerk (and their power/hang variants)
@@ -6911,7 +6930,7 @@ async function renderAthDash(){
   // seed buckets across the range so gaps show as zero
   if(monthly){ let c=new Date(start.getFullYear(),start.getMonth(),1); while(c<=today){ const k=c.getFullYear()+'-'+String(c.getMonth()+1).padStart(2,'0'); bmap[k]={lbl:MONS[c.getMonth()]+(dashState.range==='career'?" '"+String(c.getFullYear()).slice(2):''), vol:0, rdSum:0, rdN:0, rd:null, k}; c.setMonth(c.getMonth()+1); } }
   else { let c=new Date(start); c.setDate(c.getDate()-((c.getDay()+6)%7)); let wi=1; while(c<=today){ const k=iso(c); bmap[k]={lbl:'Wk'+wi, vol:0, rdSum:0, rdN:0, rd:null, k}; c.setDate(c.getDate()+7); wi++; } }
-  sess.forEach(s=>{ const k=bkey(s.session_date); if(!bmap[k]) return; let v=0; (s.prescribed_exercises||[]).forEach(ex=>(ex.prescribed_sets||[]).forEach(ps=>v+=ps.target_reps||0)); bmap[k].vol+=v; });
+  sess.forEach(s=>{ const k=bkey(s.session_date); if(!bmap[k]) return; bmap[k].vol+=sessVolNL(s); });
   rd.forEach(r=>{ const k=bkey(r.check_date); if(!bmap[k]) return; const sc=rdScoreOf(r); if(sc!=null){ bmap[k].rdSum+=sc; bmap[k].rdN++; } });
   Object.keys(bmap).sort().forEach(k=>{ const b=bmap[k]; b.rd=b.rdN?b.rdSum/b.rdN:null; buckets.push(b); });
   const hasTrend=buckets.some(b=>b.vol>0||b.rd!=null);
@@ -7066,15 +7085,22 @@ async function renderAthDash(){
     : '';
   // ---- velocity (VBT) from parsed uploads ----
   let vbtCard='';
-  const vbtR=await sb.from('vbt_reps').select('*').eq('athlete_id', viewId).gte('lift_date', startStr).lte('lift_date', todayStr).order('lift_date',{ascending:true});
+  // Manny 2026-09-07: "Squat data from OVR isn't being displayed on dashboard."
+  // This query had NO row limit while every other vbt_reps read caps explicitly. PostgREST returns at
+  // most ~1000 rows per request, and this one sorts OLDEST FIRST — so on a busy athlete the rows that
+  // got dropped were the most RECENT ones, and any exercise appearing only in those later sessions
+  // disappeared from the picker altogether. Page through instead of trusting one request.
+  const vbtR=await vbtFetchAll(viewId, startStr, todayStr);
   const vreps = vbtR.error?[]:(vbtR.data||[]);
   if(vreps.length){
-    const exs=[...new Set(vreps.map(r=>r.exercise))];
+    // sorted, so the list is predictable and an athlete can find their lift instead of scanning
+    const exs=[...new Set(vreps.map(r=>r.exercise))].sort((a,b)=>a.localeCompare(b));
     if(!dashState.vbtEx || !exs.includes(dashState.vbtEx)) dashState.vbtEx=exs[0];
     const exReps=vreps.filter(r=>r.exercise===dashState.vbtEx);
     const metric=vbtMetricFor(dashState.vbtEx), mLbl=VBT_METRIC_LBL[metric].toLowerCase(), isPeak=metric==='peak';
     const lv=vbtLVSVG(exReps, dashState.vbtEx, metric); const speed=vbtSpeedSVG(exReps, metric);
-    const sel=`<select class="scopesel" onchange="dashSetVbtEx(this.value)">${exs.map(e=>`<option value="${esc(e)}"${e===dashState.vbtEx?' selected':''}>${esc(e)} · ${VBT_METRIC_LBL[vbtMetricFor(e)]}</option>`).join('')}</select>`;
+    const exN={}; vreps.forEach(r=>{ exN[r.exercise]=(exN[r.exercise]||0)+1; });
+    const sel=`<select class="scopesel" title="Every lift with velocity data in this range — pick one to chart it" onchange="dashSetVbtEx(this.value)">${exs.map(e=>`<option value="${esc(e)}"${e===dashState.vbtEx?' selected':''}>${esc(e)} · ${VBT_METRIC_LBL[vbtMetricFor(e)]} · ${exN[e]} reps</option>`).join('')}</select>`;
     const profTitle = isPeak ? 'Peak velocity by load' : ('Load–velocity profile'+(lv.est?' · <span style="color:var(--accent)">est 1RM ~'+Math.round(lv.est)+'kg</span>':''));
     const profNote = isPeak ? 'Each dot is the fastest <b>peak</b> velocity hit at that load — speed off the floor / out of the bottom, not an est-1RM lift.' : 'Each dot is the fastest <b>average</b> velocity at that load; the dashed line extrapolates to the minimum-velocity threshold for an estimated 1RM.';
     const speedNote = isPeak ? 'Top <b>peak</b> velocity per session — track snap on the competition lifts.' : 'Top-set <b>average</b> velocity per session — when it dips at the same loads, that’s a fatigue / readiness signal.';
@@ -7520,7 +7546,7 @@ async function reportLoadData(viewId){
   const bmap={}; const bkey=ds=>{ const d=D(ds); return monthly?(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')):mon(ds); };
   if(monthly){ let c=new Date(win.start.getFullYear(),win.start.getMonth(),1); while(c<=today){ const k=c.getFullYear()+'-'+String(c.getMonth()+1).padStart(2,'0'); bmap[k]={lbl:MONS[c.getMonth()], vol:0, rdSum:0, rdN:0, rd:null}; c.setMonth(c.getMonth()+1); } }
   else { let c=new Date(win.start); c.setDate(c.getDate()-((c.getDay()+6)%7)); let wi=1; while(c<=today){ bmap[iso(c)]={lbl:'Wk'+wi, vol:0, rdSum:0, rdN:0, rd:null}; c.setDate(c.getDate()+7); wi++; } }
-  sess.forEach(s=>{ const k=bkey(s.session_date); if(!bmap[k]) return; let v=0; (s.prescribed_exercises||[]).forEach(ex=>(ex.prescribed_sets||[]).forEach(ps=>v+=ps.target_reps||0)); bmap[k].vol+=v; });
+  sess.forEach(s=>{ const k=bkey(s.session_date); if(!bmap[k]) return; bmap[k].vol+=sessVolNL(s); });
   rd.forEach(r=>{ const k=bkey(r.check_date); if(!bmap[k]) return; const sc=rdScoreOf(r); if(sc!=null){ bmap[k].rdSum+=sc; bmap[k].rdN++; } });
   const buckets=[]; Object.keys(bmap).sort().forEach(k=>{ const b=bmap[k]; b.rd=b.rdN?b.rdSum/b.rdN:null; buckets.push(b); });
   const hasTrend=buckets.some(b=>b.vol>0||b.rd!=null);
@@ -8171,6 +8197,19 @@ window.processUpload=async(id)=>{
   }catch(e){ set('var(--bad)','Couldn’t read that file — '+(e.message||e)); }
 };
 
+// ‹ / › that move a WHOLE week, so an athlete can look back at (and still log) an earlier week.
+// The per-training-day arrows next to the session title jump one session at a time; these move the
+// strip. Both land on a date and renderAthlete re-anchors on it.
+function athWkShift(mon, weeks){ const d=new Date(mon); d.setDate(d.getDate()+weeks*7); return iso(d); }
+function athWkLabel(wk){ const a=wk[0], b=wk[6];
+  return MONS[a.getMonth()]+' '+a.getDate()+' – '+(b.getMonth()===a.getMonth()?'':MONS[b.getMonth()]+' ')+b.getDate(); }
+function athWkNav(mon){
+  return `<span class="av-wknav">
+    <button class="av-arrow sm" onclick="renderAthlete('${athWkShift(mon,-1)}')" title="Previous week" aria-label="Previous week">‹</button>
+    <button class="av-arrow sm" onclick="renderAthlete('${iso(planMonday(new Date()))}')" title="Jump back to this week" aria-label="This week">this week</button>
+    <button class="av-arrow sm" onclick="renderAthlete('${athWkShift(mon,1)}')" title="Next week" aria-label="Next week">›</button>
+  </span>`;
+}
 async function renderAthlete(selDate){
   athState.screen='athlete';
   if(_aNotesTimer) await athNotesSave();   // flush any pending note from the session we're leaving (curSession still points at it)
@@ -8186,12 +8225,28 @@ async function renderAthlete(selDate){
   // and a date passed from the Home preview / calendar was ignored because it wasn't in the current week.
   let anchor = (selDate && /^\d{4}-\d\d-\d\d$/.test(selDate)) ? selDate : null;
   if(!anchor){
-    const { data: sdRows } = await sb.from('sessions').select('session_date')
+    const { data: sdRows } = await sb.from('sessions').select('id,session_date')
       .eq('athlete_id', me_.id).neq('status','draft').order('session_date',{ascending:true});
     const dates=[...new Set((sdRows||[]).map(s=>s.session_date))];
     if(dates.includes(todayStr)) anchor=todayStr;
-    else { const up=dates.filter(d=>d>todayStr), past=dates.filter(d=>d<todayStr);
-      anchor = up[0] || (past.length?past[past.length-1]:todayStr); }
+    else {
+      // Anna 2026-09-07: "my Saturday training needs to be done on Sunday and I can't look back at it."
+      // On a rest day this jumped straight to the NEXT session, which moved the whole week strip
+      // forward and left her unfinished Saturday on a week she could no longer see. An UNFINISHED
+      // session earlier in the CURRENT week now wins: the day you still owe matters more than the one
+      // that hasn't happened yet. A week that's fully logged still rolls forward as before.
+      const wkLo=iso(planMonday(new Date(todayStr+'T00:00:00')));
+      const due=(sdRows||[]).filter(r=>r.session_date>=wkLo && r.session_date<todayStr);
+      let owed=null;
+      if(due.length){
+        const { data: lg } = await sb.from('logged_sets').select('session_id,done').in('session_id', due.map(r=>r.id));
+        const started=new Set((lg||[]).filter(l=>l.done).map(l=>l.session_id));
+        const open=due.filter(r=>!started.has(r.id));
+        owed = open.length ? open[open.length-1].session_date : null;
+      }
+      const up=dates.filter(d=>d>todayStr), past=dates.filter(d=>d<todayStr);
+      anchor = owed || up[0] || (past.length?past[past.length-1]:todayStr);
+    }
   }
   const mon=planMonday(new Date(anchor+'T00:00:00'));
   const wk=Array.from({length:7},(_,i)=>{ const d=new Date(mon); d.setDate(mon.getDate()+i); return d; });
@@ -8202,7 +8257,12 @@ async function renderAthlete(selDate){
     .order('session_date',{ascending:true}).order('created_at',{ascending:true});
   if(wkErr){ app.innerHTML = topbar('Athlete') + athNav('athlete') + `<div class="card"><div class="empty" style="color:var(--bad)">⚠ Couldn't load your training — ${esc(wkErr.message)}. Pull to refresh or sign out and back in.</div></div>`; return; }
   const byDate={}; (weekSess||[]).forEach(s=>{ (byDate[s.session_date]=byDate[s.session_date]||[]).push(s); });
-  if(!Object.keys(byDate).length){ app.innerHTML = topbar('Athlete') + athNav('athlete') + `<div class="card"><div class="empty">No session assigned yet — your coach will publish your training here.</div></div>`; return; }
+  if(!Object.keys(byDate).length){
+    // Reachable now that the week arrows exist — without its own arrows this would be a dead end.
+    app.innerHTML = topbar('Athlete') + athNav('athlete') + `<div class="card av-weekcard">
+      <div class="av-weekhd"><span class="av-weeklbl">Training week · <b>${esc(athWkLabel(wk))}</b></span>${athWkNav(mon)}</div>
+      <div class="empty">Nothing programmed this week — use ‹ › to look at another week.</div></div>`;
+    return; }
   // logs for everything in view (prefill + status dots)
   const ids=[]; Object.values(byDate).forEach(list=>list.forEach(s=>ids.push(s.id)));
   // today's readiness check-in (independent of which day is being viewed).
@@ -8340,7 +8400,7 @@ async function renderAthlete(selDate){
       <div style="margin-top:9px"><span class="lg-add lg-tickall" onclick="athMarkAllDone()" title="Tick every set in this session done — tap again to clear">✓ Tick all sets done</span></div>
     </div>
     <div class="card av-weekcard">
-      <div class="av-weekhd"><span class="av-weeklbl">Training week · <b>${weekLabel}</b>${athBlockLbl}</span><span class="av-weekprog">${doneN} / ${totN} sessions done</span></div>
+      <div class="av-weekhd"><span class="av-weeklbl">Training week · <b>${weekLabel}</b>${athBlockLbl}</span><span class="av-weekprog">${doneN} / ${totN} sessions done</span>${athWkNav(mon)}</div>
       <div class="av-daystrip">${strip}</div>
     </div>
     <div id="rkHost">${checkinCard()}</div>
@@ -10843,10 +10903,11 @@ async function loadCalSessions(){
   if(ids.length){ const r=await sb.from('logged_sets').select('session_id').in('session_id', ids); (r.data||[]).forEach(l=>logged.add(l.session_id)); }
   (sess||[]).forEach(s=>{ if(planState.calSess[s.session_date]) return; const st=statsFor([s],[]);
     const status = logged.has(s.id)?'done':(s.status==='draft'?'draft':'pub');
-    planState.calSess[s.session_date]={ id:s.id, title:s.title, status, nl:st.vol, ari:st.ari?Math.round(st.ari):null, exs:(s.prescribed_exercises||[]).slice().sort(sortByPos).map(e=>e.name).filter(Boolean).slice(0,3).join(' · ') }; });
+    planState.calSess[s.session_date]={ id:s.id, title:s.title, status, nl:st.volPri, ge:st.volAcc, ari:st.ari?Math.round(st.ari):null, exs:(s.prescribed_exercises||[]).slice().sort(sortByPos).map(e=>e.name).filter(Boolean).slice(0,3).join(' · ') }; });
 }
 function sessOn(y,m,d){ return planState.calSess[iso(new Date(y,m,d))]; }
-function sessChip(s,dIso){ const cls=s.status==='draft'?'draft':(s.status==='done'?'done':''); const txt=s.status==='draft'?'Training · draft':('Training · '+s.nl+'NL'); const lasso=(!planIsAth()&&s.id)?` data-psid="${s.id}" data-pdate="${dIso||''}" data-plogged="${s.status==='done'?1:0}"`:''; return `<div class="cx-sess ${cls}"${lasso}>${txt}</div>`; }
+function sessChip(s,dIso){ const cls=s.status==='draft'?'draft':(s.status==='done'?'done':''); const txt=s.status==='draft'?'Training · draft':('Training · '+s.nl+'NL');
+  const tt=s.status==='draft'?'':` title="${s.nl} NL of main-lift work (CE + SPE + SDE)${s.ge?' · plus '+s.ge+' NL general (GE), not counted':''}"`; const lasso=(!planIsAth()&&s.id)?` data-psid="${s.id}" data-pdate="${dIso||''}" data-plogged="${s.status==='done'?1:0}"`:''; return `<div class="cx-sess ${cls}"${lasso}${tt}>${txt}</div>`; }
 function calLegend(){ const ath=planIsAth(); return `<div class="cx-legend2">${Object.keys(CAL_KINDS).map(k=>`<span><i style="background:${CAL_KINDS[k][0]}"></i>${CAL_KINDS[k][1]}</span>`).join('')}<span style="margin-left:6px"><i style="background:#3c9ee8"></i>Session · ${ath?'training':'published'}</span><span><i style="background:#3ec97a"></i>Session · done</span>${ath?'':'<span><i style="border:1px dashed #3c5a7a;background:transparent"></i>Session · draft</span>'}</div>`; }
 window.planSetView=(v)=>{ planState.calView=v; paintPlan(); };
 window.planToday=()=>{ const t=new Date(); planState.cur={y:t.getFullYear(),m:t.getMonth(),d:t.getDate()}; paintPlan(); };
@@ -14299,6 +14360,16 @@ function liftMetrics(sets){
     _vw:vw, _riw:riw };   // _vw/_riw/pv let callers volume-weight a roll-up
 }
 function riDisplay(ri){ return ri? (ri*10).toFixed(1) : '—'; }   // RI on a 0–10 (RPE-like) scale per spec
+// Chris (2026-09-07): the headline volume number counts CE + SPE + SDE and EXCLUDES GE.
+// General work (rows, carries, curls, KB/DB, core, conditioning) was running the daily number up far
+// enough that it stopped describing the training. ONE definition, used by every trend bucket and day
+// chip — three separate copies of this loop had drifted into counting everything.
+function sessVolNL(s){
+  let v=0;
+  ((s&&s.prescribed_exercises)||[]).forEach(ex=>{ if(exIsAcc(ex)) return;
+    (ex.prescribed_sets||[]).forEach(ps=>{ v+=ps.target_reps||0; }); });
+  return v;
+}
 function statsFor(sessRows, logs){
   let vol=0, volPri=0, volAcc=0, volCE=0, volSPE=0, volSDE=0, vw=0, pv=0, peak=0, totalSets=0;
   (sessRows||[]).forEach(s=>(s.prescribed_exercises||[]).forEach(ex=>{
@@ -15190,7 +15261,10 @@ async function renderRollup(){
 function paintRollup(){
   const host=document.getElementById('cvRollup'); if(!host||!ed||!cw) return;
   // SESSION: live from the open editor (counts sets×reps via target_sets if present)
-  const sessRow={prescribed_exercises: ed.exercises.map(ex=>({prescribed_sets: ex.sets.map(st=>({target_reps:parseInt(st.reps)||0, target_pct:st.pct===''||st.pct==null?null:parseFloat(st.pct)}))}))};
+  // name + category MUST travel: the rollup now reports main-lift volume, and exClassOf() falls back
+  // to classifying by name — without them every set here tiers as GE and the Session row reads 0.
+  const sessRow={prescribed_exercises: ed.exercises.map(ex=>({ name:ex.name, category:ex.category||'primary',
+    prescribed_sets: ex.sets.map(st=>({target_reps:parseInt(st.reps)||0, target_pct:st.pct===''||st.pct==null?null:parseFloat(st.pct)}))}))};
   const sSession=statsFor([sessRow], ed.logs);
   const dayIds=(cw.sessByDate[cw.selDate]||[]).map(x=>x.id);
   const sDay=statsFor((cw.weekSessFull||[]).filter(x=>x.session_date===cw.selDate), (cw.weekLogs||[]).filter(l=>dayIds.indexOf(l.session_id)>-1));
@@ -15199,13 +15273,20 @@ function paintRollup(){
   let sBlock=null, sAll=null, blockName=null;
   if(cw.block && rc.block){ blockName=cw.block.name; sBlock=statsFor(rc.block.rows, rc.block.logs); }
   if(rc.all){ sAll=statsFor(rc.all.rows, rc.all.logs); }
+  // Volume = CE + SPE + SDE. GE is shown beside it, greyed, so the general work is still visible
+  // without inflating the number the block is actually planned against.
+  const volCell=(st)=>{
+    if(!st.volPri && !st.volAcc) return '—';
+    const tt=`CE ${st.volCE} · SPE ${st.volSPE} · SDE ${st.volSDE} = ${st.volPri} NL${st.volAcc?` · GE ${st.volAcc} (not counted)`:''}`;
+    return `<span title="${esc(tt)}">${st.volPri||0}${st.volAcc?`<i class="ru-ge">+${st.volAcc} GE</i>`:''}</span>`;
+  };
   const row=(lbl,sub,st,hl)=>st?`<tr${hl?' class="ru-hl"':''}><td><b>${lbl}</b>${sub?` <span class="tgt">· ${esc(sub)}</span>`:''}</td>
-    <td>${st.vol||'—'}</td><td>${st.ari?st.ari.toFixed(1)+'%':'—'}</td><td>${st.peak?st.peak+'%':'—'}</td>
+    <td>${volCell(st)}</td><td>${st.ari?st.ari.toFixed(1)+'%':'—'}</td><td>${st.peak?st.peak+'%':'—'}</td>
     <td>${st.done}/${st.total}</td><td>${st.miss}</td><td>${st.sessions!=null?st.sessions:''}</td></tr>`:'';
   host.innerHTML=`<div class="card">
     <h2 style="margin:0 0 4px">Metric rollup</h2>
-    <div class="sub" style="margin-bottom:10px">This session (live), then up the hierarchy — saved sessions only above. Planned volume &amp; intensity, logged completion &amp; misses.</div>
-    <div class="logwrap"><table class="logtable ru"><thead><tr><th style="text-align:left">Level</th><th>Volume</th><th>ARI</th><th>Peak %</th><th>Sets done</th><th>Misses</th><th>Sessions</th></tr></thead><tbody>
+    <div class="sub" style="margin-bottom:10px">This session (live), then up the hierarchy — saved sessions only above. Planned volume &amp; intensity, logged completion &amp; misses. <b>Volume counts main-lift work (CE + SPE + SDE)</b>; general work is shown beside it and left out of the total and ARI.</div>
+    <div class="logwrap"><table class="logtable ru"><thead><tr><th style="text-align:left">Level</th><th>Volume<i class="ru-sub">CE+SPE+SDE</i></th><th>ARI</th><th>Peak %</th><th>Sets done</th><th>Misses</th><th>Sessions</th></tr></thead><tbody>
       ${row('Session', ed.session.title, {...sSession, sessions:null}, true)}
       ${row('↑ Day', fmtDate(cw.selDate), sDay)}
       ${row('↑ Week', null, sWeek)}
