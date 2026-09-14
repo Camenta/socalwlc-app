@@ -2323,6 +2323,14 @@
 <script>
 const SUPA_URL = "https://jurlbzobhdkijyvijjfg.supabase.co";
 const SUPA_KEY = "sb_publishable_3DfhkND-7yxN3yziwJ7Qhg_SuZr8eAB";
+// Read the auth #hash BEFORE createClient. This client uses the implicit flow: a password-reset email
+// link comes back as #access_token=…&type=recovery, and supabase-js parses that into a live session and
+// then ERASES the hash during init. Without catching it first, boot() just sees "signed in" and drops
+// the user straight into the app — the reset link acts as a magic login and never asks for a password.
+const AUTH_HASH = new URLSearchParams((location.hash||'').replace(/^#/,''));
+let AUTH_RECOVERY = AUTH_HASH.get('type')==='recovery';
+// an expired / already-used email link comes back as #error=…&error_code=otp_expired&error_description=…
+const AUTH_LINK_ERR = (AUTH_HASH.get('error') || AUTH_HASH.get('error_code')) ? (AUTH_HASH.get('error_description')||'link error') : null;
 const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
 const app = document.getElementById('app');
 const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -2350,6 +2358,15 @@ function lsDel(k){ try{ localStorage.removeItem(k); }catch(e){} }
 async function boot(){
   const joinTok=new URLSearchParams(location.search).get('join');
   const { data:{ session } } = await sb.auth.getSession();
+  if(AUTH_RECOVERY){
+    if(session){ renderSetPassword(session.user && session.user.email); return; }
+    AUTH_RECOVERY=false; authCleanHash();
+    renderForgot('That reset link didn’t work — it may have expired or already been used. Send yourself a fresh one.'); return;
+  }
+  if(AUTH_LINK_ERR!=null && !session){
+    authCleanHash();
+    renderLogin('That email link has expired or was already used. If you were resetting your password, tap “Forgot password?” for a new one.'); return;
+  }
   if(joinTok && !session){ renderJoin(joinTok); return; }
   if(!session){ renderLogin(); return; }
   let { data: profile, error } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
@@ -2547,6 +2564,7 @@ window.obSave=async()=>{
 };
 // if the login expires or dies mid-use, say so plainly instead of showing empty screens
 sb.auth.onAuthStateChange(async (event)=>{
+  if(event==='PASSWORD_RECOVERY'){ AUTH_RECOVERY=true; return; }   // backs up the hash sniff above
   if(event==='SIGNED_OUT' && me_ && !leavingOnPurpose){
     // A token can lapse mid-session (esp. a phone locked between heavy singles). Try one silent refresh
     // before dumping the athlete to the login screen — losing their place mid-log is exactly what we're fixing.
@@ -2582,6 +2600,7 @@ function renderLogin(msg){
         <label>Password</label><input id="pw" type="password" autocomplete="current-password" placeholder="••••••••">
         <div style="margin-top:16px"><button class="btn" id="go" style="width:100%">Sign in</button></div>
         <div class="err" id="err">${esc(msg||'')}</div>
+        <div class="hint" style="margin-top:6px;text-align:center"><span class="lk" onclick="authForgot()">Forgot password?</span></div>
         <div class="hint">Test logins · coach@socalwlc.test · georgia@socalwlc.test</div>
       </div>
     </div>`;
@@ -2598,6 +2617,115 @@ function renderLogin(msg){
   go.onclick = doLogin;
   document.getElementById('pw').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
 }
+
+/* ---------------- forgot password ---------------- */
+// the email field on the sign-in card carries over, so nobody retypes it
+window.authForgot=()=>{ const e=document.getElementById('email'); renderForgot('', e?e.value.trim():''); };
+function authCleanHash(){ try{ history.replaceState({}, '', location.pathname+location.search); }catch(e){} }
+let fpCooldown=null;   // resend timer: Supabase refuses a second reset email to the same address inside ~60s
+function renderForgot(msg, email){
+  if(fpCooldown){ clearInterval(fpCooldown); fpCooldown=null; }
+  app.innerHTML = `
+    <div class="login">
+      <div class="topbar"><div class="brand">SoCal <span class="o">WLC</span></div></div>
+      <div class="card">
+        <h1>Reset your password</h1>
+        <div class="sub">Enter the email you sign in with. We’ll send a link that lets you choose a new password.</div>
+        <label>Email</label><input id="fpEmail" type="email" autocomplete="username" placeholder="you@email.com" value="${esc(email||'')}">
+        <div style="margin-top:16px"><button class="btn" id="fpGo" style="width:100%">Send reset link</button></div>
+        <div class="err" id="fpErr">${esc(msg||'')}</div>
+        <div class="hint"><span class="lk" onclick="renderLogin()">← Back to sign in</span></div>
+      </div>
+    </div>`;
+  const go=document.getElementById('fpGo'), inp=document.getElementById('fpEmail');
+  const send=async()=>{
+    const addr=(inp.value||'').trim(), err=document.getElementById('fpErr');
+    err.textContent='';
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr)){ err.textContent='Enter the email address you sign in with.'; inp.focus(); return; }
+    go.disabled=true; go.textContent='Sending…';
+    // redirectTo must be on the Supabase allow-list (Auth → URL Configuration) or Supabase quietly
+    // falls back to the project's Site URL instead.
+    const { error } = await sb.auth.resetPasswordForEmail(addr, { redirectTo: location.origin+location.pathname });
+    if(error){ err.textContent=error.message; go.disabled=false; go.textContent='Send reset link'; return; }
+    fpSent(addr);
+  };
+  go.onclick=send;
+  inp.addEventListener('keydown', e=>{ if(e.key==='Enter') send(); });
+  if(!email) inp.focus();
+}
+// Deliberately never says whether an account exists for that address — confirming it would let anyone
+// test which emails are members. Supabase answers the same way either way, so the screen does too.
+function fpSent(addr){
+  app.innerHTML = `
+    <div class="login">
+      <div class="topbar"><div class="brand">SoCal <span class="o">WLC</span></div></div>
+      <div class="card">
+        <h1>Check your email</h1>
+        <div class="sub">If there’s an account for <b>${esc(addr)}</b>, a reset link is on its way. Open it on this device, then choose your new password. The link works once.</div>
+        <div class="hint" style="margin-top:12px">Nothing after a few minutes? Check spam or promotions, and make sure that’s the email you sign in with.</div>
+        <div style="margin-top:16px"><button class="btn ghost" id="fpAgain" style="width:100%" disabled>Send again</button></div>
+        <div class="err" id="fpErr2"></div>
+        <div class="hint"><span class="lk" onclick="renderLogin()">← Back to sign in</span> · <span class="lk" onclick="renderForgot('', '')">Use a different email</span></div>
+      </div>
+    </div>`;
+  const again=document.getElementById('fpAgain');
+  let left=60;
+  const tick=()=>{ if(!document.body.contains(again)){ clearInterval(fpCooldown); fpCooldown=null; return; }
+    if(left<=0){ clearInterval(fpCooldown); fpCooldown=null; again.disabled=false; again.textContent='Send again'; return; }
+    again.textContent='Send again in '+left+'s'; left--; };
+  if(fpCooldown) clearInterval(fpCooldown);
+  tick(); fpCooldown=setInterval(tick, 1000);
+  again.onclick=async()=>{
+    const err=document.getElementById('fpErr2'); err.textContent=''; again.disabled=true; again.textContent='Sending…';
+    const { error } = await sb.auth.resetPasswordForEmail(addr, { redirectTo: location.origin+location.pathname });
+    if(error){ err.textContent=error.message; again.disabled=false; again.textContent='Send again'; return; }
+    fpSent(addr);
+  };
+}
+// Landed from the email link: the library has already signed them in with a short-lived recovery session.
+function renderSetPassword(email){
+  app.innerHTML = `
+    <div class="login">
+      <div class="topbar"><div class="brand">SoCal <span class="o">WLC</span></div></div>
+      <div class="card">
+        <h1>Choose a new password</h1>
+        <div class="sub">${email?`For <b>${esc(email)}</b>. `:''}Pick something you haven’t used here before.</div>
+        <input type="email" autocomplete="username" value="${esc(email||'')}" readonly tabindex="-1" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
+        <label>New password</label><input id="spPw" type="password" autocomplete="new-password" placeholder="At least 6 characters">
+        <label>Confirm new password</label><input id="spPw2" type="password" autocomplete="new-password" placeholder="Type it again">
+        <div style="margin-top:16px"><button class="btn" id="spGo" style="width:100%">Save new password</button></div>
+        <div class="err" id="spErr"></div>
+        <div class="hint"><span class="lk" onclick="authCancelRecovery()">Cancel and sign out</span></div>
+      </div>
+    </div>`;
+  const go=document.getElementById('spGo');
+  const save=async()=>{
+    const a=document.getElementById('spPw').value, b=document.getElementById('spPw2').value, err=document.getElementById('spErr');
+    err.textContent='';
+    if(!a || a.length<6){ err.textContent='Password must be at least 6 characters.'; return; }   // same rule as sign-up
+    if(a!==b){ err.textContent='Those two passwords don’t match.'; return; }
+    go.disabled=true; go.textContent='Saving…';
+    const { error } = await sb.auth.updateUser({ password:a });
+    if(error){
+      // the recovery session is short-lived; if it lapsed, the only fix is a fresh link
+      const lapsed=/session|jwt|expired|not authenticated|missing/i.test(error.message||'');
+      err.textContent = lapsed ? 'This reset link has timed out. Send yourself a new one from the sign-in screen.' : error.message;
+      go.disabled=false; go.textContent='Save new password'; return;
+    }
+    AUTH_RECOVERY=false; authCleanHash();
+    toast('Password updated — you’re signed in.', 'ok');
+    boot();
+  };
+  go.onclick=save;
+  document.getElementById('spPw2').addEventListener('keydown', e=>{ if(e.key==='Enter') save(); });
+  document.getElementById('spPw').focus();
+}
+window.authCancelRecovery=async()=>{
+  leavingOnPurpose=true;
+  try{ await sb.auth.signOut(); }catch(e){}
+  leavingOnPurpose=false; AUTH_RECOVERY=false; authCleanHash(); me_=null;
+  renderLogin();
+};
 
 async function logout(){ leavingOnPurpose=true; try{ if(_draftTimer){ clearTimeout(_draftTimer); _draftTimer=null; } if(ed && ed.session && ed.session.status==='draft' && ed.dirty) await doDraftSave(); }catch(e){} if(coachChan){ sb.removeChannel(coachChan); coachChan=null; } await sb.auth.signOut(); me_=null; leavingOnPurpose=false; renderLogin(); }
 
