@@ -927,6 +927,38 @@
   .dnav{display:flex;gap:4px;margin:0 0 18px;border-bottom:1px solid var(--line)}
   .dnav button{background:none;border:none;color:var(--muted);padding:11px 18px;cursor:pointer;font-size:14px;font-weight:700;border-bottom:2px solid transparent}
   .dnav button.on{color:var(--text);border-bottom-color:var(--accent)}
+  /* Program metrics tab (wkm-*) */
+  .wkm-dnav{overflow-x:auto;scrollbar-width:none}.wkm-dnav::-webkit-scrollbar{display:none}
+  .wkm-dnav button{white-space:nowrap;flex-shrink:0}
+  @media (max-width:560px){ .wkm-dnav button{padding:11px 10px;font-size:13px} }
+  .wkm-hd{display:flex;align-items:flex-end;justify-content:space-between;gap:10px 14px;flex-wrap:wrap;margin-bottom:8px}
+  .wkm-ctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap;max-width:100%}
+  .wkm-range{max-width:100%;font-weight:700}
+  .wkm-seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  .wkm-seg button{background:var(--panel2);border:none;color:var(--muted);font:inherit;font-size:12.5px;font-weight:700;padding:7px 12px;cursor:pointer}
+  .wkm-seg button+button{border-left:1px solid var(--line)}
+  .wkm-seg button.on{background:var(--accent);color:#fff}
+  .wkm-chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 0 8px}
+  .wkm-chips span{font-size:10.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);margin-right:2px}
+  .wkm-chips button{background:var(--panel2);border:1px solid var(--line);color:var(--muted);font:inherit;font-size:12px;font-weight:700;border-radius:999px;padding:5px 11px;cursor:pointer}
+  .wkm-chips button.on{color:#0a0d11;background:#f2f5f8;border-color:#f2f5f8}
+  .wkm-chart{overflow-x:auto}
+  .wkm-svg{display:block;width:100%;height:auto}
+  .wkm-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin-top:4px}
+  .wkm-legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+  .wkm-legend i.ln{width:16px;height:3px;background:#f2f5f8;vertical-align:3px}
+  .wkm-legend i.ln.dash{background:repeating-linear-gradient(90deg,#8b9aa8 0 4px,transparent 4px 7px)}
+  .wkm-tip{position:fixed;z-index:70;pointer-events:none;background:#0a0f14;border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:12px;line-height:1.5;box-shadow:0 8px 24px rgba(0,0,0,.5);max-width:230px;color:var(--text)}
+  .wkm-tip .m{color:var(--muted)}
+  .wkm-tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+  .wkm-tbl table{border-collapse:collapse;width:100%;min-width:760px;font-variant-numeric:tabular-nums}
+  .wkm-tbl th{background:var(--panel2);font-size:10.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);padding:9px 8px;text-align:right;white-space:nowrap}
+  .wkm-tbl td{padding:7px 8px;border-top:1px solid var(--line);text-align:right;font-size:13px;white-space:nowrap;color:var(--text)}
+  .wkm-tbl th:first-child,.wkm-tbl td:first-child{text-align:left}
+  .wkm-wk b{font-size:13px}.wkm-wk span{display:block;font-size:10.5px;color:var(--muted)}
+  .wkm-tbl tr.wkm-cur td{background:rgba(232,100,60,.08)}.wkm-tbl tr.wkm-cur .wkm-wk b{color:var(--accent)}
+  .wkm-tbl td.wkm-miss{color:var(--warn)}.wkm-tbl td.wkm-na,.wkm-na{color:var(--muted)}
+  .wkm-note{font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.55}
   .dnav button:hover{color:var(--text)}
   .filterbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
   .filterbar .fl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
@@ -7010,6 +7042,303 @@ async function renderTeamDash(){
     </table></div></div>`;
   app.innerHTML = chrome + picker + headCard(flagsLine+kpis) + qualMatrixCard + table;
 }
+/* ================= PROGRAM METRICS — weekly volume & intensity (dashboard tab) =================
+   Chris's "Program Metrics" sheet as a live tab (built 2026-09-14 from his 2024 Canadian Nationals
+   sheet): one row per week — Lift Volume · Lift Load · AI · ARI · RI · K-Value · Misses · Success
+   Rate — over volume stacked by Bondarchuk tier with a switchable intensity line.
+   Formulas per docs/methodology-spec.md; every roll-up is rep-weighted, never a simple average:
+     Lift Volume   reps, CE+SPE+SDE only — GE is charted but never counted
+     Lift Load     Σ kg × reps
+     AI            Lift Load ÷ the reps that carry a load
+     ARI           Σ(reps × %1RM) ÷ Σ reps
+     RI            Σ(reps × %1RM ÷ repMaxPct(reps)) ÷ Σ reps, shown as % like his sheet
+     K-Value       AI × 100 ÷ competition total (Snatch + C&J from CURRENT maxes)
+     Success Rate  (Lift Volume − Misses) ÷ Lift Volume
+   BASIS — Chris chose a toggle. 'prog' = what was written, 'lift' = what was logged. It switches the
+   WHOLE row (volume, load, AI, intensity), because a logged load over a programmed volume would make
+   AI meaningless. Misses only exist once someone lifts, so they are logged on both. */
+let wkmState={ athId:null, key:null, basis:'prog', line:'ari' };
+let wkmToken=0;
+const WKM_LINES=[['ari','ARI'],['peak','Peak'],['ri','RI'],['ce','CE ARI'],['spe','SPE ARI'],['sde','SDE ARI']];
+const WKM_TIER_COL={ ce:'#e8643c', spe:'#e8b13c', sde:'#3c9ee8', ge:'#3a4652' };
+
+function dashSubtabsHtml(){
+  const b=(t,l)=>`<button class="${dashState.tab===t?'on':''}" onclick="dashGo('${t}')">${l}</button>`;
+  return `<div class="dnav wkm-dnav">${b('dash','Dashboard')}${b('metrics','Program metrics')}${b('profile','Athlete Profile')}</div>`;
+}
+// PostgREST returns at most ~1000 rows a request; read everything, in a stable order so pages can't overlap.
+async function wkmPaged(build){
+  const out=[];
+  for(let p=0;p<50;p++){
+    const r=await build().range(p*1000, p*1000+999);
+    if(r.error) return { error:r.error, data:out };
+    const rows=r.data||[]; out.push(...rows);
+    if(rows.length<1000) break;
+  }
+  return { error:null, data:out };
+}
+// The athlete's plan, maxes and total. Which blocks reach an athlete is NOT `athlete_id = X` — it's their
+// own rows, plans assigned to them or their team, and legacy gym/team bands. Reuse the Annual Plan's
+// resolver exactly as pgLoad does, and put planState back afterwards.
+async function wkmLoadCtx(athId){
+  await loadPlan();
+  const _sa=planState.athleteId, _sp=planState.planId;
+  planState.athleteId=athId; planState.planId='';
+  let phases=[];
+  try{ phases=planScopedPhases().slice(); }catch(e){ phases=[]; }
+  planState.athleteId=_sa; planState.planId=_sp;
+  await loadExLib();                                   // library tier pins win over the name rules
+  const mx=await sb.from('maxes').select('lift,kg').eq('athlete_id', athId);
+  const maxRows=mx.error?[]:(mx.data||[]);
+  const maxes={}; maxRows.forEach(m=>{ const v=parseFloat(m.kg); if(!isNaN(v)) maxes[m.lift]=v; });
+  const tot=totalFromMaxes(maxRows);
+  return { phases, maxes, total:(tot&&tot.total)?tot.total:null };
+}
+// Macrocycles, then blocks, then a rolling fallback. An athlete-owned copy shadows the shared block it
+// was forked from (same rule as pgMesos), and duplicates from own+inherited are dropped.
+function wkmRanges(phases){
+  const seen=new Set(), rows=(phases||[]).filter(p=>p&&p.start_date&&p.end_date&&!seen.has(p.id)&&seen.add(p.id));
+  const shadow=list=>{ const owned=list.filter(p=>p.athlete_id);
+    return owned.length ? list.filter(p=>p.athlete_id || !owned.some(o=>o.start_date===p.start_date&&o.end_date===p.end_date)) : list; };
+  const by=(x,y)=>String(x.start_date).localeCompare(String(y.start_date));
+  const macros=shadow(rows.filter(p=>(p.level||'meso')==='phase')).sort(by);
+  const blocks=shadow(rows.filter(p=>(p.level||'meso')==='meso')).sort(by);
+  const out=[];
+  macros.forEach(p=>out.push({ key:'p:'+p.id, group:'Macrocycles', name:p.name||'Macrocycle', a:p.start_date, b:p.end_date }));
+  blocks.forEach(p=>out.push({ key:'p:'+p.id, group:'Blocks', name:p.name||'Block', a:p.start_date, b:p.end_date }));
+  const d=new Date(); d.setDate(d.getDate()-7*11);
+  out.push({ key:'last12', group:'Rolling', name:'Last 12 weeks', a:iso(planMonday(d)), b:iso(new Date()) });
+  return out;
+}
+// the macrocycle you're in, else the latest one already started, else the current block, else rolling
+function wkmDefaultKey(ranges){
+  const t=iso(new Date()), in_=r=>r.a<=t&&r.b>=t;
+  const mac=ranges.filter(r=>r.group==='Macrocycles'), blk=ranges.filter(r=>r.group==='Blocks');
+  const pick=mac.find(in_) || mac.filter(r=>r.a<=t).pop() || blk.find(in_) || ranges[ranges.length-1];
+  return pick.key;
+}
+async function wkmFetch(athId, a, b, coach){
+  const exCols='id,name,category'+(LT_READY?',load_type':'')+(OVR_READY?',base_override':'');
+  const sR=await wkmPaged(()=>{
+    let q=sb.from('sessions').select('id,session_date,status,prescribed_exercises('+exCols+',prescribed_sets(id,target_reps,target_pct,target_kg))')
+      .eq('athlete_id', athId).gte('session_date', a).lte('session_date', b);
+    if(!coach) q=q.neq('status','draft');              // athletes never see unpublished drafts
+    return q.order('session_date',{ascending:true}).order('id',{ascending:true});
+  });
+  if(sR.error) return { error:sR.error };
+  const sess=sR.data, ids=sess.map(s=>s.id);
+  let logs=[];
+  const base='id,session_id,prescribed_set_id,done,miss,actual_kg,actual_reps';
+  for(let i=0;i<ids.length;i+=40){
+    const chunk=ids.slice(i,i+40);
+    // exercise_id links sets an athlete ADDED; fall back without it if that column isn't there
+    let r=await wkmPaged(()=>sb.from('logged_sets').select(base+',exercise_id').in('session_id',chunk).order('id',{ascending:true}));
+    if(r.error) r=await wkmPaged(()=>sb.from('logged_sets').select(base).in('session_id',chunk).order('id',{ascending:true}));
+    if(r.error) return { error:r.error };
+    logs=logs.concat(r.data);
+  }
+  return { sess, logs };
+}
+// add one set to a week bucket
+function wkmAdd(w, info, repsIn, pctIn, kgIn){
+  const r=parseInt(repsIn,10)||0; if(r<=0) return;
+  let p=(pctIn==null||pctIn==='')?null:parseFloat(pctIn), kg=(kgIn==null||kgIn==='')?null:parseFloat(kgIn);
+  if(p!=null&&isNaN(p)) p=null; if(kg!=null&&isNaN(kg)) kg=null;
+  if(p==null && kg!=null && info.orm) p=kg/info.orm*100;      // kg-written set -> its % of that lift's base
+  if(kg==null && p!=null && info.orm) kg=info.orm*p/100;      // %-written set with no stored kg
+  w.tier[info.tier]+=r;
+  if(info.tier==='ge') return;                                 // GE: charted, never counted
+  w.vol+=r;
+  if(kg!=null && kg>0){ w.load+=kg*r; w.loadReps+=r; }
+  if(p!=null && p>0){
+    w.pw+=p*r; w.pr+=r; w.riw+=r*(p/repMaxPct(r)); if(p>w.peak) w.peak=p;
+    w.tp[info.tier][0]+=p*r; w.tp[info.tier][1]+=r;
+  }
+}
+// Pure: sessions + logs + maxes -> one row per Monday-aligned week across [a, b]. No DOM, no network.
+function wkmCompute(sess, logs, ctx){
+  const mon0=planMonday(new Date(ctx.a+'T00:00:00')), monN=planMonday(new Date(ctx.b+'T00:00:00'));
+  const n=Math.max(1, Math.min(60, Math.round((monN-mon0)/(7*864e5))+1));
+  const W=Array.from({length:n},(_,i)=>{ const m=new Date(mon0); m.setDate(m.getDate()+7*i);
+    return { i, mon:iso(m), vol:0, load:0, loadReps:0, pw:0, pr:0, riw:0, peak:0, miss:0, sessions:0,
+             tier:{ce:0,spe:0,sde:0,ge:0}, tp:{ce:[0,0],spe:[0,0],sde:[0,0]} }; });
+  const wOf=ds=>W[Math.round((planMonday(new Date(ds+'T00:00:00'))-mon0)/(7*864e5))]||null;
+  const maxes=ctx.maxes||{}, setInfo={}, exInfo={};
+  (sess||[]).forEach(s=>{ const w=wOf(s.session_date); if(!w) return; w.sessions++;
+    (s.prescribed_exercises||[]).forEach(ex=>{
+      const b=resolveBase({ name:ex.name, baseOverride:ex.base_override||'' }, maxes);
+      const info={ tier:exClassOf(ex), orm:(b&&b.kg)?b.kg:null, w };
+      exInfo[ex.id]=info;
+      (ex.prescribed_sets||[]).forEach(ps=>{
+        setInfo[ps.id]={ info, reps:ps.target_reps, pct:ps.target_pct, kg:ps.target_kg };
+        if(ctx.basis!=='lift') wkmAdd(w, info, ps.target_reps, ps.target_pct, ps.target_kg);
+      }); }); });
+  (logs||[]).forEach(l=>{
+    const si=l.prescribed_set_id?setInfo[l.prescribed_set_id]:null;
+    const info=si?si.info:(l.exercise_id?exInfo[l.exercise_id]:null);
+    if(!info) return;
+    if(info.tier!=='ge') info.w.miss+=(parseInt(l.miss,10)||0);
+    if(ctx.basis==='lift' && l.done){
+      // the logger pre-fills the written reps/kg, so a ticked set saves real numbers; only very old
+      // rows with nothing saved fall back to what was written
+      const reps=l.actual_reps!=null?l.actual_reps:(si?si.reps:null);
+      const kg=l.actual_kg!=null?l.actual_kg:(si?si.kg:null);
+      const pct=(l.actual_kg==null && si)?si.pct:null;         // a logged kg re-derives its own %
+      wkmAdd(info.w, info, reps, pct, kg);
+    }
+  });
+  const tot=ctx.total;
+  return W.map(w=>{ const ai=w.loadReps?w.load/w.loadReps:null, ta=t=>w.tp[t][1]?w.tp[t][0]/w.tp[t][1]:null;
+    return { i:w.i, mon:w.mon, sessions:w.sessions, vol:w.vol, load:w.load, ai,
+      ari:w.pr?w.pw/w.pr:null, ri:w.pr?w.riw/w.pr*100:null, peak:w.peak||null,
+      k:(ai!=null&&tot)?ai*100/tot:null, miss:w.miss, sr:w.vol?Math.max(0,(w.vol-w.miss)/w.vol*100):null,
+      tier:w.tier, ce:ta('ce'), spe:ta('spe'), sde:ta('sde') }; });
+}
+function wkmFit(pts){                                  // least-squares line through [x,y] points
+  if(pts.length<3) return null;
+  const n=pts.length, mx=pts.reduce((a,p)=>a+p[0],0)/n, my=pts.reduce((a,p)=>a+p[1],0)/n;
+  let sxy=0,sxx=0; pts.forEach(([x,y])=>{ sxy+=(x-mx)*(y-my); sxx+=(x-mx)*(x-mx); });
+  const b=sxx?sxy/sxx:0; return x=>my+b*(x-mx);
+}
+function wkmChartSVG(rows, line, curMon){
+  const N=rows.length, WD=900, HT=340, L=52, R=54, T=16, B=34, pw=WD-L-R, ph=HT-T-B;
+  const top=Math.max(1, ...rows.map(r=>r.vol+r.tier.ge));
+  const step=[50,100,200,250,500,1000,2000].find(s=>s*5>=top)||Math.ceil(top/5/1000)*1000, vmax=step*5;
+  const vals=rows.map(r=>r[line]).filter(v=>v!=null);
+  const imin=Math.min(50, 10*Math.floor((vals.length?Math.min(...vals):50)/10));
+  const imax=Math.max(100, 10*Math.ceil((vals.length?Math.max(...vals):100)/10));
+  const bw=pw/N, gap=Math.max(2, bw*.24);
+  const y=v=>T+ph-(v/vmax)*ph, yi=v=>T+ph-((v-imin)/(imax-imin))*ph, x=i=>L+bw*i+bw/2;
+  let s='';
+  for(let g=0; g<=5; g++){ const yy=T+ph-(g/5)*ph;
+    s+=`<line x1="${L}" x2="${WD-R}" y1="${yy}" y2="${yy}" stroke="#26323d"/>`
+      +`<text x="${L-8}" y="${yy+4}" fill="#8b9aa8" font-size="11" text-anchor="end">${Math.round(vmax*g/5)}</text>`
+      +`<text x="${WD-R+8}" y="${yy+4}" fill="#8b9aa8" font-size="11">${Math.round(imin+(imax-imin)*g/5)}%</text>`; }
+  s+=`<text x="12" y="${T+ph/2}" fill="#8b9aa8" font-size="10.5" transform="rotate(-90 12 ${T+ph/2})" text-anchor="middle">Lifts (NL)</text>`;
+  const every=Math.ceil(N/26);                          // keep week labels readable on long ranges
+  rows.forEach((r,i)=>{ let acc=0; const bx=L+bw*i+gap/2, bwid=Math.max(1,bw-gap);
+    ['ce','spe','sde','ge'].forEach(t=>{ const v=r.tier[t]; if(!v) return;
+      const h=(v/vmax)*ph; s+=`<rect x="${bx}" y="${y(acc+v)}" width="${bwid}" height="${Math.max(0,h-1)}" fill="${WKM_TIER_COL[t]}" rx="2"/>`; acc+=v; });
+    const cur=r.mon===curMon;
+    if(cur) s+=`<rect x="${bx-2}" y="${T}" width="${bwid+4}" height="${ph}" fill="none" stroke="#e8643c" stroke-dasharray="3 3" rx="4"/>`;
+    if(cur || i%every===0) s+=`<text x="${x(i)}" y="${HT-B+16}" fill="${cur?'#e8643c':'#8b9aa8'}" font-size="11" text-anchor="middle" font-weight="${cur?800:400}">${i+1}</text>`;
+    s+=`<rect class="wkm-hit" data-i="${i}" x="${L+bw*i}" y="${T}" width="${bw}" height="${ph}" fill="transparent"/>`; });
+  // trend lines only through weeks that have training, so empty future weeks don't drag them down
+  const tv=wkmFit(rows.map((r,i)=>[i,r.vol]).filter(p=>p[1]>0)), ti=wkmFit(rows.map((r,i)=>[i,r[line]]).filter(p=>p[1]!=null));
+  const trained=rows.map((r,i)=>r.vol>0?i:-1).filter(i=>i>=0), i0=trained[0], i1=trained[trained.length-1];
+  if(tv && i1>i0) s+=`<line x1="${x(i0)}" x2="${x(i1)}" y1="${y(Math.max(0,tv(i0)))}" y2="${y(Math.max(0,tv(i1)))}" stroke="#7fb8ec" stroke-width="2" stroke-dasharray="6 5" opacity=".8"/>`;
+  const lp=rows.map((r,i)=>r[line]!=null?i:-1).filter(i=>i>=0);
+  if(ti && lp.length>1) s+=`<line x1="${x(lp[0])}" x2="${x(lp[lp.length-1])}" y1="${yi(ti(lp[0]))}" y2="${yi(ti(lp[lp.length-1]))}" stroke="#f2f5f8" stroke-width="2" stroke-dasharray="6 5" opacity=".5"/>`;
+  // the intensity line breaks across weeks with no value instead of drawing through them
+  let seg=[]; const flush=()=>{ if(seg.length>1) s+=`<polyline fill="none" stroke="#f2f5f8" stroke-width="2.5" stroke-linejoin="round" points="${seg.join(' ')}"/>`; seg=[]; };
+  rows.forEach((r,i)=>{ if(r[line]==null){ flush(); return; } seg.push(x(i)+','+yi(r[line])); }); flush();
+  rows.forEach((r,i)=>{ if(r[line]!=null) s+=`<circle cx="${x(i)}" cy="${yi(r[line])}" r="3.2" fill="#0c1116" stroke="#f2f5f8" stroke-width="2"/>`; });
+  return `<svg class="wkm-svg" viewBox="0 0 ${WD} ${HT}" style="min-width:${Math.max(640, N*26)}px" role="img" aria-label="Weekly volume stacked by exercise tier with an intensity line">${s}</svg>`;
+}
+async function renderWkMetrics(o){
+  const tok=++wkmToken;
+  if(wkmState.athId!==o.viewId) wkmState={ athId:o.viewId, key:null, basis:wkmState.basis, line:wkmState.line };
+  // Re-read plan, maxes and sessions whenever the tab is opened, so an edit made elsewhere shows up.
+  // Only a range change (wkmSetRange) keeps the plan context; it still refetches that range's sessions.
+  if(!wkmState._keepCtx){ wkmState.ctx=null; wkmState.ck=null; }
+  wkmState._keepCtx=false;
+  wkmState.coach=o.coach; wkmState.viewName=o.viewName;
+  app.innerHTML = o.chrome + o.picker + dashSubtabsHtml() + `<div id="wkmHost"><div class="spin">Loading program metrics…</div></div>`;
+  try{
+    if(!wkmState.ctx) wkmState.ctx=await wkmLoadCtx(o.viewId);
+    if(tok!==wkmToken) return;                         // a newer render (other athlete / tab) took over
+    const ranges=wkmRanges(wkmState.ctx.phases);
+    if(!wkmState.key || !ranges.some(r=>r.key===wkmState.key)) wkmState.key=wkmDefaultKey(ranges);
+    const rg=ranges.find(r=>r.key===wkmState.key);
+    const ck=rg.key+'|'+rg.a+'|'+rg.b+'|'+(o.coach?'c':'a');
+    if(wkmState.ck!==ck){
+      const d=await wkmFetch(o.viewId, rg.a, rg.b, o.coach);
+      if(tok!==wkmToken) return;
+      if(d.error) throw d.error;
+      wkmState.sess=d.sess; wkmState.logs=d.logs; wkmState.ck=ck;
+    }
+    wkmState.ranges=ranges; wkmState.rg=rg;
+    wkmRecompute(); wkmPaint();
+  }catch(e){
+    console.error('program metrics failed:', e);
+    const h=document.getElementById('wkmHost');
+    if(h && tok===wkmToken) h.innerHTML=`<div class="card"><div class="empty" style="color:var(--bad)">Couldn’t load program metrics — ${esc(e.message||String(e))}</div></div>`;
+  }
+}
+function wkmRecompute(){
+  const rg=wkmState.rg, c=wkmState.ctx;
+  wkmState.rows=wkmCompute(wkmState.sess, wkmState.logs, { a:rg.a, b:rg.b, maxes:c.maxes, total:c.total, basis:wkmState.basis });
+}
+window.wkmSetRange=(k)=>{ wkmState.key=k; wkmState._keepCtx=true; renderAthDash(); };
+window.wkmSetBasis=(b)=>{ if(wkmState.basis===b || !wkmState.rows) return; wkmState.basis=b; wkmRecompute(); wkmPaint(); };
+window.wkmSetLine=(k)=>{ wkmState.line=k; wkmPaint(); };
+function wkmPaint(){
+  const host=document.getElementById('wkmHost'); if(!host) return;
+  const rows=wkmState.rows||[], rg=wkmState.rg, lift=wkmState.basis==='lift', line=wkmState.line;
+  const curMon=iso(planMonday(new Date()));
+  const groups=['Macrocycles','Blocks','Rolling'].map(g=>{ const rs=wkmState.ranges.filter(r=>r.group===g); if(!rs.length) return '';
+    return `<optgroup label="${g}">${rs.map(r=>`<option value="${esc(r.key)}"${r.key===rg.key?' selected':''}>${esc(r.name)} · ${esc(fmtShort(r.a))} – ${esc(fmtShort(r.b))}</option>`).join('')}</optgroup>`; }).join('');
+  const has=rows.some(r=>r.vol>0||r.tier.ge>0);
+  const lineName=(WKM_LINES.find(l=>l[0]===line)||WKM_LINES[0])[1];
+  const empty=`<div class="empty">No ${lift?'logged':'programmed'} training in ${esc(rg.name)} yet.${lift?' Switch to <b>Programmed</b> to see what’s written.':''}</div>`;
+  const dash='<span class="wkm-na">—</span>';
+  const f1=v=>v==null?dash:v.toFixed(1)+'%';
+  const trs=rows.map(r=>{ const cur=r.mon===curMon, none=!r.vol;
+    return `<tr class="${cur?'wkm-cur':''}">
+      <td class="wkm-wk"><b>${r.i+1}</b><span>${esc(fmtShort(r.mon))}</span></td>
+      <td>${none?dash:r.vol.toLocaleString()}</td>
+      <td>${none||!r.load?dash:Math.round(r.load).toLocaleString()}</td>
+      <td>${r.ai==null?dash:Math.round(r.ai)}</td>
+      <td>${f1(r.ari)}</td><td>${f1(r.ri)}</td>
+      <td${r.k==null&&r.ai!=null?' title="Needs a Snatch and a Clean &amp; Jerk max"':''}>${r.k==null?dash:r.k.toFixed(2)}</td>
+      <td class="${r.miss?'wkm-miss':'wkm-na'}">${none&&!r.miss?dash:r.miss}</td>
+      <td class="${r.sr!=null&&r.sr<99?'wkm-miss':''}">${r.sr==null?dash:r.sr.toFixed(1)+'%'}</td></tr>`; }).join('');
+  host.innerHTML=`
+    <div class="card">
+      <div class="wkm-hd">
+        <div><h2 style="margin:0">Volume &amp; intensity by week</h2>
+          <div class="sub" style="margin:2px 0 0">${esc(wkmState.viewName)} · ${esc(rg.name)} · ${esc(fmtShort(rg.a))} – ${esc(fmtShort(rg.b))}</div></div>
+        <div class="wkm-ctl">
+          <select class="cw-sel wkm-range" aria-label="Weeks to show" onchange="wkmSetRange(this.value)">${groups}</select>
+          <div class="wkm-seg" role="group" aria-label="Programmed or lifted">
+            <button class="${lift?'':'on'}" onclick="wkmSetBasis('prog')" title="What was written">Programmed</button>
+            <button class="${lift?'on':''}" onclick="wkmSetBasis('lift')" title="What was logged">Lifted</button></div>
+        </div>
+      </div>
+      ${has?`<div class="wkm-chips"><span>Intensity line</span>${WKM_LINES.map(([k,l])=>`<button class="${k===line?'on':''}" onclick="wkmSetLine('${k}')">${l}</button>`).join('')}</div>
+      <div class="wkm-chart">${wkmChartSVG(rows, line, curMon)}</div>
+      <div class="wkm-legend"><span><i style="background:${WKM_TIER_COL.ce}"></i>CE</span><span><i style="background:${WKM_TIER_COL.spe}"></i>SPE</span><span><i style="background:${WKM_TIER_COL.sde}"></i>SDE</span><span><i style="background:${WKM_TIER_COL.ge}"></i>GE — not in Lift Volume</span><span><i class="ln"></i>${lineName}</span><span><i class="ln dash"></i>trend lines</span></div>`:empty}
+    </div>
+    <div class="card">
+      <h2 style="margin:0">Program metrics</h2>
+      <div class="sub" style="margin:2px 0 10px">${lift?'<b>Lifted</b> — what was logged':'<b>Programmed</b> — what was written'} · one row per week · volume and intensity count CE + SPE + SDE</div>
+      <div class="wkm-tbl"><table>
+        <thead><tr><th>Week</th><th>Lift Volume</th><th>Lift Load</th><th>AI</th><th>ARI</th><th>RI</th><th>K-Value</th><th>Misses</th><th>Success Rate</th></tr></thead>
+        <tbody>${trs}</tbody></table></div>
+      <div class="wkm-note"><b>AI</b> = Lift Load ÷ Lift Volume · <b>ARI</b> = rep-weighted %1RM · <b>RI</b> = each set’s % against what’s possible for that many reps · <b>K-Value</b> = AI × 100 ÷ competition total (current maxes${wkmState.ctx.total?' · '+wkmState.ctx.total+' kg':' — none on file'}) · <b>Success Rate</b> = (Lift Volume − Misses) ÷ Lift Volume. Misses always come from what was logged.</div>
+    </div>`;
+  wkmWireTip();
+}
+// hover (mouse) or tap (phone) a week's column for its breakdown
+function wkmWireTip(){
+  let tip=document.getElementById('wkmTip');
+  if(!tip){ tip=document.createElement('div'); tip.id='wkmTip'; tip.className='wkm-tip'; tip.style.display='none'; document.body.appendChild(tip); }
+  tip.style.display='none';
+  const show=(el,ev)=>{ const r=(wkmState.rows||[])[+el.dataset.i]; if(!r) return;
+    const pct=v=>v==null?'—':v.toFixed(1)+'%';
+    tip.innerHTML=`<b>Week ${r.i+1}</b> <span class="m">· ${esc(fmtShort(r.mon))}</span><br>`
+      +`CE ${r.tier.ce} · SPE ${r.tier.spe} · SDE ${r.tier.sde} = <b>${r.vol}</b><br>`
+      +(r.tier.ge?`<span class="m">GE ${r.tier.ge} (not counted)</span><br>`:'')
+      +`ARI <b>${pct(r.ari)}</b> · RI ${pct(r.ri)} · Peak ${pct(r.peak)}`;
+    tip.style.display='block';
+    tip.style.left=Math.max(8, Math.min(ev.clientX+14, window.innerWidth-230))+'px';
+    tip.style.top=(ev.clientY+14)+'px'; };
+  document.querySelectorAll('#wkmHost .wkm-hit').forEach(el=>{
+    el.addEventListener('mousemove', ev=>show(el,ev));
+    el.addEventListener('mouseleave', ()=>{ tip.style.display='none'; });
+    el.addEventListener('click', ev=>show(el,ev));
+  });
+}
 async function renderAthDash(){
   const coach = dashState.mode==='coach';
   if(coach && !dashState.athleteId) return renderTeamDash();   // no athlete picked ⇒ team roll-up
@@ -7024,6 +7353,8 @@ async function renderAthDash(){
   // coach Team + Athlete picker (Athlete '' = team roll-up)
   const picker = coach ? dashPicker() : '';
   if(coach && !viewId){ app.innerHTML = chrome + `<div class="card con-empty"><h2 style="margin:0 0 6px;color:var(--text)">Athlete Dashboard</h2><div>No athletes yet — add one from the Console to see their dashboard.</div></div>`; return; }
+  // Program metrics loads its own data — branch before the dashboard's heavier queries run
+  if(dashState.tab==='metrics') return renderWkMetrics({ coach, viewId, viewName, chrome, picker });
   const today=new Date(), todayStr=iso(today); const D=s=>new Date(s+'T00:00:00');
   const rdScoreOf=r=>{ const vs=RK_METRICS.map(m=>r[m[0]]).filter(v=>v!=null); return vs.length?vs.reduce((a,b)=>a+b,0)/vs.length:null; };
   // ---- date range ----
@@ -7092,10 +7423,7 @@ async function renderAthDash(){
     const bIds=new Set(bAll.map(s=>s.id)); blockDone=new Set(logs.filter(l=>l.done && bIds.has(l.session_id)).map(l=>l.session_id)).size;
   }
 
-  const subtabs = `<div class="dnav">
-    <button class="${dashState.tab==='dash'?'on':''}" onclick="dashGo('dash')">Dashboard</button>
-    <button class="${dashState.tab==='profile'?'on':''}" onclick="dashGo('profile')">Athlete Profile</button>
-  </div>`;
+  const subtabs = dashSubtabsHtml();
 
   if(dashState.tab==='profile'){
     dashState.pfAth=viewId;   // batch-save targets this athlete
