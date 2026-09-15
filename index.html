@@ -5601,7 +5601,7 @@ async function renderAthHome(){
   const thisMon=new Date(today); thisMon.setHours(0,0,0,0); thisMon.setDate(thisMon.getDate()-((thisMon.getDay()+6)%7));
   const W8=[]; for(let i=7;i>=0;i--){ const m=new Date(thisMon); m.setDate(m.getDate()-7*i); W8.push(m); }
   const trStart=iso(W8[0]), trEnd=iso(new Date(W8[7].getTime()+6*864e5));
-  const tvR=await sb.from('sessions').select('session_date,prescribed_exercises(prescribed_sets(target_reps))').eq('athlete_id', me_.id).neq('status','draft').gte('session_date', trStart).lte('session_date', trEnd);
+  const tvR=await sb.from('sessions').select('session_date,prescribed_exercises(name,category,prescribed_sets(target_reps))').eq('athlete_id', me_.id).neq('status','draft').gte('session_date', trStart).lte('session_date', trEnd);
   const trR=await sb.from('readiness').select('*').eq('athlete_id', me_.id).gte('check_date', trStart).lte('check_date', trEnd).order('check_date',{ascending:true});
   const weeks=W8.map((m,i)=>({ lbl:'Wk'+(i+1), vol:0, rdSum:0, rdN:0, rd:null }));
   const widx=ds=>Math.floor((D(ds)-W8[0])/(7*864e5));
@@ -5797,7 +5797,7 @@ async function weekReview(athleteId){
   const lwStart=new Date(thisMon); lwStart.setDate(lwStart.getDate()-7); const lwEnd=new Date(thisMon); lwEnd.setDate(lwEnd.getDate()-1);
   const s0=iso(lwStart), s1=iso(lwEnd); const me=athleteId;
   const rdScoreOf=r=>{ const vs=RK_METRICS.map(m=>r[m[0]]).filter(v=>v!=null); return vs.length?vs.reduce((a,b)=>a+b,0)/vs.length:null; };
-  const sR=await sb.from('sessions').select('id,session_date,title,prescribed_exercises(prescribed_sets(target_reps,target_pct))').eq('athlete_id',me).neq('status','draft').gte('session_date',s0).lte('session_date',s1);
+  const sR=await sb.from('sessions').select('id,session_date,title,prescribed_exercises(name,category,prescribed_sets(target_reps,target_pct))').eq('athlete_id',me).neq('status','draft').gte('session_date',s0).lte('session_date',s1);
   const sess=sR.data||[]; const ids=sess.map(s=>s.id);
   let logs=[]; if(ids.length){ const r=await sb.from('logged_sets').select('session_id,done,miss,prescribed_set_id,actual_kg,actual_reps,lights,velocity').in('session_id',ids); logs=r.data||[]; }
   const rR=await sb.from('readiness').select('*').eq('athlete_id',me).gte('check_date',s0).lte('check_date',s1);
@@ -7034,7 +7034,7 @@ async function renderAthDash(){
   else { start=new Date(today); start.setFullYear(start.getFullYear()-1); label='Last 12 months'; }
   const startStr=iso(start);
   // ---- pull sessions + logs + readiness in range ----
-  const sR=await sb.from('sessions').select('id,session_date,'+'prescribed_exercises(category,prescribed_sets(target_reps,target_pct))').eq('athlete_id', viewId).neq('status','draft').gte('session_date', startStr).lte('session_date', todayStr);
+  const sR=await sb.from('sessions').select('id,session_date,'+'prescribed_exercises(name,category,prescribed_sets(target_reps,target_pct))').eq('athlete_id', viewId).neq('status','draft').gte('session_date', startStr).lte('session_date', todayStr);
   const sess=sR.data||[]; const sById={}; sess.forEach(s=>sById[s.id]=s);
   const ids=sess.map(s=>s.id);
   let logs=[]; if(ids.length){ for(let i=0;i<ids.length;i+=200){ const r=await sb.from('logged_sets').select('session_id,done,miss,prescribed_set_id,actual_kg,actual_reps,velocity,lights').in('session_id', ids.slice(i,i+200)); if(r.data) logs=logs.concat(r.data); } }
@@ -14492,6 +14492,9 @@ function riDisplay(ri){ return ri? (ri*10).toFixed(1) : '—'; }   // RI on a 0�
 // General work (rows, carries, curls, KB/DB, core, conditioning) was running the daily number up far
 // enough that it stopped describing the training. ONE definition, used by every trend bucket and day
 // chip — three separate copies of this loop had drifted into counting everything.
+// ⚠ Every caller's query MUST select prescribed_exercises(name, category, …). exClassOf() falls back to
+// classifying by NAME, and a row with no name tiers as GE — so a query that omits it silently reports
+// ~0 volume and a blank ARI. (Happened 2026-09-07 on four surfaces; fixed 2026-09-14.)
 function sessVolNL(s){
   let v=0;
   ((s&&s.prescribed_exercises)||[]).forEach(ex=>{ if(exIsAcc(ex)) return;
@@ -15366,7 +15369,7 @@ async function renderRollup(){
     if(!cw.rollupCache) cw.rollupCache={};
     if(cw.block && !cw.rollupCache.block){
       const { data: bs } = await sb.from('sessions')
-        .select('id,session_date,prescribed_exercises(category,prescribed_sets(target_reps,target_pct))')
+        .select('id,session_date,prescribed_exercises(name,category,prescribed_sets(target_reps,target_pct))')
         .eq('athlete_id', cw.athId).gte('session_date', cw.block.start_date).lte('session_date', cw.block.end_date);
       const bids=(bs||[]).map(x=>x.id);
       let blogs=[];
@@ -15375,7 +15378,7 @@ async function renderRollup(){
     }
     if(!cw.rollupCache.all){
       const { data: as_ } = await sb.from('sessions')
-        .select('id,session_date,prescribed_exercises(category,prescribed_sets(target_reps,target_pct))')
+        .select('id,session_date,prescribed_exercises(name,category,prescribed_sets(target_reps,target_pct))')
         .eq('athlete_id', cw.athId);
       const aids=(as_||[]).map(x=>x.id);
       let alogs=[];
