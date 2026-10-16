@@ -565,6 +565,34 @@
   .av-wknav{display:flex;align-items:center;gap:6px;margin-left:auto}
   .av-arrow.sm{font-size:12px;font-weight:800;padding:3px 9px;min-width:0;line-height:1.5}
   .cw-delbar .cw-del-tpl{background:var(--good);color:#0a0d11}
+  .cw-delbar .cw-del-xa{background:#3c9ee8;color:#fff}
+  .xa-box{max-width:520px}
+  .xa-box h2{margin:0 0 2px;font-size:18px}
+  .xa-sub{font-size:12.5px;color:var(--muted);margin-bottom:12px}
+  .xa-lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin:12px 0 5px}
+  .xa-search{width:100%;box-sizing:border-box;background:#0e151c;border:1px solid var(--line);border-radius:8px;color:var(--text);font:inherit;font-size:13px;padding:8px 10px}
+  .xa-list{max-height:220px;overflow-y:auto;border:1px solid var(--line);border-radius:8px;margin-top:6px}
+  .xa-row{display:flex;align-items:center;gap:10px;padding:8px 10px;font-size:13.5px;cursor:pointer;border-bottom:1px solid var(--line)}
+  .xa-row:last-child{border-bottom:none}
+  .xa-row:hover{background:#121a23}
+  .xa-row input{width:16px;height:16px;accent-color:#3c9ee8}
+  .xa-when{display:flex;flex-direction:column;gap:7px;font-size:13.5px}
+  .xa-when label{display:flex;align-items:center;gap:8px;cursor:pointer}
+  .xa-when input[type=date]{background:#0e151c;border:1px solid var(--line);border-radius:8px;color:var(--text);font:inherit;font-size:12.5px;padding:5px 8px}
+  .xa-prev{margin-top:14px;padding:10px 12px;border-radius:8px;background:#0e151c;border:1px solid var(--line);font-size:13px;line-height:1.45}
+  .xa-prev small{display:block;color:var(--muted);font-size:11.5px;margin-top:3px}
+  .xa-acts{display:flex;justify-content:flex-end;gap:10px;margin-top:14px}
+  .xa-acts button{border:none;border-radius:8px;font-weight:800;font-size:13px;padding:9px 16px;cursor:pointer}
+  .xa-go{background:#3c9ee8;color:#fff}
+  .xa-go:disabled{background:#0e151c;color:var(--muted);cursor:not-allowed}
+  .xa-cancel{background:#0e151c;color:var(--muted);border:1px solid var(--line)!important}
+  .xa-res{font-size:13.5px;line-height:1.5}
+  .xa-res li{margin:4px 0}
+  .xa-res .xa-miss{color:var(--warn);font-size:12px}
+  .xa-box label.xa-row,.xa-when label{text-transform:none;letter-spacing:0;font-size:13.5px;font-weight:600;color:var(--text);margin:0;display:flex}
+  .xa-box input[type=checkbox],.xa-box input[type=radio]{width:16px;height:16px;flex:none;margin:0;padding:0;accent-color:#3c9ee8}
+  .xa-when input[type=date]{width:auto;flex:none;margin-left:4px}
+  .cw-delbar .cw-del-xa{white-space:nowrap}
   .cw-delbar .cw-del-tpl:disabled{background:#0e151c;color:var(--muted);cursor:not-allowed}
   .cw-tplrow{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin:10px 0 4px}
   .cw-tplrow label{display:block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-bottom:3px}
@@ -12737,6 +12765,7 @@ window.cwCopyPrompt=()=>{
     <span class="cw-delc" style="font-weight:600">wk · or week of</span>
     <input type="date" class="cw-copydate" id="cwCopyDate">
     <button class="cw-del-copy" onclick="cwSelCopy('date',(document.getElementById('cwCopyDate')||{}).value)">Paste</button>
+    ${cw&&cw.teamMode?'':'<button class="cw-del-xa" onclick="cwXaPrompt()">👤 To another athlete…</button>'}
     <button class="cw-del-x" onclick="cwShowDelBar()">Back</button>`;
 };
 window.cwSelCopy=async(mode,arg)=>{
@@ -12781,6 +12810,97 @@ window.cwSelCopy=async(mode,arg)=>{
     await renderCoachPanel();
     toast('Copied '+made+' session'+(made===1?'':'s')+' as draft'+(made===1?'':'s')+' — review, then publish.');
   }catch(e){ console.error('lasso copy failed:', e); const b=document.getElementById('cwDelBar'); if(b) b.innerHTML=`<span class="cw-delc" style="color:var(--bad)">Copy failed — ${esc(e.message||String(e))}</span><button class="cw-del-x" onclick="cwClearDelBar()">Close</button>`; }
+};
+// lasso → Copy → To another athlete: paste the lassoed sessions into one or more OTHER athletes'
+// calendars as drafts, alongside whatever they already have that day. % sets are re-priced off EACH
+// athlete's own maxes — copying the stored kg would hand everyone the source athlete's weights.
+let _xa=null;
+window.cwXaPrompt=async()=>{
+  const sel=[...document.querySelectorAll('#cwCalScroll .cwd-sess.cw-sel')];
+  if(!sel.length || !cw || cw.teamMode){ cwClearDelBar(); return; }
+  const items=sel.map(c=>({ sid:c.dataset.sid, date:c.dataset.date })).filter(x=>x.sid&&x.date)
+    .sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+  if(!items.length) return;
+  await ensureDashRoster();
+  _xa={ items, picked:new Set(), q:'', mode:'same', start:'', busy:false };
+  const n=items.length;
+  ovModal('xaModal', `<div class="xa-box">
+    <span class="vid-x" onclick="document.getElementById('xaModal').style.display='none'">✕</span>
+    <h2>👤 Copy to another athlete</h2>
+    <div class="xa-sub">${n} session${n===1?'':'s'} from <b>${esc(cw.ath.full_name)}</b> · lands as drafts beside anything already on those days · % loads re-priced off each athlete's own maxes</div>
+    <div class="xa-lbl">Athletes</div>
+    <input class="xa-search" placeholder="Search athletes…" oninput="_xa.q=this.value;cwXaPaintList()">
+    <div class="xa-list" id="xaList"></div>
+    <div class="xa-lbl">When</div>
+    <div class="xa-when">
+      <label><input type="radio" name="xaMode" checked onchange="_xa.mode='same';cwXaPaintPrev()"> Same dates</label>
+      <label><input type="radio" name="xaMode" onchange="_xa.mode='week';cwXaPaintPrev()"> Starting the week of
+        <input type="date" id="xaStart" oninput="_xa.start=this.value;_xa.mode='week';document.getElementsByName('xaMode')[1].checked=true;cwXaPaintPrev()"></label>
+    </div>
+    <div class="xa-prev" id="xaPrev"></div>
+    <div class="xa-acts"><button class="xa-cancel" onclick="document.getElementById('xaModal').style.display='none'">Cancel</button>
+      <button class="xa-go" id="xaGo" onclick="cwXaGo()">Copy</button></div>
+  </div>`);
+  cwXaPaintList(); cwXaPaintPrev();
+};
+function cwXaAthletes(){ return (coachState.athletes||[]).filter(a=>a.id!==cw.athId); }
+// days to shift by: 0 for "same dates"; for "week of", whole weeks so every session keeps its weekday
+function cwXaDelta(){
+  if(!_xa) return null;
+  if(_xa.mode==='same') return 0;
+  if(!_xa.start) return null;
+  const dst=new Date(_xa.start+'T00:00:00'); if(isNaN(dst.getTime()) || dst.getFullYear()<2000) return null;
+  return Math.round((mondayOfDate(dst).getTime()-mondayOfDate(new Date(_xa.items[0].date+'T00:00:00')).getTime())/864e5);
+}
+function cwXaPaintList(){
+  const el=document.getElementById('xaList'); if(!el||!_xa) return;
+  const q=_xa.q.trim().toLowerCase();
+  const list=cwXaAthletes().filter(a=>!q||(a.full_name||'').toLowerCase().includes(q));
+  el.innerHTML=list.length?list.map(a=>`<label class="xa-row"><input type="checkbox" ${_xa.picked.has(a.id)?'checked':''}
+      onchange="if(this.checked)_xa.picked.add('${a.id}');else _xa.picked.delete('${a.id}');cwXaPaintPrev()"> ${esc(a.full_name||'')}</label>`).join('')
+    :`<div class="xa-row" style="color:var(--muted);cursor:default">No athletes match.</div>`;
+}
+function cwXaPaintPrev(){
+  const el=document.getElementById('xaPrev'); if(!el||!_xa) return;
+  const go=document.getElementById('xaGo');
+  const names=cwXaAthletes().filter(a=>_xa.picked.has(a.id)).map(a=>a.full_name);
+  const delta=cwXaDelta(), n=_xa.items.length;
+  let line, ok=true;
+  if(!names.length){ line='Tick at least one athlete.'; ok=false; }
+  else if(delta==null){ line='Pick the week to start on.'; ok=false; }
+  else { const d0=addDaysIso(_xa.items[0].date,delta), d1=addDaysIso(_xa.items[n-1].date,delta);
+    line=`<b>${n} session${n===1?'':'s'}</b> → <b>${esc(names.join(', '))}</b><small>${esc(fmtDate(d0))}${d1!==d0?' – '+esc(fmtDate(d1)):''} · as drafts — review, then publish</small>`; }
+  el.innerHTML=line;
+  if(go){ go.disabled=!ok||_xa.busy; go.textContent=_xa.busy?'Copying…':(names.length>1?`Copy to ${names.length} athletes`:'Copy'); }
+}
+window.cwXaGo=async()=>{
+  if(!_xa||_xa.busy) return;
+  const ids=[..._xa.picked], delta=cwXaDelta();
+  if(!ids.length||delta==null){ cwXaPaintPrev(); return; }
+  _xa.busy=true; cwXaPaintPrev();
+  const done=[]; let made=0;
+  try{
+    const src=[];
+    for(const it of _xa.items){ const { data: full, error } = await sb.from('sessions').select(SESSION_SELECT).eq('id', it.sid).single(); if(error) throw error; if(full) src.push(full); }
+    for(const aid of ids){
+      const a=(coachState.athletes||[]).find(x=>x.id===aid);
+      const { data: mx, error: mxE } = await sb.from('maxes').select('lift,kg').eq('athlete_id', aid); if(mxE) throw mxE;
+      const maxes={}; (mx||[]).forEach(m=>{ const v=parseFloat(m.kg); if(!isNaN(v)) maxes[m.lift]=v; });
+      const rp={ maxes, missing:new Set() };
+      for(const full of src){ await cloneSessionFor(full, addDaysIso(full.session_date, delta), aid, 'draft', rp); made++; }
+      done.push({ name:a?a.full_name:'athlete', n:src.length, missing:[...rp.missing] });
+    }
+    cwClearDelBar();
+    const box=document.querySelector('#xaModal .xa-box'); if(!box) return;
+    box.innerHTML=`<span class="vid-x" onclick="document.getElementById('xaModal').style.display='none'">✕</span>
+      <h2>✓ Copied</h2><div class="xa-sub">Saved as drafts — open each athlete to review, then publish.</div>
+      <ul class="xa-res">${done.map(d=>`<li><b>${esc(d.name)}</b> — ${d.n} session${d.n===1?'':'s'}${d.missing.length?`<div class="xa-miss">No max on file for ${esc(d.missing.join(', '))} — those sets show the % only</div>`:''}</li>`).join('')}</ul>
+      <div class="xa-acts"><button class="xa-go" onclick="document.getElementById('xaModal').style.display='none'">Done</button></div>`;
+  }catch(e){
+    console.error('copy to athlete failed:', e);
+    const el=document.getElementById('xaPrev');
+    if(el) el.innerHTML=`<span style="color:var(--bad)">Copy failed — ${esc(e.message||String(e))}</span><small>${made} session${made===1?'':'s'} were written before it stopped${done.length?' (finished: '+esc(done.map(d=>d.name).join(', '))+')':''}. They're drafts — check before retrying.</small>`;
+  }finally{ if(_xa){ _xa.busy=false; const go=document.getElementById('xaGo'); if(go){ go.disabled=false; go.textContent='Copy'; } } }
 };
 // lasso → Push: the athlete missed the lassoed day/week. Shift the earliest selected day AND everything after
 // it forward (or back) by a day or a week — completed (logged) sessions never move, so history is preserved.
@@ -15281,16 +15401,18 @@ async function cloneSessionTo(full, targetDate){
   return ns;
 }
 // copy a source session's exercises+sets into a brand-new session for a SPECIFIC athlete (used by team bulk-edit)
-async function cloneSessionFor(full, targetDate, athId, status){
+async function cloneSessionFor(full, targetDate, athId, status, reprice){
   const { data: ns, error: se } = await sb.from('sessions').insert({
     gym_id: me_.gym_id, athlete_id: athId, session_date: targetDate,
     title: full.title||'Training', status: status||'draft' }).select().single();
   if(se) throw se;
-  await writeExercisesInto(ns.id, full);
+  await writeExercisesInto(ns.id, full, reprice);
   return ns;
 }
-// shared writer: insert source's exercises+sets under a target session id
-async function writeExercisesInto(targetSessionId, sourceFull){
+// shared writer: insert source's exercises+sets under a target session id.
+// reprice = {maxes, missing:Set} when the target is a DIFFERENT athlete: % sets get their kg from the
+// target's maxes (missing → kg left blank, lift name collected), never the source athlete's kg.
+async function writeExercisesInto(targetSessionId, sourceFull, reprice){
   const exs=(sourceFull.prescribed_exercises||[]).slice().sort(sortByPos);
   for(let ei=0; ei<exs.length; ei++){
     const ex=exs[ei];
@@ -15298,12 +15420,20 @@ async function writeExercisesInto(targetSessionId, sourceFull){
       category: ex.category||'primary', coach_note: ex.coach_note||null };
     if(LT_READY){ cIns.load_type=ex.load_type||'percentage'; cIns.cues=ex.cues||null; }
     if(OVR_READY){ cIns.base_override=ex.base_override||null; }
+    if(SS_READY){ cIns.superset_group=ex.superset_group!=null?ex.superset_group:null; }
     const { data: ne, error: ee } = await sb.from('prescribed_exercises').insert(cIns).select().single();
     if(ee) throw ee;
+    const lt=ex.load_type||'percentage';
+    let base=null;
+    if(reprice && lt==='percentage'){ const b=resolveBase({ name:ex.name, baseOverride:ex.base_override||'' }, reprice.maxes); base=b&&b.kg!=null?b.kg:null; }
     const rows=(ex.prescribed_sets||[]).slice().sort(sortByPos).map((ps,si)=>{ const row={
       gym_id: me_.gym_id, exercise_id: ne.id, position: si,
       target_reps: ps.target_reps, target_pct: ps.target_pct, target_kg: ps.target_kg, target_text: ps.target_text };
       if(LT_READY){ row.target_vel=ps.target_vel!=null?ps.target_vel:null; row.target_eff=ps.target_eff!=null?ps.target_eff:null; }
+      if(reprice && lt==='percentage' && ps.target_pct!=null){
+        const pct=parseFloat(ps.target_pct), kg=base!=null?rnd1(base*pct/100):null;
+        if(base==null) reprice.missing.add(ex.name);
+        row.target_kg=kg; row.target_text=targetText({ reps:ps.target_reps, pct, kg, vel:ps.target_vel, eff:ps.target_eff }, 'percentage'); }
       return row; });
     if(rows.length){ const { error: re } = await sb.from('prescribed_sets').insert(rows); if(re) throw re; }
   }
