@@ -16407,10 +16407,28 @@ function targetText(st, type){
   if(k!=null) return `${k}kg`;
   return '—';
 }
-async function saveEditor(publishAfter, opts){
+// ONE save at a time. Autosave (set-by-set, several seconds on a big day) used to overlap a
+// Save/Publish click: both saw new sets as unsaved → each inserted them → duplicate sets with tied
+// positions → the athlete saw the scheme scrambled. Every save now waits its turn on this queue.
+let _edSaveQ=Promise.resolve();
+function saveEditor(publishAfter, opts){
+  if(!(opts&&opts.auto) && _draftTimer){ clearTimeout(_draftTimer); _draftTimer=null; }   // this save covers the pending autosave
+  const target=ed;                                                                       // the day that was open when the save was asked for
+  const run=()=>{ if(!target || (opts&&opts.auto && !target.dirty)) return;           // a queued autosave with nothing left to do
+    return _saveEditorNow(publishAfter, opts, target); };
+  const p=_edSaveQ.then(run, run); _edSaveQ=p.catch(()=>{}); return p;
+}
+async function _saveEditorNow(publishAfter, opts, ed){   // `ed` = the day being saved (shadows the global on purpose)
   opts=opts||{}; const auto=!!opts.auto;
   const btn=auto?null:document.getElementById('edSave'); if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
   if(!auto) edMsgSet('');
+  // Snapshot what THIS save writes. The coach keeps editing during a multi-second save; anything
+  // changed mid-save (rows removed, Sets count changed, scheme applied) stays dirty for the next
+  // save instead of being half-written. Previously the end of a save wiped delete-lists it never
+  // processed → old set rows survived with tied positions → scrambled schemes on the athlete's phone.
+  const delExsNow=ed.delExs.slice();
+  const plan=ed.exercises.map(ex=>({ ex, sets:ex.sets.slice(), del:ex.delSets.slice() }));
+  ed.dirty=false;                                                    // any edit from here on re-dirties it
   try{
     const { data:{ user } } = await sb.auth.getUser();
     if(!user || user.id!==me_.id) throw new Error('login mismatch — sign out and back in');
@@ -16422,11 +16440,11 @@ async function saveEditor(publishAfter, opts){
     const su=await sb.from('sessions').update(sessPatch).eq('id', s.id).select();
     if(su.error || !su.data || !su.data.length) throw (su.error||new Error('session update rejected'));
     // removed exercises / sets
-    if(ed.delExs.length){ const r=await sb.from('prescribed_exercises').delete().in('id', ed.delExs); if(r.error) throw r.error; }
-    for(const ex of ed.exercises){ if(ex.delSets.length){ const r=await sb.from('prescribed_sets').delete().in('id', ex.delSets); if(r.error) throw r.error; } }
+    if(delExsNow.length){ const r=await sb.from('prescribed_exercises').delete().in('id', delExsNow); if(r.error) throw r.error; }
+    for(const p of plan){ if(p.del.length){ const r=await sb.from('prescribed_sets').delete().in('id', p.del); if(r.error) throw r.error; } }
     // upsert exercises + sets
-    for(let ei=0; ei<ed.exercises.length; ei++){
-      const ex=ed.exercises[ei];
+    for(let ei=0; ei<plan.length; ei++){
+      const ex=plan[ei].ex, exSets=plan[ei].sets;
       if(!ex.name.trim()){ continue; }
       if(ex.id){
         const exPatch={ name:ex.name.trim(), coach_note:ex.note.trim()||null, position:ei, category:ex.category||'primary' };
@@ -16442,9 +16460,10 @@ async function saveEditor(publishAfter, opts){
         if(SS_READY){ exIns.superset_group=ex.ssGroup!=null?ex.ssGroup:null; }
         const r=await sb.from('prescribed_exercises').insert(exIns).select().single();
         if(r.error) throw r.error; ex.id=r.data.id;
+        if(!ed.exercises.includes(ex)){ ed.delExs.push(ex.id); ed.dirty=true; }   // removed while we were inserting it
       }
-      for(let si=0; si<ex.sets.length; si++){
-        const st=ex.sets[si];
+      for(let si=0; si<exSets.length; si++){
+        const st=exSets[si];
         const empty = st.reps==='' && st.pct==='' && st.kg==='' && (st.vel===''||st.vel==null) && (st.eff===''||st.eff==null);
         if(empty && !st.id) continue;
         const payload={ gym_id:me_.gym_id, exercise_id:ex.id, position:si,
@@ -16454,11 +16473,12 @@ async function saveEditor(publishAfter, opts){
           target_text: targetText(st, ex.loadType) };
         if(LT_READY){ payload.target_vel = st.vel===''||st.vel==null?null:parseFloat(st.vel); payload.target_eff = st.eff===''||st.eff==null?null:parseFloat(st.eff); }
         if(st.id){ const r=await sb.from('prescribed_sets').update(payload).eq('id', st.id).select(); if(r.error) throw r.error; }
-        else { const r=await sb.from('prescribed_sets').insert(payload).select().single(); if(r.error) throw r.error; st.id=r.data.id; }
+        else { const r=await sb.from('prescribed_sets').insert(payload).select().single(); if(r.error) throw r.error; st.id=r.data.id;
+          if(!ex.sets.includes(st)){ ex.delSets.push(st.id); ed.dirty=true; } }   // row removed while we were inserting it
       }
-      ex.delSets=[];
+      ex.delSets=ex.delSets.filter(id=>!plan[ei].del.includes(id));       // keep deletes queued mid-save
     }
-    ed.delExs=[]; ed.dirty=false;
+    ed.delExs=ed.delExs.filter(id=>!delExsNow.includes(id));
     if(cw) cw.rollupCache=null;
     // TEAM bulk-edit: push this session to every other team athlete (overwrite everyone; unlogged only)
     let teamMsg='';
@@ -16483,13 +16503,14 @@ async function saveEditor(publishAfter, opts){
       const m=document.getElementById('edMsg'); if(m){ m.style.color='var(--good)'; m.textContent=okMsg; setTimeout(()=>{ if(m.isConnected && m.textContent===okMsg) m.textContent=''; },3500); }
       return;
     }
-    if(auto){ refreshStripDot(); edAutoSet('✓ Auto-saved'); return; }
+    if(auto){ refreshStripDot(); edAutoSet('✓ Auto-saved'); if(ed.dirty) scheduleDraftSave(); return; }
     refreshStripDot();
     paintEditor();
     edMsgSet('✓ Saved'+teamMsg,'var(--good)');
     setTimeout(()=>edMsgSet(''),5000);
   }catch(e2){
-    if(auto){ edAutoSet('⚠ auto-save failed'); ed.dirty=true; return; }
+    ed.dirty=true;
+    if(auto){ edAutoSet('⚠ auto-save failed'); return; }
     if(btn){ btn.disabled=false; btn.textContent='Save changes'; }
     edMsgSet('⚠ Save failed — '+(e2.message||e2),'var(--bad)');
   }
