@@ -1781,6 +1781,8 @@
   .cvt th.plh{background:rgba(60,158,232,.10);color:var(--accent2);text-align:center}
   .cvt th.ach{background:rgba(232,100,60,.10);color:var(--accent)}
   .cvt td.cva{background:rgba(232,100,60,.05);text-align:center;font-size:12.5px}
+  .cvt td.vl-td{white-space:nowrap}
+  .cvt .vl-hint{display:block;font-size:10.5px;font-weight:700;color:var(--muted);margin-top:2px}
   .cv-nolog{color:var(--muted);font-size:11px;font-style:italic}
   .cv-act b{color:var(--text)}
   .cv-tiles{display:flex;gap:8px;flex-wrap:wrap;padding:0 13px 12px}
@@ -4880,7 +4882,7 @@ function wireLogging(){
     const del=e.target.closest('.lg-del'); if(del){ removeSetRow(id); return; }
   });
 }
-let LT_READY=false, OVR_READY=false, SS_READY=false;   // SS_READY = prescribed_exercises.superset_group (migration 42)
+let LT_READY=false, OVR_READY=false, SS_READY=false, VL_READY=false;   // VL_READY = prescribed_sets.target_vel_loss (migration 64)   // SS_READY = prescribed_exercises.superset_group (migration 42)
 let SESSION_SELECT='id,gym_id,title,session_date,status,prescribed_exercises(id,name,position,category,coach_note,prescribed_sets(id,position,target_text,target_reps,target_kg,target_pct))';
 async function probeLoadTypes(){
   const { error } = await sb.from('prescribed_exercises').select('load_type').limit(1);
@@ -4888,7 +4890,8 @@ async function probeLoadTypes(){
     LT_READY=true;
     const ovr = await sb.from('prescribed_exercises').select('base_override').limit(1); OVR_READY = !ovr.error;
     const ss = await sb.from('prescribed_exercises').select('superset_group').limit(1); SS_READY = !ss.error;
-    SESSION_SELECT='id,gym_id,title,session_date,status,prescribed_exercises(id,name,position,category,coach_note,load_type,cues'+(OVR_READY?',base_override':'')+(SS_READY?',superset_group':'')+',prescribed_sets(id,position,target_text,target_reps,target_kg,target_pct,target_vel,target_eff))';
+    const vl = await sb.from('prescribed_sets').select('target_vel_loss').limit(1); VL_READY = !vl.error;
+    SESSION_SELECT='id,gym_id,title,session_date,status,prescribed_exercises(id,name,position,category,coach_note,load_type,cues'+(OVR_READY?',base_override':'')+(SS_READY?',superset_group':'')+',prescribed_sets(id,position,target_text,target_reps,target_kg,target_pct,target_vel,target_eff'+(VL_READY?',target_vel_loss':'')+'))';
   }
 }
 let PROG_ID_READY=false, PROG_META_READY=false, TEAM_META_READY=false;
@@ -8838,7 +8841,9 @@ async function renderAthlete(selDate){
         // recompute % sets from the stored fields so sessions published before the targetText fix
         // still show their percentage (their saved target_text snapshot had dropped it)
         idx:i+1, targetReps: s.target_reps,
-        targetText: (s.target_pct!=null&&s.target_pct!=='') ? targetText({reps:s.target_reps, pct:s.target_pct, kg:s.target_kg}, 'percentage') : (s.target_text||''),
+        // VBT is rebuilt the same way: open-rep VBT sets used to be saved as "—", hiding the speed
+        targetText: (s.target_pct!=null&&s.target_pct!=='') ? targetText({reps:s.target_reps, pct:s.target_pct, kg:s.target_kg}, 'percentage')
+          : (ex.load_type==='vbt' ? targetText({reps:s.target_reps, kg:s.target_kg, vel:s.target_vel, loss:s.target_vel_loss}, 'vbt') : (s.target_text||'')),
         reps: lg && lg.actual_reps!=null ? lg.actual_reps : (s.target_reps!=null?s.target_reps:''),
         kg:   lg && lg.actual_kg!=null ? lg.actual_kg : (s.target_kg!=null?s.target_kg:''),
         lights: lg && lg.lights!=null ? lg.lights : 3,
@@ -10427,8 +10432,9 @@ window.doStamp=async function(id){
             const st={reps:s.reps,pct:s.pct,kg,vel:s.vel,eff:s.eff};
             const row={ gym_id:me_.gym_id, exercise_id:ne.id, position:si,
               target_reps:s.reps!=null?s.reps:null, target_pct:s.pct!=null?s.pct:null, target_kg:st.kg,
-              target_text:targetText({reps:s.reps==null?'':s.reps,pct:s.pct==null?'':s.pct,kg:st.kg==null?'':st.kg,vel:s.vel==null?'':s.vel,eff:s.eff==null?'':s.eff}, ex.load_type||'percentage') };
-            if(LT_READY){ row.target_vel=s.vel!=null?s.vel:null; row.target_eff=s.eff!=null?s.eff:null; } return row; });
+              target_text:targetText({reps:s.reps==null?'':s.reps,pct:s.pct==null?'':s.pct,kg:st.kg==null?'':st.kg,vel:s.vel==null?'':s.vel,eff:s.eff==null?'':s.eff,loss:s.loss==null?'':s.loss}, ex.load_type||'percentage') };
+            if(LT_READY){ row.target_vel=s.vel!=null?s.vel:null; row.target_eff=s.eff!=null?s.eff:null; }
+            if(VL_READY){ row.target_vel_loss=s.loss!=null&&s.loss!==''?+s.loss:null; } return row; });
           if(rows.length){ const { error: re } = await sb.from('prescribed_sets').insert(rows); if(re) throw re; }
         }
         totalSessions++;
@@ -10483,7 +10489,7 @@ window.openProgramBuilder=async function(id, gotoWk, fromView){
       wk:d.wk||0, dow:d.dow||0, title:d.title||'',
       exercises:(d.exercises||[]).map(ex=>{
         const o={ name:ex.name||'', category:ex.category||'primary', load_type:ex.load_type||'percentage', cues:ex.cues||null, coach_note:ex.coach_note||'',
-          sets:(ex.sets||[]).map(s=>({ reps:s.reps==null?'':s.reps, pct:s.pct==null?'':s.pct, vel:s.vel==null?'':s.vel, eff:s.eff==null?'':s.eff, kg:s.kg==null?'':s.kg })) };
+          sets:(ex.sets||[]).map(s=>({ reps:s.reps==null?'':s.reps, pct:s.pct==null?'':s.pct, vel:s.vel==null?'':s.vel, eff:s.eff==null?'':s.eff, kg:s.kg==null?'':s.kg, loss:s.loss==null?'':s.loss })) };
         // the builder has no UI for these two, but it must not EAT them: a template saved back off
         // the calendar carries the coach's base override + supersets, and rebuilding the exercise
         // field-by-field silently stripped both the moment the template was opened and re-saved.
@@ -10624,7 +10630,8 @@ function pbSetHtml(s,di,xi,si,lt){
   const reps=`<input class="pb-sn" type="number" min="0" value="${s.reps==null?'':s.reps}" placeholder="reps" oninput="${b}.reps=this.value"><span class="pb-u">reps</span>`;
   let val='';
   if(lt==='percentage') val=`<span class="pb-x">@</span><input class="pb-sn" type="number" step="0.5" value="${s.pct==null?'':s.pct}" placeholder="%" oninput="${b}.pct=this.value"><span class="pb-u">%</span>`;
-  else if(lt==='vbt') val=`<span class="pb-x">@≥</span><input class="pb-sn" type="number" step="0.01" value="${s.vel==null?'':s.vel}" placeholder="m/s" oninput="${b}.vel=this.value"><span class="pb-u">m/s</span>`;
+  else if(lt==='vbt') val=`<span class="pb-x">@≥</span><input class="pb-sn" type="number" step="0.01" value="${s.vel==null?'':s.vel}" placeholder="m/s" oninput="${b}.vel=this.value"><span class="pb-u">m/s</span>`
+    +`<span class="pb-x">cut</span><input class="pb-sn" value="${s.loss==null||s.loss===''?'':s.loss+'%'}" placeholder="% or m/s" title="Velocity-loss cutoff: type 10% or the cutoff speed (.72)" onchange="const L=vlParseCut(this.value, ${b}.vel); if(L===null){ toast('Cutoff: type a % (10%) or a speed below the start speed'); this.value=${b}.loss?${b}.loss+'%':''; } else { ${b}.loss=L; this.value=L===''?'':L+'%'; }">`;
   else if(lt==='weight') val=`<span class="pb-x">×</span><input class="pb-sn" type="number" step="0.5" value="${s.kg==null?'':s.kg}" placeholder="kg" oninput="${b}.kg=this.value"><span class="pb-u">kg</span>`;
   else if(lt==='rpe') val=`<span class="pb-x">@RPE</span><input class="pb-sn" type="number" step="0.5" value="${s.eff==null?'':s.eff}" placeholder="" oninput="${b}.eff=this.value">`;
   else if(lt==='rir') val=`<span class="pb-x">@</span><input class="pb-sn" type="number" step="1" value="${s.eff==null?'':s.eff}" placeholder="" oninput="${b}.eff=this.value"><span class="pb-u">RIR</span>`;
@@ -10696,7 +10703,7 @@ window.pbSave=async function(){
     exercises:(d.exercises||[]).filter(ex=>(ex.name||'').trim()).map(ex=>{
       const o={ name:ex.name.trim(), category:ex.category||'primary', load_type:ex.load_type||'percentage',
         cues:ex.cues||null, coach_note:(ex.coach_note||'').trim()||null,
-        sets:(ex.sets||[]).map(s=>({ reps:pbNum(s.reps), pct:pbNum(s.pct), vel:pbNum(s.vel), eff:pbNum(s.eff), kg:pbNum(s.kg) })) };
+        sets:(ex.sets||[]).map(s=>({ reps:pbNum(s.reps), pct:pbNum(s.pct), vel:pbNum(s.vel), eff:pbNum(s.eff), kg:pbNum(s.kg), loss:pbNum(s.loss) })) };
       if(ex.base_override) o.base_override=ex.base_override;      // pass-through, see openProgramBuilder
       if(ex.superset_group!=null) o.superset_group=ex.superset_group;
       return o; })
@@ -10720,7 +10727,7 @@ let pvState=null; // {id, prog, view:'month'|'week'|'day', wk, dayKey}
 function ltLabel(v){ const m=PB_LT.find(x=>x[0]===v); return m?m[1]:(v||'%1RM'); }
 function pgSetText(s, lt){
   lt=lt||'percentage'; const has=(x)=>x!=null&&x!==''; const r=has(s.reps)?s.reps:'?';
-  if(lt==='vbt')    return r+(has(s.vel)?' @ ≥'+s.vel+' m/s':' · VBT');
+  if(lt==='vbt')    return (has(s.reps)?s.reps:'open')+(has(s.vel)?' @ ≥'+s.vel+' m/s':' · VBT')+(has(s.loss)?' · cut −'+s.loss+'%':'');
   if(lt==='weight') return r+(has(s.kg)?' × '+s.kg+'kg':' reps');
   if(lt==='rpe')    return r+(has(s.eff)?' @ RPE '+s.eff:' reps');
   if(lt==='rir')    return r+(has(s.eff)?' @ '+s.eff+' RIR':' reps');
@@ -13018,7 +13025,8 @@ function cwTplBuild(sessions, maxes){
         pct:  t.target_pct ==null?null:+t.target_pct,
         vel:  t.target_vel ==null?null:+t.target_vel,
         eff:  t.target_eff ==null?null:+t.target_eff,
-        kg:   t.target_kg  ==null?null:+t.target_kg }));
+        kg:   t.target_kg  ==null?null:+t.target_kg,
+        loss: t.target_vel_loss==null?null:+t.target_vel_loss }));
       if(!sets.length) return;
       if(lt==='vbt'||lt==='rpe'||lt==='rir'||lt==='open'){
         const n=sets.filter(t=>t.kg!=null).length;                       // carried, but say so
@@ -13063,7 +13071,7 @@ function cwTplSetsLbl(e){
   const s=e.sets||[]; if(!s.length) return '—';
   const t=e.load_type||'percentage';
   const one=(x)=>{ const r=x.reps==null?'':x.reps;
-    if(t==='vbt')  return r+(x.vel!=null?' @ ≥'+x.vel+' m/s':' · VBT');
+    if(t==='vbt')  return (r===''?'open':r)+(x.vel!=null?' @ ≥'+x.vel+' m/s':' · VBT')+(x.loss!=null?' · cut −'+x.loss+'%':'');
     if(t==='rpe')  return r+(x.eff!=null?' @ RPE '+x.eff:'');
     if(t==='rir')  return r+(x.eff!=null?' @ '+x.eff+' RIR':'');
     if(t==='open') return r+' open';
@@ -15209,7 +15217,8 @@ async function renderCoachDay(){
         pct:ps.target_pct!=null?parseFloat(ps.target_pct):'',
         kg:ps.target_kg!=null?parseFloat(ps.target_kg):'',
         vel:ps.target_vel!=null?parseFloat(ps.target_vel):'',
-        eff:ps.target_eff!=null?parseFloat(ps.target_eff):'' })),
+        eff:ps.target_eff!=null?parseFloat(ps.target_eff):'',
+        loss:ps.target_vel_loss!=null?parseFloat(ps.target_vel_loss):'' })),
       delSets:[]
     })), delExs:[] };
   if(cw && cw._teamEditCtx && cw._teamEditCtx.repSessId===ed.session.id) ed._teamEdit=cw._teamEditCtx;
@@ -15395,6 +15404,7 @@ async function cloneSessionTo(full, targetDate){
       gym_id: me_.gym_id, exercise_id: ne.id, position: si,
       target_reps: ps.target_reps, target_pct: ps.target_pct, target_kg: ps.target_kg, target_text: ps.target_text };
       if(LT_READY){ row.target_vel=ps.target_vel!=null?ps.target_vel:null; row.target_eff=ps.target_eff!=null?ps.target_eff:null; }
+      if(VL_READY){ row.target_vel_loss=ps.target_vel_loss!=null?ps.target_vel_loss:null; }
       return row; });
     if(rows.length){ const { error: re } = await sb.from('prescribed_sets').insert(rows); if(re) throw re; }
   }
@@ -15430,6 +15440,7 @@ async function writeExercisesInto(targetSessionId, sourceFull, reprice){
       gym_id: me_.gym_id, exercise_id: ne.id, position: si,
       target_reps: ps.target_reps, target_pct: ps.target_pct, target_kg: ps.target_kg, target_text: ps.target_text };
       if(LT_READY){ row.target_vel=ps.target_vel!=null?ps.target_vel:null; row.target_eff=ps.target_eff!=null?ps.target_eff:null; }
+      if(VL_READY){ row.target_vel_loss=ps.target_vel_loss!=null?ps.target_vel_loss:null; }
       if(reprice && lt==='percentage' && ps.target_pct!=null){
         const pct=parseFloat(ps.target_pct), kg=base!=null?rnd1(base*pct/100):null;
         if(base==null) reprice.missing.add(ex.name);
@@ -15604,7 +15615,7 @@ function actualsSummary(logs, type){
 const LOAD_TYPES=[['percentage','Percentage'],['vbt','VBT'],['weight','Weight'],['rpe','RPE'],['rir','RIR'],['open','Open Set']];
 function tgtColHead(type){ return type==='vbt'?'≥ M/S':type==='rpe'?'RPE':type==='rir'?'RIR':type==='percentage'?'%1RM':'·'; }
 function tgtValOf(st,type){ return type==='percentage'?st.pct : type==='vbt'?st.vel : (type==='rpe'||type==='rir')?st.eff : ''; }
-function sameSetVals(a,b){ const k=v=>(v==null?'':String(v)); return k(a.reps)===k(b.reps) && k(a.pct)===k(b.pct) && k(a.kg)===k(b.kg) && k(a.vel)===k(b.vel) && k(a.eff)===k(b.eff); }
+function sameSetVals(a,b){ const k=v=>(v==null?'':String(v)); return k(a.reps)===k(b.reps) && k(a.pct)===k(b.pct) && k(a.kg)===k(b.kg) && k(a.vel)===k(b.vel) && k(a.eff)===k(b.eff) && k(a.loss)===k(b.loss); }
 function cueChipsHtml(ex,ei){
   const chips=(ex.cues||[]).map((c,ci)=>{ const ix=c.indexOf('|'); const cat=ix>-1?c.slice(0,ix):''; const val=ix>-1?c.slice(ix+1):c;
     return `<span class="cuechip">${cat?`${esc(cat)} `:''}<b>${esc(val)}</b><i class="cue-x" data-ci="${ci}">×</i></span>`; }).join('');
@@ -15715,7 +15726,7 @@ function copySchemeTo(fromEi, toEi){
   if(!ed) return; const src=ed.exercises[fromEi], dst=ed.exercises[toEi]; if(!src||!dst) return;
   dst.delSets=dst.delSets||[];
   dst.sets.forEach(st=>{ if(st.id) dst.delSets.push(st.id); });   // the target's old prescribed rows get deleted on save
-  dst.sets = src.sets.map(st=>({ id:null, reps:st.reps, pct:st.pct, kg:st.kg, vel:st.vel, eff:st.eff }));
+  dst.sets = src.sets.map(st=>({ id:null, reps:st.reps, pct:st.pct, kg:st.kg, vel:st.vel, eff:st.eff, loss:st.loss }));
   dst.loadType = src.loadType||'percentage';   // migrate the load type too so the scheme shows exactly as authored
   ed.dirty=true; paintEditor();
   toast('Copied '+(src.name?('“'+src.name+'”'):'scheme')+' → '+(dst.name?('“'+dst.name+'”'):'exercise'));
@@ -15745,12 +15756,13 @@ function paintEditor(){
         <td class="setn"><input class="cell setcount" data-f="count" value="${g.count}" inputmode="numeric" title="number of sets"></td>
         <td><input class="cell" data-f="reps" value="${esc(st.reps)}" inputmode="numeric"></td>
         <td>${showTgt?`<input class="cell" data-f="tgt" value="${esc(tgtValOf(st,type))}" inputmode="decimal" ${tgtDis}>`:'<span class="tgt">—</span>'}</td>
+        ${type==='vbt'?`<td class="vl-td"><input class="cell" data-f="cut" value="${st.loss===''||st.loss==null?'':esc(st.loss)+'%'}" placeholder="—" title="Velocity-loss cutoff — type 10% or the cutoff speed (.72)">${st.loss!==''&&st.loss!=null&&vlCutSpeed(st.vel,st.loss)?`<span class="vl-hint">≈${vlCutSpeed(st.vel,st.loss)} m/s</span>`:''}</td>`:''}
         <td>${type==='open'?'<span class="tgt">—</span>':`<input class="cell" data-f="kg" value="${esc(st.kg)}" inputmode="decimal">`}</td>
         ${actuals}
         <td><span class="lg-del" data-rmrow="1" title="Remove these set(s)">✕</span></td></tr>`;
     }).join('');
     const addedRows = ed.logs.filter(l=>!l.prescribed_set_id && l.exercise_id===ex.id)
-      .map((l,j)=>`<tr class="addedr"><td class="setn">+${j+1}</td><td colspan="3"><span class="addedtag">added by athlete</span></td>${actualCells(l, type)}<td></td></tr>`).join('');
+      .map((l,j)=>`<tr class="addedr"><td class="setn">+${j+1}</td><td colspan="${type==='vbt'?4:3}"><span class="addedtag">added by athlete</span></td>${actualCells(l, type)}<td></td></tr>`).join('');
     const ltSel=`<span class="lt-wrap"><label>Load type</label><select class="cw-sel lt-sel">${LOAD_TYPES.map(t=>`<option value="${t[0]}"${type===t[0]?' selected':''}>${t[1]}</option>`).join('')}</select></span>`;
     const ssR = SS_READY ? ssInRun(ei) : null;                 // the superset run this exercise belongs to (or null)
     const ssLinkedAbove = !!(ssR && ei>ssR.s);                 // joined to the exercise above
@@ -15774,9 +15786,9 @@ function paintEditor(){
       ${(()=>{ const v=cw.vbt&&cw.vbt[normEx(ex.name)]; if(!v) return '';
         const same=v.date===s.session_date;
         return `<div class="cvx-vbt ${v.metric}"><span class="vk">⚡ OVR</span><span>${same?'this session':'last '+fmtShort(v.date)}: top set <b>${v.metric==='peak'?'peak':'avg'} ${v.vel.toFixed(2)} m/s</b> @ ${v.topLoad}kg${v.est?` · <span class="ve">est 1RM ~${v.est}kg</span>`:''}</span></div>`; })()}
-      <div class="logwrap"><table class="logtable cvt"><colgroup><col class="c-set"><col class="c-pn"><col class="c-pn"><col class="c-pn"><col class="c-an"><col class="c-an">${type==='vbt'?'<col class="c-an">':''}<col class="c-an"><col class="c-le"><col class="c-rm"></colgroup><thead>
-        <tr class="bandrow"><th></th><th colspan="3" class="plh">program numbers (planned)</th><th colspan="${actCols(type)}" class="ach">athlete numbers (actual)</th><th></th></tr>
-        <tr><th>Sets</th><th>Reps</th><th>${tgtColHead(type)}</th><th>Load kg</th><th class="ach">Reps</th><th class="ach">Weight</th>${type==='vbt'?'<th class="ach">Peak m/s</th>':''}<th class="ach">Miss</th><th class="ach le">Lights · Effort</th><th></th></tr>
+      <div class="logwrap"><table class="logtable cvt"><colgroup><col class="c-set"><col class="c-pn"><col class="c-pn">${type==='vbt'?'<col class="c-pn">':''}<col class="c-pn"><col class="c-an"><col class="c-an">${type==='vbt'?'<col class="c-an">':''}<col class="c-an"><col class="c-le"><col class="c-rm"></colgroup><thead>
+        <tr class="bandrow"><th></th><th colspan="${type==='vbt'?4:3}" class="plh">program numbers (planned)</th><th colspan="${actCols(type)}" class="ach">athlete numbers (actual)</th><th></th></tr>
+        <tr><th>Sets</th><th>Reps</th><th>${tgtColHead(type)}</th>${type==='vbt'?'<th title="Stop the set when a rep is this % slower than the fastest rep">Cutoff</th>':''}<th>Load kg</th><th class="ach">Reps</th><th class="ach">Weight</th>${type==='vbt'?'<th class="ach">Peak m/s</th>':''}<th class="ach">Miss</th><th class="ach le">Lights · Effort</th><th></th></tr>
       </thead><tbody>${rows}${addedRows}</tbody></table></div>
       <div class="addrow" data-addrow="1"><span class="plus">＋</span> add a set row — type it in</div>
       <div class="cue-row"><span class="cuelbl">Coaching<br>notes</span>${LT_READY?cueChipsHtml(ex,ei):''}</div>
@@ -15943,7 +15955,7 @@ function wireEditor(){
       const tl=cvx.querySelector('.cv-tiles'); if(tl) tl.outerHTML=exTiles(ex);
       scheduleDraftSave(); return; }
     if(t.dataset.f==='note'){ ex.note=t.value; ed.dirty=true; scheduleDraftSave(); return; }
-    if(t.dataset.f==='count') return; // handled on 'change' (structural)
+    if(t.dataset.f==='count'||t.dataset.f==='cut') return; // handled on 'change'
     const tr=t.closest('tr[data-si]'); if(!tr) return;
     const si=+tr.dataset.si, cnt=+(tr.dataset.count||1);
     const groupSets=ex.sets.slice(si, si+cnt); if(!groupSets.length) return;
@@ -15954,7 +15966,8 @@ function wireEditor(){
       if(type==='percentage'){ const kg=(orm && t.value!=='')?rnd1(orm*parseFloat(t.value)/100):null;
         groupSets.forEach(st=>{ st.pct=t.value; if(kg!=null) st.kg=kg; });
         if(kg!=null){ const k=tr.querySelector('[data-f="kg"]'); if(k) k.value=kg; } }
-      else if(type==='vbt'){ groupSets.forEach(st=>st.vel=t.value); }
+      else if(type==='vbt'){ groupSets.forEach(st=>st.vel=t.value);
+        const hn=tr.querySelector('.vl-hint'); if(hn){ const sp=vlCutSpeed(t.value, groupSets[0].loss); hn.textContent=sp?'≈'+sp+' m/s':''; } }   // (shown once a cutoff is set)
       else if(type==='rpe'||type==='rir'){ groupSets.forEach(st=>st.eff=t.value); }
     }
     if(t.dataset.f==='kg'){ groupSets.forEach(st=>st.kg=t.value);
@@ -15974,12 +15987,22 @@ function wireEditor(){
       if(want===cur){ paintEditor(); return; }
       const tmpl=ex.sets[si];
       if(want>cur){ const add=want-cur; const at=si+cur;
-        for(let k=0;k<add;k++) ex.sets.splice(at+k, 0, {id:null, reps:tmpl.reps, pct:tmpl.pct, kg:tmpl.kg, vel:tmpl.vel, eff:tmpl.eff}); }
+        for(let k=0;k<add;k++) ex.sets.splice(at+k, 0, {id:null, reps:tmpl.reps, pct:tmpl.pct, kg:tmpl.kg, vel:tmpl.vel, eff:tmpl.eff, loss:tmpl.loss}); }
       else { const drop=cur-want;
         for(let k=0;k<drop;k++){ const idx=si+cur-1-k; const st=ex.sets[idx]; if(st&&st.id) ex.delSets.push(st.id); }
         ex.sets.splice(si+want, drop); }
       ed.dirty=true; paintEditor();
       const st2=document.getElementById('edTiles'); if(st2) st2.innerHTML=sessionTiles(); paintRollup();
+      return;
+    }
+    if(t.dataset && t.dataset.f==='cut'){
+      const cvx=t.closest('.cvx'); const ex=ed.exercises[+cvx.dataset.ei]; if(!ex) return;
+      const tr=t.closest('tr[data-si]'); const si=+tr.dataset.si, cnt=+(tr.dataset.count||1);
+      const groupSets=ex.sets.slice(si, si+cnt); if(!groupSets.length) return;
+      const L=vlParseCut(t.value, groupSets[0].vel);
+      if(L===null){ toast(groupSets[0].vel===''||groupSets[0].vel==null ? 'Set the start speed first — or type the cutoff as a % (10%)' : 'Cutoff: type a % (10%) or a speed below the start speed'); paintEditor(); return; }
+      groupSets.forEach(st=>st.loss=L);
+      ed.dirty=true; paintEditor(); scheduleDraftSave();
       return;
     }
     const sel=t.closest('.lt-sel'); if(!sel) return;
@@ -16457,6 +16480,7 @@ async function cvCopyDay(targetDate){
           target_kg: st.kg===''?null:parseFloat(st.kg),
           target_text: targetText(st, ex.loadType) };
           if(LT_READY){ row.target_vel=st.vel===''||st.vel==null?null:parseFloat(st.vel); row.target_eff=st.eff===''||st.eff==null?null:parseFloat(st.eff); }
+          if(VL_READY){ row.target_vel_loss=st.loss===''||st.loss==null?null:parseFloat(st.loss); }
           return row; });
       if(rows.length){ const { error: re } = await sb.from('prescribed_sets').insert(rows); if(re) throw re; }
     }
@@ -16516,6 +16540,21 @@ async function deleteSession(){
   ed=null;
   renderCoachPanel();
 }
+// VBT velocity-loss cutoff (migration 64). Stored as a % drop from the athlete's FASTEST rep of the
+// set; the speed it implies at the start target is shown as a guide (0.80 start, 10% → ≈0.72).
+// Coach can type either: "10%" / "10" (a %), or ".72" (a speed → converted against the start speed).
+// Returns a number (the %), '' to clear, or null when it can't be worked out.
+function vlParseCut(raw, start){
+  const s=String(raw==null?'':raw).trim(); if(!s) return '';
+  const n=parseFloat(s.replace('%','').replace(/^-/,'')); if(isNaN(n)||n<=0) return null;
+  let pct;
+  if(/%/.test(s) || n>1.5) pct=n;                                  // a % (no one runs a 1.5 m/s cutoff)
+  else { const v0=parseFloat(start); if(!(v0>0) || n>=v0) return null; pct=(v0-n)/v0*100; }
+  pct=Math.round(pct*10)/10; return (pct>0&&pct<100)?pct:null;
+}
+function vlCutSpeed(start, loss){ const v0=parseFloat(start), L=parseFloat(loss); return (v0>0&&L>0)?(v0*(1-L/100)).toFixed(2):null; }
+function vlCutText(start, loss){ const L=parseFloat(loss); if(!(L>0)) return ''; const sp=vlCutSpeed(start, L);
+  return `stop when a rep is ${L}% slower than your fastest${sp?` (≈${sp} m/s)`:''}`; }
 function targetText(st, type){
   const r=st.reps===''||st.reps==null?null:parseInt(st.reps,10);
   const p=st.pct===''||st.pct==null?null:parseFloat(st.pct);
@@ -16523,7 +16562,12 @@ function targetText(st, type){
   const v=st.vel===''||st.vel==null?null:parseFloat(st.vel);
   const e=st.eff===''||st.eff==null?null:parseFloat(st.eff);
   type=type||'percentage';
-  if(type==='vbt'){ if(r!=null&&v!=null) return `${r} @ ≥${v.toFixed(2)} m/s${k!=null?` (${k}kg)`:''}`; if(r!=null) return `${r} reps · VBT`; return '—'; }
+  if(type==='vbt'){
+    const L=st.loss===''||st.loss==null?null:parseFloat(st.loss);
+    if(v==null && L==null){ if(r!=null) return `${r} reps · VBT`; return k!=null?`open reps · ${k}kg`:'open reps · VBT'; }
+    let s=(r!=null?`${r}`:'open reps')+(v!=null?` @ ≥${v.toFixed(2)} m/s`:'')+(k!=null?` (${k}kg)`:'');
+    if(L!=null) s+=' · '+vlCutText(v, L);
+    return s; }
   if(type==='rpe'){ if(r!=null&&e!=null) return `${r} @ RPE ${e}`; if(r!=null) return `${r} reps`; return '—'; }
   if(type==='rir'){ if(r!=null&&e!=null) return `${r} @ ${e} RIR`; if(r!=null) return `${r} reps`; return '—'; }
   if(type==='open'){ return r!=null?`${r} reps · open`:'open set'; }
@@ -16602,6 +16646,7 @@ async function _saveEditorNow(publishAfter, opts, ed){   // `ed` = the day being
           target_kg: st.kg===''?null:parseFloat(st.kg),
           target_text: targetText(st, ex.loadType) };
         if(LT_READY){ payload.target_vel = st.vel===''||st.vel==null?null:parseFloat(st.vel); payload.target_eff = st.eff===''||st.eff==null?null:parseFloat(st.eff); }
+        if(VL_READY){ payload.target_vel_loss = st.loss===''||st.loss==null?null:parseFloat(st.loss); }
         if(st.id){ const r=await sb.from('prescribed_sets').update(payload).eq('id', st.id).select(); if(r.error) throw r.error; }
         else { const r=await sb.from('prescribed_sets').insert(payload).select().single(); if(r.error) throw r.error; st.id=r.data.id;
           if(!ex.sets.includes(st)){ ex.delSets.push(st.id); ed.dirty=true; } }   // row removed while we were inserting it
