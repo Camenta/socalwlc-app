@@ -1784,6 +1784,27 @@
   .cvt td.vl-td{white-space:nowrap}
   .logtable tr.tickonly td.tgt{font-weight:700;white-space:normal}
   .logtable td.tick-hint{color:var(--muted);font-size:12px;font-style:italic;text-align:right}
+  .logtable tr.iv-work td.tgt{color:var(--accent)}
+  .logtable tr.iv-rest td{opacity:.75}
+  .logtable tr.iv-rest td.tgt{font-weight:600;color:var(--muted)}
+  .logtable td.iv-lbl{font-size:11px;font-weight:800;white-space:nowrap;color:var(--muted)}
+  .iv-tag{display:inline-block;margin-left:5px;font-size:9.5px;font-weight:800;letter-spacing:.5px;padding:2px 5px;border-radius:4px;vertical-align:middle}
+  .iv-tag.work{background:rgba(232,100,60,.16);color:var(--accent)}
+  .iv-tag.rest{background:rgba(139,154,168,.16);color:var(--muted)}
+  .iv-box{max-width:460px}
+  .iv-box h2{margin:0 0 2px;font-size:18px}
+  .iv-sub{font-size:12.5px;color:var(--muted);margin-bottom:14px}
+  .iv-grid{display:grid;grid-template-columns:70px 1fr;gap:10px 12px;align-items:center}
+  .iv-grid label{font-size:10.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:0}
+  .iv-grid>div{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .iv-in{background:#0e151c;border:1px solid var(--line);border-radius:8px;color:var(--text);font:inherit;font-weight:700;font-size:13.5px;padding:7px 9px;width:76px;text-align:center}
+  .iv-at{color:var(--muted);font-weight:700}
+  .iv-u{font-size:11.5px;font-weight:700;color:var(--muted)}
+  .iv-note{font-size:11.5px;color:var(--muted);margin-top:12px}
+  .iv-acts{display:flex;justify-content:flex-end;gap:10px;margin-top:14px}
+  .iv-acts button{border:none;border-radius:8px;font-weight:800;font-size:13px;padding:9px 16px;cursor:pointer}
+  .iv-go{background:var(--accent);color:#fff}
+  .iv-cancel{background:#0e151c;color:var(--muted);border:1px solid var(--line)!important}
   .cvt th select.ms-sel{background:#0e151c;border:1px solid rgba(60,158,232,.45);border-radius:7px;color:var(--accent2);font:inherit;font-size:10.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;padding:3px 4px;max-width:96px}
   .cvt input.ms-c1{width:74px}
   .lt-wrap input.ms-olbl{background:#0e151c;border:1px solid var(--line);border-radius:8px;color:var(--text);font:inherit;font-size:12.5px;font-weight:700;padding:6px 8px;width:130px;margin-left:6px}
@@ -4755,8 +4776,8 @@ window.cmpSetBIdx=async(i)=>{ if(!cmpS||!cmpS._pick[i]) return; const p=cmpS._pi
   if(!cmpS._raf) cmpTick(); };
 function rowHtml(key,i){
   const st=logState[key];
-  if(st.tickOnly) return `<tr data-set="${key}" class="tickonly">
-    <td>${i+1}</td>
+  if(st.tickOnly) return `<tr data-set="${key}" class="tickonly${st.phase==='rest'?' iv-rest':st.phase==='work'?' iv-work':''}">
+    <td${st.phaseLbl?' class="iv-lbl"':''}>${st.phaseLbl||(i+1)}</td>
     <td class="tgt">${esc(st.targetText||'')}</td>
     <td colspan="6" class="tick-hint">tick it off when it's done →</td>
     <td><input type="checkbox" class="chk" data-f="done" ${st.done?'checked':''}></td>
@@ -4894,7 +4915,7 @@ function wireLogging(){
     const del=e.target.closest('.lg-del'); if(del){ removeSetRow(id); return; }
   });
 }
-let LT_READY=false, OVR_READY=false, SS_READY=false, VL_READY=false, MS_READY=false;   // MS_READY = measures beyond reps (migration 65)   // VL_READY = prescribed_sets.target_vel_loss (migration 64)   // SS_READY = prescribed_exercises.superset_group (migration 42)
+let LT_READY=false, OVR_READY=false, SS_READY=false, VL_READY=false, MS_READY=false, PH_READY=false;   // MS_READY = measures beyond reps (65) · PH_READY = interval work/rest phase (66)   // VL_READY = prescribed_sets.target_vel_loss (migration 64)   // SS_READY = prescribed_exercises.superset_group (migration 42)
 let SESSION_SELECT='id,gym_id,title,session_date,status,prescribed_exercises(id,name,position,category,coach_note,prescribed_sets(id,position,target_text,target_reps,target_kg,target_pct))';
 async function probeLoadTypes(){
   const { error } = await sb.from('prescribed_exercises').select('load_type').limit(1);
@@ -4905,7 +4926,8 @@ async function probeLoadTypes(){
     const vl = await sb.from('prescribed_sets').select('target_vel_loss').limit(1); VL_READY = !vl.error;
     const ms = await sb.from('prescribed_sets').select('target_amount,target_reps_max,target_num').limit(1);
     const me = await sb.from('prescribed_exercises').select('measure,other_label').limit(1); MS_READY = !ms.error && !me.error;
-    SESSION_SELECT='id,gym_id,title,session_date,status,prescribed_exercises(id,name,position,category,coach_note,load_type,cues'+(OVR_READY?',base_override':'')+(SS_READY?',superset_group':'')+(MS_READY?',measure,other_label':'')+',prescribed_sets(id,position,target_text,target_reps,target_kg,target_pct,target_vel,target_eff'+(VL_READY?',target_vel_loss':'')+(MS_READY?',target_amount,target_reps_max,target_num':'')+'))';
+    const ph = await sb.from('prescribed_sets').select('target_phase').limit(1); PH_READY = !ph.error;
+    SESSION_SELECT='id,gym_id,title,session_date,status,prescribed_exercises(id,name,position,category,coach_note,load_type,cues'+(OVR_READY?',base_override':'')+(SS_READY?',superset_group':'')+(MS_READY?',measure,other_label':'')+',prescribed_sets(id,position,target_text,target_reps,target_kg,target_pct,target_vel,target_eff'+(VL_READY?',target_vel_loss':'')+(MS_READY?',target_amount,target_reps_max,target_num':'')+(PH_READY?',target_phase':'')+'))';
   }
 }
 let PROG_ID_READY=false, PROG_META_READY=false, TEAM_META_READY=false;
@@ -8848,19 +8870,21 @@ async function renderAthlete(selDate){
     if(_run && exIdx===_run.s) body += `<div class="av-ss"><div class="av-ss-hd">⛓ Superset — do these back-to-back, alternating</div>`;
     const sets = (ex.prescribed_sets||[]).slice().sort(sortByPos);
     const isAcc = exIsAcc(ex), cat = isAcc?'accessory':'main';   // main = snatch/clean/jerk/squat/pull (auto by name, coach can override)
-    const setIds=[]; let rows='';
+    const setIds=[]; let rows=''; let ivRound=0;
     sets.forEach((s,i)=>{
       const lg = logBySet[s.id];
+      if(s.target_phase==='work') ivRound++;
       logState[s.id] = {
         // recompute % sets from the stored fields so sessions published before the targetText fix
         // still show their percentage (their saved target_text snapshot had dropped it)
         idx:i+1, targetReps: s.target_reps,
         // VBT is rebuilt the same way: open-rep VBT sets used to be saved as "—", hiding the speed
         targetText: msTickOnly(ex.measure, ex.load_type)||ex.measure==='range'||ex.load_type==='none'
-            ? targetText({reps:s.target_reps, rmax:s.target_reps_max, amt:s.target_amount, num:s.target_num, kg:s.target_kg, eff:s.target_eff, pct:s.target_pct, vel:s.target_vel}, ex.load_type||'percentage', {measure:ex.measure, other:ex.other_label})
+            ? targetText({reps:s.target_reps, rmax:s.target_reps_max, amt:s.target_amount, num:s.target_num, kg:s.target_kg, eff:s.target_eff, pct:s.target_pct, vel:s.target_vel, phase:s.target_phase}, ex.load_type||'percentage', {measure:ex.measure, other:ex.other_label})
           : (s.target_pct!=null&&s.target_pct!=='') ? targetText({reps:s.target_reps, pct:s.target_pct, kg:s.target_kg}, 'percentage')
           : (ex.load_type==='vbt' ? targetText({reps:s.target_reps, kg:s.target_kg, vel:s.target_vel, loss:s.target_vel_loss}, 'vbt') : (s.target_text||'')),
         tickOnly: msTickOnly(ex.measure, ex.load_type),
+        phase: s.target_phase||null, phaseLbl: s.target_phase==='work'?'Round '+ivRound:(s.target_phase==='rest'?'↳':null),
         reps: lg && lg.actual_reps!=null ? lg.actual_reps : (s.target_reps!=null?s.target_reps:''),
         kg:   lg && lg.actual_kg!=null ? lg.actual_kg : (s.target_kg!=null?s.target_kg:''),
         lights: lg && lg.lights!=null ? lg.lights : (msTickOnly(ex.measure, ex.load_type)?null:3),   // no "good lift" lights on a hold / conditioning piece
@@ -10450,10 +10474,11 @@ window.doStamp=async function(id){
             const st={reps:s.reps,pct:s.pct,kg,vel:s.vel,eff:s.eff};
             const row={ gym_id:me_.gym_id, exercise_id:ne.id, position:si,
               target_reps:s.reps!=null?s.reps:null, target_pct:s.pct!=null?s.pct:null, target_kg:st.kg,
-              target_text:targetText({reps:s.reps==null?'':s.reps,pct:s.pct==null?'':s.pct,kg:st.kg==null?'':st.kg,vel:s.vel==null?'':s.vel,eff:s.eff==null?'':s.eff,loss:s.loss==null?'':s.loss,amt:s.amt==null?'':s.amt,rmax:s.rmax==null?'':s.rmax,num:s.num==null?'':s.num}, ex.load_type||'percentage', {measure:ex.measure, other:ex.other_label}) };
+              target_text:targetText({reps:s.reps==null?'':s.reps,pct:s.pct==null?'':s.pct,kg:st.kg==null?'':st.kg,vel:s.vel==null?'':s.vel,eff:s.eff==null?'':s.eff,loss:s.loss==null?'':s.loss,amt:s.amt==null?'':s.amt,rmax:s.rmax==null?'':s.rmax,num:s.num==null?'':s.num,phase:s.phase||''}, ex.load_type||'percentage', {measure:ex.measure, other:ex.other_label}) };
             if(LT_READY){ row.target_vel=s.vel!=null?s.vel:null; row.target_eff=s.eff!=null?s.eff:null; }
             if(VL_READY){ row.target_vel_loss=s.loss!=null&&s.loss!==''?+s.loss:null; }
-            if(MS_READY){ row.target_amount=s.amt!=null&&s.amt!==''?+s.amt:null; row.target_reps_max=s.rmax!=null&&s.rmax!==''?+s.rmax:null; row.target_num=s.num!=null&&s.num!==''?+s.num:null; } return row; });
+            if(MS_READY){ row.target_amount=s.amt!=null&&s.amt!==''?+s.amt:null; row.target_reps_max=s.rmax!=null&&s.rmax!==''?+s.rmax:null; row.target_num=s.num!=null&&s.num!==''?+s.num:null; }
+            if(PH_READY){ row.target_phase=s.phase||null; } return row; });
           if(rows.length){ const { error: re } = await sb.from('prescribed_sets').insert(rows); if(re) throw re; }
         }
         totalSessions++;
@@ -10511,7 +10536,7 @@ window.openProgramBuilder=async function(id, gotoWk, fromView){
         const o={ name:ex.name||'', category:ex.category||'primary', load_type:ex.load_type||'percentage', cues:ex.cues||null, coach_note:ex.coach_note||'',
           measure:ex.measure||'reps', other_label:ex.other_label||'',
           sets:(ex.sets||[]).map(s=>({ reps:s.reps==null?'':s.reps, pct:s.pct==null?'':s.pct, vel:s.vel==null?'':s.vel, eff:s.eff==null?'':s.eff, kg:s.kg==null?'':s.kg, loss:s.loss==null?'':s.loss,
-            amt:s.amt==null?'':(ex.measure==='time'?msDurInput(s.amt):s.amt), rmax:s.rmax==null?'':s.rmax, num:s.num==null?'':(ex.load_type==='pace'?msDurInput(s.num):s.num) })) };
+            amt:s.amt==null?'':(ex.measure==='time'?msDurInput(s.amt):s.amt), rmax:s.rmax==null?'':s.rmax, num:s.num==null?'':(ex.load_type==='pace'?msDurInput(s.num):s.num), phase:s.phase||'' })) };
         // the builder has no UI for these two, but it must not EAT them: a template saved back off
         // the calendar carries the coach's base override + supersets, and rebuilding the exercise
         // field-by-field silently stripped both the moment the template was opened and re-saved.
@@ -10664,7 +10689,8 @@ function pbSetHtml(s,di,xi,si,lt,msr){
   else if(lt==='rir') val=`<span class="pb-x">@</span><input class="pb-sn" type="number" step="1" value="${s.eff==null?'':s.eff}" placeholder="" oninput="${b}.eff=this.value"><span class="pb-u">RIR</span>`;
   else if(lt==='none') val=`<span class="pb-x">@</span><input class="pb-sn" type="number" step="0.5" value="${s.kg==null?'':s.kg}" placeholder="kg" oninput="${b}.kg=this.value"><span class="pb-u">kg</span>`;
   else if(msIsNum(lt)) val=`<span class="pb-x">@</span><input class="pb-sn" ${lt==='pace'?'':'type="number"'} value="${s.num==null?'':s.num}" placeholder="${lt==='pace'?'1:55':''}" oninput="${b}.num=this.value"><span class="pb-u">${lt==='other'?'':MS_NUM_TYPES[lt]}</span>`;
-  return `<span class="pb-set">${reps}${val}<button class="pb-delset" title="Remove set" onclick="pbDelSet(${di},${xi},${si})">✕</button></span>`;
+  const ph=s.phase?`<span class="iv-tag ${s.phase}">${s.phase==='work'?'WORK':'rest'}</span>`:'';
+  return `<span class="pb-set">${ph}${reps}${val}<button class="pb-delset" title="Remove set" onclick="pbDelSet(${di},${xi},${si})">✕</button></span>`;
 }
 window.pbSetWk=(i)=>{ pbState.wk=i; renderProgramBuilder(); };
 const PB_MAX_WEEKS=26;
@@ -10733,7 +10759,7 @@ window.pbSave=async function(){
       const o={ name:ex.name.trim(), category:ex.category||'primary', load_type:ex.load_type||'percentage',
         cues:ex.cues||null, coach_note:(ex.coach_note||'').trim()||null,
         sets:(ex.sets||[]).map(s=>({ reps:pbNum(s.reps), pct:pbNum(s.pct), vel:pbNum(s.vel), eff:pbNum(s.eff), kg:pbNum(s.kg), loss:pbNum(s.loss),
-          amt:ex.measure==='time'?msParseDur(s.amt):pbNum(s.amt), rmax:pbNum(s.rmax), num:ex.load_type==='pace'?msParseDur(s.num):pbNum(s.num) })) };
+          amt:ex.measure==='time'?msParseDur(s.amt):pbNum(s.amt), rmax:pbNum(s.rmax), num:ex.load_type==='pace'?msParseDur(s.num):pbNum(s.num), phase:s.phase||null })) };
       if(ex.measure&&ex.measure!=='reps') o.measure=ex.measure;
       if(ex.load_type==='other'&&(ex.other_label||'').trim()) o.other_label=ex.other_label.trim();
       if(ex.base_override) o.base_override=ex.base_override;      // pass-through, see openProgramBuilder
@@ -13062,7 +13088,8 @@ function cwTplBuild(sessions, maxes){
         loss: t.target_vel_loss==null?null:+t.target_vel_loss,
         amt:  t.target_amount==null?null:+t.target_amount,
         rmax: t.target_reps_max==null?null:+t.target_reps_max,
-        num:  t.target_num==null?null:+t.target_num }));
+        num:  t.target_num==null?null:+t.target_num,
+        phase: t.target_phase||null }));
       if(!sets.length) return;
       if(lt==='vbt'||lt==='rpe'||lt==='rir'||lt==='open'||lt==='none'||msIsNum(lt)||(ex.measure&&ex.measure!=='reps'&&ex.measure!=='range')){
         const n=sets.filter(t=>t.kg!=null).length;                       // carried, but say so
@@ -15261,7 +15288,8 @@ async function renderCoachDay(){
         loss:ps.target_vel_loss!=null?parseFloat(ps.target_vel_loss):'',
         amt:ps.target_amount!=null?parseFloat(ps.target_amount):'',
         rmax:ps.target_reps_max!=null?ps.target_reps_max:'',
-        num:ps.target_num==null?'':(ex.load_type==='pace'?msDurInput(ps.target_num):parseFloat(ps.target_num)) })),
+        num:ps.target_num==null?'':(ex.load_type==='pace'?msDurInput(ps.target_num):parseFloat(ps.target_num)),
+        phase:ps.target_phase||'' })),
       delSets:[]
     })), delExs:[] };
   if(cw && cw._teamEditCtx && cw._teamEditCtx.repSessId===ed.session.id) ed._teamEdit=cw._teamEditCtx;
@@ -15384,7 +15412,7 @@ function cvLastWkHtml(prev, prevDate){
   const body=exs.map(ex=>{
     const lt=ex.load_type||'percentage';
     const sets=(ex.prescribed_sets||[]).slice().sort(sortByPos)
-      .map(ps=>pgSetText({reps:ps.target_reps, pct:ps.target_pct, kg:ps.target_kg, vel:ps.target_vel, eff:ps.target_eff, amt:ps.target_amount, rmax:ps.target_reps_max, num:ps.target_num}, lt, {measure:ex.measure, other:ex.other_label}));
+      .map(ps=>pgSetText({reps:ps.target_reps, pct:ps.target_pct, kg:ps.target_kg, vel:ps.target_vel, eff:ps.target_eff, amt:ps.target_amount, rmax:ps.target_reps_max, num:ps.target_num, phase:ps.target_phase}, lt, {measure:ex.measure, other:ex.other_label}));
     return `<div class="cvlw-ex"><b>${esc(ex.name||'—')}</b><div class="cvlw-sets">${esc(sets.join(' · '))||'no sets'}</div></div>`;
   }).join('');
   return `<div class="cvlw">
@@ -15471,6 +15499,7 @@ async function writeExercisesInto(targetSessionId, sourceFull, reprice){
       if(LT_READY){ row.target_vel=ps.target_vel!=null?ps.target_vel:null; row.target_eff=ps.target_eff!=null?ps.target_eff:null; }
       if(VL_READY){ row.target_vel_loss=ps.target_vel_loss!=null?ps.target_vel_loss:null; }
       if(MS_READY){ row.target_amount=ps.target_amount!=null?ps.target_amount:null; row.target_reps_max=ps.target_reps_max!=null?ps.target_reps_max:null; row.target_num=ps.target_num!=null?ps.target_num:null; }
+      if(PH_READY){ row.target_phase=ps.target_phase||null; }
       if(reprice && lt==='percentage' && ps.target_pct!=null){
         const pct=parseFloat(ps.target_pct), kg=base!=null?rnd1(base*pct/100):null;
         if(base==null) reprice.missing.add(ex.name);
@@ -15647,7 +15676,7 @@ const LOAD_TYPES=[['percentage','Percentage'],['vbt','VBT'],['weight','Weight'],
 function tgtColHead(type, ex){ if(msIsNum(type)) return type==='other'?((ex&&ex.otherLabel)||'Other'):type==='hr'?'HR bpm':type==='pace'?'Pace /500m':type==='dist'?'Feet':type==='cal'?'Cal':type==='watts'?'Watts':'RPM';
   return type==='vbt'?'≥ M/S':type==='rpe'?(ex&&ex.measure&&ex.measure!=='reps'&&ex.measure!=='range'?'Effort /10':'RPE'):type==='rir'?'RIR':type==='percentage'?'%1RM':'·'; }
 function tgtValOf(st,type){ return type==='percentage'?st.pct : type==='vbt'?st.vel : (type==='rpe'||type==='rir')?st.eff : msIsNum(type)?(st.num==null?'':st.num) : ''; }
-function sameSetVals(a,b){ const k=v=>(v==null?'':String(v)); return k(a.reps)===k(b.reps) && k(a.pct)===k(b.pct) && k(a.kg)===k(b.kg) && k(a.vel)===k(b.vel) && k(a.eff)===k(b.eff) && k(a.loss)===k(b.loss) && k(a.amt)===k(b.amt) && k(a.rmax)===k(b.rmax) && k(a.num)===k(b.num); }
+function sameSetVals(a,b){ const k=v=>(v==null?'':String(v)); return k(a.reps)===k(b.reps) && k(a.pct)===k(b.pct) && k(a.kg)===k(b.kg) && k(a.vel)===k(b.vel) && k(a.eff)===k(b.eff) && k(a.loss)===k(b.loss) && k(a.amt)===k(b.amt) && k(a.rmax)===k(b.rmax) && k(a.num)===k(b.num) && k(a.phase)===k(b.phase); }
 function cueChipsHtml(ex,ei){
   const chips=(ex.cues||[]).map((c,ci)=>{ const ix=c.indexOf('|'); const cat=ix>-1?c.slice(0,ix):''; const val=ix>-1?c.slice(ix+1):c;
     return `<span class="cuechip">${cat?`${esc(cat)} `:''}<b>${esc(val)}</b><i class="cue-x" data-ci="${ci}">×</i></span>`; }).join('');
@@ -15754,11 +15783,54 @@ window.ssToggleLink=(ei)=>{ if(!ed||ei<1) return; const above=ed.exercises[ei-1]
   else { let g=above.ssGroup; if(g==null){ g=ssNextGroup(); above.ssGroup=g; } cur.ssGroup=g; }
   ssCleanup(); ed.dirty=true; paintEditor(); };
 function ssCleanup(){ const runG=new Set(ssRuns(ed.exercises).map(r=>r.g)); ed.exercises.forEach(x=>{ if(x.ssGroup!=null && !runG.has(x.ssGroup)) x.ssGroup=null; }); }   // drop groups that no longer form a run of ≥2
+/* ---- ⏱ Intervals (migration 66): rounds of WORK + rest written as alternating set rows. Rows stay
+   ordinary sets (time in target_amount), so they copy/stamp/template like anything else; target_phase
+   just labels each one so the athlete sees Round 1 · WORK 0:30 · rest 1:30 · Round 2 … ---- */
+function ivTgtKey(type){ return type==='percentage'?'pct':type==='vbt'?'vel':(type==='rpe'||type==='rir')?'eff':msIsNum(type)?'num':(type==='weight'||type==='none')?'kg':null; }
+function ivOpen(ei){
+  const ex=ed&&ed.exercises[ei]; if(!ex) return;
+  const type=ex.loadType||'percentage', key=ivTgtKey(type);
+  const w=ex.sets.find(s=>s.phase==='work'), r=ex.sets.find(s=>s.phase==='rest');
+  const rounds=ex.sets.filter(s=>s.phase==='work').length||6;
+  const lbl=key==='kg'?'kg':tgtColHead(type, Object.assign({}, ex, {measure:'time'}));
+  const tv=(s)=>s&&key?esc(key==='num'&&type==='pace'?String(s.num):String(s[key]==null?'':s[key])):'';
+  const tgt=(id,s)=>key?`<span class="iv-at">@</span><input class="iv-in" id="${id}" value="${tv(s)}" placeholder="${type==='pace'?'1:55':''}"><span class="iv-u">${esc(lbl)}</span>`:'';
+  ovModal('intervalModal', `<div class="iv-box">
+    <span class="vid-x" onclick="document.getElementById('intervalModal').style.display='none'">✕</span>
+    <h2>⏱ Intervals</h2>
+    <div class="iv-sub">${esc(ex.name||'Exercise')} · the athlete sees the rounds alternating — WORK, rest, WORK, rest… ${key?'':'<br>Pick a Load type first if you want a target (Effort, Watts, Heart rate…).'}</div>
+    <div class="iv-grid">
+      <label>Rounds</label><div><input class="iv-in" id="ivRounds" value="${rounds}" inputmode="numeric"></div>
+      <label>Work</label><div><input class="iv-in" id="ivWork" value="${w&&w.amt!==''?esc(msDurInput(w.amt)):'0:30'}" placeholder="0:30">${tgt('ivWorkT',w)}</div>
+      <label>Rest</label><div><input class="iv-in" id="ivRest" value="${r&&r.amt!==''?esc(msDurInput(r.amt)):(w?'':'1:30')}" placeholder="none">${tgt('ivRestT',r)}</div>
+    </div>
+    <div class="iv-note">Rest is optional — leave it blank for back-to-back work. No rest is added after the last round. This replaces the exercise's current rows.</div>
+    <div class="iv-acts"><button class="iv-cancel" onclick="document.getElementById('intervalModal').style.display='none'">Cancel</button>
+      <button class="iv-go" onclick="ivApply(${ei})">Add to exercise</button></div>
+  </div>`);
+}
+window.ivApply=(ei)=>{
+  const ex=ed&&ed.exercises[ei]; if(!ex) return;
+  const val=id=>((document.getElementById(id)||{}).value||'').trim();
+  const rounds=parseInt(val('ivRounds'),10), work=msParseDur(val('ivWork')), rest=val('ivRest')?msParseDur(val('ivRest')):0;
+  if(!(rounds>=1&&rounds<=50)){ toast('Rounds: 1 to 50'); return; }
+  if(!(work>0)){ toast('Work: type seconds (30) or minutes:seconds (1:30)'); return; }
+  if(rest==null||rest<0){ toast('Rest: type seconds or minutes:seconds — or leave it blank'); return; }
+  const key=ivTgtKey(ex.loadType||'percentage');
+  const mk=(amt,phase,t)=>{ const s={id:null,reps:'',pct:'',kg:'',vel:'',eff:'',loss:'',amt,rmax:'',num:'',phase}; if(key&&t!=='') s[key]=t; return s; };
+  const rows=[];
+  for(let i=0;i<rounds;i++){ rows.push(mk(work,'work',val('ivWorkT'))); if(rest>0 && i<rounds-1) rows.push(mk(rest,'rest',val('ivRestT'))); }
+  ex.sets.forEach(st=>{ if(st.id) ex.delSets.push(st.id); });
+  ex.sets=rows; ex.measure='time'; ed.dirty=true;
+  document.getElementById('intervalModal').style.display='none';
+  paintEditor(); paintRollup(); scheduleDraftSave();
+  toast(`⏱ ${rounds} round${rounds===1?'':'s'} · ${msFmtDur(work)} work${rest>0?' / '+msFmtDur(rest)+' rest':''}`);
+};
 function copySchemeTo(fromEi, toEi){
   if(!ed) return; const src=ed.exercises[fromEi], dst=ed.exercises[toEi]; if(!src||!dst) return;
   dst.delSets=dst.delSets||[];
   dst.sets.forEach(st=>{ if(st.id) dst.delSets.push(st.id); });   // the target's old prescribed rows get deleted on save
-  dst.sets = src.sets.map(st=>({ id:null, reps:st.reps, pct:st.pct, kg:st.kg, vel:st.vel, eff:st.eff, loss:st.loss, amt:st.amt, rmax:st.rmax, num:st.num }));
+  dst.sets = src.sets.map(st=>({ id:null, reps:st.reps, pct:st.pct, kg:st.kg, vel:st.vel, eff:st.eff, loss:st.loss, amt:st.amt, rmax:st.rmax, num:st.num, phase:st.phase }));
   dst.loadType = src.loadType||'percentage'; dst.measure = src.measure||'reps'; dst.otherLabel = src.otherLabel||'';   // migrate the load type too so the scheme shows exactly as authored
   ed.dirty=true; paintEditor();
   toast('Copied '+(src.name?('“'+src.name+'”'):'scheme')+' → '+(dst.name?('“'+dst.name+'”'):'exercise'));
@@ -15787,7 +15859,7 @@ function paintEditor(){
       const actuals = g.count===1 ? actualCells(st.id?logBySet[st.id]:null, type)
                                   : actualsSummary(g.ids.map(id=>id?logBySet[id]:null), type);
       return `<tr data-ei="${ei}" data-si="${g.si}" data-count="${g.count}" data-ps="${st.id||''}">
-        <td class="setn"><input class="cell setcount" data-f="count" value="${g.count}" inputmode="numeric" title="number of sets"></td>
+        <td class="setn"><input class="cell setcount" data-f="count" value="${g.count}" inputmode="numeric" title="number of sets">${st.phase?`<span class="iv-tag ${st.phase}">${st.phase==='work'?'WORK':'rest'}</span>`:''}</td>
         <td>${msr==='reps'?`<input class="cell" data-f="reps" value="${esc(st.reps)}" inputmode="numeric">`
           :`<input class="cell ms-c1" data-f="c1" value="${esc(msC1Value(st,msr))}" placeholder="${msr==='time'?'0:30':msr==='range'?'8-12':msr==='dist'?'ft':'cal'}">${msr==='time'&&st.amt!==''&&st.amt!=null?`<span class="vl-hint">${esc(msFmtDur(st.amt))}</span>`:''}`}</td>
         <td>${showTgt?`<input class="cell" data-f="tgt" value="${esc(tgtValOf(st,type))}" inputmode="${type==='pace'?'text':'decimal'}" ${type==='pace'?'placeholder="1:55"':''} ${tgtDis}>`:'<span class="tgt">—</span>'}</td>
@@ -15815,6 +15887,7 @@ function paintEditor(){
         ${OVR_READY?`<input class="cvx-ovr" data-f="baseovr" value="${esc(ex.baseOverride||'')}" placeholder="⚖ base" title="Price % off a specific number (e.g. 180) or a named lift (e.g. Snatch DL) instead of the auto 1RM. Blank = auto.">`:''}
         ${LT_READY?ltSel:''}
         <span class="scheme-btn" data-scheme="1">⚡ Set/Rep Scheme</span>
+        ${MS_READY&&PH_READY?`<span class="scheme-btn" data-iv="1" title="Rounds of work + rest — the athlete sees them alternating">⏱ Intervals</span>`:''}
         ${ed.exercises.length>1?`<span class="scheme-btn" data-copysets="1" title="Copy this exercise's set/rep scheme onto another exercise in this session">⧉ Copy scheme to…</span>`:''}
         <span class="rm-ex" data-delex="1" title="Remove exercise">✕ remove</span>
       </div>
@@ -16024,7 +16097,7 @@ function wireEditor(){
       if(want===cur){ paintEditor(); return; }
       const tmpl=ex.sets[si];
       if(want>cur){ const add=want-cur; const at=si+cur;
-        for(let k=0;k<add;k++) ex.sets.splice(at+k, 0, {id:null, reps:tmpl.reps, pct:tmpl.pct, kg:tmpl.kg, vel:tmpl.vel, eff:tmpl.eff, loss:tmpl.loss, amt:tmpl.amt, rmax:tmpl.rmax, num:tmpl.num}); }
+        for(let k=0;k<add;k++) ex.sets.splice(at+k, 0, {id:null, reps:tmpl.reps, pct:tmpl.pct, kg:tmpl.kg, vel:tmpl.vel, eff:tmpl.eff, loss:tmpl.loss, amt:tmpl.amt, rmax:tmpl.rmax, num:tmpl.num, phase:tmpl.phase}); }
       else { const drop=cur-want;
         for(let k=0;k<drop;k++){ const idx=si+cur-1-k; const st=ex.sets[idx]; if(st&&st.id) ex.delSets.push(st.id); }
         ex.sets.splice(si+want, drop); }
@@ -16088,6 +16161,8 @@ function wireEditor(){
     if(ca){ const cvx=ca.closest('.cvx'); openCueModal(+cvx.dataset.ei); return; }
     const sc=e.target.closest('[data-scheme]');
     if(sc){ const cvx=sc.closest('.cvx'); openSchemeModal(+cvx.dataset.ei); return; }
+    const ivb=e.target.closest('[data-iv]');
+    if(ivb){ ivOpen(+ivb.closest('.cvx').dataset.ei); return; }
     const cs=e.target.closest('[data-copysets]');
     if(cs){ const ei=+cs.closest('.cvx').dataset.ei;
       if(document.activeElement && document.activeElement.blur) document.activeElement.blur();   // commit a pending Sets-count edit (which repaints) before anchoring the menu
@@ -16541,6 +16616,7 @@ async function cvCopyDay(targetDate){
           if(LT_READY){ row.target_vel=st.vel===''||st.vel==null?null:parseFloat(st.vel); row.target_eff=st.eff===''||st.eff==null?null:parseFloat(st.eff); }
           if(VL_READY){ row.target_vel_loss=st.loss===''||st.loss==null?null:parseFloat(st.loss); }
           if(MS_READY){ Object.assign(row, msSetCols(st, ex.loadType)); }
+          if(PH_READY){ row.target_phase = st.phase||null; }
           return row; });
       if(rows.length){ const { error: re } = await sb.from('prescribed_sets').insert(rows); if(re) throw re; }
     }
@@ -16662,7 +16738,8 @@ function msTargetText(st, type, meta){
   else if(type==='vbt' && has(st.vel)) c2=` @ ≥${parseFloat(st.vel).toFixed(2)} m/s`;
   else if(type==='percentage' && has(st.pct)) c2=` @ ${st.pct}%`;
   if(k!=null && !msIsNum(type) && type!=='open') c2 += type==='percentage'&&has(st.pct)?` (${k}kg)`:` @ ${k}kg`;
-  return c1+c2; }
+  const ph = st.phase==='work'?'WORK ':st.phase==='rest'?'rest ':'';   // interval rows (migration 66)
+  return ph+c1+c2; }
 function targetText(st, type, meta){
   if((meta&&meta.measure&&meta.measure!=='reps') || msIsNum(type) || type==='none') return msTargetText(st, type||'percentage', meta||{});
   const r=st.reps===''||st.reps==null?null:parseInt(st.reps,10);
@@ -16759,6 +16836,7 @@ async function _saveEditorNow(publishAfter, opts, ed){   // `ed` = the day being
         if(LT_READY){ payload.target_vel = st.vel===''||st.vel==null?null:parseFloat(st.vel); payload.target_eff = st.eff===''||st.eff==null?null:parseFloat(st.eff); }
         if(VL_READY){ payload.target_vel_loss = st.loss===''||st.loss==null?null:parseFloat(st.loss); }
         if(MS_READY){ Object.assign(payload, msSetCols(st, ex.loadType)); }
+        if(PH_READY){ payload.target_phase = st.phase||null; }
         if(st.id){ const r=await sb.from('prescribed_sets').update(payload).eq('id', st.id).select(); if(r.error) throw r.error; }
         else { const r=await sb.from('prescribed_sets').insert(payload).select().single(); if(r.error) throw r.error; st.id=r.data.id;
           if(!ex.sets.includes(st)){ ex.delSets.push(st.id); ed.dirty=true; } }   // row removed while we were inserting it
