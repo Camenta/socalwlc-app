@@ -1535,6 +1535,14 @@
   .pv-setrow{display:flex;gap:12px;font-size:13.5px;padding:6px 0;border-top:1px solid var(--line)}
   .pv-setrow .n{color:var(--muted);font-weight:700;flex:0 0 48px;font-size:11px}
   .pv-note{font-size:12.5px;color:var(--muted);margin-top:9px;font-style:italic;white-space:pre-wrap}.pv-ord{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:20px;padding:0 6px;margin-right:8px;border-radius:6px;background:var(--line);color:var(--muted);font-size:11px;font-weight:800;letter-spacing:.3px}.pv-ex.pv-ss{border-left:3px solid var(--accent)}.pv-ph{display:inline-block;min-width:44px;margin-right:8px;padding:1px 6px;border-radius:5px;font-size:10px;font-weight:800;letter-spacing:.4px;text-align:center}.pv-ph.work{background:var(--accent);color:#fff}.pv-ph.rest{background:var(--line);color:var(--muted)}
+  .exdemo{display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;margin-left:7px;border-radius:50%;background:var(--accent);color:#fff;font-size:8.5px;cursor:pointer;flex:none;line-height:1;vertical-align:middle}
+  .exdemo:hover{filter:brightness(1.18)}
+  .yt-title{font-weight:800;font-size:13.5px;margin:0 0 9px;padding-right:26px}
+  .yt-frame{position:relative;width:100%;padding-top:56.25%;border-radius:8px;overflow:hidden;background:#000}
+  .yt-frame iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:0}
+  .exrow .extool.exvid{color:var(--accent)}
+  .exvid-in{flex:1;min-width:150px;background:#0e151c;border:1px solid var(--line);border-radius:8px;padding:6px 9px;color:var(--text);font-size:12px}
+  .exvid-in:focus{outline:none;border-color:var(--accent2)}
   /* Set/Rep scheme builder modal */
   #schBuildModal .ov-box{max-width:880px;width:95vw}
   .sb-grid-wrap{overflow-x:auto;margin:4px 0 2px}
@@ -8914,7 +8922,7 @@ async function renderAthlete(selDate){
     curExercises.push({name:ex.name, exId:ex.id, setIds, acc:isAcc});
     const isLast = exIdx===exs.length-1;
     body += `<div class="ex">
-      <div class="av-head" onclick="athToggleEx(this)" title="Tap to roll up / expand this exercise"><span class="ex-caret">▾</span><span class="pill ${isAcc?'accessory':'primary'}">${esc(cat)}</span><span class="name">${esc(ex.name)}</span><span class="ex-prog" data-exprog="${ex.id}"></span>${isLast?'':`<button class="ex-next" title="Jump to the next exercise" onclick="event.stopPropagation();athNextEx(this)">next ↓</button>`}</div>
+      <div class="av-head" onclick="athToggleEx(this)" title="Tap to roll up / expand this exercise"><span class="ex-caret">▾</span><span class="pill ${isAcc?'accessory':'primary'}">${esc(cat)}</span><span class="name">${esc(ex.name)}</span>${exDemoBtn(ex.name)}<span class="ex-prog" data-exprog="${ex.id}"></span>${isLast?'':`<button class="ex-next" title="Jump to the next exercise" onclick="event.stopPropagation();athNextEx(this)">next ↓</button>`}</div>
       <div class="ex-body">
       ${(ex.coach_note || (ex.cues&&ex.cues.length)) ? `<div class="av-note av-note-top"><span class="tag">Coach<br>notes</span><span>${(ex.cues&&ex.cues.length)?`<span class="cues" style="margin-bottom:5px;display:inline-flex">${ex.cues.map(c=>{const ix=c.indexOf('|');return `<span class="cuechip">${ix>-1?esc(c.slice(0,ix))+' ':''}<b>${esc(ix>-1?c.slice(ix+1):c)}</b></span>`;}).join('')}</span><br>`:''}${esc(ex.coach_note||'')}</span></div>` : ''}
       <div class="logwrap"><table class="logtable" data-ex="${ex.id}"><thead><tr><th>Set</th><th>Target</th><th>Reps</th><th>Weight</th><th>Miss</th><th>Lights</th><th>Effort</th><th>Video</th><th>Done</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
@@ -10895,7 +10903,7 @@ function pvRenderDay(host){
   const prev=idx>0?allDays[idx-1]:null, next=(idx>-1&&idx<allDays.length-1)?allDays[idx+1]:null;
   const _lbl=pvExLabels(d.exercises||[]);
   const exs=(d.exercises||[]).map((e,ei)=>`<div class="pv-ex${e.superset_group!=null?' pv-ss':''}">
-    <div class="pv-ex-top"><span class="pv-ord">${_lbl[ei]}</span><h4>${esc(e.name)}</h4><span class="pv-lt-badge">${esc(ltLabel(e.load_type))}</span></div>
+    <div class="pv-ex-top"><span class="pv-ord">${_lbl[ei]}</span><h4>${esc(e.name)}</h4>${exDemoBtn(e.name)}<span class="pv-lt-badge">${esc(ltLabel(e.load_type))}</span></div>
     ${(e.sets||[]).map((s,i)=>`<div class="pv-setrow"><span class="n">Set ${i+1}</span><span>${s.phase?`<span class="pv-ph ${esc(s.phase)}">${s.phase==='rest'?'REST':'WORK'}</span>`:''}${esc(pgSetText(s,e.load_type,{measure:e.measure,other:e.other_label}))}</span></div>`).join('')||'<div class="pv-setrow"><span class="n">—</span><span style="color:var(--muted)">no sets</span></div>'}
     ${e.coach_note?`<div class="pv-note">📝 ${esc(e.coach_note)}</div>`:''}
   </div>`).join('')||'<div class="con-empty">No exercises in this day.</div>';
@@ -12000,8 +12008,11 @@ function renderExLibList(){
       return `<div class="exrow">
       <span class="ex-tier tier-${t} ${pinned?'pinned':''}" title="${tierCode(t)} · ${pinned?'Pinned by you — click to cycle, or cycle past '+tierName('ge')+' to go back to automatic':'Classified automatically from the name — click to pin a different tier'}"
         onclick="exCycleTier('${nm}')">${tierName(t)}${pinned?'':'<i>auto</i>'}</span>
-      <span class="exn">${esc(e.name)}</span>${e.grp?`<span class="exg">${esc(e.grp)}</span>`:''}
-      <span class="extools"><span class="extool del" onclick="conDelExercise('${nm}')">✕ remove</span></span>
+      <span class="exn">${esc(e.name)}</span>${exDemoBtn(e.name)}${e.grp?`<span class="exg">${esc(e.grp)}</span>`:''}
+      ${conState.exVid===e.name?`<input class="exvid-in" id="exVidIn" value="${esc(e.video||'')}" placeholder="Paste a YouTube link — watch, youtu.be or shorts" onkeydown="if(event.key==='Enter')exSaveVideo('${nm}',this.value); if(event.key==='Escape'){conState.exVid=null;renderExLibList();}">`:''}
+      <span class="extools">${conState.exVid===e.name
+        ? `<span class="extool" onclick="exSaveVideo('${nm}',(document.getElementById('exVidIn')||{}).value)">save</span><span class="extool del" onclick="conState.exVid=null;renderExLibList()">cancel</span>`
+        : `<span class="extool exvid" onclick="conState.exVid='${nm}';renderExLibList();setTimeout(()=>{const i=document.getElementById('exVidIn'); if(i){i.focus();i.select();}},0)">🎬 ${e.video?'edit clip':'add clip'}</span><span class="extool del" onclick="conDelExercise('${nm}')">✕ remove</span>`}</span>
     </div>`;}).join('')}${shown.length>300?`<div class="note sub" style="padding:8px">…${shown.length-300} more — refine the search</div>`:''}</div>`;
 }
 window.setExTier=(t)=>{ conState.exTier=t; renderExLibList(); };
@@ -12166,6 +12177,55 @@ function coachReadinessCard(rk){
   </div>`;
 }
 function normEx(n){ return (n||'').toLowerCase().replace(/\s+/g,' ').trim(); }
+
+/* ---- YouTube demo clips, stored in exercises.video -----------------------
+   One clip per movement in the exercise library. Every place the app prints an
+   exercise name offers a ▶ that opens the clip in the existing video modal, so
+   the athlete never leaves the session to go find it on YouTube. ----------- */
+let EXVID={};
+function exVidIndex(){ EXVID={}; (EXLIB||[]).forEach(e=>{ if(e && e.video) EXVID[normEx(e.name)]=e.video; }); }
+function ytId(u){
+  if(!u) return null;
+  const t=String(u).trim();
+  const m=t.match(/(?:youtube\.com\/(?:watch\?(?:[^#]*&)?v=|embed\/|shorts\/|live\/|v\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  if(m) return m[1];
+  return /^[A-Za-z0-9_-]{11}$/.test(t) ? t : null;
+}
+function ytStart(u){
+  const m=String(u||'').match(/[?&#]t=(?:(\d+)h)?(?:(\d+)m)?(\d+)s?/) || String(u||'').match(/[?&#]start=(\d+)/);
+  if(!m) return 0;
+  if(m.length===2) return parseInt(m[1],10)||0;
+  return (parseInt(m[1]||0,10)*3600)+(parseInt(m[2]||0,10)*60)+(parseInt(m[3]||0,10));
+}
+function exVideoFor(name){ return EXVID[normEx(name)]||null; }
+// a ▶ pill, or nothing at all when that movement has no clip saved
+function exDemoBtn(name){
+  if(!exVideoFor(name)) return '';
+  const n=esc(String(name)).replace(/'/g,"\\'");
+  return '<span class="exdemo" title="Watch the demo for '+esc(name)+'" onclick="event.stopPropagation();playDemo(\''+n+'\')">▶</span>';
+}
+window.playDemo=(name)=>{
+  const url=exVideoFor(name);
+  if(!url){ toast('No demo clip saved for that movement yet.'); return; }
+  const id=ytId(url), st=ytStart(url);
+  let m=document.getElementById('vidModal');
+  if(!m){ m=document.createElement('div'); m.id='vidModal'; m.className='vid-modal'; document.body.appendChild(m); }
+  const body = id
+    ? `<div class="yt-frame"><iframe src="https://www.youtube.com/embed/${id}?autoplay=1&rel=0&playsinline=1${st?'&start='+st:''}" title="${esc(name)}" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`
+    : `<div class="note sub" style="padding:12px 2px">That saved link is not a YouTube URL — <a href="${esc(url)}" target="_blank" rel="noopener" style="color:var(--accent2)">open it in a new tab ↗</a></div>`;
+  m.innerHTML=`<div class="vid-box"><span class="vid-x" onclick="closeVid()">✕</span><div class="yt-title">${esc(name)}</div>${body}</div>`;
+  m.style.display='flex'; m.onclick=(ev)=>{ if(ev.target===m) closeVid(); };   // closeVid blanks the box, which stops the iframe
+};
+window.exSaveVideo=async(name,url)=>{
+  const row=(EXLIB||[]).find(e=>e.name===name); if(!row) return;
+  const v=(url||'').trim()||null;
+  if(v && !ytId(v)){ toast('That does not look like a YouTube link — paste the watch, youtu.be or shorts URL.'); return; }
+  const prev=row.video||null;
+  row.video=v; conState.exVid=null; exVidIndex(); renderExLibList();
+  const r=await sb.from('exercises').update({video:v}).eq('gym_id',me_.gym_id).eq('name',name);
+  if(r.error){ row.video=prev; exVidIndex(); renderExLibList(); toast('Could not save that clip — '+r.error.message); }
+  else toast(v?'Demo clip saved ✓':'Demo clip removed','good');
+};
 // most-recent-session velocity summary for one exercise (Coach View option A)
 function coachVbtSummary(reps, exName){
   const metric=vbtMetricFor(exName), fld=metric==='peak'?'peak_vel':'mean_vel';
@@ -15701,11 +15761,12 @@ let EXLIB=null;
 let EXTIER_READY=false;                 // exercises.tier (migration 59)
 async function loadExLib(){
   if(EXLIB!==null) return EXLIB;
-  let r=await sb.from('exercises').select('name,grp,cat,tier').order('name');
+  let r=await sb.from('exercises').select('name,grp,cat,tier,video').order('name');
+  if(r.error) r=await sb.from('exercises').select('name,grp,cat,tier').order('name');
   if(r.error){ EXTIER_READY=false; r=await sb.from('exercises').select('name,grp,cat').order('name'); }
   else EXTIER_READY=true;
   EXLIB = r.error ? [] : (r.data||[]);
-  exTierIndex();
+  exTierIndex(); exVidIndex();
   return EXLIB;
 }
 // name -> pinned tier, so exClass() can consult the library without scanning it every call
@@ -15896,7 +15957,7 @@ function paintEditor(){
         </span>
         ${(SS_READY && ei>0)?`<span class="cvx-sslink${ssLinkedAbove?' on':''}" onclick="event.stopPropagation();ssToggleLink(${ei})" title="${ssLinkedAbove?'Supersetted with the exercise above — click to separate':'Link into a superset with the exercise above (the athlete alternates them)'}">⛓${ssLinkedAbove?' superset':' link ↑'}</span>`:''}
         <span class="pill ${exIsAcc(ex)?'accessory':'primary'} cvx-cat" onclick="event.stopPropagation();cvxToggleCat(${ei})" title="${tierCode(exClassOf(ex))}. ${tierName('ce')}, ${tierName('spe')} and ${tierName('sde')} count toward volume and ARI; ${tierName('ge').toLowerCase()} are tracked apart. Set automatically from the name — click to cycle.">${tierName(exClassOf(ex))} ⇄</span>
-        <input class="cvx-name" data-f="name" value="${esc(ex.name)}" placeholder="Exercise name">
+        <input class="cvx-name" data-f="name" value="${esc(ex.name)}" placeholder="Exercise name">${exDemoBtn(ex.name)}
         <span class="cvx-orm">${(orm&&type==='percentage')?`1RM <b>${orm}</b> · ${esc((bi&&bi.lift)||'maxes')}${bi&&bi.override?' <span style="color:var(--warn)">override</span>':''}`:(type==='percentage'&&cw.maxes?(bi&&bi.missing?'<span class="cv-nolog" style="color:var(--warn)">override “'+esc(bi.lift)+'” has no max</span>':'<span class="cv-nolog">no 1RM link</span>'):'')}</span>
         ${OVR_READY?`<input class="cvx-ovr" data-f="baseovr" value="${esc(ex.baseOverride||'')}" placeholder="⚖ base" title="Price % off a specific number (e.g. 180) or a named lift (e.g. Snatch DL) instead of the auto 1RM. Blank = auto.">`:''}
         ${LT_READY?ltSel:''}
