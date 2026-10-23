@@ -160,7 +160,7 @@
   .ex-collapsed .ex-caret{transform:rotate(-90deg)}
   .ex-collapsed .ex-body{display:none}
   .ex-collapsed .av-head{border-bottom:none}
-  .av-exnote{display:flex;align-items:center;gap:7px;padding:8px 14px 12px}
+  .av-exnote{display:flex;align-items:center;gap:7px;padding:8px 14px 12px;white-space:pre-wrap}
   .av-exnote-ic{font-size:13px;opacity:.7}
   .av-exnote input{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:8px;color:var(--text);font-size:13px;padding:7px 10px}
   .av-exnote input::placeholder{color:var(--muted)}
@@ -404,7 +404,7 @@
   .lg-del{color:var(--muted);cursor:pointer;font-weight:700;opacity:.45;padding:0 4px}
   .lg-del:hover{color:var(--bad);opacity:1}
   .addedtag{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--warn);background:rgba(232,177,60,.13);border-radius:9px;padding:2px 8px}
-  .av-note{display:flex;gap:10px;align-items:flex-start;padding:10px 14px;background:#1c2530;border-top:1px solid var(--line);font-size:12.5px}
+  .av-note{display:flex;gap:10px;align-items:flex-start;padding:10px 14px;background:#1c2530;border-top:1px solid var(--line);font-size:12.5px;white-space:pre-wrap}
   .av-note.av-note-top{border-top:none;border-bottom:1px solid var(--line)}
   .av-note .tag{color:var(--accent2);font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px;white-space:nowrap;padding-top:2px}
   /* morning readiness check-in */
@@ -1501,7 +1501,7 @@
   .pb-x{font-size:11px;color:var(--muted);font-weight:700}
   .pb-delset{background:transparent;border:0;color:var(--bad);cursor:pointer;font-size:12px;padding:0 2px}
   .pb-addset{background:#13202c;border:1px dashed #27425c;color:var(--accent2);font-size:11.5px;font-weight:700;border-radius:8px;padding:5px 11px;cursor:pointer}
-  .pb-note{width:100%;background:#0e151c;border:1px solid var(--line);border-radius:8px;padding:7px 10px;color:var(--text);font-size:12.5px;margin-top:2px}
+  .pb-note{width:100%;background:#0e151c;border:1px solid var(--line);border-radius:8px;padding:7px 10px;color:var(--text);font-size:12.5px;margin-top:2px;font-family:inherit;line-height:1.5;resize:vertical;min-height:56px;white-space:pre-wrap}.cvx-note{font-family:inherit;line-height:1.5;resize:vertical;min-height:56px;white-space:pre-wrap}
   .pb-addex{background:#13202c;border:1px dashed #27425c;color:var(--accent2);font-weight:700;font-size:12.5px;border-radius:8px;padding:8px 13px;cursor:pointer}
   .pb-addday{background:var(--panel2);border:1px dashed var(--line);color:var(--muted);font-weight:700;font-size:13px;border-radius:10px;padding:13px;cursor:pointer;text-align:center}
   .pb-addday:hover{color:var(--accent2);border-color:var(--accent2)}
@@ -1534,7 +1534,7 @@
   .pv-lt-badge{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--accent2);background:#13202c;border-radius:8px;padding:2px 8px}
   .pv-setrow{display:flex;gap:12px;font-size:13.5px;padding:6px 0;border-top:1px solid var(--line)}
   .pv-setrow .n{color:var(--muted);font-weight:700;flex:0 0 48px;font-size:11px}
-  .pv-note{font-size:12.5px;color:var(--muted);margin-top:9px;font-style:italic}
+  .pv-note{font-size:12.5px;color:var(--muted);margin-top:9px;font-style:italic;white-space:pre-wrap}.pv-ord{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:20px;padding:0 6px;margin-right:8px;border-radius:6px;background:var(--line);color:var(--muted);font-size:11px;font-weight:800;letter-spacing:.3px}.pv-ex.pv-ss{border-left:3px solid var(--accent)}.pv-ph{display:inline-block;min-width:44px;margin-right:8px;padding:1px 6px;border-radius:5px;font-size:10px;font-weight:800;letter-spacing:.4px;text-align:center}.pv-ph.work{background:var(--accent);color:#fff}.pv-ph.rest{background:var(--line);color:var(--muted)}
   /* Set/Rep scheme builder modal */
   #schBuildModal .ov-box{max-width:880px;width:95vw}
   .sb-grid-wrap{overflow-x:auto;margin:4px 0 2px}
@@ -1776,8 +1776,8 @@
   .cvx-ovr::placeholder{color:var(--muted);font-weight:600}
   .cvx-note{display:block;width:calc(100% - 26px);margin:9px 13px;background:#0e151c;border:1px solid var(--line);border-radius:8px;padding:8px 11px;color:var(--text);font-size:12.5px}
   .cvx-note:focus{outline:none;border-color:var(--accent2)}
-  .cvx-anote{margin:2px 13px 6px;font-size:12.5px;color:var(--text);background:rgba(60,158,232,.10);border-left:2px solid var(--accent2);border-radius:0 8px 8px 0;padding:7px 11px}
-  .cvx-snote{margin:10px 0 4px;font-size:13.5px;color:var(--text);background:rgba(60,158,232,.10);border-left:3px solid var(--accent2);border-radius:0 8px 8px 0;padding:10px 13px}
+  .cvx-anote{margin:2px 13px 6px;font-size:12.5px;color:var(--text);background:rgba(60,158,232,.10);border-left:2px solid var(--accent2);border-radius:0 8px 8px 0;padding:7px 11px;white-space:pre-wrap}
+  .cvx-snote{margin:10px 0 4px;font-size:13.5px;color:var(--text);background:rgba(60,158,232,.10);border-left:3px solid var(--accent2);border-radius:0 8px 8px 0;padding:10px 13px;white-space:pre-wrap}
   .cvt th.plh{background:rgba(60,158,232,.10);color:var(--accent2);text-align:center}
   .cvt th.ach{background:rgba(232,100,60,.10);color:var(--accent)}
   .cvt td.cva{background:rgba(232,100,60,.05);text-align:center;font-size:12.5px}
@@ -1800,7 +1800,7 @@
   .iv-in{background:#0e151c;border:1px solid var(--line);border-radius:8px;color:var(--text);font:inherit;font-weight:700;font-size:13.5px;padding:7px 9px;width:76px;text-align:center}
   .iv-at{color:var(--muted);font-weight:700}
   .iv-u{font-size:11.5px;font-weight:700;color:var(--muted)}
-  .iv-note{font-size:11.5px;color:var(--muted);margin-top:12px}
+  .iv-note{font-size:11.5px;color:var(--muted);margin-top:12px;white-space:pre-wrap}
   .iv-acts{display:flex;justify-content:flex-end;gap:10px;margin-top:14px}
   .iv-acts button{border:none;border-radius:8px;font-weight:800;font-size:13px;padding:9px 16px;cursor:pointer}
   .iv-go{background:var(--accent);color:#fff}
@@ -1958,7 +1958,7 @@
   .rpt-thr{border-collapse:collapse;margin:8px 0;font-size:12px}
   .rpt-thr th,.rpt-thr td{border:1px solid var(--line);padding:3px 12px;text-align:center;color:var(--muted)}
   .rpt-thr th.on,.rpt-thr td.on{background:rgba(62,201,122,.16);color:var(--good);font-weight:800;border-color:var(--good)}
-  .rpt-note{font-size:11px;color:var(--muted);margin-top:8px}
+  .rpt-note{font-size:11px;color:var(--muted);margin-top:8px;white-space:pre-wrap}
   .rpt-story{font-size:12.5px;margin-top:10px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 11px}
   .rpt-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
   .rpt-tile{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:9px 10px;text-align:center}
@@ -2015,7 +2015,7 @@
   .rptx .tnum{font-variant-numeric:tabular-nums}
   .rptx .rx-accent{color:var(--rx-accent)}
   .rptx .rx-pad{padding:22px 30px}
-  .rptx .rx-note{font-size:11px;color:var(--rx-muted);margin-top:9px;line-height:1.5}
+  .rptx .rx-note{font-size:11px;color:var(--rx-muted);margin-top:9px;line-height:1.5;white-space:pre-wrap}
   .rptx .rx-dim{color:var(--rx-muted2)}
   .rptx .rx-modsub{font-weight:600;font-size:11px;color:var(--rx-muted);letter-spacing:0;text-transform:none}
   .rptx .rx-anrow{border-left:2px solid var(--rx-accent,#3c9ee8);padding:2px 0 2px 11px;margin:0 0 11px}
@@ -2266,7 +2266,7 @@
   .pg-wkp{font-size:10.5px;color:var(--muted)}
   .pg-wk b{font-size:17px}
   .pg-wku{font-size:9.5px;color:var(--muted)}
-  .pg-note{font-size:11px;color:var(--muted);padding:8px 2px 0}
+  .pg-note{font-size:11px;color:var(--muted);padding:8px 2px 0;white-space:pre-wrap}
   .pg-empty{padding:14px 4px;color:var(--muted);font-size:13px}
   @media(max-width:760px){ .pg-tbl{font-size:12px} .pg-tbl td,.pg-tbl th{padding:5px} .pg-kind,.pg-sch{min-width:104px} .pg-in{width:54px} }
   /* the block NAME distinguishes rows that share a kind (Ascension / Ascension I / II) */
@@ -10671,7 +10671,7 @@ function pbExHtml(ex,di,xi){
       <button class="pb-del" title="Remove exercise" onclick="pbDelEx(${di},${xi})">✕</button>
     </div>
     <div class="pb-sets">${(ex.sets||[]).map((s,si)=>pbSetHtml(s,di,xi,si,lt,ex.measure||'reps')).join('')}<button class="pb-addset" onclick="pbAddSet(${di},${xi})">＋ set</button></div>
-    <input class="pb-note" value="${esc(ex.coach_note||'')}" placeholder="Coach note (optional)" oninput="pbState.days[${di}].exercises[${xi}].coach_note=this.value">
+    <textarea class="pb-note" rows="3" placeholder="Coach note (optional) — press Enter for a new line" oninput="pbState.days[${di}].exercises[${xi}].coach_note=this.value;pbAutoGrow(this)" onfocus="pbAutoGrow(this)">${esc(ex.coach_note||'')}</textarea>
   </div>`;
 }
 function pbSetHtml(s,di,xi,si,lt,msr){
@@ -10793,6 +10793,19 @@ function pgSetText(s, lt, meta){
   if(lt==='open')   return (has(s.reps)?s.reps+' reps':'open')+' · open';
   return r+(has(s.pct)?' @ '+s.pct+'%':' reps');
 }
+function pbAutoGrow(el){ if(!el) return; el.style.height='auto'; el.style.height=Math.min(260, Math.max(56, el.scrollHeight+2))+'px'; }
+window.pbAutoGrow=pbAutoGrow;
+function pvExLabels(list){
+  const out=[]; let letter=0, n=0;
+  (list||[]).forEach((e,i)=>{
+    const g=(e.superset_group==null)?null:e.superset_group;
+    if(i>0){ const pg=(list[i-1].superset_group==null)?null:list[i-1].superset_group;
+      if(g==null || g!==pg){ letter++; n=0; } }
+    if(g!=null){ n++; out.push(String.fromCharCode(65+letter)+n); }
+    else { out.push(String.fromCharCode(65+letter)); }
+  });
+  return out;
+}
 function pvDayAt(wk,dow){ return ((pvState.prog.data&&pvState.prog.data.days)||[]).find(d=>d.wk===wk && d.dow===dow); }
 function pvExSummary(d){ return (d.exercises||[]).map(e=>e.name).filter(Boolean).join(', '); }
 window.openProgramView=async function(id){
@@ -10880,9 +10893,10 @@ function pvRenderDay(host){
   if(!d){ host.innerHTML='<div class="con-empty">This program has no training days yet — switch to Month, or ✎ Edit to add some.</div>'; return; }
   const idx=allDays.findIndex(x=>x.wk===wk && x.dow===dow);
   const prev=idx>0?allDays[idx-1]:null, next=(idx>-1&&idx<allDays.length-1)?allDays[idx+1]:null;
-  const exs=(d.exercises||[]).map(e=>`<div class="pv-ex">
-    <div class="pv-ex-top"><h4>${esc(e.name)}</h4><span class="pv-lt-badge">${esc(ltLabel(e.load_type))}</span></div>
-    ${(e.sets||[]).map((s,i)=>`<div class="pv-setrow"><span class="n">Set ${i+1}</span><span>${esc(pgSetText(s,e.load_type,{measure:e.measure,other:e.other_label}))}</span></div>`).join('')||'<div class="pv-setrow"><span class="n">—</span><span style="color:var(--muted)">no sets</span></div>'}
+  const _lbl=pvExLabels(d.exercises||[]);
+  const exs=(d.exercises||[]).map((e,ei)=>`<div class="pv-ex${e.superset_group!=null?' pv-ss':''}">
+    <div class="pv-ex-top"><span class="pv-ord">${_lbl[ei]}</span><h4>${esc(e.name)}</h4><span class="pv-lt-badge">${esc(ltLabel(e.load_type))}</span></div>
+    ${(e.sets||[]).map((s,i)=>`<div class="pv-setrow"><span class="n">Set ${i+1}</span><span>${s.phase?`<span class="pv-ph ${esc(s.phase)}">${s.phase==='rest'?'REST':'WORK'}</span>`:''}${esc(pgSetText(s,e.load_type,{measure:e.measure,other:e.other_label}))}</span></div>`).join('')||'<div class="pv-setrow"><span class="n">—</span><span style="color:var(--muted)">no sets</span></div>'}
     ${e.coach_note?`<div class="pv-note">📝 ${esc(e.coach_note)}</div>`:''}
   </div>`).join('')||'<div class="con-empty">No exercises in this day.</div>';
   host.innerHTML=`
@@ -15900,7 +15914,7 @@ function paintEditor(){
       </thead><tbody>${rows}${addedRows}</tbody></table></div>
       <div class="addrow" data-addrow="1"><span class="plus">＋</span> add a set row — type it in</div>
       <div class="cue-row"><span class="cuelbl">Coaching<br>notes</span>${LT_READY?cueChipsHtml(ex,ei):''}</div>
-      <input class="cvx-note" data-f="note" value="${esc(ex.note)}" placeholder="Note for this exercise — the athlete sees it">
+      <textarea class="cvx-note" data-f="note" rows="3" placeholder="Note for this exercise — the athlete sees it. Press Enter for a new line." oninput="pbAutoGrow(this)" onfocus="pbAutoGrow(this)">${esc(ex.note)}</textarea>
       ${(ANOTES_READY && s.athlete_notes && s.athlete_notes.ex && s.athlete_notes.ex[ex.id] && s.athlete_notes.ex[ex.id].trim())?`<div class="cvx-anote">📝 <b>${esc((cw.ath.full_name||'Athlete').split(' ')[0])}:</b> “${esc(s.athlete_notes.ex[ex.id])}”</div>`:''}
       ${exTiles(ex)}
     </div>`;
