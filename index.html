@@ -1535,6 +1535,25 @@
   .pv-setrow{display:flex;gap:12px;font-size:13.5px;padding:6px 0;border-top:1px solid var(--line)}
   .pv-setrow .n{color:var(--muted);font-weight:700;flex:0 0 48px;font-size:11px}
   .pv-note{font-size:12.5px;color:var(--muted);margin-top:9px;font-style:italic;white-space:pre-wrap}.pv-ord{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:20px;padding:0 6px;margin-right:8px;border-radius:6px;background:var(--line);color:var(--muted);font-size:11px;font-weight:800;letter-spacing:.3px}.pv-ex.pv-ss{border-left:3px solid var(--accent)}.pv-ph{display:inline-block;min-width:44px;margin-right:8px;padding:1px 6px;border-radius:5px;font-size:10px;font-weight:800;letter-spacing:.4px;text-align:center}.pv-ph.work{background:var(--accent);color:#fff}.pv-ph.rest{background:var(--line);color:var(--muted)}
+  .blk-sec{margin:22px 0 7px;font-weight:800;font-size:13.5px;display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+  .blk-sec em{color:var(--muted);font-weight:600;font-size:12px;font-style:normal}
+  .blk-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+  .blk-tab{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:12px}
+  .blk-tab th,.blk-tab td{border-bottom:1px solid var(--line);padding:7px 10px;vertical-align:top;text-align:left;white-space:pre-line;line-height:1.45}
+  .blk-tab tr:last-child th,.blk-tab tr:last-child td{border-bottom:0}
+  .blk-tab thead th{position:sticky;top:0;background:var(--panel2);z-index:2;font-size:10.5px;letter-spacing:.5px;color:var(--muted);font-weight:800;white-space:nowrap}
+  .blk-tab .exc{position:sticky;left:0;background:var(--panel);z-index:1;min-width:200px;max-width:260px;font-weight:700;white-space:normal}
+  .blk-tab thead th.exc{background:var(--panel2);z-index:3}
+  .blk-tab td.wkcell{min-width:100px;font-variant-numeric:tabular-nums}
+  .blk-tab td.wkcell b{font-weight:800}
+  .blk-tab td.wkcell i{display:block;color:var(--muted);font-style:normal;font-size:11px;margin-top:1px}
+  .blk-tab td.gone{color:var(--muted);opacity:.35}
+  .blk-tab tr.ss .exc{border-left:3px solid var(--accent)}
+  .blk-tab tr.ge .exc{font-weight:600;color:var(--muted)}
+  .blk-tab tr.tot td,.blk-tab tr.tot th{background:var(--panel2);font-weight:800}
+  .blk-tab tr.tot .exc{background:var(--panel2)}
+  .blk-wv{display:inline-block;width:8px;height:8px;border-radius:2px;margin-left:6px;vertical-align:middle}
+  .blk-tier{display:inline-block;min-width:30px;padding:0 5px;margin-right:7px;border-radius:5px;font-size:9.5px;font-weight:800;background:var(--line);color:var(--muted);vertical-align:middle}
   .exdemo{display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;margin-left:7px;border-radius:50%;background:var(--accent);color:#fff;font-size:8.5px;cursor:pointer;flex:none;line-height:1;vertical-align:middle}
   .exdemo:hover{filter:brightness(1.18)}
   .yt-title{font-weight:800;font-size:13.5px;margin:0 0 9px;padding-right:26px}
@@ -10853,6 +10872,7 @@ function renderProgramView(){
         <button class="${pvState.view==='month'?'on':''}" onclick="pvSetView('month')">Month</button>
         <button class="${pvState.view==='week'?'on':''}" onclick="pvSetView('week')">Week</button>
         <button class="${pvState.view==='day'?'on':''}" onclick="pvSetView('day')">Day</button>
+        <button class="${pvState.view==='block'?'on':''}" onclick="pvSetView('block')" title="Every exercise across every week, so you can read the progression down a row">Block</button>
       </div>
       ${PROG_META_READY?`<button class="pb-back" onclick="pvArchive()">${p.archived?'↩ Restore':'🗄 Archive'}</button>`:''}
       <button class="pb-back" style="color:var(--bad)" onclick="conDelProgram('${pvState.id}')">🗑 Delete</button>
@@ -10863,6 +10883,7 @@ function renderProgramView(){
   const host=document.getElementById('pvBody');
   if(pvState.view==='month') pvRenderMonth(host);
   else if(pvState.view==='week') pvRenderWeek(host);
+  else if(pvState.view==='block') pvRenderBlock(host);
   else pvRenderDay(host);
 }
 function pvRenderMonth(host){
@@ -10881,6 +10902,125 @@ function pvRenderMonth(host){
   }
   host.innerHTML=`<div class="pv-sub">Each row is a week of the program · click any day to open the full session. When you stamp, week 1 maps to the Monday you choose.</div>
     <div class="pv-cal"><div class="pv-dowh"></div>${PB_DOW.map(n=>`<div class="pv-dowh">${n}</div>`).join('')}${rows}</div>`;
+}
+/* ---- Block view: one row per exercise, one column per week -------------
+   The month and week views answer "what is this day?". This one answers
+   "how does this movement move across the block?" - which is the question
+   you actually ask when you are writing or auditing a progression. ------ */
+function pvRuns(a){                      // 65,65,70,70,70 -> 65x2/70x3
+  const out=[]; let cur=a[0], k=0;
+  a.forEach(v=>{ if(v===cur){k++;} else { out.push(k>1?cur+'×'+k:String(cur)); cur=v; k=1; } });
+  out.push(k>1?cur+'×'+k:String(cur));
+  return out.join('/');
+}
+function pvSetsBrief(e){
+  const sets=(e&&e.sets)||[]; if(!sets.length) return '';
+  const lt=e.load_type||'percentage';
+  if(sets.some(s=>s.phase)){
+    const w=sets.filter(s=>s.phase==='work'), r=sets.filter(s=>s.phase==='rest');
+    return '<b>'+w.length+' rds</b><i>'+((w[0]&&w[0].amt)||'?')+'s on / '+((r[0]&&r[0].amt)||'?')+'s off</i>';
+  }
+  if((e.measure&&e.measure!=='reps') || lt==='none'){
+    const amts=sets.map(s=>s.amt).filter(x=>x!=null);
+    if(!amts.length) return '<b>'+sets.length+' rds</b>';
+    const u=e.measure==='dist'?"'":'s';
+    return '<b>'+sets.length+'×</b><i>'+pvRuns(amts)+u+'</i>';
+  }
+  const reps=sets.map(s=>s.reps);
+  const same=reps.every(r=>r===reps[0]);
+  const head = same ? (sets.length+'×'+(reps[0]==null?'?':reps[0]))
+                    : reps.map(r=>r==null?'?':r).join(',');
+  let load='';
+  if(lt==='rpe'||lt==='rir'){ const v=sets.map(s=>s.eff).filter(x=>x!=null); if(v.length) load=(lt==='rpe'?'RPE ':'')+pvRuns(v)+(lt==='rir'?' RIR':''); }
+  else if(lt==='weight'){ const v=sets.map(s=>s.kg).filter(x=>x!=null); if(v.length) load=pvRuns(v)+'kg'; }
+  else if(lt==='vbt'){ const v=sets.map(s=>s.vel).filter(x=>x!=null); if(v.length) load='≥'+pvRuns(v)+' m/s'; }
+  else { const v=sets.map(s=>s.pct).filter(x=>x!=null); if(v.length) load=pvRuns(v)+'%'; }
+  return '<b>'+esc(head)+'</b>'+(load?'<i>'+esc(load)+'</i>':'');
+}
+// union of exercise names across the weeks of one weekday, keeping programme order
+function pvMergeNames(lists){
+  const order=[];
+  (lists||[]).forEach(list=>{
+    let at=-1;
+    (list||[]).forEach(nm=>{
+      const i=order.indexOf(nm);
+      if(i>-1){ at=i; } else { at=at+1; order.splice(at,0,nm); }
+    });
+  });
+  return order;
+}
+// volume + ARI for one week, on the same convention the rest of the app uses:
+// CE + SPE + SDE count, GE does not; ARI is rep-weighted over the sets that carry a %.
+function pvWeekMetrics(wk){
+  let vol=0, pr=0, pw=0;
+  (((pvState.prog.data&&pvState.prog.data.days)||[])).filter(d=>d.wk===wk).forEach(d=>{
+    (d.exercises||[]).forEach(e=>{
+      if(exClassOf(e)==='ge') return;
+      (e.sets||[]).forEach(s=>{
+        const r=(s.reps==null||s.reps==='')?0:(parseInt(s.reps,10)||0);
+        vol+=r;
+        if(s.pct!=null&&s.pct!==''){ pr+=r; pw+=r*(parseFloat(s.pct)||0); }
+      });
+    });
+  });
+  return { vol, ari: pr?(pw/pr):0, pr };
+}
+function pvRenderBlock(host){
+  const p=pvState.prog, weeks=p.weeks||1;
+  const all=((p.data&&p.data.days)||[]);
+  const wave=Array.isArray(p.wave)?p.wave:null;
+  const wkHead=(extra)=>`<th class="exc">${extra||''}</th>`+Array.from({length:weeks},(_,w)=>{
+      const wv=wave&&wave[w]?WAVE_LV[wave[w]]:null;
+      return `<th>WK ${w+1}${wv?`<span class="blk-wv" style="background:${wv[1]}" title="${esc(wv[0])}"></span>`:''}</th>`;
+    }).join('');
+
+  // ---- block summary -------------------------------------------------
+  const mets=Array.from({length:weeks},(_,w)=>pvWeekMetrics(w));
+  const peakVol=Math.max.apply(null,mets.map(m=>m.vol).concat([1]));
+  const summary=`<div class="blk-sec">Block at a glance <em>primary lifts only — ${esc(tierName('ce'))}, ${esc(tierName('spe'))} and ${esc(tierName('sde'))}. ${esc(tierName('ge'))} sits out of both numbers.</em></div>
+    <div class="blk-wrap"><table class="blk-tab"><thead><tr>${wkHead()}</tr></thead><tbody>
+      <tr><td class="exc">Volume <span class="note sub">reps</span></td>${mets.map(m=>`<td class="wkcell"><b>${m.vol}</b><i>${m.vol===peakVol?'block peak':''}</i></td>`).join('')}</tr>
+      <tr><td class="exc">ARI</td>${mets.map(m=>`<td class="wkcell"><b>${m.ari?m.ari.toFixed(1)+'%':'—'}</b><i>${m.pr?('on '+m.pr+' reps'):'no % prescribed'}</i></td>`).join('')}</tr>
+    </tbody></table></div>`;
+
+  // ---- one table per weekday ----------------------------------------
+  let secs='';
+  for(let dow=0; dow<7; dow++){
+    const byWk=Array.from({length:weeks},(_,w)=>pvDayAt(w,dow));
+    if(!byWk.some(Boolean)) continue;
+    const titles=Array.from(new Set(byWk.filter(Boolean).map(d=>d.title||'Training')));
+    const order=pvMergeNames(byWk.map(d=>(d?(d.exercises||[]).map(e=>e.name):[])));
+    const look=byWk.map(d=>{ const m={}; if(d) (d.exercises||[]).forEach(e=>{ if(!(e.name in m)) m[e.name]=e; }); return m; });
+
+    const rows=order.map(nm=>{
+      const firstEx=look.map(m=>m[nm]).find(Boolean)||{name:nm};
+      const t=exClassOf(firstEx);
+      const ss=look.some(m=>m[nm]&&m[nm].superset_group!=null);
+      const cells=look.map(m=>{
+        const e=m[nm];
+        if(!e) return '<td class="wkcell gone">—</td>';
+        const brief=pvSetsBrief(e);
+        const note=(e.coach_note||'').trim();
+        return `<td class="wkcell"${note?` title="${esc(note.slice(0,400))}"`:''}>${brief||'—'}</td>`;
+      }).join('');
+      return `<tr class="${ss?'ss ':''}${t==='ge'?'ge':''}"><td class="exc"><span class="blk-tier tier-${t}" title="${esc(tierCode(t))}">${esc(tierName(t))}</span>${esc(nm)}${exDemoBtn(nm)}</td>${cells}</tr>`;
+    }).join('');
+
+    const tots=byWk.map(d=>{
+      if(!d) return '<td class="wkcell gone">—</td>';
+      let v=0;
+      (d.exercises||[]).forEach(e=>{ if(exClassOf(e)==='ge') return;
+        (e.sets||[]).forEach(s=>{ v+=((s.reps==null||s.reps==='')?0:(parseInt(s.reps,10)||0)); }); });
+      return `<td class="wkcell"><b>${v}</b></td>`;
+    }).join('');
+
+    secs+=`<div class="blk-sec">${esc(PB_DOW[dow])} <em>${esc(titles.join(' / '))}</em></div>
+      <div class="blk-wrap"><table class="blk-tab"><thead><tr>${wkHead()}</tr></thead>
+      <tbody>${rows}<tr class="tot"><td class="exc">Day volume</td>${tots}</tr></tbody></table></div>`;
+  }
+
+  host.innerHTML=`<div class="pv-sub">Read down a row to see how one movement progresses across the block. Hover any cell for that week’s coaching note. Sets are shown as sets×reps with the loads underneath; repeated loads collapse, so 65×2/70×3 means two sets at 65% then three at 70%.</div>
+    ${summary}${secs||'<div class="con-empty">Nothing programmed yet.</div>'}`;
 }
 function pvRenderWeek(host){
   const p=pvState.prog, weeks=p.weeks||1, w=Math.min(pvState.wk, weeks-1);
