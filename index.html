@@ -956,6 +956,15 @@
   .dnav button{background:none;border:none;color:var(--muted);padding:11px 18px;cursor:pointer;font-size:14px;font-weight:700;border-bottom:2px solid transparent}
   .dnav button.on{color:var(--text);border-bottom-color:var(--accent)}
   /* Program metrics tab (wkm-*) */
+  .srpe-sum{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:13px;color:var(--muted);margin-bottom:10px}
+  .srpe-sum b{color:var(--text)}
+  .srpe-sum i{font-style:normal;font-size:11.5px}
+  .wkm-tbl table.srpe-tbl{min-width:0;width:100%}
+  .srpe-tbl th:nth-child(2){text-align:left}
+  .srpe-tbl td.srpe-d{white-space:nowrap;font-weight:700}
+  .srpe-tbl td.srpe-t{text-align:left;color:var(--muted)}
+  .srpe-tbl tr.srpe-bad td{background:rgba(232,177,60,.07)}
+  .srpe-flag{display:inline-block;margin-left:6px;font-size:11px;font-weight:800;color:var(--warn)}
   .wkm-dnav{overflow-x:auto;scrollbar-width:none}.wkm-dnav::-webkit-scrollbar{display:none}
   .wkm-dnav button{white-space:nowrap;flex-shrink:0}
   @media (max-width:560px){ .wkm-dnav button{padding:11px 10px;font-size:13px} }
@@ -7223,7 +7232,7 @@ function wkmDefaultKey(ranges){
 async function wkmFetch(athId, a, b, coach){
   const exCols='id,name,category'+(LT_READY?',load_type':'')+(OVR_READY?',base_override':'');
   const sR=await wkmPaged(()=>{
-    let q=sb.from('sessions').select('id,session_date,status,prescribed_exercises('+exCols+',prescribed_sets(id,target_reps,target_pct,target_kg))')
+    let q=sb.from('sessions').select('id,session_date,status,title'+(SRPE_READY?',session_minutes,session_rpe':'')+',prescribed_exercises('+exCols+',prescribed_sets(id,target_reps,target_pct,target_kg))')
       .eq('athlete_id', athId).gte('session_date', a).lte('session_date', b);
     if(!coach) q=q.neq('status','draft');              // athletes never see unpublished drafts
     return q.order('session_date',{ascending:true}).order('id',{ascending:true});
@@ -7419,8 +7428,45 @@ function wkmPaint(){
         <thead><tr><th>Week</th><th>Lift Volume</th><th>Lift Load</th><th>AI</th><th>ARI</th><th>RI</th><th>K-Value</th><th>Misses</th><th>Success Rate</th></tr></thead>
         <tbody>${trs}</tbody></table></div>
       <div class="wkm-note"><b>AI</b> = Lift Load ÷ Lift Volume · <b>ARI</b> = rep-weighted %1RM · <b>RI</b> = each set’s % against what’s possible for that many reps · <b>K-Value</b> = AI × 100 ÷ competition total (current maxes${wkmState.ctx.total?' · '+wkmState.ctx.total+' kg':' — none on file'}) · <b>Success Rate</b> = (Lift Volume − Misses) ÷ Lift Volume. Misses always come from what was logged.</div>
-    </div>`;
+    </div>
+    ${wkmSrpeCard()}`;
   wkmWireTip();
+}
+// Session time & rating: every session's minutes × effort, so the coach can spot a bad entry and ask
+// the athlete. The minutes auto-fill from the first logged set → "Done training", so a session finished
+// hours/days later reads as a 20-60 hour session; anything over WKM_SRPE_LONG is flagged.
+const WKM_SRPE_LONG=180;
+function wkmSrpeCard(){
+  if(!SRPE_READY) return '';
+  const rg=wkmState.rg, todayStr=iso(new Date());
+  const ss=(wkmState.sess||[]).filter(s=>s.session_date>=rg.a && s.session_date<=rg.b && s.session_date<=todayStr && s.status!=='draft')
+    .slice().sort((x,y)=>x.session_date<y.session_date?1:x.session_date>y.session_date?-1:0);
+  const num=v=>{ const n=parseFloat(v); return n>0?n:null; };
+  const rated=ss.filter(s=>num(s.session_minutes)&&num(s.session_rpe));
+  const long=ss.filter(s=>num(s.session_minutes)>WKM_SRPE_LONG);
+  const ok=rated.filter(s=>num(s.session_minutes)<=WKM_SRPE_LONG);
+  const avg=(arr,f)=>arr.length?arr.reduce((a,s)=>a+f(s),0)/arr.length:null;
+  const aMin=avg(ok,s=>num(s.session_minutes)), aRpe=avg(rated,s=>num(s.session_rpe));
+  const dash='<span class="wkm-na">—</span>';
+  const fmtMin=m=>m==null?dash:(m>=120?`${Math.floor(m/60)} h ${Math.round(m%60)} min`:`${Math.round(m)} min`);
+  const rows=ss.map(s=>{ const m=num(s.session_minutes), r=num(s.session_rpe), bad=m>WKM_SRPE_LONG;
+    return `<tr class="${bad?'srpe-bad':''}">
+      <td class="srpe-d">${esc(fmtShort(s.session_date))}</td>
+      <td class="srpe-t">${esc(s.title||'Training')}</td>
+      <td>${fmtMin(m)}${bad?'<span class="srpe-flag">⚠ check time</span>':''}</td>
+      <td>${r==null?'<span class="wkm-na">not rated</span>':r+'<span class="wkm-na"> /10</span>'}</td>
+      <td>${m&&r?Math.round(m*r).toLocaleString():dash}</td></tr>`; }).join('');
+  return `<div class="card">
+    <h2 style="margin:0">Session time &amp; rating</h2>
+    <div class="sub" style="margin:2px 0 10px">What ${esc(wkmState.viewName)} entered after each session · sRPE = minutes × effort · ${esc(rg.name)}</div>
+    ${ss.length?`<div class="srpe-sum">
+      <span><b>${rated.length}</b> of ${ss.length} rated</span>
+      <span>avg time <b>${aMin==null?'—':Math.round(aMin)+' min'}</b>${long.length?' <i>(flagged ones left out)</i>':''}</span>
+      <span>avg effort <b>${aRpe==null?'—':aRpe.toFixed(1)}</b></span>
+      ${long.length?`<span class="srpe-flag">⚠ ${long.length} over 3 hours — the timer ran on after training</span>`:''}</div>
+    <div class="wkm-tbl"><table class="srpe-tbl"><thead><tr><th>Date</th><th>Session</th><th>Time</th><th>Effort</th><th>sRPE</th></tr></thead><tbody>${rows}</tbody></table></div>`
+    :`<div class="empty">No sessions in ${esc(rg.name)} up to today.</div>`}
+  </div>`;
 }
 // hover (mouse) or tap (phone) a week's column for its breakdown
 function wkmWireTip(){
@@ -12737,7 +12783,7 @@ function cwWeekRowHtml(off, todayStr){
                       : ((s.session_minutes>0 && s.session_rpe>0)?Math.round(s.session_minutes*s.session_rpe):null);
       const volMain=st.volPri!=null?st.volPri:st.vol;   // day box shows CE+SPE+SDE volume; Bondarchuk breakdown on hover
       const volTitle=(st.volCE!=null)?`${tierName('ce')} ${st.volCE} · ${tierName('spe')} ${st.volSPE} · ${tierName('sde')} ${st.volSDE} · ${tierName('ge')} ${st.volAcc} (not counted) · total ${st.vol} NL`:`${volMain} NL`;
-      const badges=`<div class="cwd-badges">${cwBadge(volMain||'—','main vol',volTitle)}${cwBadge(st.ari?Math.round(st.ari):'—','ari')}${cwBadge(rdy!=null?rdy.toFixed(1):'—','rdy')}${cwBadge(srpe!=null?srpe:'—','sRPE')}</div>`;
+      const badges=`<div class="cwd-badges">${cwBadge(volMain||'—','main vol',volTitle)}${cwBadge(st.ari?Math.round(st.ari):'—','ari')}${cwBadge(rdy!=null?rdy.toFixed(1):'—','rdy')}${cwBadge(srpe!=null?srpe:'—','sRPE', !tm&&srpe!=null?`${s.session_minutes} min × ${s.session_rpe} effort${s.session_minutes>WKM_SRPE_LONG?' — ⚠ over 3 hours, check the time':''}`:(tm?'team average':''))}</div>`;
       let body;
       if(detailed){
         const L='ABCDEFGHIJKLMN';
