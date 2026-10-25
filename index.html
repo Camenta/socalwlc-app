@@ -1923,6 +1923,11 @@
   .rate-adj{display:inline-flex;align-items:center;gap:6px;margin-left:auto;font-size:12px;color:var(--muted)}
   .rate-adj input{width:74px;background:#0e151c;border:1px solid var(--line);border-radius:8px;padding:7px 9px;color:var(--text);font-size:14px;font-weight:700;text-align:center}
   .rate-q{margin:16px 0 8px;font-weight:800;font-size:15px;color:var(--text)}
+  .rate-min-row{display:flex;align-items:center;gap:10px}
+  .rate-min-in{width:120px;font-size:24px;font-weight:800;text-align:center;padding:10px 12px;background:#0e151c;border:1px solid var(--line);border-radius:10px;color:var(--text);font-family:inherit}
+  .rate-min-in:focus{border-color:var(--accent2);outline:none}
+  .rate-min-u{font-size:16px;font-weight:700;color:var(--muted)}
+  .rate-min-hint{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.4}
   .rate-slider{-webkit-appearance:none;appearance:none;width:100%;height:10px;border-radius:6px;background:linear-gradient(90deg,#3ec97a,#e8b13c,#e85c5c);outline:none;margin:2px 0}
   .rate-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:30px;height:30px;border-radius:50%;background:#fff;border:3px solid var(--accent2);cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.5)}
   .rate-slider::-moz-range-thumb{width:30px;height:30px;border-radius:50%;background:#fff;border:3px solid var(--accent2);cursor:pointer}
@@ -9164,14 +9169,21 @@ window.athDoneTraining=async()=>{
   if(ok===false) return;
   athRateModal();
 };
+// Session length is ASKED, not assumed. The timer runs from the first logged set to "Done training", so an
+// athlete who finishes logging hours/days later got a 7-65 h session saved silently (sRPE 3,000-31,000).
+// Pre-fill only a believable timer; otherwise the athlete types it. Over RATE_MAX_MIN is refused.
+const RATE_AUTO_MAX=180, RATE_MAX_MIN=300;
 function athRateModal(){
   const auto=alogElapsedMin(curSession.id);
-  const curMin = (curSession.session_minutes!=null?curSession.session_minutes:(auto!=null?auto:''));
+  const autoOk = auto!=null && auto<=RATE_AUTO_MAX && curSession.session_date===iso(new Date());
+  const saved = curSession.session_minutes!=null && curSession.session_minutes>0 && curSession.session_minutes<=RATE_MAX_MIN ? curSession.session_minutes : null;
+  const curMin = saved!=null ? saved : (autoOk ? auto : '');
   const curRpe = (curSession.session_rpe!=null?curSession.session_rpe:5);
   ovModal('rateModal', `
     <div class="ov-hd"><h2 style="margin:0">Rate your session</h2><span class="vid-x" onclick="document.getElementById('rateModal').style.display='none'">✕</span></div>
-    <div class="rate-time">⏱ <b id="rateMinTxt">${curMin!==''?curMin:'—'}</b> min<span class="sub" style="margin-left:6px">${auto!=null?'auto — from your first logged set':'enter your time'}</span>
-      <span class="rate-adj">adjust <input id="rateMin" type="number" min="0" max="600" inputmode="numeric" value="${curMin}" oninput="athRateSync()"></span></div>
+    <label class="rate-q" for="rateMin" style="display:block;margin-top:6px">How long did you train?</label>
+    <div class="rate-min-row"><input id="rateMin" class="rate-min-in" type="number" min="1" max="${RATE_MAX_MIN}" inputmode="numeric" placeholder="e.g. 90" value="${curMin}" oninput="athRateSync()"><span class="rate-min-u">minutes</span></div>
+    <div class="rate-min-hint" id="rateMinHint">${saved==null&&autoOk?'Filled in from your first logged set — change it if that’s not right.':'Type your total training time in <b>minutes</b> — 1 hour 30 = 90.'}</div>
     <div class="rate-q">How hard was it?</div>
     <input id="rateRpe" class="rate-slider" type="range" min="1" max="10" step="0.5" value="${curRpe}" oninput="athRateSync()">
     <div class="rate-scale"><span>1 · easy</span><span class="rate-rpeval" id="rateRpeVal">${curRpe}</span><span>10 · max</span></div>
@@ -9183,13 +9195,15 @@ window.athRateSync=()=>{
   const r=parseFloat((document.getElementById('rateRpe')||{}).value);
   const m=parseFloat((document.getElementById('rateMin')||{}).value);
   const rv=document.getElementById('rateRpeVal'); if(rv) rv.textContent=isNaN(r)?'—':r;
-  const mt=document.getElementById('rateMinTxt'); if(mt) mt.textContent=(m>0)?m:'—';
+  const hn=document.getElementById('rateMinHint'); if(hn && m>RATE_MAX_MIN){ hn.innerHTML='<span style="color:var(--warn)">That’s over 5 hours — enter <b>minutes</b> (1 hour 30 = 90).</span>'; }
   const l=document.getElementById('rateLoad'); if(l) l.textContent=(m>0&&r>0)?Math.round(m*r):'—';
 };
 window.athFinishSession=async()=>{
   const msg=document.getElementById('rateMsg');
   const m=parseFloat((document.getElementById('rateMin')||{}).value);
   const r=parseFloat((document.getElementById('rateRpe')||{}).value);
+  if(!(m>0)){ if(msg){msg.style.color='var(--warn)';msg.textContent='Enter how long you trained, in minutes.';} const i=document.getElementById('rateMin'); if(i) i.focus(); return; }
+  if(m>RATE_MAX_MIN){ if(msg){msg.style.color='var(--warn)';msg.textContent='That’s over 5 hours — check your time (in minutes).';} const i=document.getElementById('rateMin'); if(i){ i.focus(); i.select&&i.select(); } return; }
   const payload={};
   if(m>0) payload.session_minutes=Math.round(m);
   if(r>0) payload.session_rpe=r;
