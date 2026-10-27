@@ -12743,7 +12743,7 @@ window.cwSchedOpen=()=>{
   const sm=ovModal('schedModal', `<div class="sch-box">
     <span class="vid-x" onclick="cwSchedClose()">✕</span>
     <h2>🗓 ${esc(cw.team.name)} · schedules</h2>
-    <div class="sch-sub">Each athlete gets the team days tagged for their schedule. <b>Own program</b> = team programming never touches them (e.g. rehab). Changes apply to days you create, save or re-tag from now on.</div>
+    <div class="sch-sub">Each athlete gets the team days tagged for their schedule. <b>Own program</b> = team programming never touches them (e.g. rehab). Changing a schedule updates that athlete's <b>upcoming</b> team days right away — days they've logged, or that you changed just for them, are kept.</div>
     <table class="sch-tbl"><tbody>${rows.map(a=>`<tr><td>${esc(a.full_name||'')}</td><td>${seg(a)}</td></tr>`).join('')}</tbody></table>
     <div class="sch-sum">${TEAM_SCHEDS.map(s=>`<b>${c(s)}</b> on ${s}×`).join(' · ')} · <b>${c('own')}</b> on their own program</div>
   </div>`);
@@ -12759,7 +12759,41 @@ window.cwSchedSet=async(athId, s)=>{
   const r=await sb.from('profiles').update({ train_schedule:a.train_schedule }).eq('id', athId).select('id');
   if(r.error || !r.data || !r.data.length){ a.train_schedule=prev; cwSchedOpen(); toast('Couldn’t save — '+((r.error&&r.error.message)||'try again')); return; }
   const g=(coachState.athletes||[]).find(x=>x.id===athId); if(g) g.train_schedule=a.train_schedule;
+  toast('Updating '+((a.full_name||'').split(' ')[0])+'’s upcoming days…');
+  try{ const res=await cwSchedApply(a);
+    const first=(a.full_name||'').split(' ')[0];
+    toast(`${first} → ${schedLbl(s)}: `+(res.removed||res.added ? [res.removed?`removed from ${res.removed} upcoming day${res.removed===1?'':'s'}`:'', res.added?`added to ${res.added}`:''].filter(Boolean).join(' · ') : 'upcoming days already match')
+      +(res.kept?` · ${res.kept} kept (logged or their own version)`:''));
+  }catch(e){ toast('Schedule saved, but updating their days stopped — '+(e.message||e)); }
 };
+// bring ONE athlete's upcoming team days (today onward) in line with their schedule: drop the days their
+// schedule isn't tagged for (unlogged, not their own version), add the ones it now is (their own weights)
+async function cwSchedApply(a){
+  const today=iso(new Date()), sched=schedOf(a);
+  const { data: rows } = await sb.from('sessions').select('id,athlete_id,session_date,status,team_day,team_tags,team_custom')
+    .in('athlete_id', cw.athIds).gte('session_date', today);
+  const byDay={}; (rows||[]).filter(s=>s.team_day).forEach(s=>{ (byDay[s.team_day]=byDay[s.team_day]||[]).push(s); });
+  const mine=(rows||[]).filter(s=>s.athlete_id===a.id && s.team_day);
+  const logged=new Set();
+  if(mine.length){ const { data: lg } = await sb.from('logged_sets').select('session_id').in('session_id', mine.map(s=>s.id)); (lg||[]).forEach(l=>logged.add(l.session_id)); }
+  let removed=0, added=0, kept=0, rp=null;
+  for(const td of Object.keys(byDay)){
+    const g=byDay[td], tags=(g.find(s=>s.team_tags&&s.team_tags.length)||{}).team_tags||null;
+    const have=g.find(s=>s.athlete_id===a.id), want=schedGets(sched, tags);
+    if(have && !want){
+      if(logged.has(have.id) || have.team_custom){ kept++; continue; }
+      const d=await sb.from('sessions').delete().eq('id', have.id); if(!d.error) removed++;
+    } else if(!have && want){
+      const srcRow=g.find(s=>!s.team_custom&&s.athlete_id!==a.id)||g.find(s=>s.athlete_id!==a.id); if(!srcRow) continue;
+      const src=(await sb.from('sessions').select(SESSION_SELECT).eq('id', srcRow.id).single()).data; if(!src) continue;
+      if(!rp){ const { data: mx } = await sb.from('maxes').select('lift,kg').eq('athlete_id', a.id);
+        rp={ maxes:{}, missing:new Set() }; (mx||[]).forEach(m=>{ const v=parseFloat(m.kg); if(!isNaN(v)) rp.maxes[m.lift]=v; }); }
+      await cloneSessionFor(src, srcRow.session_date, a.id, src.status==='published'?'published':'draft', rp, { team_day:td, team_tags:tags });
+      added++;
+    }
+  }
+  return { removed, added, kept };
+}
 /* ----- 🧩 Merge days: pick ANY days of a week, tick ANY exercises, set their order, and build one new team
    day for the chosen schedules (e.g. a 3× Day 2 from pieces of Days 2-5). Each athlete gets it priced off
    their own maxes; it then opens as a normal team day to trim. ----- */
