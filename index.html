@@ -566,7 +566,7 @@
   .av-arrow.sm{font-size:12px;font-weight:800;padding:3px 9px;min-width:0;line-height:1.5}
   .cw-delbar .cw-del-tpl{background:var(--good);color:#0a0d11}
   .cw-delbar .cw-del-xa{background:#3c9ee8;color:#fff}
-  .mg-box{max-width:600px}.mg-box h2{margin:0 0 2px;font-size:18px}
+  .mg-box{max-width:600px;max-height:86vh;overflow-y:auto;padding-right:6px}.mg-box h2{margin:0 0 2px;font-size:18px}   /* scrolls inside: a week of exercises is taller than the screen */
   .mg-sub{font-size:12.5px;color:var(--muted);margin-bottom:6px}
   .mg-lbl{font-size:10.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
   .mg-lbl span{text-transform:none;font-weight:600;letter-spacing:0}
@@ -596,7 +596,7 @@
   .sch-tag.t5{background:rgba(60,158,232,.18);color:#3c9ee8}.sch-tag.t4{background:rgba(167,139,250,.18);color:#a78bfa}
   .sch-tag.t3{background:rgba(60,196,124,.18);color:#3cc47c}.sch-tag.t2{background:rgba(232,177,60,.18);color:#e8b13c}
   .sch-tag.off{background:transparent!important;color:var(--muted)!important;border-color:var(--line);text-decoration:line-through;opacity:.55}
-  .sch-box{max-width:560px}.sch-box h2{margin:0 0 4px;font-size:18px}
+  .sch-box{max-width:560px;max-height:86vh;overflow-y:auto;padding-right:6px}.sch-box h2{margin:0 0 4px;font-size:18px}
   .sch-sub{font-size:12.5px;color:var(--muted);margin-bottom:12px}
   .sch-tbl{width:100%;border-collapse:collapse}.sch-tbl td{padding:7px 4px;border-top:1px solid var(--line);font-weight:700;font-size:13.5px}
   .sch-seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
@@ -12976,7 +12976,7 @@ window.cwTeamPublishWeek=async(off, btn)=>{
     n+=(r.data||[]).length;
   }
   conState._progSess=undefined;
-  toast(`📤 Published ${n} session${n===1?'':'s'} — every ${esc(cw.team.name)} athlete can see this week.`);
+  toast(`📤 Published this week — ${n} session${n===1?'':'s'} across ${cw.team.name}. Every athlete can see their days.`);
   renderCoachPanel();
 };
 // team mode: click a day → open it as a BULK edit (saving applies to the whole team, unlogged only).
@@ -13104,11 +13104,12 @@ function cwWeekRowHtml(off, todayStr){
   const hasToday=wkIso.includes(todayStr);
   let actions;
   if(tm){
-    const tDraft=(cw.weekSessFull||[]).filter(s=>wkIso.includes(s.session_date) && s.status==='draft').length;
+    const tDraftS=(cw.weekSessFull||[]).filter(s=>wkIso.includes(s.session_date) && s.status==='draft' && !(cw.ownIds&&cw.ownIds.has(s.athlete_id)));
+    const tDraft=tDraftS.length, tDraftDays=new Set(tDraftS.map(s=>s.team_day||(s.session_date+'|'+(s.title||'').toLowerCase()))).size;
     const tAny=(cw.weekSessFull||[]).some(s=>wkIso.includes(s.session_date));
     actions = `<span class="cw-wkstat"><b>${cw.athIds.length}</b> athletes</span>`
       + (TD_READY && wkIso.some(d=>(cw.sessByDate[d]||[]).length) ? `<button class="btn ghost" style="padding:6px 12px" onclick="mgOpen(${off})" title="Pull exercises from any days into a new day for chosen schedules">🧩 Merge days</button>` : '')
-      + (tDraft ? `<button class="btn blue" style="padding:6px 12px" onclick="cwTeamPublishWeek(${off},this)" title="Publish every draft this week for every athlete on ${esc(cw.team.name)}">📤 Publish all (${tDraft})</button>`
+      + (tDraft ? `<button class="btn blue" style="padding:6px 12px" onclick="cwTeamPublishWeek(${off},this)" title="Publish every draft this week for every athlete on ${esc(cw.team.name)} — each athlete has their own copy of each day">📤 Publish all · ${tDraftDays} day${tDraftDays===1?'':'s'} (${tDraft} session${tDraft===1?'':'s'})</button>`
                 : (tAny?'<span class="pill st-pub">● all published</span>':''));
   } else {
     const pub = draftCount>0
