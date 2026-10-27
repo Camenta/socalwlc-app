@@ -588,6 +588,8 @@
   .mg-title{background:#0e151c;border:1px solid var(--line);border-radius:8px;color:var(--text);font:inherit;font-weight:700;padding:6px 8px;width:150px}
   .mg-new .sch-tag{font-size:12px;padding:3px 8px}
   .mg-n{color:var(--muted);font-size:12.5px}
+  .mg-zero{margin-top:10px;padding:9px 11px;border-radius:8px;background:rgba(232,177,60,.08);border:1px solid rgba(232,177,60,.35);font-size:12.5px;display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+  .sch-hdbtn{padding:6px 12px!important;font-size:12.5px!important}
   .mg-acts{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
   .sch-btn{padding:3px 9px!important;font-size:11px!important;margin-left:8px}
   .sch-own{color:var(--accent);font-weight:700;margin-left:6px}
@@ -12738,14 +12740,18 @@ window.cwSchedOpen=()=>{
   const rows=cw.roster||[];
   const seg=(a)=>`<span class="sch-seg">${[...TEAM_SCHEDS,'own'].map(s=>`<button class="${schedOf(a)===s?'on s'+s:''}" onclick="cwSchedSet('${a.id}','${s}')">${schedLbl(s)}</button>`).join('')}</span>`;
   const c=s=>rows.filter(a=>schedOf(a)===s).length;
-  ovModal('schedModal', `<div class="sch-box">
-    <span class="vid-x" onclick="document.getElementById('schedModal').style.display='none';renderCoachPanel()">✕</span>
+  const sm=ovModal('schedModal', `<div class="sch-box">
+    <span class="vid-x" onclick="cwSchedClose()">✕</span>
     <h2>🗓 ${esc(cw.team.name)} · schedules</h2>
     <div class="sch-sub">Each athlete gets the team days tagged for their schedule. <b>Own program</b> = team programming never touches them (e.g. rehab). Changes apply to days you create, save or re-tag from now on.</div>
     <table class="sch-tbl"><tbody>${rows.map(a=>`<tr><td>${esc(a.full_name||'')}</td><td>${seg(a)}</td></tr>`).join('')}</tbody></table>
     <div class="sch-sum">${TEAM_SCHEDS.map(s=>`<b>${c(s)}</b> on ${s}×`).join(' · ')} · <b>${c('own')}</b> on their own program</div>
   </div>`);
+  sm.onclick=(ev)=>{ if(ev.target===sm) cwSchedClose(); };
 };
+window.cwSchedClose=()=>{ const m=document.getElementById('schedModal'); if(m) m.style.display='none';
+  if(window._mgReturn && _mg){ window._mgReturn=false; const mm=document.getElementById('mergeModal'); if(mm) mm.style.display='flex'; mgPaint(); return; }
+  window._mgReturn=false; renderCoachPanel(); };
 window.cwSchedSet=async(athId, s)=>{
   const a=(cw.roster||[]).find(x=>x.id===athId); if(!a) return;
   const prev=a.train_schedule; a.train_schedule = s==='5'?null:s;              // 5× is the default, stored as null
@@ -12779,6 +12785,8 @@ window.mgTick=(di, ei, on)=>{ if(on){ if(!_mg.sel.some(x=>x.di===di&&x.ei===ei))
 window.mgMove=(i, d)=>{ const j=i+d; if(j<0||j>=_mg.sel.length) return; [_mg.sel[i],_mg.sel[j]]=[_mg.sel[j],_mg.sel[i]]; mgPaint(); };
 let _mgDrag=null;
 window.mgDrop=(i)=>{ if(_mgDrag==null||_mgDrag===i) return; const [x]=_mg.sel.splice(_mgDrag,1); _mg.sel.splice(i,0,x); _mgDrag=null; mgPaint(); };
+// open 🗓 Schedules from the merge window; closing it comes back to the merge with every pick kept
+window.mgToSched=()=>{ const m=document.getElementById('mergeModal'); if(m) m.style.display='none'; window._mgReturn=true; cwSchedOpen(); };
 window.mgTag=(t)=>{ _mg.tags.has(t)?_mg.tags.delete(t):_mg.tags.add(t); mgPaint(); };
 function mgExOf(di, ei){ const d=_mg.days[di]; const exs=((d.full&&d.full.prescribed_exercises)||[]).slice().sort(sortByPos); return exs[ei]; }
 function mgPaint(){
@@ -12802,6 +12810,8 @@ function mgPaint(){
     <div class="mg-new">on <select class="cw-sel" onchange="_mg.date=this.value">${_mg.wk.map(d=>`<option value="${d}"${d===_mg.date?' selected':''}>${esc(fmtShort(d))} · ${dl(d)}</option>`).join('')}</select>
       titled <input class="mg-title" value="${esc(_mg.title)}" oninput="_mg.title=this.value"></div>
     <div class="mg-new">for ${TEAM_SCHEDS.map(t=>`<span class="sch-tag t${t}${_mg.tags.has(t)?'':' off'}" onclick="mgTag('${t}')">${t}×</span>`).join(' ')} <span class="mg-n">→ ${n} athlete${n===1?'':'s'}</span></div>
+    ${_mg.tags.size&&!n?`<div class="mg-zero">Nobody on ${esc(cw.team.name)} is on ${esc(tagsLbl([..._mg.tags]))} yet, so this day would go to no one. Set athletes' schedules first — your picks here are kept.
+      <button class="btn blue" style="padding:5px 11px;margin-left:6px" onclick="mgToSched()">🗓 Set schedules</button></div>`:''}
     <div class="mg-acts"><button class="btn ghost" onclick="document.getElementById('mergeModal').style.display='none'">Cancel</button>
       <button class="btn blue" onclick="mgBuild()" ${_mg.sel.length&&_mg.tags.size&&n&&!_mg.busy?'':'disabled'}>${_mg.busy?'Building…':'Build the day'}</button></div>`;
 }
@@ -12919,7 +12929,7 @@ async function renderCoachTeamPanel(panel){
   panel.innerHTML = `<div class="card av-weekcard">
     ${cwCalHeaderHtml(cal, { full_name: team.name+' · '+athIds.length+' athlete'+(athIds.length===1?'':'s') })}
     <div class="sub" style="margin:2px 0 10px;font-size:11px">Team view · shared sessions collapse to one card (×N athletes) · readiness &amp; load are team averages · click a day to write it for the team · drag across days to delete for the whole team.
-      ${TD_READY?`<button class="btn ghost sch-btn" onclick="cwSchedOpen()">🗓 Schedules</button>${ownIds.size?` <span class="sch-own">Own program (not on this calendar): ${esc(athletes.filter(a=>ownIds.has(a.id)).map(a=>(a.full_name||'').split(' ')[0]).join(', '))}</span>`:''}`:''}</div>
+      ${TD_READY?`${ownIds.size?` <span class="sch-own">Own program (not on this calendar): ${esc(athletes.filter(a=>ownIds.has(a.id)).map(a=>(a.full_name||'').split(' ')[0]).join(', '))}</span>`:''}`:''}</div>
     <div id="cwCalScroll">${cal.mode==='scroll'?earlier:''}${rows}${more}</div>
   </div>`;
   if(cal._scrollTo){ cal._scrollTo=false; const el=panel.querySelector('.cw-wkrow.has-today'); if(el) el.scrollIntoView({block:'center',behavior:'auto'}); }
@@ -13017,7 +13027,9 @@ function cwCalHeaderHtml(cal, ath){
     ? `<span class="cw-calnav"><button onclick="cwMonthNav(-1)" title="Previous month">‹</button><span class="cw-callbl">${MONS[cal.monthM]} ${cal.monthY}</span><button onclick="cwMonthNav(1)" title="Next month">›</button><button onclick="cwToday()">Today</button></span>`
     : `<span class="cw-calnav"><button onclick="cwToday()" title="Jump to this week">⌖ Today</button></span>`;
   const dens=`<span class="cw-caltog" title="How much detail to show in each session"><button class="${cal.density!=='compact'?'on':''}" onclick="cwSetDensity('detailed')">Detailed</button><button class="${cal.density==='compact'?'on':''}" onclick="cwSetDensity('compact')">Compact</button></span>`;
-  return `<div class="cw-calhd"><span class="cw-wktitle" style="font-size:15px">${name}'s training</span>${tog}${nav}${dens}
+  const sched=(cw&&cw.teamMode&&TD_READY)?`<button class="btn blue sch-hdbtn" onclick="cwSchedOpen()" title="Set each athlete's schedule: 5× / 4× / 3× / 2× / Own program">🗓 Schedules</button>`:'';
+  const ttl=(cw&&cw.teamMode)?`👥 ${esc(ath.full_name)}`:`${name}'s training`;   // a team: its full name, not "Local's training"
+  return `<div class="cw-calhd"><span class="cw-wktitle" style="font-size:15px">${ttl}</span>${sched}${tog}${nav}${dens}
     <span class="pv-legend" style="margin-left:auto"><span><i style="background:var(--warn)"></i>draft</span><span><i style="background:var(--accent2)"></i>published</span><span><i style="background:var(--accent)"></i>today</span></span></div>`;
 }
 function cwBadge(v,lbl,title){ return `<div class="cwd-badge"${title?` title="${esc(title)}"`:''}><b>${v}</b><span>${lbl}</span></div>`; }
