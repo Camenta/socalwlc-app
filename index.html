@@ -566,6 +566,23 @@
   .av-arrow.sm{font-size:12px;font-weight:800;padding:3px 9px;min-width:0;line-height:1.5}
   .cw-delbar .cw-del-tpl{background:var(--good);color:#0a0d11}
   .cw-delbar .cw-del-xa{background:#3c9ee8;color:#fff}
+  .sch-btn{padding:3px 9px!important;font-size:11px!important;margin-left:8px}
+  .sch-own{color:var(--accent);font-weight:700;margin-left:6px}
+  .sch-tags{display:inline-flex;gap:3px;margin-left:4px;vertical-align:middle}
+  .sch-tag{font-size:9.5px;font-weight:900;padding:1px 4px;border-radius:4px;cursor:pointer;border:1px solid transparent}
+  .sch-tag.t5{background:rgba(60,158,232,.18);color:#3c9ee8}.sch-tag.t4{background:rgba(167,139,250,.18);color:#a78bfa}
+  .sch-tag.t3{background:rgba(60,196,124,.18);color:#3cc47c}.sch-tag.t2{background:rgba(232,177,60,.18);color:#e8b13c}
+  .sch-tag.off{background:transparent!important;color:var(--muted)!important;border-color:var(--line);text-decoration:line-through;opacity:.55}
+  .sch-box{max-width:560px}.sch-box h2{margin:0 0 4px;font-size:18px}
+  .sch-sub{font-size:12.5px;color:var(--muted);margin-bottom:12px}
+  .sch-tbl{width:100%;border-collapse:collapse}.sch-tbl td{padding:7px 4px;border-top:1px solid var(--line);font-weight:700;font-size:13.5px}
+  .sch-seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .sch-seg button{background:#0e151c;border:none;border-right:1px solid var(--line);color:var(--muted);font-weight:800;font-size:12px;padding:6px 9px;cursor:pointer}
+  .sch-seg button:last-child{border-right:none}
+  .sch-seg button.on.s5{background:rgba(60,158,232,.2);color:#3c9ee8}.sch-seg button.on.s4{background:rgba(167,139,250,.2);color:#a78bfa}
+  .sch-seg button.on.s3{background:rgba(60,196,124,.2);color:#3cc47c}.sch-seg button.on.s2{background:rgba(232,177,60,.2);color:#e8b13c}
+  .sch-seg button.on.sown{background:rgba(232,100,60,.18);color:var(--accent)}
+  .sch-sum{font-size:12.5px;color:var(--muted);margin-top:10px}.sch-sum b{color:var(--text)}
   .tl-box{margin:0 0 12px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:#0e151c;font-size:12.5px}
   .tl-box summary{cursor:pointer;font-weight:800;color:var(--text)}
   .tl-box summary span{font-weight:600;color:var(--muted)}
@@ -4998,7 +5015,11 @@ let SRPE_READY=false;   // sessions.session_minutes + session_rpe (migration 33)
 async function probeSrpe(){ const { error } = await sb.from('sessions').select('session_rpe').limit(1); SRPE_READY = !error;
   if(SRPE_READY && SESSION_SELECT.indexOf('session_rpe')<0) SESSION_SELECT += ',session_minutes,session_rpe';
   const tc = await sb.from('sessions').select('team_custom').limit(1); TC_READY = !tc.error;          // migration 69
-  if(TC_READY && SESSION_SELECT.indexOf('team_custom')<0) SESSION_SELECT += ',team_custom'; }
+  if(TC_READY && SESSION_SELECT.indexOf('team_custom')<0) SESSION_SELECT += ',team_custom';
+  const td = await sb.from('sessions').select('team_day,team_tags').limit(1), ps = await sb.from('profiles').select('train_schedule').limit(1);
+  TD_READY = !td.error && !ps.error;                                                                    // migration 70
+  if(TD_READY && SESSION_SELECT.indexOf('team_day')<0) SESSION_SELECT += ',team_day,team_tags'; }
+let TD_READY=false;   // profiles.train_schedule + sessions.team_day/team_tags (migration 70): one team, several schedules
 let TC_READY=false;   // sessions.team_custom (migration 69): a teammate's day changed on its own → team saves skip it
 let PAIN_READY=false;   // body_pain_reports (migration 37) → injury heat-map
 async function probeBodyPain(){ const { error } = await sb.from('body_pain_reports').select('id').limit(1); PAIN_READY = !error; }
@@ -10520,7 +10541,7 @@ window.doStamp=async function(id){
   let targets=[];
   if(window._stampMode==='team'){
     const teamId=document.getElementById('stampTeam').value;
-    targets=(coachState.athletes||[]).filter(a=>a.team_id===teamId).map(a=>a.id);
+    targets=(TD_READY?await teamRoster(teamId):(coachState.athletes||[]).filter(a=>a.team_id===teamId)).filter(a=>schedOf(a)!=='own').map(a=>a.id);   // own program → never stamped
     if(!targets.length){ const m=document.getElementById('stampMsg'); if(m){m.style.color='var(--warn)';m.textContent='That team has no athletes yet.';} return; }
   } else {
     targets=[document.getElementById('stampAth').value];
@@ -12675,11 +12696,91 @@ async function renderCoachPanel(){
   if(cal._scrollTo){ cal._scrollTo=false; const el=panel.querySelector('.cw-wkrow.has-today'); if(el) el.scrollIntoView({block:'center',behavior:'auto'}); }
   cwWireScroll(); cwWireDrag();
 }
+/* ----- team schedules (migration 70): one team, 5×/4×/3×/2× athletes + 'own' (their own program).
+   Each team day carries team_tags (which schedules get it) and team_day (id shared by every copy). ----- */
+const TEAM_SCHEDS=['5','4','3','2'];
+function schedOf(a){ return (a&&a.train_schedule)||'5'; }                      // not set = the full program
+function schedGets(sched, tags){ return sched!=='own' && (!tags || !tags.length || tags.includes(sched)); }
+function schedLbl(s){ return s==='own'?'Own program':s+'×'; }
+function tagsLbl(tags){ return (!tags||!tags.length) ? 'all' : TEAM_SCHEDS.filter(t=>tags.includes(t)).map(t=>t+'×').join(' · '); }
+async function teamRoster(teamId){
+  const r=await sb.from('profiles').select('id,full_name,team_id'+(TD_READY?',train_schedule':'')).eq('role','athlete').eq('team_id',teamId).order('full_name');
+  const rows=r.error?[]:(r.data||[]);
+  rows.forEach(x=>{ const a=(coachState.athletes||[]).find(y=>y.id===x.id); if(a) a.train_schedule=x.train_schedule; });   // keep the shared roster in step
+  return rows;
+}
+// 🗓 Schedules: set each athlete's schedule once (it applies to team days created, saved or re-tagged from then on)
+window.cwSchedOpen=()=>{
+  if(!cw||!cw.teamMode) return;
+  const rows=cw.roster||[];
+  const seg=(a)=>`<span class="sch-seg">${[...TEAM_SCHEDS,'own'].map(s=>`<button class="${schedOf(a)===s?'on s'+s:''}" onclick="cwSchedSet('${a.id}','${s}')">${schedLbl(s)}</button>`).join('')}</span>`;
+  const c=s=>rows.filter(a=>schedOf(a)===s).length;
+  ovModal('schedModal', `<div class="sch-box">
+    <span class="vid-x" onclick="document.getElementById('schedModal').style.display='none';renderCoachPanel()">✕</span>
+    <h2>🗓 ${esc(cw.team.name)} · schedules</h2>
+    <div class="sch-sub">Each athlete gets the team days tagged for their schedule. <b>Own program</b> = team programming never touches them (e.g. rehab). Changes apply to days you create, save or re-tag from now on.</div>
+    <table class="sch-tbl"><tbody>${rows.map(a=>`<tr><td>${esc(a.full_name||'')}</td><td>${seg(a)}</td></tr>`).join('')}</tbody></table>
+    <div class="sch-sum">${TEAM_SCHEDS.map(s=>`<b>${c(s)}</b> on ${s}×`).join(' · ')} · <b>${c('own')}</b> on their own program</div>
+  </div>`);
+};
+window.cwSchedSet=async(athId, s)=>{
+  const a=(cw.roster||[]).find(x=>x.id===athId); if(!a) return;
+  const prev=a.train_schedule; a.train_schedule = s==='5'?null:s;              // 5× is the default, stored as null
+  cwSchedOpen();
+  const r=await sb.from('profiles').update({ train_schedule:a.train_schedule }).eq('id', athId).select('id');
+  if(r.error || !r.data || !r.data.length){ a.train_schedule=prev; cwSchedOpen(); toast('Couldn’t save — '+((r.error&&r.error.message)||'try again')); return; }
+  const g=(coachState.athletes||[]).find(x=>x.id===athId); if(g) g.train_schedule=a.train_schedule;
+};
+// tap a schedule tag on a team day: re-tag every copy, add the day for athletes now included, remove it from
+// athletes now left out (only if unlogged and not their own version — those are kept and reported)
+let _cwTagBusy=false;
+window.cwTeamTag=async(dIso, repId, t)=>{
+  if(!cw||!cw.teamMode||!TD_READY) return;
+  if(_cwTagBusy){ toast('One moment — still updating the last change.'); return; }
+  _cwTagBusy=true; try{
+  const rep=(cw.sessByDate[dIso]||[]).find(s=>s.id===repId); if(!rep) return;
+  const cur=(rep.team_tags&&rep.team_tags.length)?rep.team_tags.slice():TEAM_SCHEDS.slice();
+  const tags=cur.includes(t)?cur.filter(x=>x!==t):[...cur,t];
+  if(!tags.length){ toast('A day needs at least one schedule.'); return; }
+  toast('Updating '+tagsLbl(tags)+'…');
+  const r=await cwTeamSync(dIso, rep, tags);
+  toast(`${tagsLbl(tags)} · ${r.added?r.added+' added':''}${r.added&&r.removed?' · ':''}${r.removed?r.removed+' removed':''}${!r.added&&!r.removed?'no athletes changed':''}${r.kept.length?' · kept (logged or own version): '+r.kept.join(', '):''}`);
+  await renderCoachPanel();
+  } finally { _cwTagBusy=false; }
+};
+async function cwTeamSync(dIso, rep, tags){
+  const teamDay=rep.team_day||crypto.randomUUID();
+  // every copy of this day: by team_day, or (a day written before migration 70) by exact title
+  let q=sb.from('sessions').select('id,athlete_id,status,team_custom').in('athlete_id', cw.athIds).eq('session_date', dIso);
+  q = rep.team_day ? q.eq('team_day', rep.team_day) : q.eq('title', rep.title||'Training');
+  const { data: copies } = await q;
+  const list=(copies||[]).filter(s=>!(cw.ownIds&&cw.ownIds.has(s.athlete_id))), ids=list.map(s=>s.id);   // own program: never re-tagged, never deleted
+  const logged=new Set();
+  if(ids.length){ const { data: lg } = await sb.from('logged_sets').select('session_id').in('session_id', ids); (lg||[]).forEach(l=>logged.add(l.session_id)); }
+  const inc=new Set((cw.roster||[]).filter(a=>schedGets(schedOf(a), tags)).map(a=>a.id));
+  const name=id=>{ const a=(cw.roster||[]).find(x=>x.id===id); return a?(a.full_name||'').split(' ')[0]:'?'; };
+  const src=(await sb.from('sessions').select(SESSION_SELECT).eq('id', (list.find(s=>inc.has(s.athlete_id)&&!s.team_custom)||list.find(s=>!s.team_custom)||{id:rep.id}).id).single()).data;
+  let added=0, removed=0; const kept=[];
+  for(const s of list){
+    if(inc.has(s.athlete_id)){ await sb.from('sessions').update({ team_day:teamDay, team_tags:tags }).eq('id', s.id); continue; }
+    if(logged.has(s.id) || s.team_custom){ kept.push(name(s.athlete_id)); await sb.from('sessions').update({ team_day:teamDay, team_tags:tags }).eq('id', s.id); continue; }
+    const d=await sb.from('sessions').delete().eq('id', s.id); if(!d.error) removed++;
+  }
+  const have=new Set(list.map(s=>s.athlete_id));
+  for(const aid of inc){ if(have.has(aid) || !src) continue;
+    const { data: mx } = await sb.from('maxes').select('lift,kg').eq('athlete_id', aid);
+    const rp={ maxes:{}, missing:new Set() }; (mx||[]).forEach(m=>{ const v=parseFloat(m.kg); if(!isNaN(v)) rp.maxes[m.lift]=v; });
+    await cloneSessionFor(src, dIso, aid, src.status==='published'?'published':'draft', rp, { team_day:teamDay, team_tags:tags }); added++;
+  }
+  return { added, removed, kept };
+}
 /* ----- team/program calendar (same layout, scoped to a team) ----- */
 async function renderCoachTeamPanel(panel){
   const teamId = coachState.teamId; if(!teamId){ panel.innerHTML='<div class="card"><div class="empty">Pick a team.</div></div>'; return; }
   const team = teamById(teamId) || { name:'Team' };
-  const athletes = (coachState.athletes||[]).filter(a=>a.team_id===teamId);
+  const roster = TD_READY ? await teamRoster(teamId) : null;
+  const athletes = roster || (coachState.athletes||[]).filter(a=>a.team_id===teamId);
+  const ownIds = new Set(athletes.filter(a=>schedOf(a)==='own').map(a=>a.id));   // own program → not on the team calendar
   const athIds = athletes.map(a=>a.id);
   if(!athIds.length){ panel.innerHTML=`<div class="card"><div class="empty">No athletes on <b>${esc(team.name)}</b> yet. Add athletes to this team in the Console → Teams.</div></div>`; return; }
   const cal = (cw && cw.teamMode && cw.teamId===teamId && cw.cal) ? cw.cal
@@ -12687,11 +12788,11 @@ async function renderCoachTeamPanel(panel){
   const rng = cwRange(cal);
   const todayStr=iso(new Date());
   const fromIso=iso(weekDates(rng.loOff)[0]), toIso=iso(weekDates(rng.hiOff)[6]);
-  const sessSel='id,athlete_id,title,session_date,status,created_at'+(SRPE_READY?',session_minutes,session_rpe':'')+(TC_READY?',team_custom':'')+',prescribed_exercises(name,position,category,load_type,prescribed_sets(target_reps,target_pct,target_kg,target_vel,target_eff,target_text,position))';
+  const sessSel='id,athlete_id,title,session_date,status,created_at'+(SRPE_READY?',session_minutes,session_rpe':'')+(TC_READY?',team_custom':'')+(TD_READY?',team_day,team_tags':'')+',prescribed_exercises(name,position,category,load_type,prescribed_sets(target_reps,target_pct,target_kg,target_vel,target_eff,target_text,position))';
   const { data: rangeSess } = await sb.from('sessions').select(sessSel)
     .in('athlete_id', athIds).gte('session_date', fromIso).lte('session_date', toIso)
     .order('session_date',{ascending:true}).order('created_at',{ascending:true});
-  const all = rangeSess||[];
+  const all = (rangeSess||[]).filter(s=>!ownIds.has(s.athlete_id));
   // team-average readiness per date
   const rdyAgg={};
   const { data: rdyRows } = await sb.from('readiness').select('*').in('athlete_id', athIds).gte('check_date', fromIso).lte('check_date', toIso);
@@ -12701,7 +12802,7 @@ async function renderCoachTeamPanel(panel){
   const sessByDate={};
   const byDate={}; all.forEach(s=>{ (byDate[s.session_date]=byDate[s.session_date]||[]).push(s); });
   Object.keys(byDate).forEach(d=>{
-    const groups={}; byDate[d].forEach(s=>{ const k=(s.title||'Training').toLowerCase(); (groups[k]=groups[k]||[]).push(s); });
+    const groups={}; byDate[d].forEach(s=>{ const k=s.team_day?('d:'+s.team_day):('t:'+(s.title||'Training').toLowerCase()); (groups[k]=groups[k]||[]).push(s); });
     sessByDate[d]=Object.values(groups).map(g=>{
       const rep=Object.assign({}, g.find(x=>!x.team_custom)||g[0]);      // open a copy that follows the team, not someone's own version
       rep._teamCount=new Set(g.map(x=>x.athlete_id)).size;
@@ -12713,14 +12814,15 @@ async function renderCoachTeamPanel(panel){
       return rep;
     });
   });
-  cw = { teamMode:true, teamId, team, athletes, athIds, ath:{full_name:team.name}, sessByDate, logsBySess:{}, rdyByDate, cal,
+  cw = { teamMode:true, teamId, team, athletes, athIds, roster:athletes, ownIds, ath:{full_name:team.name}, sessByDate, logsBySess:{}, rdyByDate, cal,
          selDate:null, selSess:null, modalOpen:false, weekOffset:0, weekSessFull:all, weekLogs:[] };
   let rows=''; for(let off=rng.loOff; off<=rng.hiOff; off++) rows += cwWeekRowHtml(off, todayStr);
   const earlier=`<div class="cw-loadmore" onclick="cwExtend(-1)">↑ Show earlier weeks</div>`;
   const more=(cal.mode==='scroll')?`<div class="cw-loadmore" onclick="cwExtend(1)">↓ Show more weeks</div>`:'';
   panel.innerHTML = `<div class="card av-weekcard">
     ${cwCalHeaderHtml(cal, { full_name: team.name+' · '+athIds.length+' athlete'+(athIds.length===1?'':'s') })}
-    <div class="sub" style="margin:2px 0 10px;font-size:11px">Team view · shared sessions collapse to one card (×N athletes) · readiness &amp; load are team averages · click a day to open it for an athlete · drag across days to delete for the whole team.</div>
+    <div class="sub" style="margin:2px 0 10px;font-size:11px">Team view · shared sessions collapse to one card (×N athletes) · readiness &amp; load are team averages · click a day to write it for the team · drag across days to delete for the whole team.
+      ${TD_READY?`<button class="btn ghost sch-btn" onclick="cwSchedOpen()">🗓 Schedules</button>${ownIds.size?` <span class="sch-own">Own program (not on this calendar): ${esc(athletes.filter(a=>ownIds.has(a.id)).map(a=>(a.full_name||'').split(' ')[0]).join(', '))}</span>`:''}`:''}</div>
     <div id="cwCalScroll">${cal.mode==='scroll'?earlier:''}${rows}${more}</div>
   </div>`;
   if(cal._scrollTo){ cal._scrollTo=false; const el=panel.querySelector('.cw-wkrow.has-today'); if(el) el.scrollIntoView({block:'center',behavior:'auto'}); }
@@ -12754,7 +12856,9 @@ window.cwTeamAddSess=async(dIso, btn)=>{
   if(btn){ btn.style.pointerEvents='none'; btn.textContent='Creating…'; }
   const taken=new Set((cw.sessByDate[dIso]||[]).map(s=>(s.title||'Training').toLowerCase()));
   let title='Training', n=2; while(taken.has(title.toLowerCase())) title='Training '+(n++);   // a 2nd team session that day stays its own card
-  const rows=cw.athIds.map(aid=>({ gym_id:me_.gym_id, athlete_id:aid, session_date:dIso, title, status:'draft' }));
+  const teamDay=TD_READY?crypto.randomUUID():null;
+  const rows=cw.athIds.filter(aid=>!cw.ownIds||!cw.ownIds.has(aid)).map(aid=>Object.assign({ gym_id:me_.gym_id, athlete_id:aid, session_date:dIso, title, status:'draft' },
+    TD_READY?{ team_day:teamDay, team_tags:TEAM_SCHEDS.slice() }:{}));
   const { data, error } = await sb.from('sessions').insert(rows).select('id,athlete_id');
   if(error || !data || !data.length){ toast('Couldn’t create the day — '+((error&&error.message)||'try again')); if(btn){ btn.style.pointerEvents=''; btn.textContent='＋ session'; } return; }
   await renderCoachPanel();
@@ -12765,7 +12869,7 @@ window.cwTeamAddSess=async(dIso, btn)=>{
 window.cwTeamPublishWeek=async(off, btn)=>{
   if(!cw || !cw.teamMode) return;
   const wkIso=weekDates(off).map(iso);
-  const ids=(cw.weekSessFull||[]).filter(s=>wkIso.includes(s.session_date) && s.status==='draft').map(s=>s.id);
+  const ids=(cw.weekSessFull||[]).filter(s=>wkIso.includes(s.session_date) && s.status==='draft' && !(cw.ownIds&&cw.ownIds.has(s.athlete_id))).map(s=>s.id);
   if(!ids.length) return;
   if(btn){ btn.disabled=true; btn.textContent='Publishing…'; }
   let n=0;
@@ -12784,7 +12888,10 @@ let _teamEditReturn=null;   // teamId to restore when the team-edit modal closes
 window.cwTeamEdit=async(dIso, repId)=>{
   if(!cw || !cw.teamMode) return;
   const rep=(cw.sessByDate[dIso]||[]).find(s=>s.id===repId); if(!rep) return;
-  const ctx={ teamId:cw.teamId, teamName:cw.team.name, athIds:cw.athIds.slice(), repAthId:rep.athlete_id, repSessId:repId, date:dIso, title:rep.title||'Training', n:cw.athIds.length };
+  const tags=TD_READY?(rep.team_tags||null):null;
+  const roster=(cw.roster||[]).filter(a=>a.id===rep.athlete_id || schedGets(schedOf(a), tags)).map(a=>a.id);
+  const ctx={ teamId:cw.teamId, teamName:cw.team.name, athIds:roster, repAthId:rep.athlete_id, repSessId:repId, date:dIso, title:rep.title||'Training', n:roster.length,
+              teamDay:TD_READY?(rep.team_day||null):null, tags };
   _teamEditReturn=cw.teamId;
   coachState.subject='athlete'; coachState.selected=rep.athlete_id; cw=null; ed=null;
   await paintCoach();
@@ -12875,6 +12982,8 @@ function cwWeekRowHtml(off, todayStr){
       }
       const chip = tm ? `<span class="cwd-dchip" style="color:var(--accent2);background:rgba(56,160,255,.14)">×${s._teamCount||1}</span>`
           +(s._teamPubN&&s._teamPubN<s._teamCount?`<span class="cwd-dchip" title="${s._teamPubN} of ${s._teamCount} athletes can see it">${s._teamPubN}/${s._teamCount} live</span>`:(!s._teamPubN?'<span class="cwd-dchip">draft</span>':''))
+          +(TD_READY?`<span class="sch-tags">${TEAM_SCHEDS.map(t=>{ const on=!s.team_tags||!s.team_tags.length||s.team_tags.includes(t);
+               return `<span class="sch-tag t${t}${on?'':' off'}" title="${on?'Goes to':'Not for'} ${t}× athletes — tap to ${on?'drop':'add'}" onclick="event.stopPropagation();cwTeamTag('${dIso}','${s.id}','${t}')">${t}×</span>`; }).join('')}</span>`:'')
           +(s._teamCustomN?`<span class="cwd-dchip" style="color:var(--accent2);background:rgba(56,160,255,.10)" title="Changed just for ${s._teamCustomN} athlete${s._teamCustomN===1?'':'s'} — team saves leave ${s._teamCustomN===1?'it':'them'} alone">${s._teamCustomN} own</span>`:'')
                       : (draft?'<span class="cwd-dchip">draft</span>':'');
       const click = tm ? `cwTeamEdit('${dIso}','${s.id}')` : `cwOpenSess('${dIso}','${s.id}')`;
@@ -15820,10 +15929,10 @@ async function cloneSessionTo(full, targetDate){
   return ns;
 }
 // copy a source session's exercises+sets into a brand-new session for a SPECIFIC athlete (used by team bulk-edit)
-async function cloneSessionFor(full, targetDate, athId, status, reprice){
-  const { data: ns, error: se } = await sb.from('sessions').insert({
+async function cloneSessionFor(full, targetDate, athId, status, reprice, extra){
+  const { data: ns, error: se } = await sb.from('sessions').insert(Object.assign({
     gym_id: me_.gym_id, athlete_id: athId, session_date: targetDate,
-    title: full.title||'Training', status: status||'draft' }).select().single();
+    title: full.title||'Training', status: status||'draft' }, extra||{})).select().single();
   if(se) throw se;
   await writeExercisesInto(ns.id, full, reprice);
   return ns;
@@ -15877,11 +15986,17 @@ async function propagateTeamEdit(ctx){
   const others=(ctx.athIds||[]).filter(id=>id!==ctx.repAthId);
   let applied=0, created=0; const logged=[], custom=[], noMax=new Set();
   const status=src.status==='published'?'published':'draft';            // Publish / Unpublish reaches the whole team
+  // give the day a shared id the first time it's saved as a team (days written before migration 70 adopt one here)
+  if(TD_READY && !ctx.teamDay){ ctx.teamDay=crypto.randomUUID(); await sb.from('sessions').update({ team_day:ctx.teamDay, team_tags:ctx.tags||null }).eq('id', ctx.repSessId); }
+  const tdCols = TD_READY ? { team_day:ctx.teamDay, team_tags:ctx.tags||null } : {};
   const firstName=id=>{ const a=(coachState.athletes||[]).find(x=>x.id===id); return a?(a.full_name||'').split(' ')[0]:'?'; };
   for(const aid of others){
     // this athlete's session(s) that day — prefer the one matching the ORIGINAL title
-    const { data: matches } = await sb.from('sessions').select('id,title'+(TC_READY?',team_custom':'')).eq('athlete_id', aid).eq('session_date', ctx.date);
-    let target=(matches||[]).find(m=>(m.title||'').toLowerCase()===(ctx.title||'').toLowerCase()) || (matches||[])[0];
+    const { data: matches } = await sb.from('sessions').select('id,title'+(TC_READY?',team_custom':'')+(TD_READY?',team_day':'')).eq('athlete_id', aid).eq('session_date', ctx.date);
+    // the SAME team day only: by team_day, or (written before migration 70) the same title. Never "whatever
+    // session is on that date" — that used to overwrite an athlete's own differently-titled day.
+    let target=(matches||[]).find(m=>ctx.teamDay && m.team_day===ctx.teamDay)
+            || (matches||[]).find(m=>!m.team_day && (m.title||'').toLowerCase()===(ctx.title||'').toLowerCase());   // an older copy adopts the id
     if(target && target.team_custom){ custom.push(aid); continue; }       // changed just for this athlete → keep it
     // % sets priced off THIS athlete's maxes — never the athlete whose copy was opened
     const { data: mx } = await sb.from('maxes').select('lift,kg').eq('athlete_id', aid);
@@ -15889,11 +16004,11 @@ async function propagateTeamEdit(ctx){
     if(target){
       const { data: lg } = await sb.from('logged_sets').select('id').eq('session_id', target.id).limit(1);
       if(lg && lg.length){ logged.push(aid); continue; }   // already logged → leave it
-      await sb.from('sessions').update({ title:newTitle, status }).eq('id', target.id);
+      await sb.from('sessions').update(Object.assign({ title:newTitle, status }, tdCols)).eq('id', target.id);
       await replaceSessionStructure(target.id, src, rp);
       applied++;
     } else {
-      await cloneSessionFor(src, ctx.date, aid, status, rp);
+      await cloneSessionFor(src, ctx.date, aid, status, rp, tdCols);
       created++;
     }
     rp.missing.forEach(l=>noMax.add(firstName(aid)+': '+l));
@@ -16267,7 +16382,7 @@ function paintEditor(){
     </div>`;
   }).join('');
   host.innerHTML = `<div class="card" id="edCard">
-    ${ed._teamEdit?`<div class="te-banner">👥 <b>Team edit · ${esc(ed._teamEdit.teamName)} (${ed._teamEdit.n})</b> — you write it once; each athlete gets it with <b>their own weights</b> from their maxes. Days an athlete already logged, or that you changed just for them, are left alone. To change one athlete only, open them in the <b>Athletes</b> view.</div><div id="cvTeamLoads"></div>`:''}
+    ${ed._teamEdit?`<div class="te-banner">👥 <b>Team edit · ${esc(ed._teamEdit.teamName)} (${ed._teamEdit.n})</b>${TD_READY?` · for <b>${esc(tagsLbl(ed._teamEdit.tags))}</b> athletes (change on the team calendar)`:''} — you write it once; each athlete gets it with <b>their own weights</b> from their maxes. Days an athlete already logged, or that you changed just for them, are left alone. To change one athlete only, open them in the <b>Athletes</b> view.</div><div id="cvTeamLoads"></div>`:''}
     <div class="cv-hd">
       <input id="edTitle" data-f="title" value="${esc(s.title||'')}" placeholder="Session title">
       <span class="sub" style="white-space:nowrap">${esc(fmtDate(s.session_date))}</span>
