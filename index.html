@@ -12936,7 +12936,10 @@ function cwSetWeekScope(dIso){
   cw.weekSessFull=wkIso.flatMap(d=>cw.sessByDate[d]||[]);
   cw.weekLogs=cw.weekSessFull.flatMap(s=>(cw.logsBySess[s.id]||[]));
 }
-function cwDayTitleHtml(){ const nm=(cw&&cw.ath&&cw.ath.full_name)?cw.ath.full_name.split(' ')[0]:''; return `${esc(nm)} · ${esc(fmtDate(cw.selDate))}`; }
+function cwDayTitleHtml(){
+  const te=cw&&cw._teamEditCtx;   // team edit opens one athlete's copy underneath — name the TEAM, not that athlete
+  if(te) return `👥 ${esc(te.teamName)} (${te.n}) · ${esc(fmtDate(cw.selDate))}`;
+  const nm=(cw&&cw.ath&&cw.ath.full_name)?cw.ath.full_name.split(' ')[0]:''; return `${esc(nm)} · ${esc(fmtDate(cw.selDate))}`; }
 function cwOpenDayModal(){
   if(!cw || !cw.selDate) return;
   cwSetWeekScope(cw.selDate);
@@ -15607,7 +15610,7 @@ async function renderCoachDay(){
   if(!list.length){
     ed=null;
     host.innerHTML=`<div class="card"><div class="empty">No session on <b>${esc(fmtDate(cw.selDate))}</b> for ${esc(cw.ath.full_name.split(' ')[0])}.<br><br>
-      <button class="btn blue" onclick="cvCreateSession()">＋ Create session (saves as draft)</button></div></div>`;
+      ${cw._teamEditCtx?`<span class="sub">To add a day for <b>${esc(cw._teamEditCtx.teamName)}</b>, close this and use <b>＋ session</b> on the team calendar.</span>`:'<button class="btn blue" onclick="cvCreateSession()">＋ Create session (saves as draft)</button>'}</div></div>`;
     return;
   }
   let sel = list.find(x=>x.id===cw.selSess) || list[0];
@@ -15615,7 +15618,7 @@ async function renderCoachDay(){
   // session tabs (AM/PM…) + add-another
   const tabs = `<div class="cw-stabs">${list.map(x=>
       `<button class="cw-stab${x.id===sel.id?' on':''}" onclick="cwSelectSess('${x.id}')">${esc(x.title||'Session')}${x.status==='draft'?' <i>draft</i>':''}</button>`).join('')}
-    <button class="cw-stab add" onclick="cvCreateSession()">＋ session</button></div>`;
+    ${cw._teamEditCtx?'':'<button class="cw-stab add" onclick="cvCreateSession()">＋ session</button>'}</div>`;
   host.innerHTML=`${tabs}<div id="cvEd"><div class="card"><div class="spin">Opening…</div></div></div>`;
   const { data: full, error: fe } = await sb.from('sessions').select(SESSION_SELECT).eq('id', sel.id).single();
   if(fe || !full){ document.getElementById('cvEd').innerHTML=`<div class="card"><div class="empty" style="color:var(--bad)">Could not open the session.</div></div>`; return; }
@@ -15666,7 +15669,7 @@ function cvBriefHtml(){
     <div class="cvbr-hd"><span>Note to athlete</span>
       <span class="cvbr-segs">
         <span class="cvbr-seg"><button class="${cvBrief.scope==='day'?'on':''}" onclick="cvBriefSet('scope','day')">This day</button><button class="${cvBrief.scope==='week'?'on':''}" onclick="cvBriefSet('scope','week')">This week</button></span>
-        <span class="cvbr-seg"><button class="${cvBrief.aud==='athlete'?'on':''}" onclick="cvBriefSet('aud','athlete')">${esc(first)}</button><button class="${cvBrief.aud==='team'?'on':''}" ${team?'':'disabled title="This athlete is not on a team"'} onclick="cvBriefSet('aud','team')">${team?esc(team.name):'No team'}</button></span>
+        <span class="cvbr-seg">${cw._teamEditCtx?'':`<button class="${cvBrief.aud==='athlete'?'on':''}" onclick="cvBriefSet('aud','athlete')">${esc(first)}</button>`}<button class="${cvBrief.aud==='team'?'on':''}" ${team?'':'disabled title="This athlete is not on a team"'} onclick="cvBriefSet('aud','team')">${team?esc(team.name):'No team'}</button></span>
       </span>
     </div>
     <textarea class="cvbr-ta" id="cvBriefTa" placeholder="e.g. Keep the bar close today — we're chasing position, not load." oninput="cvBriefDirty()">${esc(val)}</textarea>
@@ -15690,6 +15693,9 @@ async function cvBriefLoad(){
 async function cvInjectBrief(){
   const old=document.getElementById('cvBrief'); if(old) old.remove();
   if(!cw || !cw.selDate) return;
+  // team edit: a note goes to the whole team; leaving team edit drops back to the athlete default
+  if(cw._teamEditCtx){ if(cvBrief.aud!=='team'){ cvBrief.aud='team'; cvBrief.row=null; } cvBrief._team=true; }
+  else if(cvBrief._team){ cvBrief._team=false; cvBrief.aud='athlete'; cvBrief.row=null; }
   await cvBriefLoad();
   const edBox=document.getElementById('cvEd'); if(!edBox || !edBox.parentNode) return;
   const box=document.createElement('div'); box.id='cvBrief'; box.innerHTML=cvBriefHtml();
