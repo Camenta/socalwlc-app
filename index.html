@@ -566,6 +566,29 @@
   .av-arrow.sm{font-size:12px;font-weight:800;padding:3px 9px;min-width:0;line-height:1.5}
   .cw-delbar .cw-del-tpl{background:var(--good);color:#0a0d11}
   .cw-delbar .cw-del-xa{background:#3c9ee8;color:#fff}
+  .mg-box{max-width:600px}.mg-box h2{margin:0 0 2px;font-size:18px}
+  .mg-sub{font-size:12.5px;color:var(--muted);margin-bottom:6px}
+  .mg-lbl{font-size:10.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
+  .mg-lbl span{text-transform:none;font-weight:600;letter-spacing:0}
+  .mg-srcs{display:flex;flex-wrap:wrap;gap:8px}
+  .mg-chk{display:flex;align-items:center;gap:7px;background:#0e151c;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-weight:700;font-size:13px;cursor:pointer;text-transform:none;letter-spacing:0;color:var(--text);margin:0}
+  .mg-chk input,.mg-row input{width:16px;height:16px;accent-color:#3c9ee8;flex:none;margin:0}
+  .mg-t{font-size:11px;color:var(--muted);font-weight:600}
+  .mg-list{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .mg-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--line);font-size:13px;cursor:pointer;text-transform:none;letter-spacing:0;color:var(--text);margin:0;font-weight:400}
+  .mg-row:last-child{border-bottom:none}
+  .mg-row.mg-na{color:var(--muted);cursor:default}
+  .mg-from{font-size:11px;color:var(--muted);min-width:34px}
+  .mg-l{font-weight:900;min-width:16px}
+  .mg-nm{font-weight:700;flex:1}
+  .mg-sc{font-size:12px;color:var(--muted);text-align:right}
+  .mg-mv{background:#0e151c;border:1px solid var(--line);border-radius:6px;color:var(--text);padding:2px 8px;cursor:pointer}
+  .mg-mv:disabled{opacity:.35;cursor:default}
+  .mg-new{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:13px}
+  .mg-title{background:#0e151c;border:1px solid var(--line);border-radius:8px;color:var(--text);font:inherit;font-weight:700;padding:6px 8px;width:150px}
+  .mg-new .sch-tag{font-size:12px;padding:3px 8px}
+  .mg-n{color:var(--muted);font-size:12.5px}
+  .mg-acts{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
   .sch-btn{padding:3px 9px!important;font-size:11px!important;margin-left:8px}
   .sch-own{color:var(--accent);font-weight:700;margin-left:6px}
   .sch-tags{display:inline-flex;gap:3px;margin-left:4px;vertical-align:middle}
@@ -12731,6 +12754,80 @@ window.cwSchedSet=async(athId, s)=>{
   if(r.error || !r.data || !r.data.length){ a.train_schedule=prev; cwSchedOpen(); toast('Couldn’t save — '+((r.error&&r.error.message)||'try again')); return; }
   const g=(coachState.athletes||[]).find(x=>x.id===athId); if(g) g.train_schedule=a.train_schedule;
 };
+/* ----- 🧩 Merge days: pick ANY days of a week, tick ANY exercises, set their order, and build one new team
+   day for the chosen schedules (e.g. a 3× Day 2 from pieces of Days 2-5). Each athlete gets it priced off
+   their own maxes; it then opens as a normal team day to trim. ----- */
+let _mg=null;
+window.mgOpen=(off)=>{
+  if(!cw||!cw.teamMode||!TD_READY) return;
+  const wk=weekDates(off).map(iso);
+  const days=[]; wk.forEach(d=>(cw.sessByDate[d]||[]).forEach(s=>days.push({ dIso:d, rep:s, full:null, on:false })));
+  if(!days.length){ toast('No team days this week to merge from.'); return; }
+  _mg={ off, wk, days, sel:[], tags:new Set(['3']), date:wk[2]||wk[0], title:'3× Day 2', busy:false };
+  ovModal('mergeModal', `<div class="mg-box"><span class="vid-x" onclick="document.getElementById('mergeModal').style.display='none'">✕</span>
+    <h2>🧩 Merge days into one</h2><div class="mg-sub">Any days, any exercises, your order. The new day goes to the schedules you pick — each athlete with their own weights.</div>
+    <div id="mgBody"></div></div>`);
+  mgPaint();
+};
+window.mgDay=async(i, on)=>{
+  const d=_mg&&_mg.days[i]; if(!d) return; d.on=on;
+  if(on && !d.full){ const r=await sb.from('sessions').select(SESSION_SELECT).eq('id', d.rep.id).single(); d.full=r.data||{prescribed_exercises:[]}; }
+  if(!on) _mg.sel=_mg.sel.filter(x=>x.di!==i);
+  mgPaint();
+};
+window.mgTick=(di, ei, on)=>{ if(on){ if(!_mg.sel.some(x=>x.di===di&&x.ei===ei)) _mg.sel.push({di,ei}); } else _mg.sel=_mg.sel.filter(x=>!(x.di===di&&x.ei===ei)); mgPaint(); };
+window.mgMove=(i, d)=>{ const j=i+d; if(j<0||j>=_mg.sel.length) return; [_mg.sel[i],_mg.sel[j]]=[_mg.sel[j],_mg.sel[i]]; mgPaint(); };
+let _mgDrag=null;
+window.mgDrop=(i)=>{ if(_mgDrag==null||_mgDrag===i) return; const [x]=_mg.sel.splice(_mgDrag,1); _mg.sel.splice(i,0,x); _mgDrag=null; mgPaint(); };
+window.mgTag=(t)=>{ _mg.tags.has(t)?_mg.tags.delete(t):_mg.tags.add(t); mgPaint(); };
+function mgExOf(di, ei){ const d=_mg.days[di]; const exs=((d.full&&d.full.prescribed_exercises)||[]).slice().sort(sortByPos); return exs[ei]; }
+function mgPaint(){
+  const b=document.getElementById('mgBody'); if(!b||!_mg) return;
+  const DOWS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], dl=d=>DOWS[_mg.wk.indexOf(d)]||fmtShort(d);
+  const scheme=ex=>{ try{ return cwFmtScheme(ex)||''; }catch(e){ return ''; } };
+  const srcs=_mg.days.map((d,i)=>`<label class="mg-chk"><input type="checkbox" ${d.on?'checked':''} onchange="mgDay(${i},this.checked)"> ${dl(d.dIso)} · ${esc(d.rep.title||'Training')} <span class="mg-t">${esc(tagsLbl(d.rep.team_tags))}</span></label>`).join('');
+  const exRows=_mg.days.map((d,di)=>!d.on?'':(!d.full?`<div class="mg-row mg-na">Loading ${dl(d.dIso)}…</div>`
+    :((d.full.prescribed_exercises||[]).slice().sort(sortByPos).map((ex,ei)=>{ const on=_mg.sel.some(x=>x.di===di&&x.ei===ei);
+      return `<label class="mg-row"><input type="checkbox" ${on?'checked':''} onchange="mgTick(${di},${ei},this.checked)"><span class="mg-from">${dl(d.dIso)}</span><span class="mg-nm">${esc(ex.name||'')}</span><span class="mg-sc">${esc(scheme(ex))}</span></label>`; }).join('')||`<div class="mg-row mg-na">${dl(d.dIso)} has no exercises yet.</div>`))).join('');
+  const L='ABCDEFGHIJKLMNOP';
+  const order=_mg.sel.map((x,i)=>{ const ex=mgExOf(x.di,x.ei)||{}; return `<div class="mg-row" draggable="true" ondragstart="_mgDrag=${i}" ondragover="event.preventDefault()" ondrop="mgDrop(${i})">
+      <span class="mg-l">${L[i]||'•'}</span><span class="mg-nm">${esc(ex.name||'')}</span><span class="mg-sc">${esc(scheme(ex))} · from ${dl(_mg.days[x.di].dIso)}</span>
+      <button class="mg-mv" onclick="mgMove(${i},-1)" ${i?'':'disabled'}>▲</button><button class="mg-mv" onclick="mgMove(${i},1)" ${i<_mg.sel.length-1?'':'disabled'}>▼</button></div>`; }).join('');
+  const n=(cw.roster||[]).filter(a=>schedGets(schedOf(a), [..._mg.tags])).length;
+  b.innerHTML=`
+    <div class="mg-lbl">1 · Take exercises from</div><div class="mg-srcs">${srcs}</div>
+    <div class="mg-lbl">2 · Tick what goes in</div><div class="mg-list">${exRows||'<div class="mg-row mg-na">Tick one or more days above.</div>'}</div>
+    <div class="mg-lbl">3 · Order <span>(drag, or ▲▼)</span></div><div class="mg-list">${order||'<div class="mg-row mg-na">Ticked exercises line up here, in the order the athlete does them.</div>'}</div>
+    <div class="mg-lbl">4 · New day</div>
+    <div class="mg-new">on <select class="cw-sel" onchange="_mg.date=this.value">${_mg.wk.map(d=>`<option value="${d}"${d===_mg.date?' selected':''}>${esc(fmtShort(d))} · ${dl(d)}</option>`).join('')}</select>
+      titled <input class="mg-title" value="${esc(_mg.title)}" oninput="_mg.title=this.value"></div>
+    <div class="mg-new">for ${TEAM_SCHEDS.map(t=>`<span class="sch-tag t${t}${_mg.tags.has(t)?'':' off'}" onclick="mgTag('${t}')">${t}×</span>`).join(' ')} <span class="mg-n">→ ${n} athlete${n===1?'':'s'}</span></div>
+    <div class="mg-acts"><button class="btn ghost" onclick="document.getElementById('mergeModal').style.display='none'">Cancel</button>
+      <button class="btn blue" onclick="mgBuild()" ${_mg.sel.length&&_mg.tags.size&&n&&!_mg.busy?'':'disabled'}>${_mg.busy?'Building…':'Build the day'}</button></div>`;
+}
+window.mgBuild=async()=>{
+  if(!_mg||_mg.busy||!_mg.sel.length||!_mg.tags.size) return;
+  _mg.busy=true; mgPaint();
+  const tags=TEAM_SCHEDS.filter(t=>_mg.tags.has(t)), teamDay=crypto.randomUUID(), date=_mg.date, title=(_mg.title||'').trim()||'Merged day';
+  // the merged day: the ticked exercises, in the chosen order (supersets dropped — they belonged to other days)
+  const exs=_mg.sel.map((x,i)=>Object.assign({}, mgExOf(x.di,x.ei), { position:i, superset_group:null }));
+  const full={ title, status:'draft', prescribed_exercises:exs };
+  const who=(cw.roster||[]).filter(a=>schedGets(schedOf(a), tags));
+  let made=0;
+  try{
+    for(const a of who){
+      const { data: mx } = await sb.from('maxes').select('lift,kg').eq('athlete_id', a.id);
+      const rp={ maxes:{}, missing:new Set() }; (mx||[]).forEach(m=>{ const v=parseFloat(m.kg); if(!isNaN(v)) rp.maxes[m.lift]=v; });
+      await cloneSessionFor(full, date, a.id, 'draft', rp, { team_day:teamDay, team_tags:tags }); made++;
+    }
+  }catch(e){ _mg.busy=false; mgPaint(); toast('Merge stopped — '+(e.message||e)+(made?' ('+made+' athletes done first)':'')); return; }
+  document.getElementById('mergeModal').style.display='none';
+  toast(`🧩 Built “${title}” for ${made} athlete${made===1?'':'s'} (${tagsLbl(tags)}) as a draft — opening it to trim.`);
+  _mg=null;
+  await renderCoachPanel();
+  const rep=(cw&&cw.sessByDate&&(cw.sessByDate[date]||[]).find(s=>s.team_day===teamDay));
+  if(rep) cwTeamEdit(date, rep.id);
+};
 // tap a schedule tag on a team day: re-tag every copy, add the day for athletes now included, remove it from
 // athletes now left out (only if unlogged and not their own version — those are kept and reported)
 let _cwTagBusy=false;
@@ -13010,6 +13107,7 @@ function cwWeekRowHtml(off, todayStr){
     const tDraft=(cw.weekSessFull||[]).filter(s=>wkIso.includes(s.session_date) && s.status==='draft').length;
     const tAny=(cw.weekSessFull||[]).some(s=>wkIso.includes(s.session_date));
     actions = `<span class="cw-wkstat"><b>${cw.athIds.length}</b> athletes</span>`
+      + (TD_READY && wkIso.some(d=>(cw.sessByDate[d]||[]).length) ? `<button class="btn ghost" style="padding:6px 12px" onclick="mgOpen(${off})" title="Pull exercises from any days into a new day for chosen schedules">🧩 Merge days</button>` : '')
       + (tDraft ? `<button class="btn blue" style="padding:6px 12px" onclick="cwTeamPublishWeek(${off},this)" title="Publish every draft this week for every athlete on ${esc(cw.team.name)}">📤 Publish all (${tDraft})</button>`
                 : (tAny?'<span class="pill st-pub">● all published</span>':''));
   } else {
