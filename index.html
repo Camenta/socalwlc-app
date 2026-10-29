@@ -1868,6 +1868,66 @@
   .cvt td.cva{background:rgba(232,100,60,.05);text-align:center;font-size:12.5px}
   .cvt td.vl-td{white-space:nowrap}
   .logtable tr.tickonly td.tgt{font-weight:700;white-space:normal}
+  /* athlete set rows: desktop = table (phone-only bits hidden) */
+  .logtable td.c-more,.logtable td.c-br,.logtable td.c-chips,.tg-mob,.lg-laysw{display:none}
+  .chkbig span{display:none}
+  @media (max-width:700px){
+    .lg-laysw{display:inline-flex;margin-left:auto;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+    .lg-laysw button{background:#0e151c;border:none;color:var(--muted);font:inherit;font-weight:800;font-size:12.5px;padding:7px 12px;cursor:pointer}
+    .lg-laysw button.on{background:var(--accent2);color:#fff}
+    #logRoot .logwrap{overflow:visible}
+    #logRoot .logtable,#logRoot .logtable tbody{display:block;width:100%;min-width:0}
+    #logRoot .logtable thead{display:none}
+    #logRoot .logtable tr[data-set]{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 4px;border-bottom:1px solid var(--line)}
+    #logRoot .logtable tr[data-set]:has(.chk:checked){background:rgba(60,196,124,.06)}
+    #logRoot .logtable tr[data-set] td{display:block;padding:0;border:none;width:auto}
+    #logRoot td.tg-desk,#logRoot .tg-desk{display:none}
+    #logRoot .tg-mob{display:block}
+    #logRoot .tg-mob b{display:block;color:var(--accent2);font-weight:800;line-height:1.15}
+    #logRoot .tg-mob small{display:block;color:var(--muted);font-weight:700;margin-top:2px;line-height:1.25}
+    #logRoot td.c-n{order:1;width:18px;flex:none;font-weight:800;color:var(--muted)}
+    #logRoot td.c-tgt{order:2;flex:1;min-width:0;white-space:normal}
+    #logRoot td.c-reps{order:3}#logRoot td.c-kg{order:4}#logRoot td.c-more{order:5}#logRoot td.c-done{order:6}
+    #logRoot td.c-br{order:7;flex-basis:100%;height:0}
+    #logRoot td.c-chips{order:8}#logRoot td.c-lts{order:9}#logRoot td.c-eff{order:10}#logRoot td.c-miss{order:11}#logRoot td.c-vid{order:12}#logRoot td.c-del{order:13;margin-left:auto}
+    #logRoot td.c-hint{order:5;font-size:11.5px;text-align:right}
+    #logRoot td.c-del:empty,#logRoot tr[data-set]>td:empty:not(.c-br){display:none!important}
+    #logRoot td.c-reps input,#logRoot td.c-kg input{width:52px;height:42px;font-size:16px;font-weight:800;text-align:center;padding:4px}
+    #logRoot td.c-kg input{width:62px}
+    #logRoot td.c-miss input{width:40px;height:30px;font-size:14px;padding:2px}
+    #logRoot td.c-miss::before{content:'MISS';font-size:10px;font-weight:800;color:var(--muted);margin-right:5px;vertical-align:middle}
+    #logRoot td.c-miss{display:flex!important;align-items:center}
+    /* big ✓ under the thumb */
+    #logRoot .chkbig{position:relative;display:block;width:46px;height:46px;cursor:pointer;margin:0}
+    #logRoot .chkbig input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer}
+    #logRoot .chkbig span{display:flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:12px;border:2px solid var(--line);background:#0e151c;color:transparent;font-size:24px;font-weight:900}
+    #logRoot .chkbig input:checked+span{background:var(--good);border-color:var(--good);color:#0a0d11}
+    #logRoot .lg-lts i{width:20px;height:20px}
+    #logRoot .lg-eff .lg-light{min-width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center}
+    /* Full: labels over reps/kg, line 2 always visible, bigger prescription */
+    #logRoot.lay-full td.c-tgt .tg-mob b{font-size:19px}
+    #logRoot.lay-full td.c-tgt .tg-mob small{font-size:13px}
+    #logRoot td.c-reps::before,#logRoot td.c-kg::before{display:block;font-size:9.5px;font-weight:800;letter-spacing:.5px;color:var(--muted);text-align:center;margin-bottom:2px}
+    #logRoot td.c-reps::before{content:'REPS'}#logRoot td.c-kg::before{content:'KG'}   /* both layouts */
+    #logRoot.lay-full td.c-lts{margin-left:26px}
+    #logRoot.lay-full td.c-more,#logRoot.lay-full td.c-chips{display:none!important}
+    /* Compact: one line; ⋯ opens lights/effort/miss/video; chips summarise what's set */
+    #logRoot.lay-compact td.c-tgt .tg-mob b{font-size:15.5px}
+    #logRoot.lay-compact td.c-tgt .tg-mob.long b{font-size:13.5px}
+    #logRoot.lay-full td.c-tgt .tg-mob.long b{font-size:16px}
+    #logRoot.lay-compact td.c-tgt .tg-mob small{font-size:11px}
+    #logRoot.lay-compact td.c-more{display:block}
+    #logRoot.lay-compact .lg-more{width:36px;height:38px;border-radius:9px;border:1px solid var(--line);background:#0e151c;color:var(--muted);font-weight:900;font-size:15px;cursor:pointer}
+    #logRoot.lay-compact tr.lg-open .lg-more{color:var(--accent2);border-color:var(--accent2)}
+    #logRoot.lay-compact tr[data-set]:not(.lg-open) td.c-lts,#logRoot.lay-compact tr[data-set]:not(.lg-open) td.c-eff,
+    #logRoot.lay-compact tr[data-set]:not(.lg-open) td.c-miss,#logRoot.lay-compact tr[data-set]:not(.lg-open) td.c-vid{display:none!important}
+    #logRoot.lay-compact tr.lg-open td.c-chips{display:none!important}
+    #logRoot.lay-compact td.c-chips{display:flex;gap:4px;margin-left:26px}
+    #logRoot.lay-compact td.c-chips:empty{display:none!important}
+    #logRoot.lay-compact td.c-chips span{font-size:10.5px;font-weight:800;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:1px 5px}
+    #logRoot.lay-compact td.c-lts{margin-left:26px}
+    #logRoot tr.tickonly td.c-tgt .tg-mob b{font-size:18px}
+  }
   .logtable td.tick-hint{color:var(--muted);font-size:12px;font-style:italic;text-align:right}
   .logtable tr.iv-work td.tgt{color:var(--accent)}
   .logtable tr.iv-rest td{opacity:.75}
@@ -4864,28 +4924,53 @@ window.cmpSetBIdx=async(i)=>{ if(!cmpS||!cmpS._pick[i]) return; const p=cmpS._pi
   await cmpLoadPane('b', p.path, p.label); cmpS.offset=0; cmpUpdateOffset();
   const tr=document.getElementById('cmpTransport'), sr=document.getElementById('cmpSyncRow'); if(tr)tr.style.display=''; if(sr)sr.style.display='';
   if(!cmpS._raf) cmpTick(); };
+// Phones (≤700px) restyle each row into a set card — Full (two lines, everything visible) or Compact (one line,
+// lights/effort/miss/video behind ⋯) — chosen per athlete and remembered on the device. Desktop keeps the table;
+// the c-* cells are just hooks, and c-more/c-br/c-chips + .tg-mob only show on phones.
+function tgSplit(t){ t=String(t||'');
+  let m=t.match(/^(.*?)\s*\((\d[\d.]*\s*kg)\)\s*(·.*)?$/); if(m) return [m[1], m[2].replace(/kg$/,' kg')+(m[3]?' '+m[3]:'')];
+  const i=t.indexOf(' · '); if(i>0) return [t.slice(0,i), t.slice(i+3)];
+  return [t,''];
+}
+function tgHtml(t){ const [a,b]=tgSplit(t); return `<span class="tg-desk">${esc(t)}</span><span class="tg-mob${a.length>16?' long':''}"><b>${esc(a)}</b>${b?`<small>${esc(b)}</small>`:''}</span>`; }
+function lgChips(st){ const c=[];
+  if(st.lights!=null && st.lights<3) c.push(st.lights+'/3 lights');
+  if(st.effort) c.push('effort '+st.effort);
+  if(parseInt(st.miss,10)>0) c.push(st.miss+' miss');
+  if(st.video_path) c.push('▶ video');
+  return c.map(x=>`<span>${esc(x)}</span>`).join(''); }
+function doneCell(st){ return `<label class="chkbig"><input type="checkbox" class="chk" data-f="done" ${st.done?'checked':''}><span>✓</span></label>`; }
 function rowHtml(key,i){
   const st=logState[key];
   if(st.tickOnly) return `<tr data-set="${key}" class="tickonly${st.phase==='rest'?' iv-rest':st.phase==='work'?' iv-work':''}">
-    <td${st.phaseLbl?' class="iv-lbl"':''}>${st.phaseLbl||(i+1)}</td>
-    <td class="tgt">${esc(st.targetText||'')}</td>
-    <td colspan="6" class="tick-hint">tick it off when it's done →</td>
-    <td><input type="checkbox" class="chk" data-f="done" ${st.done?'checked':''}></td>
+    <td class="c-n${st.phaseLbl?' iv-lbl':''}">${st.phaseLbl||(i+1)}</td>
+    <td class="tgt c-tgt">${tgHtml(st.targetText)}</td>
+    <td colspan="6" class="tick-hint c-hint">tick it off when it's done →</td>
+    <td class="c-done">${doneCell(st)}</td>
     <td></td>
   </tr>`;
-  return `<tr data-set="${key}">
-    <td>${i+1}</td>
-    <td class="tgt">${st.added?'<span class="addedtag">added</span>':esc(st.targetText||'')}</td>
-    <td><input class="cell" data-f="reps" value="${esc(st.reps)}" inputmode="numeric"></td>
-    <td><input class="cell" data-f="kg" value="${esc(st.kg)}" inputmode="decimal"></td>
-    <td><input class="cell mini" data-f="miss" value="${esc(st.miss)}" inputmode="numeric"></td>
-    <td><span class="lights lg-lts" data-set="${key}" title="Tap: white = good lift, red = miss">${ltsDots(st.lights)}</span></td>
-    <td>${effCells(key, st.effort)}</td>
-    <td class="vidcell">${vidCell(key, st)}</td>
-    <td><input type="checkbox" class="chk" data-f="done" ${st.done?'checked':''}></td>
-    <td>${st.added?`<span class="lg-del" data-set="${key}" title="Remove this set">✕</span>`:''}</td>
+  return `<tr data-set="${key}"${st._open?' class="lg-open"':''}>
+    <td class="c-n">${i+1}</td>
+    <td class="tgt c-tgt">${st.added?'<span class="addedtag">added</span>':tgHtml(st.targetText)}</td>
+    <td class="c-reps"><input class="cell" data-f="reps" value="${esc(st.reps)}" inputmode="numeric"></td>
+    <td class="c-kg"><input class="cell" data-f="kg" value="${esc(st.kg)}" inputmode="decimal"></td>
+    <td class="c-miss"><input class="cell mini" data-f="miss" value="${esc(st.miss)}" inputmode="numeric"></td>
+    <td class="c-lts"><span class="lights lg-lts" data-set="${key}" title="Tap: white = good lift, red = miss">${ltsDots(st.lights)}</span></td>
+    <td class="c-eff">${effCells(key, st.effort)}</td>
+    <td class="vidcell c-vid">${vidCell(key, st)}</td>
+    <td class="c-done">${doneCell(st)}</td>
+    <td class="c-del">${st.added?`<span class="lg-del" data-set="${key}" title="Remove this set">✕</span>`:''}</td>
+    <td class="c-more"><button type="button" class="lg-more" aria-label="Lights, effort, misses and video">⋯</button></td>
+    <td class="c-br"></td>
+    <td class="c-chips">${lgChips(st)}</td>
   </tr>`;
 }
+// Full / Compact switch (phones). Per-viewer preference → localStorage, wrapped so a blocked store just means "Full".
+function lgLay(){ try{ return localStorage.getItem('wlc_log_layout')==='compact'?'compact':'full'; }catch(e){ return 'full'; } }
+window.lgSetLay=(v)=>{ try{ localStorage.setItem('wlc_log_layout', v); }catch(e){}
+  const r=document.getElementById('logRoot'); if(r){ r.classList.toggle('lay-compact', v==='compact'); r.classList.toggle('lay-full', v!=='compact'); }
+  document.querySelectorAll('.lg-laysw button').forEach(b=>b.classList.toggle('on', b.dataset.v===v)); };
+function lgLaySwitch(){ const v=lgLay(); return `<span class="lg-laysw" title="How sets look on your phone"><button data-v="full" class="${v==='full'?'on':''}" onclick="lgSetLay('full')">Full</button><button data-v="compact" class="${v==='compact'?'on':''}" onclick="lgSetLay('compact')">Compact</button></span>`; }
 let addSeq=0;
 function addSetRow(exId){
   const ex=curExercises.find(e=>e.exId===exId); if(!ex) return;
@@ -4917,6 +5002,7 @@ function refreshRow(id){
   const lts=tr.querySelector('.lg-lts'); if(lts) lts.innerHTML=ltsDots(st.lights);
   tr.querySelectorAll('.lg-light').forEach(b=>b.classList.toggle('on', b.dataset.eff===st.effort));
   const vc=tr.querySelector('.vidcell'); if(vc) vc.innerHTML=vidCell(id, st);
+  const ch=tr.querySelector('.c-chips'); if(ch) ch.innerHTML=lgChips(st);
 }
 function computeSessionStats(){
   let pNL=0,aNL=0,accPNL=0,accANL=0,aTon=0,miss=0,planSets=0,doneSets=0,good=0,goodNL=0,effSum=0,effN=0;
@@ -4989,7 +5075,7 @@ window.athMarkAllDone=(exId)=>{
 };
 function wireLogging(){
   const root=document.getElementById('logRoot'); if(!root) return;
-  root.addEventListener('input', e=>{ const inp=e.target.closest('.cell'); if(!inp) return; const id=inp.closest('tr').dataset.set; logState[id][inp.dataset.f]=inp.value; recompute(); alogTouch(id); });
+  root.addEventListener('input', e=>{ const inp=e.target.closest('.cell'); if(!inp) return; const id=inp.closest('tr').dataset.set; logState[id][inp.dataset.f]=inp.value; if(inp.dataset.f==='miss') refreshRow(id); recompute(); alogTouch(id); });
   root.addEventListener('change', e=>{ const c=e.target.closest('.chk'); if(!c) return; const id=c.closest('tr').dataset.set; logState[id].done=c.checked; recompute(); alogTouch(id); });
   root.addEventListener('click', e=>{
     const tr=e.target.closest('tr[data-set]'); if(!tr) return; const id=tr.dataset.set; const st=logState[id];
@@ -5003,6 +5089,7 @@ function wireLogging(){
       return;
     }
     const del=e.target.closest('.lg-del'); if(del){ removeSetRow(id); return; }
+    if(e.target.closest('.lg-more')){ st._open=!st._open; tr.classList.toggle('lg-open', !!st._open); return; }
   });
 }
 let LT_READY=false, OVR_READY=false, SS_READY=false, VL_READY=false, MS_READY=false, PH_READY=false;   // MS_READY = measures beyond reps (65) · PH_READY = interval work/rest phase (66)   // VL_READY = prescribed_sets.target_vel_loss (migration 64)   // SS_READY = prescribed_exercises.superset_group (migration 42)
@@ -9070,7 +9157,7 @@ async function renderAthlete(selDate){
       </div>
       <div id="athBrief"></div>
       <div class="sub" style="margin-top:6px">Log what you did · tap the lights (white = good lift, red = miss) · rate effort E/M/H/X · tick each set off. <b>Everything saves automatically as you go</b> — you won't lose it.</div>
-      <div style="margin-top:9px"><span class="lg-add lg-tickall" onclick="athMarkAllDone()" title="Tick every set in this session done — tap again to clear">✓ Tick all sets done</span></div>
+      <div style="margin-top:9px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="lg-add lg-tickall" onclick="athMarkAllDone()" title="Tick every set in this session done — tap again to clear">✓ Tick all sets done</span>${lgLaySwitch()}</div>
     </div>
     <div class="card av-weekcard">
       <div class="av-weekhd"><span class="av-weeklbl">Training week · <b>${weekLabel}</b>${athBlockLbl}</span><span class="av-weekprog">${doneN} / ${totN} sessions done</span>${athWkNav(mon)}</div>
@@ -9079,7 +9166,7 @@ async function renderAthlete(selDate){
     <div id="rkHost">${checkinCard()}</div>
     <div id="painHost"></div>
     ${dayList.length>1?`<div class="cw-stabs" style="margin:0 0 12px">${dayList.map(x=>`<button class="cw-stab${x.id===session.id?' on':''}" onclick="athSelectSess('${x.id}')">${esc(x.title||'Session')}</button>`).join('')}</div>`:''}
-    <div id="logRoot">${body}</div>
+    <div id="logRoot" class="lay-${lgLay()}">${body}</div>
     ${ANOTES_READY?`<div class="card anotes-card">
       <label class="anotes-lbl" for="aNotesSession">📝 Session notes <span class="sub">— cues, how it felt, anything for your coach</span></label>
       <textarea id="aNotesSession" class="anotes-ta" rows="3" placeholder="e.g. Snatches felt fast today, low back tight on the cleans — cue was stay over the bar longer…" oninput="athNotesInput('s',null,this.value)">${esc(curSession.athlete_notes.s||'')}</textarea>
