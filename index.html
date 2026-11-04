@@ -2656,7 +2656,15 @@ async function boot(){
   await notifLoad();
   if(profile.role === 'coach') renderCoach();
   else if(athOnboardNeeded(profile)) renderOnboard();
-  else athGo(athState.screen||'athlete');
+  else {
+    // came back after the phone dropped the page? reopen the athlete's last place, not Home
+    const p=athPlaceLoad();
+    if(p && p.screen==='athlete' && p.date){
+      _athResume={ date:p.date, ex:p.ex||null, y:p.y||0 };
+      athSelDate=p.date; athSelSess=p.sess||null; athState.screen='athlete';
+      renderAthlete(p.date);
+    } else athGo((p && p.screen) || athState.screen || 'athlete');
+  }
 }
 async function renderJoin(token){
   let info=null;
@@ -5510,6 +5518,24 @@ function painFocusLine(agg, first){
 
 /* ---------------- athlete nav + router ---------------- */
 let athState = { screen:'home' };
+// Resume where you left off. Leaving to answer a text or a call, iOS Safari often throws the backgrounded
+// page away, so coming back is a full reload — which always landed on Athlete Home. We remember the
+// athlete's screen, day, session and the exercise at the top of the screen, and boot() reopens there.
+const ATH_PLACE_MAX_MS = 12*3600*1000;   // older than this, start fresh on Home
+function athPlaceKey(){ return (me_ && me_.id && me_.role!=='coach') ? 'wlc:place:'+me_.id : null; }
+function athPlaceSave(patch){ const k=athPlaceKey(); if(!k) return;
+  try{ const cur=JSON.parse(localStorage.getItem(k)||'{}')||{}; localStorage.setItem(k, JSON.stringify(Object.assign(cur, patch, { t:Date.now() }))); }catch(e){} }
+function athPlaceLoad(){ const k=athPlaceKey(); if(!k) return null;
+  try{ const p=JSON.parse(localStorage.getItem(k)||'null'); return (p && p.t && Date.now()-p.t < ATH_PLACE_MAX_MS) ? p : null; }catch(e){ return null; } }
+// the exercise sitting at (or just above) the top of the screen right now
+function athPlaceTopEx(){ const els=[...document.querySelectorAll('#app .ex[data-exid]')]; if(!els.length) return null;
+  let best=els[0]; els.forEach(el=>{ if(el.getBoundingClientRect().top<=140) best=el; }); return best.dataset.exid; }
+function athPlaceNow(){ if(athState.screen!=='athlete' || _athResume || !document.querySelector('#app .ex[data-exid]')) return;
+  athPlaceSave({ ex:athPlaceTopEx(), y:Math.round(window.scrollY) }); }
+let _athResume=null, _athPlaceTimer=null;
+window.addEventListener('scroll', ()=>{ if(_athPlaceTimer) clearTimeout(_athPlaceTimer); _athPlaceTimer=setTimeout(()=>{ _athPlaceTimer=null; athPlaceNow(); }, 400); }, { passive:true });
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') athPlaceNow(); });
+window.addEventListener('pagehide', athPlaceNow);
 function athNav(active){
   return `<div class="cnav">
     <button class="${active==='home'?'on':''}" onclick="athGo('home')">⌂ Athlete Home</button>
@@ -5519,7 +5545,7 @@ function athNav(active){
     <button class="${active==='uploads'?'on':''}" onclick="athGo('uploads')">📤 Uploads</button>
   </div>`;
 }
-window.athGo=(s)=>{ athState.screen=s;
+window.athGo=(s)=>{ athState.screen=s; if(s!=='athlete') athPlaceSave({ screen:s });
   if(s==='athlete') renderAthlete();
   else if(s==='plan') renderAthPlan();
   else if(s==='dash'){ dashState.mode='athlete'; renderAthDash(); }
@@ -9134,7 +9160,7 @@ async function renderAthlete(selDate){
       });
     curExercises.push({name:ex.name, exId:ex.id, setIds, acc:isAcc});
     const isLast = exIdx===exs.length-1;
-    body += `<div class="ex">
+    body += `<div class="ex" data-exid="${ex.id}">
       <div class="av-head" onclick="athToggleEx(this)" title="Tap to roll up / expand this exercise"><span class="ex-caret">▾</span><span class="pill ${isAcc?'accessory':'primary'}">${esc(cat)}</span><span class="name">${esc(ex.name)}</span>${exDemoBtn(ex.name)}<span class="ex-prog" data-exprog="${ex.id}"></span>${isLast?'':`<button class="ex-next" title="Jump to the next exercise" onclick="event.stopPropagation();athNextEx(this)">next ↓</button>`}</div>
       <div class="ex-body">
       ${(ex.coach_note || (ex.cues&&ex.cues.length)) ? `<div class="av-note av-note-top"><span class="tag">Coach<br>notes</span><span>${(ex.cues&&ex.cues.length)?`<span class="cues" style="margin-bottom:5px;display:inline-flex">${ex.cues.map(c=>{const ix=c.indexOf('|');return `<span class="cuechip">${ix>-1?esc(c.slice(0,ix))+' ':''}<b>${esc(ix>-1?c.slice(ix+1):c)}</b></span>`;}).join('')}</span><br>`:''}${esc(ex.coach_note||'')}</span></div>` : ''}
@@ -9185,6 +9211,21 @@ async function renderAthlete(selDate){
   markAthReviews();
   athLoadBrief(session.session_date);
   loadPainToday().then(repaintPain);
+  // remember this day; on a resume, jump back to the exercise they were on
+  if(_athResume && _athResume.date===sel){
+    const r=_athResume;
+    athPlaceSave({ screen:'athlete', date:sel, sess:session.id, ex:r.ex||null, y:r.y||0 });
+    setTimeout(()=>{
+      const el = r.ex && document.querySelector('#app .ex[data-exid="'+r.ex+'"]');
+      if(el){ el.classList.remove('ex-collapsed'); window.scrollTo(0, Math.max(0, el.getBoundingClientRect().top + window.scrollY - 12)); }
+      else if(r.y) window.scrollTo(0, r.y);
+      _athResume=null;
+    }, 150);
+  } else {
+    _athResume=null;
+    const prev=athPlaceLoad(); const same = prev && prev.date===sel && prev.sess===session.id;
+    athPlaceSave(Object.assign({ screen:'athlete', date:sel, sess:session.id }, same ? {} : { ex:null, y:0 }));
+  }
 }
 // Which briefs belong to THIS athlete on THIS day. Team briefs are readable
 // gym-wide (see migration 51) so the team filter has to happen here; a personal
