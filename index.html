@@ -82,6 +82,10 @@
   .athbr-review.rev-watched{opacity:.6}
   .athbr-done{color:var(--good);font-weight:700;font-size:12px;margin-left:4px}
   .athbr-got{margin-top:9px;display:flex;justify-content:flex-end}
+  .av-cx{padding:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .av-cxbtn{flex:1;min-width:200px;background:var(--panel2);border:2px solid var(--good);color:var(--good);border-radius:12px;padding:14px;font:inherit;font-size:16px;font-weight:900;cursor:pointer}
+  .av-cxbtn.on{background:var(--good);color:#06130b}
+  .av-cxundo{font-size:12px;color:var(--muted)}
   /* swipe layout (athlete testers): overview → coach notes → one page per exercise / superset */
   .avsw-navsw{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
   .avsw-navsw button{background:#0e151c;border:none;color:var(--muted);font:inherit;font-weight:800;font-size:12.5px;padding:7px 12px;cursor:pointer}
@@ -3210,12 +3214,23 @@ window.athNotesInput=(kind,exId,val)=>{
   const st=document.getElementById('aNotesStatus'); if(st){ st.style.color=''; st.textContent='Saving…'; }
   clearTimeout(_aNotesTimer); _aNotesTimer=setTimeout(athNotesSave,800);
 };
+// exercises with no sets (plyos, mobility, warm-ups): one "Mark as completed" button, saved in athlete_notes.cx
+function athCxDone(exId){ const N=curSession&&curSession.athlete_notes; return !!(N && N.cx && N.cx[exId]); }
+function athCxHtml(exId){ const d=athCxDone(exId);
+  return `<div class="av-cx"><button class="av-cxbtn${d?' on':''}" data-cx="${exId}" onclick="athCxToggle('${exId}')">${d?'✓ Completed':'Mark as completed'}</button>${d?'<span class="av-cxundo">tap to undo</span>':''}</div>`; }
+window.athCxToggle=(exId)=>{ if(!curSession || !ANOTES_READY) return;
+  if(!curSession.athlete_notes || typeof curSession.athlete_notes!=='object') curSession.athlete_notes={};
+  const N=curSession.athlete_notes; N.cx=N.cx||{};
+  if(N.cx[exId]) delete N.cx[exId]; else N.cx[exId]=new Date().toISOString();
+  const box=document.querySelector(`[data-cx="${exId}"]`); if(box) box.parentElement.outerHTML=athCxHtml(exId);
+  athNotesSave(); recompute(); };
 async function athNotesSave(){
   clearTimeout(_aNotesTimer); _aNotesTimer=null;
   if(!curSession || !ANOTES_READY) return;
   const N=Object.assign({}, curSession.athlete_notes||{});
   if(N.s!=null && !String(N.s).trim()) delete N.s;
   if(N.ex && !Object.keys(N.ex).length) delete N.ex;
+  if(N.cx && !Object.keys(N.cx).length) delete N.cx;
   const r=await sb.from('sessions').update({athlete_notes:N}).eq('id',curSession.id).select('id');
   const st=document.getElementById('aNotesStatus'); if(st){ st.style.color=r.error?'var(--bad)':''; st.textContent=r.error?'Couldn’t save note':'✓ Saved'; }
 }
@@ -5109,6 +5124,7 @@ function recompute(){
   const box=document.getElementById('ssBody'); if(box) box.innerHTML=tiles+lines;
   // live per-exercise progress badge in each (roll-up) header
   per.forEach(e=>{ const b=document.querySelector(`[data-exprog="${e.exId}"]`); if(!b) return;
+    if(!e.sets){ const d=athCxDone(e.exId); b.textContent = d ? '✓ done' : 'to do'; b.classList.toggle('done', d); return; }
     const allDone = e.sets>0 && e.done>=e.sets;
     b.textContent = allDone ? `✓ ${e.done}/${e.sets}` : `${e.done}/${e.sets} sets`;
     b.classList.toggle('done', allDone); });
@@ -9235,15 +9251,15 @@ async function renderAthlete(selDate){
       });
     curExercises.push({name:ex.name, exId:ex.id, setIds, acc:isAcc});
     { const tts=setIds.map(id=>{ const st=logState[id]; if(!st) return ''; if(st.targetText) return st.targetText; const r=st.targetReps, k=st.kg; return (r!=null&&r!==''?r:'')+(k!=null&&k!==''?(r!=null&&r!==''?' @ ':'')+k+' kg':''); }).filter(Boolean), n=setIds.length;
-      const rx = !n ? 'No sets' : (tts.length===n && tts.every(t=>t===tts[0])) ? `${n} × ${tts[0]}` : `${n} set${n>1?'s':''}${tts.length?' · '+tts[0]+(tts[tts.length-1]!==tts[0]?' → '+tts[tts.length-1]:''):''}`;
+      const rx = !n ? 'For completion' : (tts.length===n && tts.every(t=>t===tts[0])) ? `${n} × ${tts[0]}` : `${n} set${n>1?'s':''}${tts.length?' · '+tts[0]+(tts[tts.length-1]!==tts[0]?' → '+tts[tts.length-1]:''):''}`;
       swUnits[swUnits.length-1].items.push({ name:ex.name, exId:ex.id, rx }); }
     const isLast = exIdx===exs.length-1;
     body += `<div class="ex" data-exid="${ex.id}">
       <div class="av-head" onclick="athToggleEx(this)" title="Tap to roll up / expand this exercise"><span class="ex-caret">▾</span><span class="pill ${isAcc?'accessory':'primary'}">${esc(cat)}</span><span class="name">${esc(ex.name)}</span>${exDemoBtn(ex.name)}<span class="ex-prog" data-exprog="${ex.id}"></span>${isLast?'':`<button class="ex-next" title="Jump to the next exercise" onclick="event.stopPropagation();athNextEx(this)">next ↓</button>`}</div>
       <div class="ex-body">
       ${(ex.coach_note || (ex.cues&&ex.cues.length)) ? `<div class="av-note av-note-top"><span class="tag">Coach<br>notes</span><span>${(ex.cues&&ex.cues.length)?`<span class="cues" style="margin-bottom:5px;display:inline-flex">${ex.cues.map(c=>{const ix=c.indexOf('|');return `<span class="cuechip">${ix>-1?esc(c.slice(0,ix))+' ':''}<b>${esc(ix>-1?c.slice(ix+1):c)}</b></span>`;}).join('')}</span><br>`:''}${esc(ex.coach_note||'')}</span></div>` : ''}
-      <div class="logwrap"><table class="logtable" data-ex="${ex.id}"><thead><tr><th>Set</th><th>Target</th><th>Reps</th><th>Weight</th><th>Miss</th><th>Lights</th><th>Effort</th><th>Video</th><th>Done</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
-      <div class="ex-foot">${addSetReady?`<span class="lg-add" onclick="addSetRow('${ex.id}')">＋ Add set</span>`:''}<span class="lg-add lg-tickall" onclick="athMarkAllDone('${ex.id}')" title="Tick every set of this exercise done — tap again to clear">✓ Tick all done</span></div>
+      ${(!setIds.length && ANOTES_READY) ? athCxHtml(ex.id) : `<div class="logwrap"><table class="logtable" data-ex="${ex.id}"><thead><tr><th>Set</th><th>Target</th><th>Reps</th><th>Weight</th><th>Miss</th><th>Lights</th><th>Effort</th><th>Video</th><th>Done</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="ex-foot">${addSetReady?`<span class="lg-add" onclick="addSetRow('${ex.id}')">＋ Add set</span>`:''}<span class="lg-add lg-tickall" onclick="athMarkAllDone('${ex.id}')" title="Tick every set of this exercise done — tap again to clear">✓ Tick all done</span></div>`}
       ${ANOTES_READY?`<div class="av-exnote"><span class="av-exnote-ic">📝</span><input type="text" data-exnote="${ex.id}" placeholder="Your note on ${esc(ex.name)} — cue, how it felt…" value="${esc((curSession.athlete_notes.ex&&curSession.athlete_notes.ex[ex.id])||'')}" oninput="athNotesInput('ex','${ex.id}',this.value)"></div>`:''}
       </div>
     </div>`;
@@ -9402,7 +9418,8 @@ window.athBrGotIt=(el)=>{ if(!_avswBrief) return; avswMarkRead(_avswBrief.mine);
 function avswLetter(i){ return i<26 ? String.fromCharCode(65+i) : 'Z'+(i-25); }
 function avswHasNote(){ const d=_avswBrief; return !!(d && d.date===_avsw.date && (d.mine.length || d.reviews.length)); }
 function avswPages(){ const r=document.getElementById('logRoot'); return r ? [...r.children].filter(c=>c.classList.contains('avsw-page') && !c.hidden) : []; }
-function avswUnitDone(u){ return !!u && u.items.every(it=>{ const e=(curExercises||[]).find(x=>x.exId===it.exId); return e && e.setIds.length && e.setIds.every(id=>logState[id] && logState[id].done); }); }
+function avswUnitDone(u){ return !!u && u.items.every(it=>{ const e=(curExercises||[]).find(x=>x.exId===it.exId); if(!e) return false;
+  return e.setIds.length ? e.setIds.every(id=>logState[id] && logState[id].done) : athCxDone(it.exId); }); }
 function avswPageDone(pg){ if(!pg) return false; if(pg.classList.contains('avsw-notepg')) return avswBriefRead(); if(pg.classList.contains('avsw-finpg')) return false; return avswUnitDone(_avsw.units[+pg.dataset.pg]); }
 function avswPageName(pg){ if(!pg) return ''; if(pg.classList.contains('avsw-notepg')) return 'Coach Instructions'; if(pg.classList.contains('avsw-finpg')) return 'Finish';
   const i=+pg.dataset.pg, u=_avsw.units[i]; if(!u||!u.items.length) return ''; return avswLetter(i)+' · '+u.items[0].name+(u.items.length>1?' + '+(u.items.length-1)+' more':''); }
@@ -16862,6 +16879,7 @@ function paintEditor(){
       <div class="cue-row"><span class="cuelbl">Coaching<br>notes</span>${LT_READY?cueChipsHtml(ex,ei):''}</div>
       <textarea class="cvx-note" data-f="note" rows="3" placeholder="Note for this exercise — the athlete sees it. Press Enter for a new line." oninput="pbAutoGrow(this)" onfocus="pbAutoGrow(this)">${esc(ex.note)}</textarea>
       ${(ANOTES_READY && s.athlete_notes && s.athlete_notes.ex && s.athlete_notes.ex[ex.id] && s.athlete_notes.ex[ex.id].trim())?`<div class="cvx-anote">📝 <b>${esc((cw.ath.full_name||'Athlete').split(' ')[0])}:</b> “${esc(s.athlete_notes.ex[ex.id])}”</div>`:''}
+      ${(ANOTES_READY && s.athlete_notes && s.athlete_notes.cx && s.athlete_notes.cx[ex.id])?`<div class="cvx-anote" style="color:var(--good)">✓ <b>${esc((cw.ath.full_name||'Athlete').split(' ')[0])}</b> marked this completed</div>`:''}
       ${exTiles(ex)}
     </div>`;
   }).join('');
