@@ -494,11 +494,20 @@
   .rkc-note{margin-top:10px;font-size:13px;font-style:italic;color:var(--text);background:var(--panel2);border-left:2px solid var(--accent2);border-radius:0 8px 8px 0;padding:8px 12px}
   .rk-scale{flex-wrap:nowrap}
   @media(max-width:560px){
-    .rk-row{flex-direction:column;align-items:stretch;gap:8px;padding:11px 0}
-    .rk-lbl{flex:none}
-    .rk-scale{width:100%;gap:7px}
-    .rk-dot{flex:1;width:auto;height:42px;font-size:14px}
+    .rk-row{gap:10px;padding:5px 0}
+    .rk-lbl{flex:0 0 88px;font-size:13.5px;line-height:1.2}
+    .rk-hint{font-size:9.5px}
+    .rk-scale{flex:1;gap:5px}
+    .rk-dot{flex:1;width:auto;height:36px;font-size:14px}
+    .rk-hd{flex-wrap:nowrap;align-items:flex-start}
+    .rk-score{padding:5px 10px;gap:7px;flex:none}.rk-num{font-size:20px}
   }
+  .rk-sub{font-size:12px;color:var(--muted);margin:2px 0 4px}
+  .rk-later{background:none;border:none;color:var(--muted);font:inherit;font-size:12px;font-weight:700;cursor:pointer;padding:4px 0}
+  .rk-extra{background:none;border:none;color:var(--accent2);font:inherit;font-size:13px;font-weight:700;cursor:pointer;padding:10px 0 0}
+  .rk-actions{display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap}
+  .rk-mini{display:flex;align-items:center;gap:10px;cursor:pointer}
+  .rk-mini .t{font-weight:800}.rk-mini .s{color:var(--warn);font-size:12px;font-weight:700}
   .rk-donebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;cursor:pointer}
   .rk-donebar .ok{color:var(--good);font-weight:700}
   .rk-edit{margin-left:auto;font-size:12px;font-weight:700;color:var(--accent2)}
@@ -5242,9 +5251,9 @@ const RK_METRICS=[
   ['sleep','Sleep','hours & quality'],
   ['energy','Energy',''],
   ['motivation','Motivation',''],
-  ['soreness','Soreness','5 = fresh · 1 = wrecked'],
+  ['soreness','Soreness','5 = fresh'],
   ['mood','Mood',''],
-  ['stress','Stress','5 = calm · 1 = maxed out'],
+  ['stress','Stress','5 = calm'],
   ['appetite','Appetite','']
 ];
 let rkState=null; // {id, open, vals:{sleep..appetite}, bodyweight, note, savedToday}
@@ -5268,16 +5277,19 @@ function checkinCard(){
     return `<div class="rk-row"><div class="rk-lbl">${lbl}${hint?`<span class="rk-hint">${hint}</span>`:''}</div><div class="rk-scale">${dots}</div></div>`;
   }).join('');
   const s=rkScore();
+  if(!rkState.savedToday && rkState.min) return `<div class="card"><div class="rk-mini" onclick="rkState.min=false;repaintCheckin()">
+      <span class="t">Morning check-in</span><span class="s">not sent yet</span><span class="rk-edit">open ›</span></div></div>`;
+  const extraOpen = rkState.extraOpen || !!(rkState.note||'').trim() || (rkState.bodyweight!=null && rkState.bodyweight!=='');
   return `<div class="card" id="rkCard">
-    <div class="rk-hd"><h2 style="margin:0">Morning check-in</h2>
-      <span class="rk-score"><span class="rk-num ${rkScoreClass(s)}" id="rkNum">${s==null?'—':s.toFixed(1)}</span><span class="rk-meta">readiness / 5<br>sent to your coach</span></span></div>
-    <div class="sub" style="margin:4px 0 6px">Tap 1 (poor) → 5 (great). Takes 20 seconds — your coach sees it before you start.</div>
+    <div class="rk-hd"><div><h2 style="margin:0">Morning check-in</h2><div class="rk-sub">1 = poor · 5 = great · your coach sees it</div></div>
+      <span class="rk-score"><span class="rk-num ${rkScoreClass(s)}" id="rkNum">${s==null?'—':s.toFixed(1)}</span><span class="rk-meta">readiness<br>/ 5</span></span></div>
     ${rows}
-    <div class="rk-foot">
+    ${extraOpen?'':`<button class="rk-extra" onclick="rkState.extraOpen=true;repaintCheckin()">＋ Bodyweight &amp; note</button>`}
+    <div class="rk-foot"${extraOpen?'':' style="display:none"'}>
       <div class="rk-bw"><label>Bodyweight</label><div class="rk-bwrow"><input id="rkBw" type="number" step="0.1" inputmode="decimal" value="${esc(rkState.bodyweight??'')}"><span class="rk-unit">kg</span></div></div>
       <div class="rk-note"><label>Notes for your coach</label><textarea id="rkNote" placeholder="Sleep, soreness, travel, pain, anything you want your coach to know…">${esc(rkState.note||'')}</textarea></div>
     </div>
-    <div style="margin-top:12px"><button class="btn" id="rkSubmit" onclick="submitCheckin()">✓ Submit check-in</button><span class="saved" id="rkMsg" style="margin-left:10px"></span></div>
+    <div class="rk-actions"><button class="btn" id="rkSubmit" onclick="submitCheckin()">✓ Submit check-in</button>${rkState.savedToday?'':'<button class="rk-later" onclick="rkState.min=true;repaintCheckin()">Later</button>'}<span class="saved" id="rkMsg"></span></div>
   </div>`;
 }
 function repaintCheckin(){
