@@ -65,6 +65,7 @@
   .cvbr-ta{width:100%;min-height:64px;resize:vertical;background:var(--panel2);border:1px solid var(--line);border-radius:9px;color:var(--text);font:inherit;font-size:13px;padding:9px 11px}
   .cvbr-foot{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px}
   .cvbr-hint{font-size:11.5px;color:var(--muted)}
+  .cvbr-reads{font-size:12px;color:var(--good);font-weight:700;margin-top:8px}.cvbr-reads.muted{color:var(--muted)}
   .cvbr-save{padding:7px 14px;font-size:12.5px;margin-left:auto}
   .cvbr-del{padding:7px 12px;font-size:12px}
   .cvbr-warn{color:var(--warn);font-size:12px}
@@ -80,6 +81,61 @@
   .athbr-review .cbtn{margin-left:auto}
   .athbr-review.rev-watched{opacity:.6}
   .athbr-done{color:var(--good);font-weight:700;font-size:12px;margin-left:4px}
+  .athbr-got{margin-top:9px;display:flex;justify-content:flex-end}
+  /* swipe layout (athlete testers): overview → coach notes → one page per exercise / superset */
+  .avsw-navsw{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  .avsw-navsw button{background:#0e151c;border:none;color:var(--muted);font:inherit;font-weight:800;font-size:12.5px;padding:7px 12px;cursor:pointer}
+  .avsw-navsw button.on{background:var(--accent);color:#fff}
+  .avsw-ov{padding:6px 16px 16px}
+  .avsw-ovhd{display:flex;align-items:baseline;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .avsw-ovhd b{font-size:16px}.avsw-ovhd span{color:var(--muted);font-size:12px}
+  .avsw-cnote{display:flex;gap:12px;padding:14px 0;border-bottom:1px solid var(--line);cursor:pointer}
+  .avsw-circ{flex:none;width:38px;height:38px;border-radius:50%;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;color:var(--text)}
+  .avsw-circ.i{font-style:italic;font-family:Georgia,serif;color:var(--accent2);border-color:var(--accent2);font-size:17px}
+  .avsw-circ.ok{background:var(--good);border-color:var(--good);color:#06130b}
+  .avsw-cn-txt{flex:1;min-width:0}.avsw-cn-t{font-weight:800;font-size:16px}
+  .avsw-cn-pv{color:var(--muted);font-size:13px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin-top:2px;white-space:pre-line}
+  .avsw-cn-rd{font-size:12px;font-weight:800;margin-top:6px}.avsw-cn-rd.new{color:var(--accent2)}.avsw-cn-rd.ok{color:var(--good)}
+  .avsw-ovgrp{border-bottom:1px solid var(--line);padding:4px 0}
+  .avsw-ovex{display:flex;gap:12px;align-items:center;padding:8px 0;cursor:pointer}
+  .avsw-ovtx{min-width:0}.avsw-ovnm{font-weight:800;font-size:15.5px}.avsw-ovrx{color:var(--accent2);font-weight:700;font-size:13.5px}
+  .avsw-chev{margin-left:auto;color:var(--muted);font-size:18px}
+  .avsw-start{width:100%;margin-top:14px;padding:14px;font-size:16px}
+  .avsw-sess{display:none}
+  .avsw-sess.open{display:flex;flex-direction:column;position:fixed;inset:0;z-index:60;background:var(--bg)}
+  body.avsw-lock{overflow:hidden}
+  .avsw-hd,.avsw-ft{flex:none;width:100%;max-width:760px;margin:0 auto}
+  .avsw-hd{padding:calc(10px + env(safe-area-inset-top)) 16px 6px}
+  .avsw-hdwrap{flex:none;border-bottom:1px solid var(--line)}
+  .avsw-hdtop{display:flex;align-items:center;gap:8px}
+  .avsw-lnk{background:none;border:none;padding:0;color:var(--accent2);font:inherit;font-weight:700;font-size:14px;cursor:pointer}
+  .avsw-dt{margin-left:auto;color:var(--muted);font-size:12px}
+  .avsw-ttl{font-weight:800;font-size:16px;margin-top:2px}
+  .avsw-prog{display:flex;gap:4px;margin-top:8px}
+  .avsw-prog i{flex:1;height:22px;cursor:pointer;position:relative}
+  .avsw-prog i:after{content:'';position:absolute;left:0;right:0;top:9px;height:4px;border-radius:2px;background:var(--line);transition:all .15s}
+  .avsw-prog i.done:after{background:var(--good)}.avsw-prog i.cur:after{background:var(--accent);top:8px;height:6px}
+  .avsw-prog i.nt{flex:.45}.avsw-prog i.nt:after{background:var(--accent2);opacity:.45}.avsw-prog i.nt.done:after,.avsw-prog i.nt.cur:after{opacity:1}
+  .avsw-pname{display:flex;justify-content:space-between;gap:10px;white-space:nowrap;font-size:11px;color:var(--muted);font-weight:700}
+  .avsw-pname span:first-child{overflow:hidden;text-overflow:ellipsis}
+  .avsw-pages{flex:1;min-height:0;width:100%;max-width:760px;margin:0 auto;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;position:relative;overscroll-behavior-x:contain}
+  .avsw-pages::-webkit-scrollbar{display:none}
+  .avsw-page{flex:0 0 100%;width:100%;scroll-snap-align:start;scroll-snap-stop:always;overflow-y:auto;padding:14px 12px 28px;-webkit-overflow-scrolling:touch}
+  .avsw-page[hidden]{display:none}
+  .avsw-pages .ex-caret,.avsw-pages .ex-next{display:none}
+  .avsw-pages .av-head{cursor:default}
+  .avsw-pages .ex-collapsed .ex-body{display:block}
+  .avsw-pages .av-ss .ex + .ex{border-top:10px solid var(--panel2)}
+  .avsw-exlbl{font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.5px;text-transform:uppercase}
+  .avsw-nttl{font-size:22px;font-weight:800;margin:2px 0 10px}
+  .avsw-notepg .athbr-item{margin:0 0 14px}.avsw-notepg .athbr-body{font-size:15.5px;line-height:1.55}
+  .avsw-gotit{width:100%;margin-top:18px;background:var(--accent2);color:#fff;border:none;border-radius:12px;padding:14px;font:inherit;font-size:16px;font-weight:900;cursor:pointer}
+  .avsw-gotit.ok{background:rgba(62,201,122,.16);color:var(--good)}
+  .avsw-ftwrap{flex:none;border-top:1px solid var(--line);background:var(--bg)}
+  .avsw-ft{display:flex;gap:10px;padding:10px 16px calc(12px + env(safe-area-inset-bottom))}
+  .avsw-fb{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:11px;padding:13px;font:inherit;font-weight:800;font-size:14px;cursor:pointer}
+  .avsw-fb.go{background:var(--accent);border-color:var(--accent);color:#fff}.avsw-fb.blue{background:var(--accent2);border-color:var(--accent2);color:#fff}
+  .avsw-fb:disabled{opacity:.35;cursor:default}
   .rvasg{background:#0e151c;border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-top:10px}
   .rvasg-hd{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-bottom:7px}
   .rvasg-opt{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:12.5px;color:var(--text);margin-top:5px;cursor:pointer}
@@ -2645,6 +2701,7 @@ async function boot(){
   await probePainResolve();
   await probeChatSocial();
   await probeBriefs();
+  await probeBrReads();
   await probeNotif();
   await probeCalx();
   await probePeRef();
@@ -2660,7 +2717,7 @@ async function boot(){
     // came back after the phone dropped the page? reopen the athlete's last place, not Home
     const p=athPlaceLoad();
     if(p && p.screen==='athlete' && p.date){
-      _athResume={ date:p.date, ex:p.ex||null, y:p.y||0 };
+      _athResume={ date:p.date, ex:p.ex||null, y:p.y||0, sw:p.sw||0 };
       athSelDate=p.date; athSelSess=p.sess||null; athState.screen='athlete';
       renderAthlete(p.date);
     } else athGo((p && p.screen) || athState.screen || 'athlete');
@@ -5046,9 +5103,10 @@ function recompute(){
     const allDone = e.sets>0 && e.done>=e.sets;
     b.textContent = allDone ? `✓ ${e.done}/${e.sets}` : `${e.done}/${e.sets} sets`;
     b.classList.toggle('done', allDone); });
+  if(document.getElementById('avswSess')) avswChrome();
 }
 // exercise roll-up + jump-to-next — cut the scroll on long sessions
-window.athToggleEx=(head)=>{ const ex=head&&head.closest('.ex'); if(ex) ex.classList.toggle('ex-collapsed'); };
+window.athToggleEx=(head)=>{ if(head&&head.closest('.avsw-pages')) return; const ex=head&&head.closest('.ex'); if(ex) ex.classList.toggle('ex-collapsed'); };
 window.athNextEx=(btn)=>{ const cur=btn&&btn.closest('.ex'); if(!cur) return;
   let nx=cur; do{ nx=nx.nextElementSibling; } while(nx && !nx.classList.contains('ex'));
   cur.classList.add('ex-collapsed');                 // roll up the one you're leaving
@@ -5162,6 +5220,8 @@ async function probeFederation(){ const { error } = await sb.from('profiles').se
 async function probeANotes(){ const { error } = await sb.from('sessions').select('athlete_notes').limit(1); ANOTES_READY = !error; if(ANOTES_READY && SESSION_SELECT.indexOf('athlete_notes')<0) SESSION_SELECT += ',athlete_notes'; }
 let BRIEFS_READY=false;   // coach_briefs table (migration 51) → coach note at the top of the athlete's day
 async function probeBriefs(){ const { error } = await sb.from('coach_briefs').select('id').limit(1); BRIEFS_READY = !error; }
+let BRREAD_READY=false;   // brief_reads (migration 71) → athlete taps "Got it" on a coach note, coach sees who read it
+async function probeBrReads(){ const { error } = await sb.from('brief_reads').select('id').limit(1); BRREAD_READY = !error; }
 let CHAT_MEDIA_READY=false, CHAT_REACT_READY=false;   // migration 44 — chat media attachments + emoji reactions
 async function probeChatSocial(){
   const m=await sb.from('messages').select('media_path').limit(1); CHAT_MEDIA_READY=!m.error;
@@ -5531,7 +5591,8 @@ function athPlaceLoad(){ const k=athPlaceKey(); if(!k) return null;
 function athPlaceTopEx(){ const els=[...document.querySelectorAll('#app .ex[data-exid]')]; if(!els.length) return null;
   let best=els[0]; els.forEach(el=>{ if(el.getBoundingClientRect().top<=140) best=el; }); return best.dataset.exid; }
 function athPlaceNow(){ if(athState.screen!=='athlete' || _athResume || !document.querySelector('#app .ex[data-exid]')) return;
-  athPlaceSave({ ex:athPlaceTopEx(), y:Math.round(window.scrollY) }); }
+  if(document.getElementById('avswSess')){ athPlaceSave({ ex:_avsw.open?avswCurEx():null, y:0, sw:_avsw.open?1:0 }); return; }
+  athPlaceSave({ ex:athPlaceTopEx(), y:Math.round(window.scrollY), sw:0 }); }
 let _athResume=null, _athPlaceTimer=null;
 window.addEventListener('scroll', ()=>{ if(_athPlaceTimer) clearTimeout(_athPlaceTimer); _athPlaceTimer=setTimeout(()=>{ _athPlaceTimer=null; athPlaceNow(); }, 400); }, { passive:true });
 document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') athPlaceNow(); });
@@ -9112,9 +9173,11 @@ async function renderAthlete(selDate){
   // supersets: consecutive exercises sharing a superset_group are shown bracketed so the athlete alternates them
   const athRuns=[]; { let i=0; while(i<exs.length){ const g=exs[i].superset_group; if(g==null){ i++; continue; } let j=i; while(j+1<exs.length && exs[j+1].superset_group===g) j++; if(j>i) athRuns.push({s:i,e:j}); i=j+1; } }
   const athRunAt=(k)=>athRuns.find(r=>k>=r.s&&k<=r.e)||null;
+  const SW=avswOn(), swUnits=[];   // swipe layout: one page per exercise, one page per superset
   exs.forEach((ex,exIdx)=>{
     const _run=athRunAt(exIdx);
-    if(_run && exIdx===_run.s) body += `<div class="av-ss"><div class="av-ss-hd">⛓ Superset — do these back-to-back, alternating</div>`;
+    if(!_run || exIdx===_run.s){ if(SW) body += `<div class="avsw-page" data-pg="${swUnits.length}">`; swUnits.push({items:[]}); }
+    if(_run && exIdx===_run.s) body += `<div class="av-ss"><div class="av-ss-hd">⛓ Superset — ${SW?'one set of each, back to back · tap Next when all are done':'do these back-to-back, alternating'}</div>`;
     const sets = (ex.prescribed_sets||[]).slice().sort(sortByPos);
     const isAcc = exIsAcc(ex), cat = isAcc?'accessory':'main';   // main = snatch/clean/jerk/squat/pull (auto by name, coach can override)
     const setIds=[]; let rows=''; let ivRound=0;
@@ -9159,6 +9222,9 @@ async function renderAthlete(selDate){
         setIds.push(key); rows += rowHtml(key, setIds.length-1);
       });
     curExercises.push({name:ex.name, exId:ex.id, setIds, acc:isAcc});
+    { const tts=setIds.map(id=>{ const st=logState[id]; if(!st) return ''; if(st.targetText) return st.targetText; const r=st.targetReps, k=st.kg; return (r!=null&&r!==''?r:'')+(k!=null&&k!==''?(r!=null&&r!==''?' @ ':'')+k+' kg':''); }).filter(Boolean), n=setIds.length;
+      const rx = !n ? 'No sets' : (tts.length===n && tts.every(t=>t===tts[0])) ? `${n} × ${tts[0]}` : `${n} set${n>1?'s':''}${tts.length?' · '+tts[0]+(tts[tts.length-1]!==tts[0]?' → '+tts[tts.length-1]:''):''}`;
+      swUnits[swUnits.length-1].items.push({ name:ex.name, exId:ex.id, rx }); }
     const isLast = exIdx===exs.length-1;
     body += `<div class="ex" data-exid="${ex.id}">
       <div class="av-head" onclick="athToggleEx(this)" title="Tap to roll up / expand this exercise"><span class="ex-caret">▾</span><span class="pill ${isAcc?'accessory':'primary'}">${esc(cat)}</span><span class="name">${esc(ex.name)}</span>${exDemoBtn(ex.name)}<span class="ex-prog" data-exprog="${ex.id}"></span>${isLast?'':`<button class="ex-next" title="Jump to the next exercise" onclick="event.stopPropagation();athNextEx(this)">next ↓</button>`}</div>
@@ -9170,6 +9236,7 @@ async function renderAthlete(selDate){
       </div>
     </div>`;
     if(_run && exIdx===_run.e) body += `</div>`;   // close the .av-ss superset bracket
+    if(SW && (!_run || exIdx===_run.e)) body += `</div>`;   // close the swipe page
   });
 
   app.innerHTML = topbar('Athlete') + athNav('athlete') + `
@@ -9183,7 +9250,7 @@ async function renderAthlete(selDate){
       </div>
       <div id="athBrief"></div>
       <div class="sub" style="margin-top:6px">Log what you did · tap the lights (white = good lift, red = miss) · rate effort E/M/H/X · tick each set off. <b>Everything saves automatically as you go</b> — you won't lose it.</div>
-      <div style="margin-top:9px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="lg-add lg-tickall" onclick="athMarkAllDone()" title="Tick every set in this session done — tap again to clear">✓ Tick all sets done</span>${lgLaySwitch()}</div>
+      <div style="margin-top:9px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="lg-add lg-tickall" onclick="athMarkAllDone()" title="Tick every set in this session done — tap again to clear">✓ Tick all sets done</span>${lgLaySwitch()}${avswSwitch()}</div>
     </div>
     <div class="card av-weekcard">
       <div class="av-weekhd"><span class="av-weeklbl">Training week · <b>${weekLabel}</b>${athBlockLbl}</span><span class="av-weekprog">${doneN} / ${totN} sessions done</span>${athWkNav(mon)}</div>
@@ -9192,8 +9259,8 @@ async function renderAthlete(selDate){
     <div id="rkHost">${checkinCard()}</div>
     <div id="painHost"></div>
     ${dayList.length>1?`<div class="cw-stabs" style="margin:0 0 12px">${dayList.map(x=>`<button class="cw-stab${x.id===session.id?' on':''}" onclick="athSelectSess('${x.id}')">${esc(x.title||'Session')}</button>`).join('')}</div>`:''}
-    <div id="logRoot" class="lay-${lgLay()}">${body}</div>
-    ${ANOTES_READY?`<div class="card anotes-card">
+    ${SW?avswShell(session, body, swEndCards()):`<div id="logRoot" class="lay-${lgLay()}">${body}</div>${swEndCards()}`}`;
+  function swEndCards(){ return `${ANOTES_READY?`<div class="card anotes-card">
       <label class="anotes-lbl" for="aNotesSession">📝 Session notes <span class="sub">— cues, how it felt, anything for your coach</span></label>
       <textarea id="aNotesSession" class="anotes-ta" rows="3" placeholder="e.g. Snatches felt fast today, low back tight on the cleans — cue was stay over the bar longer…" oninput="athNotesInput('s',null,this.value)">${esc(curSession.athlete_notes.s||'')}</textarea>
       <span class="saved" id="aNotesStatus"></span>
@@ -9203,8 +9270,9 @@ async function renderAthlete(selDate){
       <div id="ssBody"></div>
       ${ssRpeSummaryHtml()}
       <div class="savebar"><button class="btn" id="save" onclick="${SRPE_READY?'athDoneTraining()':'saveSession()'}">${SRPE_READY?'✓ Done training':'Submit session'}</button><span class="saved" id="savedmsg"></span><span class="saved alog-status" id="alogStatus"></span></div>
-    </div>`;
+    </div>`; }
   wireLogging();
+  if(SW) avswInit(session, swUnits);
   wireCheckin();
   recompute();
   if(_alogRestored){ alogSetStatus('offline'); toast('Restored the entries you’d typed — nothing was lost.'); _alogRestored=false; }
@@ -9214,8 +9282,9 @@ async function renderAthlete(selDate){
   // remember this day; on a resume, jump back to the exercise they were on
   if(_athResume && _athResume.date===sel){
     const r=_athResume;
-    athPlaceSave({ screen:'athlete', date:sel, sess:session.id, ex:r.ex||null, y:r.y||0 });
-    setTimeout(()=>{
+    athPlaceSave({ screen:'athlete', date:sel, sess:session.id, ex:r.ex||null, y:r.y||0, sw:r.sw||0 });
+    if(SW){ _athResume=null; if(r.sw) avswOpen(avswPageOfEx(r.ex)); }
+    else setTimeout(()=>{
       const el = r.ex && document.querySelector('#app .ex[data-exid="'+r.ex+'"]');
       if(el){ el.classList.remove('ex-collapsed'); window.scrollTo(0, Math.max(0, el.getBoundingClientRect().top + window.scrollY - 12)); }
       else if(r.y) window.scrollTo(0, r.y);
@@ -9224,7 +9293,7 @@ async function renderAthlete(selDate){
   } else {
     _athResume=null;
     const prev=athPlaceLoad(); const same = prev && prev.date===sel && prev.sess===session.id;
-    athPlaceSave(Object.assign({ screen:'athlete', date:sel, sess:session.id }, same ? {} : { ex:null, y:0 }));
+    athPlaceSave(Object.assign({ screen:'athlete', date:sel, sess:session.id }, same ? {} : { ex:null, y:0, sw:0 }));
   }
 }
 // Which briefs belong to THIS athlete on THIS day. Team briefs are readable
@@ -9252,12 +9321,17 @@ async function athLoadBrief(dateStr){
   const monday=m.getFullYear()+'-'+p(m.getMonth()+1)+'-'+p(m.getDate());
   // written/team briefs (migration 51) + assigned video reviews (migration 52), fetched together
   const [br, rv] = await Promise.all([
-    BRIEFS_READY ? sb.from('coach_briefs').select('scope,target_date,athlete_id,team_id,body').in('target_date', monday===dateStr ? [dateStr] : [dateStr, monday]) : Promise.resolve({data:[]}),
+    BRIEFS_READY ? sb.from('coach_briefs').select('id,updated_at,scope,target_date,athlete_id,team_id,body').in('target_date', monday===dateStr ? [dateStr] : [dateStr, monday]) : Promise.resolve({data:[]}),
     (RVASSIGN_READY && VNOTES_READY) ? sb.from('video_notes').select('id,video_path,payload,updated_at,assign_exercise,delivered_at,watched_at').eq('athlete_id',me_.id).eq('assign_date',dateStr) : Promise.resolve({data:[]})
   ]);
   const mine = (br && !br.error && br.data) ? athBriefPick(br.data, dateStr, monday, me_.id, me_.team_id) : [];
   const reviews = (rv && !rv.error && rv.data) ? rv.data : [];
-  if(!mine.length && !reviews.length) return;
+  if(mine.length && BRREAD_READY){   // has the athlete already tapped "Got it" on these? (migration 71)
+    const rr=await sb.from('brief_reads').select('brief_id,read_at').eq('athlete_id',me_.id).in('brief_id', mine.map(b=>b.id));
+    if(!rr.error) (rr.data||[]).forEach(x=>{ const b=mine.find(m=>m.id===x.brief_id); if(b) b._readAt=x.read_at; });
+  }
+  _avswBrief={ date:dateStr, mine, reviews, briefHtml:'', revHtml:'' };
+  if(!mine.length && !reviews.length){ if(document.getElementById('avswSess')) avswFillBrief(); return; }
   const briefHtml = mine.map(b=>`<div class="athbr-item">
       ${b.scope==='week'?'<span class="athbr-tag">this week</span>':''}
       <div class="athbr-body">${esc(b.body).replace(/\n/g,'<br>')}</div>
@@ -9272,9 +9346,12 @@ async function athLoadBrief(dateStr){
       <button class="cbtn" onclick="athWatchAssigned('${esc(r.id)}','${esc(r.video_path)}','${esc(r.updated_at)}',this)">▶ ${done?'Re-watch':'Watch now'}</button>
     </div>`;
   }).join('');
-  host.innerHTML=`<div class="athbr">
+  _avswBrief.briefHtml=briefHtml; _avswBrief.revHtml=revHtml;
+  if(document.getElementById('avswSess')) avswFillBrief();
+  else host.innerHTML=`<div class="athbr">
     <div class="athbr-hd">From your coach</div>
     ${briefHtml}${revHtml}
+    ${mine.length?`<div class="athbr-got">${avswBriefRead()?'<span class="athbr-done">✓ Read</span>':'<button class="cbtn" onclick="athBrGotIt(this)">✓ Got it</button>'}</div>`:''}
   </div>`;
   // stamp delivery (first time this day's assigned reviews were shown) so the coach can see it reached them
   const undelivered=reviews.filter(r=>!r.delivered_at).map(r=>r.id);
@@ -9283,6 +9360,109 @@ async function athLoadBrief(dateStr){
   const unwatched=reviews.filter(r=>!r.watched_at && !localWatched.has((r.video_path||'')+'|'+(r.updated_at||'')));
   if(unwatched.length) athReviewPrompt(unwatched[0], dateStr);
 }
+/* ---------------- swipe layout (athlete testers) ----------------
+   Scroll = today's long page. Swipe = overview first (coach notes + the session list), then one page per
+   exercise (a superset shares one page, each exercise in its own section), with a tappable progress bar.
+   The pages are the SAME exercise cards as Scroll, inside the same #logRoot, so logging/autosave is untouched.
+   Only testers see the switch: anyone who opened the app once with ?swipe=1, or a name in AVSW_TESTERS. */
+const AVSW_TESTERS=[];   // athlete full names (lower case) who get the Scroll / Swipe switch
+try{ const q=new URLSearchParams(location.search).get('swipe');
+  if(q==='1'){ localStorage.setItem('wlc:swipe-tester','1'); if(!localStorage.getItem('wlc_nav_layout')) localStorage.setItem('wlc_nav_layout','swipe'); }
+  else if(q==='0'){ localStorage.removeItem('wlc:swipe-tester'); localStorage.removeItem('wlc_nav_layout'); } }catch(e){}
+function avswAllowed(){ try{ if(localStorage.getItem('wlc:swipe-tester')==='1') return true; }catch(e){}
+  return !!(me_ && me_.full_name && AVSW_TESTERS.includes(String(me_.full_name).trim().toLowerCase())); }
+function avswOn(){ if(!avswAllowed()) return false; try{ return localStorage.getItem('wlc_nav_layout')==='swipe'; }catch(e){ return false; } }
+window.avswSetNav=(v)=>{ try{ localStorage.setItem('wlc_nav_layout', v); }catch(e){} _avsw.open=false; document.body.classList.remove('avsw-lock'); renderAthlete(athSelDate); };
+function avswSwitch(){ if(!avswAllowed()) return ''; const on=avswOn();
+  return `<span class="avsw-navsw" title="Scroll the whole session, or swipe one exercise at a time"><button class="${on?'':'on'}" onclick="avswSetNav('scroll')">Scroll</button><button class="${on?'on':''}" onclick="avswSetNav('swipe')">Swipe</button></span>`; }
+let _avsw={ sess:null, open:false, page:0, units:[], date:'', title:'' }, _avswBrief=null, _avswScrollT=null;
+// coach-note read marks: the DB row (migration 71) when there is one, plus a local copy so it sticks offline
+function avswReadKey(b){ return 'wlc:brread:'+b.id+':'+(b.updated_at||''); }
+function avswIsRead(b){ if(b._readAt && (!b.updated_at || Date.parse(b._readAt)>=Date.parse(b.updated_at)-1000)) return true;
+  try{ return !!localStorage.getItem(avswReadKey(b)); }catch(e){ return false; } }
+function avswBriefRead(){ const d=_avswBrief; return !d || !d.mine.length || d.mine.every(avswIsRead); }
+function avswMarkRead(list){ const now=new Date().toISOString();
+  (list||[]).forEach(b=>{ b._readAt=now; try{ localStorage.setItem(avswReadKey(b),'1'); }catch(e){} });
+  if(BRREAD_READY && list && list.length && me_){
+    sb.from('brief_reads').upsert(list.map(b=>({ gym_id:me_.gym_id, brief_id:b.id, athlete_id:me_.id, read_at:now })), { onConflict:'brief_id,athlete_id' })
+      .then(r=>{ if(r.error) console.warn('brief read not saved:', r.error.message); }); } }
+window.athBrGotIt=(el)=>{ if(!_avswBrief) return; avswMarkRead(_avswBrief.mine); if(el) el.outerHTML='<span class="athbr-done">✓ Read</span>'; };
+function avswLetter(i){ return i<26 ? String.fromCharCode(65+i) : 'Z'+(i-25); }
+function avswHasNote(){ const d=_avswBrief; return !!(d && d.date===_avsw.date && (d.mine.length || d.reviews.length)); }
+function avswPages(){ const r=document.getElementById('logRoot'); return r ? [...r.children].filter(c=>c.classList.contains('avsw-page') && !c.hidden) : []; }
+function avswUnitDone(u){ return !!u && u.items.every(it=>{ const e=(curExercises||[]).find(x=>x.exId===it.exId); return e && e.setIds.length && e.setIds.every(id=>logState[id] && logState[id].done); }); }
+function avswPageDone(pg){ if(!pg) return false; if(pg.classList.contains('avsw-notepg')) return avswBriefRead(); if(pg.classList.contains('avsw-finpg')) return false; return avswUnitDone(_avsw.units[+pg.dataset.pg]); }
+function avswPageName(pg){ if(!pg) return ''; if(pg.classList.contains('avsw-notepg')) return 'Coach Instructions'; if(pg.classList.contains('avsw-finpg')) return 'Finish';
+  const i=+pg.dataset.pg, u=_avsw.units[i]; if(!u||!u.items.length) return ''; return avswLetter(i)+' · '+u.items[0].name+(u.items.length>1?' + '+(u.items.length-1)+' more':''); }
+function avswCurEx(){ const pg=avswPages()[_avsw.page]; const ex=pg && pg.querySelector('.ex[data-exid]'); return ex ? ex.dataset.exid : (pg && pg.classList.contains('avsw-finpg') ? 'fin' : null); }
+function avswPageOfEx(exId){ const ps=avswPages(); if(exId==='fin') return ps.length-1; const i=ps.findIndex(pg=>pg.querySelector('.ex[data-exid="'+exId+'"]')); return i<0?0:i; }
+function avswShell(session, body, endCards){
+  return `<div class="card avsw-ov" id="avswOv"></div>
+  <div class="avsw-sess" id="avswSess">
+    <div class="avsw-hdwrap"><div class="avsw-hd"><div class="avsw-hdtop"><button class="avsw-lnk" onclick="avswClose()">‹ Overview</button><span class="avsw-dt">${esc(fmtDate(session.session_date))}</span></div>
+      <div class="avsw-ttl">${esc(session.title||'Training')}</div><div id="avswBar"></div></div></div>
+    <div id="logRoot" class="lay-${lgLay()} avsw-pages"><div class="avsw-page avsw-notepg" hidden></div>${body}<div class="avsw-page avsw-finpg">${endCards}</div></div>
+    <div class="avsw-ftwrap"><div class="avsw-ft" id="avswFt"></div></div>
+  </div>`; }
+function avswOvHtml(){
+  const d=avswHasNote()?_avswBrief:null; const read=avswBriefRead();
+  let h=`<div class="avsw-ovhd"><b>Today's session</b><span>${_avsw.units.length} exercise${_avsw.units.length===1?'':'s'}</span></div>`;
+  if(d){ const pv=(d.mine[0]&&d.mine[0].body) || 'Your coach left you a video review to watch.';
+    h+=`<div class="avsw-cnote" onclick="avswOpen(0)"><span class="avsw-circ ${read&&d.mine.length?'ok':'i'}">${read&&d.mine.length?'✓':'i'}</span><div class="avsw-cn-txt"><div class="avsw-cn-t">Coach Instructions</div><div class="avsw-cn-pv">${esc(pv)}</div>
+      <div class="avsw-cn-rd ${read&&d.mine.length?'ok':'new'}">${!d.mine.length?'▶ Tap to watch':read?'✓ Read':'● New · tap to read'}</div></div></div>`; }
+  _avsw.units.forEach((u,i)=>{ const ok=avswUnitDone(u), L=avswLetter(i);
+    h+=`<div class="avsw-ovgrp">${u.items.map((it,k)=>`<div class="avsw-ovex" onclick="avswOpenUnit(${i})"><span class="avsw-circ ${ok?'ok':''}">${ok?'✓':(u.items.length>1?L+(k+1):L)}</span><div class="avsw-ovtx"><div class="avsw-ovnm">${esc(it.name)}</div><div class="avsw-ovrx">${esc(it.rx)}</div></div>${k===0?'<span class="avsw-chev">›</span>':''}</div>`).join('')}</div>`; });
+  const unread=d && d.mine.length && !read, started=Object.values(logState||{}).some(x=>x.done);
+  h+=`<button class="btn avsw-start" onclick="avswStart()">${unread?'Read coach notes, then start ›':started?'Continue session ›':'Start session ›'}</button>`;
+  return h; }
+function avswBar(){ const ps=avswPages(), c=_avsw.page;
+  return `<div class="avsw-prog">${ps.map((pg,i)=>`<i class="${pg.classList.contains('avsw-notepg')?'nt ':''}${i===c?'cur':avswPageDone(pg)?'done':''}" title="${esc(avswPageName(pg))}" onclick="avswGo(${i})"></i>`).join('')}</div>
+    <div class="avsw-pname"><span>${esc(avswPageName(ps[c]))}</span><span>${c+1} / ${ps.length}</span></div>`; }
+function avswFoot(){ const ps=avswPages(), c=_avsw.page, pg=ps[c];
+  const note=pg && pg.classList.contains('avsw-notepg') && _avswBrief && _avswBrief.mine.length && !avswBriefRead();
+  return `<button class="avsw-fb" onclick="avswGo(${c-1})" ${c<=0?'disabled':''}>‹ Back</button>
+    <button class="avsw-fb ${note?'blue':'go'}" onclick="${note?'avswGotIt()':'avswGo('+(c+1)+')'}" ${c>=ps.length-1?'disabled':''}>${note?'Got it ›':(c===ps.length-2?'Finish ›':'Next ›')}</button>`; }
+function avswChrome(){ const b=document.getElementById('avswBar'); if(b) b.innerHTML=avswBar();
+  const f=document.getElementById('avswFt'); if(f) f.innerHTML=avswFoot();
+  const o=document.getElementById('avswOv'); if(o) o.innerHTML=avswOvHtml(); }
+function avswScrollTo(i, smooth){ const r=document.getElementById('logRoot'), pg=avswPages()[i]; if(!r||!pg) return;
+  if(!smooth){ r.scrollLeft=pg.offsetLeft; return; }
+  r.scrollTo({ left:pg.offsetLeft, behavior:'smooth' });
+  // some browsers ignore a smooth scroll on a snap row — land it directly if it hasn't arrived
+  setTimeout(()=>{ if(avswPages()[_avsw.page]===pg && Math.abs(r.scrollLeft-pg.offsetLeft)>2) r.scrollLeft=pg.offsetLeft; }, 450); }
+function avswInit(session, units){
+  const same=_avsw.sess===session.id;
+  _avsw=Object.assign(_avsw, { sess:session.id, units, date:session.session_date, title:session.title||'' });
+  if(!same){ _avsw.open=false; _avsw.page=0; }
+  if(_avswBrief && _avswBrief.date!==session.session_date) _avswBrief=null;
+  const r=document.getElementById('logRoot');
+  r.addEventListener('scroll', ()=>{ if(_avswScrollT) clearTimeout(_avswScrollT); _avswScrollT=setTimeout(()=>{ _avswScrollT=null;
+    const n=Math.round(r.scrollLeft / Math.max(1, r.clientWidth)); if(n!==_avsw.page){ _avsw.page=n; avswChrome(); athPlaceNow(); } }, 90); }, { passive:true });
+  if(_avsw.open) avswOpen(_avsw.page); else { document.body.classList.remove('avsw-lock'); avswChrome(); } }
+function avswFillBrief(){ const pg=document.querySelector('#logRoot .avsw-notepg'); if(!pg) return;
+  const curEl=avswPages()[_avsw.page];
+  if(!avswHasNote()){ pg.hidden=true; pg.innerHTML=''; }
+  else { const d=_avswBrief, read=avswBriefRead();
+    pg.innerHTML=`<div class="avsw-exlbl">Before you start</div><div class="avsw-nttl">Coach Instructions</div>${d.briefHtml}${d.revHtml}
+      ${d.mine.length?`<button class="avsw-gotit ${read?'ok':''}" onclick="avswGotIt()">${read?'✓ Read · swipe to start':'Got it'}</button>`:''}`;
+    pg.hidden=false; }
+  // a page appeared / vanished in front of the one on screen — keep the same page in view
+  if(_avsw.open && curEl){ const i=avswPages().indexOf(curEl); if(i>=0 && i!==_avsw.page){ _avsw.page=i; avswScrollTo(i,false); } }
+  avswChrome(); }
+window.avswGotIt=()=>{ if(!_avswBrief) return; avswMarkRead(_avswBrief.mine); avswFillBrief();
+  const pg=avswPages()[_avsw.page]; if(_avsw.open && pg && pg.classList.contains('avsw-notepg')) setTimeout(()=>avswGo(_avsw.page+1), 250); };
+window.avswOpen=(i)=>{ const s=document.getElementById('avswSess'); if(!s) return;
+  const ps=avswPages(); i=Math.max(0, Math.min(ps.length-1, i|0));
+  s.classList.add('open'); document.body.classList.add('avsw-lock'); _avsw.open=true; _avsw.page=i;
+  avswScrollTo(i,false);
+  avswChrome(); athPlaceNow(); };
+window.avswOpenUnit=(u)=>{ const i=avswPages().findIndex(pg=>pg.dataset.pg===String(u)); avswOpen(i<0?0:i); };
+window.avswStart=()=>{ const ps=avswPages();
+  if(ps[0] && ps[0].classList.contains('avsw-notepg') && _avswBrief && _avswBrief.mine.length && !avswBriefRead()) return avswOpen(0);
+  let i=ps.findIndex(pg=>pg.dataset.pg!=null && pg.dataset.pg!=='' && !avswPageDone(pg)); if(i<0) i=ps.length-1; avswOpen(i); };
+window.avswClose=()=>{ const s=document.getElementById('avswSess'); if(s) s.classList.remove('open');
+  document.body.classList.remove('avsw-lock'); _avsw.open=false; avswChrome(); athPlaceNow(); };
+window.avswGo=(i)=>{ const ps=avswPages(); if(i<0 || i>=ps.length) return; _avsw.page=i; avswScrollTo(i,true); avswChrome(); athPlaceNow(); };
 // stamp watched + open the review read-only. Called from the block button and the prompt.
 window.athWatchAssigned=(id,path,upd,el)=>{
   athWatchedMark((path||'')+'|'+(upd||''));
@@ -16061,6 +16241,7 @@ function cvBriefHtml(){
       <button class="btn blue cvbr-save" onclick="cvBriefSave()">Save note</button>
       ${cvBrief.row?`<button class="btn ghost cvbr-del" onclick="cvBriefDelete()">Remove</button>`:''}
     </div>
+    ${cvBriefReadsHtml()}
   </div>`;
 }
 async function cvBriefLoad(){
@@ -16071,6 +16252,24 @@ async function cvBriefLoad(){
     ? q.eq('team_id', (cw.ath&&cw.ath.team_id)||'00000000-0000-0000-0000-000000000000')
     : q.eq('athlete_id', (cw.ath&&cw.ath.id)||coachState.selected));
   if(!r.error && r.data && r.data[0]) cvBrief.row=r.data[0];
+  cvBrief.reads=null;
+  if(cvBrief.row && BRREAD_READY){   // who has tapped "Got it" since the note was last saved (migration 71)
+    const rr=await sb.from('brief_reads').select('athlete_id,read_at').eq('brief_id', cvBrief.row.id);
+    if(!rr.error){ const since=Date.parse(cvBrief.row.updated_at||0)-1000;
+      cvBrief.reads=(rr.data||[]).filter(x=>Date.parse(x.read_at)>=since); }
+  }
+}
+function cvBriefReadsHtml(){
+  if(!cvBrief.row || !cvBrief.reads) return '';
+  const nm=id=>{ const a=(coachState.athletes||[]).find(x=>x.id===id); return a ? (a.full_name||'').split(' ')[0] : 'someone'; };
+  const at=t=>{ const d=new Date(t); return d.toLocaleDateString([], {month:'short', day:'numeric'})+' '+d.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}); };
+  const rd=cvBrief.reads;
+  if(cvBrief.aud==='team'){
+    const team=(coachState.athletes||[]).filter(a=>a.team_id===(cw.ath&&cw.ath.team_id));
+    const who=rd.map(x=>esc(nm(x.athlete_id)));
+    return `<div class="cvbr-reads">${rd.length?'✓':'○'} Read by <b>${rd.length}${team.length?' of '+team.length:''}</b>${who.length?' · '+who.join(', '):''}</div>`;
+  }
+  return rd.length ? `<div class="cvbr-reads">✓ Read · ${esc(at(rd[0].read_at))}</div>` : `<div class="cvbr-reads muted">○ Not read yet</div>`;
 }
 async function cvInjectBrief(){
   const old=document.getElementById('cvBrief'); if(old) old.remove();
