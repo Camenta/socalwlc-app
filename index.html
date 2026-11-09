@@ -82,6 +82,10 @@
   .athbr-review.rev-watched{opacity:.6}
   .athbr-done{color:var(--good);font-weight:700;font-size:12px;margin-left:4px}
   .athbr-got{margin-top:9px;display:flex;justify-content:flex-end}
+  .av-tip{display:flex;align-items:flex-start;gap:10px;margin-top:10px;background:#13202c;border:1px solid #27425c;border-radius:10px;padding:9px 12px;font-size:13px;line-height:1.45;color:var(--text)}
+  .av-tip span{flex:1}.av-tip button{background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:0 2px;line-height:1}
+  .av-fmt{display:flex;justify-content:center;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
+  .av-fmt .lg-laysw{margin-left:0}
   .av-cx{padding:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
   .av-cxbtn{flex:1;min-width:200px;background:var(--panel2);border:2px solid var(--good);color:var(--good);border-radius:12px;padding:14px;font:inherit;font-size:16px;font-weight:900;cursor:pointer}
   .av-cxbtn.on{background:var(--good);color:#06130b}
@@ -5059,6 +5063,10 @@ function lgLay(){ try{ return localStorage.getItem('wlc_log_layout')==='compact'
 window.lgSetLay=(v)=>{ try{ localStorage.setItem('wlc_log_layout', v); }catch(e){}
   const r=document.getElementById('logRoot'); if(r){ r.classList.toggle('lay-compact', v==='compact'); r.classList.toggle('lay-full', v!=='compact'); }
   document.querySelectorAll('.lg-laysw button').forEach(b=>b.classList.toggle('on', b.dataset.v===v)); };
+// first-time "how to log" tip on the training day — once dismissed it never shows again on this phone
+function avTipHtml(){ try{ if(localStorage.getItem('wlc:tip-log')) return ''; }catch(e){ return ''; }
+  return `<div class="av-tip" id="avTip"><span>👋 <b>How to log:</b> type what you did, tap the lights (white = good lift, red = miss), rate effort E/M/H/X and tick each set off. Everything saves as you go.</span><button onclick="avTipClose()" aria-label="Hide this tip">✕</button></div>`; }
+window.avTipClose=()=>{ try{ localStorage.setItem('wlc:tip-log','1'); }catch(e){} const t=document.getElementById('avTip'); if(t) t.remove(); };
 function lgLaySwitch(){ const v=lgLay(); return `<span class="lg-laysw" title="How sets look on your phone"><button data-v="full" class="${v==='full'?'on':''}" onclick="lgSetLay('full')">Full</button><button data-v="compact" class="${v==='compact'?'on':''}" onclick="lgSetLay('compact')">Compact</button></span>`; }
 let addSeq=0;
 function addSetRow(exId){
@@ -9277,8 +9285,8 @@ async function renderAthlete(selDate){
         <span class="pill">${dayPill}</span>
       </div>
       <div id="athBrief"></div>
-      <div class="sub" style="margin-top:6px">Log what you did · tap the lights (white = good lift, red = miss) · rate effort E/M/H/X · tick each set off. <b>Everything saves automatically as you go</b> — you won't lose it.</div>
-      <div style="margin-top:9px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="lg-add lg-tickall" onclick="athMarkAllDone()" title="Tick every set in this session done — tap again to clear">✓ Tick all sets done</span>${lgLaySwitch()}${avswSwitch()}</div>
+      ${avTipHtml()}
+      <div class="av-fmt">${lgLaySwitch()}${avswSwitch()}</div>
     </div>
     <div class="card av-weekcard">
       <div class="av-weekhd"><span class="av-weeklbl">Training week · <b>${weekLabel}</b>${athBlockLbl}</span><span class="av-weekprog">${doneN} / ${totN} sessions done</span>${athWkNav(mon)}</div>
