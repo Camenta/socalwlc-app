@@ -968,7 +968,7 @@
   .tchip{font-size:11px;font-weight:700;padding:3px 9px;border-radius:12px;background:#1b2530;border:1px solid var(--line);color:var(--text);white-space:nowrap}
   .sdot{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text)}
   .sdot i{width:8px;height:8px;border-radius:50%;display:inline-block}
-  .sdot.active i{background:var(--good)}.sdot.off i{background:var(--muted)}
+  .sdot.active i{background:var(--good)}.sdot.inv{color:var(--warn)}.sdot.inv i{background:var(--warn)}.sdot.off i{background:var(--muted)}
   .dt-flag{font-size:10px;font-weight:700;padding:2px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap}
   .dt-flag.ok{background:rgba(62,201,122,.16);color:var(--good)}
   .dt-flag.watch{background:rgba(232,177,60,.16);color:var(--warn)}
@@ -2739,7 +2739,12 @@ async function boot(){
       }catch(e){}
     }
   }
-  if(error || !profile){ await sb.auth.signOut(); renderLogin('Could not load your profile.'); return; }
+  if(error || !profile){
+    // safety net: a login with no profile — match a pending invite by email (migration 74)
+    try{ const ci=await sb.rpc('claim_invite_by_email');
+      if(!ci.error && ci.data){ const r3=await sb.from('profiles').select('*').eq('id', session.user.id).single(); profile=r3.data; error=r3.error; } }catch(e){}
+  }
+  if(error || !profile){ await sb.auth.signOut(); renderLogin('Your login isn’t connected to a team yet. Open the join link your coach sent you and sign in from there — or ask your coach for a fresh link.'); return; }
   me_ = profile;
   if(joinTok){ try{ history.replaceState({}, '', location.pathname); }catch(e){} }
   await probeLoadTypes();
@@ -2751,6 +2756,7 @@ async function boot(){
   await probePlans();
   await probeTickets();
   await probeFederation();
+  await probeInvited();
   await probeANotes();
   await probeLoadNorms();
   await probePainResolve();
@@ -2794,7 +2800,7 @@ async function renderJoin(token){
         <label>Create a password</label><input id="jPw" type="password" autocomplete="new-password" placeholder="at least 6 characters">
         <div style="margin-top:16px"><button class="btn" id="jGo" style="width:100%">Create my login &amp; join</button></div>
         <div class="err" id="jErr"></div>
-        <div class="hint">Already have a login? <span class="lk" onclick="history.replaceState({},'',location.pathname);renderLogin()">Sign in instead</span></div>`
+        <div class="hint">Already have a login? <span class="lk" onclick="try{localStorage.setItem('wlc_join','${esc(token)}')}catch(e){};history.replaceState({},'',location.pathname);renderLogin()">Sign in instead</span></div>`
       : `<div class="err">This invite link is invalid or has already been used. Ask your coach for a fresh link.</div>
          <div style="margin-top:16px"><button class="btn" style="width:100%" onclick="history.replaceState({},'',location.pathname);renderLogin()">Go to sign in</button></div>`}
     </div></div>`;
@@ -5369,6 +5375,8 @@ async function probeLoadNorms(){
   if(!error && data) data.forEach(r=>{ (gymLoadNorms[r.version]=gymLoadNorms[r.version]||{})[r.tier]=r.params||{}; });
 }
 async function probeTickets(){ const { error } = await sb.from('tickets').select('id').limit(1); TICKETS_READY = !error; }
+let INV_READY=false; async function probeInvited(){ try{ const { error } = await sb.from('profiles').select('invited').limit(1); INV_READY = !error; }catch(e){ INV_READY=false; } }
+function athCols(base){ return base+(INV_READY?',invited':''); }
 async function probeFederation(){ const { error } = await sb.from('profiles').select('federation').limit(1); FED_READY = !error; }
 async function probeANotes(){ const { error } = await sb.from('sessions').select('athlete_notes').limit(1); ANOTES_READY = !error; if(ANOTES_READY && SESSION_SELECT.indexOf('athlete_notes')<0) SESSION_SELECT += ',athlete_notes'; }
 let BRIEFS_READY=false;   // coach_briefs table (migration 51) → coach note at the top of the athlete's day
@@ -6437,7 +6445,7 @@ let dashState={ tab:'dash', range:'1y', mode:'athlete', athleteId:null, teamId:'
 async function ensureDashRoster(){
   const a=coachState.athletes;
   if(!a || !a.length || a.some(x=>x.team_id===undefined)){
-    const r=await sb.from('profiles').select('id,full_name,team_id').eq('role','athlete').order('full_name'); if(!r.error) coachState.athletes=r.data||[];
+    const r=await sb.from('profiles').select(athCols('id,full_name,team_id')).eq('role','athlete').order('full_name'); if(!r.error) coachState.athletes=r.data||[];
   }
   if(conState._teams==null){ const { data }=await sb.from('teams').select('*').order('name'); conState._teams=data||[]; }
 }
@@ -8310,7 +8318,7 @@ window.renderReports=async()=>{
   app.innerHTML = chrome + `<div class="spin">Loading reports…</div>`;
   if(!(await requireSession())) return;
   if(!coachState.athletes || !coachState.athletes.length){
-    const r=await sb.from('profiles').select('id,full_name').eq('role','athlete').order('full_name'); coachState.athletes=r.data||[];
+    const r=await sb.from('profiles').select(athCols('id,full_name')).eq('role','athlete').order('full_name'); coachState.athletes=r.data||[];
   }
   const aths=coachState.athletes||[];
   if(!aths.length){ app.innerHTML = chrome + `<div class="card con-empty"><h2 style="margin:0 0 6px;color:var(--text)">Reports</h2><div>No athletes yet — add one from the Console, then build them a report.</div></div>`; return; }
@@ -9796,7 +9804,7 @@ async function renderCoach(){
   app.innerHTML = topbar('Coach') + `<div class="spin">Loading your athletes…</div>`;
   if(!(await requireSession())) return;
   loadExLib();
-  const { data: athletes } = await sb.from('profiles').select('id,full_name').eq('role','athlete').order('full_name');
+  const { data: athletes } = await sb.from('profiles').select(athCols('id,full_name')).eq('role','athlete').order('full_name');
   coachState.athletes = athletes||[];
   coachState.selected = coachState.athletes[0] ? coachState.athletes[0].id : null;
   // realtime: refresh the panel whenever any log changes
@@ -10416,7 +10424,7 @@ function renderRosterTable(){
     return `<tr onclick="conOpenAthlete('${a.id}')">
       <td><div class="rname"><span class="rava" style="background:${avColor(a.full_name)}">${esc(initials(a.full_name))}</span><div><b>${esc(a.full_name)}</b></div></div></td>
       <td>${teamCell(a)}</td>
-      <td><span class="sdot active"><i></i>active</span></td>
+      <td>${a.invited?'<span class="sdot inv" title="Invite sent — their program moves to their login when they sign up"><i></i>invited</span>':'<span class="sdot active"><i></i>active</span>'}</td>
       <td>${progHtml}</td>
       <td>${relTime(st.lastByAth[a.id])}</td>
       <td>${rwHtml}</td>
@@ -11749,7 +11757,7 @@ async function loadPlan(){
   // coach side: make sure the athlete roster carries team_id so the Athlete dropdown filters by team (also lets planTeamOf resolve inheritance)
   if(!planIsAth()){ const a=coachState.athletes;
     if(!a || !a.length || a.some(x=>x.team_id===undefined)){
-      const r=await sb.from('profiles').select('id,full_name,team_id').eq('role','athlete').order('full_name');
+      const r=await sb.from('profiles').select(athCols('id,full_name,team_id')).eq('role','athlete').order('full_name');
       if(!r.error) coachState.athletes=r.data||[];
     } }
   const ph=await sb.from('plan_phases').select('*').order('start_date');
@@ -12635,14 +12643,14 @@ window.planSaveSegment=async(trackId,segId)=>{
 };
 window.planDelSegment=async(id)=>{ const res=await sb.from('plan_segments').delete().eq('id',id).select(); const m=document.getElementById('segModal'); if(m)m.style.display='none'; if(res.error){ toast('Delete failed — '+res.error.message); return; } await loadPlan(); paintPlan(); };
 /* ---- athlete invites (secure self-signup links) ---- */
-let inviteState={ link:null, justName:null };
+let inviteState={ link:null, justName:null, onRoster:false, confirmRevoke:null };
 // Invite links must always use the clean custom domain — never the github.io project path
 // (`/socalwlc-app/`), which SMS/link previews drop and send athletes to a dead root. If a coach
 // opens an old github.io bookmark, still hand out the app.socalwlc.com link. Local dev unaffected.
 function inviteBase(){ if(location.hostname==='camenta.github.io') return 'https://app.socalwlc.com/'; return location.origin + location.pathname; }
 async function loadInvites(){ const { data, error } = await sb.from('invites').select('*').eq('status','pending').order('created_at',{ascending:false}); return error ? null : (data||[]); }
 window.conAddAthlete=async ()=>{
-  inviteState={ link:null, justName:null };
+  inviteState={ link:null, justName:null, onRoster:false, confirmRevoke:null };
   ovModal('addAthModal', `<div class="ov-hd"><h2 style="margin:0">+ Add athlete</h2><span class="vid-x" onclick="document.getElementById('addAthModal').style.display='none'">✕</span></div><div class="spin" style="padding:16px">Loading…</div>`);
   paintAddAthlete(await loadInvites());
 };
@@ -12652,17 +12660,24 @@ function paintAddAthlete(invites){
   const linkBlock = inviteState.link ? `<div class="inv-link-box">
       <div class="sub" style="margin:0 0 7px">✓ Link ready — text or email it to <b>${esc(inviteState.justName||'your athlete')}</b>:</div>
       <div style="display:flex;gap:8px"><input id="invLink" class="csearch" readonly value="${esc(inviteState.link)}" onclick="this.select()"><span class="cbtn" onclick="conCopyInvite('${esq(inviteState.link)}')">Copy</span></div>
+      ${inviteState.onRoster?`<div class="sub" style="margin:9px 0 0;color:var(--good)">✓ <b>${esc(inviteState.justName||'They')}</b> is on your roster now. Write and publish their program any time — it'll be waiting when they sign up.</div>`:''}
     </div>` : '';
   let list;
   if(invites===null) list=`<div class="con-empty" style="padding:14px">Invites aren't enabled yet — run <b>19_invites.sql</b>.</div>`;
   else if(!invites.length) list=`<div class="sub" style="padding:6px 0">No pending invites.</div>`;
-  else list=`<div class="exlist" style="max-height:32vh">${invites.map(iv=>`<div class="exrow">
+  else list=`<div class="exlist" style="max-height:32vh">${invites.map(iv=>{
+      const onR=!!iv.profile_id;
+      const roster = !INV_READY ? '' : (onR ? `<span class="extool" style="color:var(--good);cursor:default">✓ on roster</span>` : `<span class="extool" onclick="conInviteToRoster('${iv.id}')" title="Add them to your roster now so you can start their program">＋ add to roster</span>`);
+      const revoke = inviteState.confirmRevoke===iv.id
+        ? `<span class="extool del" onclick="conRevokeInvite('${iv.id}',true)">${onR?'yes — revoke &amp; delete their program':'yes, revoke'}</span><span class="extool" onclick="inviteState.confirmRevoke=null;conRefreshInvites()">keep</span>`
+        : `<span class="extool del" onclick="conRevokeInvite('${iv.id}')">revoke</span>`;
+      return `<div class="exrow">
       <span class="exn">${esc(iv.full_name||'Athlete')}</span><span class="exg">pending${iv.email?' · '+esc(iv.email):''}</span>
-      <span class="extools"><span class="extool" onclick="conCopyInvite('${esq(base+'?join='+iv.token)}')">copy link</span><span class="extool del" onclick="conRevokeInvite('${iv.id}')">revoke</span></span>
-    </div>`).join('')}</div>`;
+      <span class="extools">${roster}<span class="extool" onclick="conCopyInvite('${esq(base+'?join='+iv.token)}')">copy link</span>${revoke}</span>
+    </div>`; }).join('')}</div>`;
   ovModal('addAthModal', `
     <div class="ov-hd"><h2 style="margin:0">+ Add athlete</h2><span class="vid-x" onclick="document.getElementById('addAthModal').style.display='none'">✕</span></div>
-    <div class="sub" style="margin:6px 0 12px">Generate a private join link and send it to your athlete. They create their own login — <b>you never see or handle their password</b>. They land in your roster once they join.</div>
+    <div class="sub" style="margin:6px 0 12px">Generate a private join link and send it to your athlete. They create their own login — <b>you never see or handle their password</b>. ${INV_READY?'They go on your roster <b>right away</b>, so you can write and publish their program before they sign up — it moves to their login the moment they join.':'They land in your roster once they join.'}</div>
     <div class="bf-row">
       <input id="invName" placeholder="Athlete name" style="flex:1.4;min-width:170px">
       <input id="invEmail" placeholder="Email (optional)" style="flex:1;min-width:150px">
@@ -12682,7 +12697,25 @@ window.conGenInvite=async ()=>{
   const token=crypto.randomUUID();
   const res=await sb.from('invites').insert({ gym_id:me_.gym_id, token, full_name:name, email }).select();
   if(res.error||!res.data||!res.data.length){ if(msg){msg.style.color='var(--bad)';msg.textContent='Could not create the invite — '+(res.error?res.error.message:'try again');} return; }
-  inviteState.link=inviteBase()+'?join='+token; inviteState.justName=name;
+  inviteState.link=inviteBase()+'?join='+token; inviteState.justName=name; inviteState.onRoster=false;
+  if(INV_READY){
+    const ar=await sb.rpc('invite_add_to_roster', { p_invite:res.data[0].id });
+    if(!ar.error){ inviteState.onRoster=true; await invRosterReload(); }
+  }
+  paintAddAthlete(await loadInvites());
+};
+// refresh the coach's athlete list everywhere it's cached, then repaint the roster if it's open
+async function invRosterReload(){
+  const r=await sb.from('profiles').select(athCols('id,full_name,team_id')).eq('role','athlete').order('full_name');
+  if(!r.error) coachState.athletes=r.data||[];
+  try{ if(document.getElementById('rosterTableHost')) renderRosterTable(); }catch(e){}
+}
+window.conRefreshInvites=async()=>paintAddAthlete(await loadInvites());
+window.conInviteToRoster=async(id)=>{
+  const ar=await sb.rpc('invite_add_to_roster', { p_invite:id });
+  if(ar.error){ toast('Could not add to roster — '+ar.error.message); return; }
+  await invRosterReload();
+  toast('✓ On your roster — you can start their program now');
   paintAddAthlete(await loadInvites());
 };
 window.conCopyInvite=(link)=>{
@@ -12690,9 +12723,12 @@ window.conCopyInvite=(link)=>{
   if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(link).then(done).catch(()=>{ const i=document.getElementById('invLink'); if(i){ i.select(); document.execCommand('copy'); done(); } }); }
   else { const i=document.getElementById('invLink'); if(i){ i.select(); document.execCommand('copy'); done(); } }
 };
-window.conRevokeInvite=async (id)=>{
-  const res=await sb.from('invites').delete().eq('id', id).select();
+window.conRevokeInvite=async (id, sure)=>{
+  if(!sure){ inviteState.confirmRevoke=id; paintAddAthlete(await loadInvites()); return; }
+  inviteState.confirmRevoke=null;
+  const res = INV_READY ? await sb.rpc('invite_revoke', { p_invite:id }) : await sb.from('invites').delete().eq('id', id).select();
   if(res.error){ toast('Revoke failed — '+res.error.message); return; }
+  if(INV_READY) await invRosterReload();
   paintAddAthlete(await loadInvites());
 };
 /* ---- TEMPLATE LIBRARY ---- */
