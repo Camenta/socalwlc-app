@@ -434,7 +434,7 @@
   /* glitch/bug tickets */
   .tk-btn{padding:6px 10px}
   .tk-body{display:flex;flex-direction:column;gap:8px;padding:4px 2px 2px}
-  .tk-lbl{font-size:13px;color:var(--muted)}
+  .tk-lbl{font-size:13px;color:var(--muted);text-transform:none;letter-spacing:0;font-weight:400;margin:4px 0 0}
   .tk-ta{width:100%;box-sizing:border-box;min-height:96px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px 12px;color:var(--text);font-size:14px;font-family:inherit;resize:vertical}
   .tk-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px}
   .tk-status{flex:1;font-size:12px}
@@ -451,6 +451,15 @@
   .tk-del{flex:none;width:26px;height:26px;border-radius:7px;border:1px solid var(--line);background:var(--panel2);color:var(--muted);font-size:12px;cursor:pointer;line-height:1}
   .tk-del:hover{border-color:var(--accent);color:var(--accent)}
   .tk-clear{float:right;margin-top:-4px;font-size:11px}
+  .tk-kinds{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}
+  @media(min-width:560px){.tk-kinds{grid-template-columns:repeat(4,1fr)}}
+  .tk-kind{background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:10px;padding:10px 8px;font:inherit;font-size:13px;font-weight:800;cursor:pointer}
+  .tk-kind.on{background:rgba(232,100,60,.16);border-color:var(--accent);color:var(--text)}
+  .tk-filt{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+  .tk-filt button{background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:999px;padding:4px 10px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer}
+  .tk-filt button.on{border-color:var(--accent2);color:var(--text)}.tk-filt b{color:var(--accent)}
+  .tk-ktag{display:inline-block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border-radius:6px;padding:1px 6px;margin-bottom:4px;background:rgba(232,92,92,.14);color:var(--bad)}
+  .tk-ktag.k-idea{background:rgba(232,177,60,.14);color:var(--warn)}.tk-ktag.k-feedback{background:rgba(60,158,232,.14);color:var(--accent2)}.tk-ktag.k-other{background:var(--line);color:var(--muted)}
   #rvNav .rv-pos{font-size:11px;color:var(--accent2);text-transform:uppercase;letter-spacing:.04em}
   #rvNav .rv-ex{font-size:15px;font-weight:700;color:var(--text);margin-top:3px}
   #rvNav .rv-set{font-size:12px;color:var(--muted);margin-top:2px}
@@ -3066,11 +3075,24 @@ function topbar(roleLabel){
     <div style="display:flex;align-items:center;gap:12px">
       <div class="who"><b>${esc((me_&&me_.full_name)||'')}</b><br>${roleLabel}</div>
       ${notifBellHtml()}
-      <button class="btn ghost tk-btn" onclick="openTicketModal()" title="Report a glitch or problem">🐞 Report</button>
+      <button class="btn ghost tk-btn" onclick="tkKind='bug';openTicketModal()" title="Report a problem, send a suggestion or feedback">🐞 Report</button>
       <button class="btn ghost" onclick="logout()">Sign out</button>
     </div></div>`;
 }
 // ---------- in-app glitch/bug tickets ----------
+// the type rides in context.kind (jsonb) — no migration. Old reports without one count as problems.
+const TK_KINDS=[
+  ['bug','🐞','Problem / bug','Found a glitch? Tell us what happened and what you were doing — we’ll fix it.','e.g. The charts didn’t load when I opened my last coach review…'],
+  ['idea','💡','Suggestion','Got an idea that would make the app (or training) better? We’re listening.','e.g. It would help to see last week’s weights next to today’s sets…'],
+  ['feedback','💬','Feedback','Tell us what’s working and what isn’t.','e.g. The new swipe layout is much easier between sets…'],
+  ['other','✏️','Other','Anything else on your mind.','Type your message…']];
+let tkKind='bug', tkFilter='all';
+function tkKindOf(t){ const k=t&&t.context&&t.context.kind; return TK_KINDS.find(x=>x[0]===k) ? k : 'bug'; }
+window.tkPick=(k)=>{ tkKind=k; const K=TK_KINDS.find(x=>x[0]===k);
+  document.querySelectorAll('.tk-kind').forEach(b=>b.classList.toggle('on', b.dataset.k===k));
+  const l=document.getElementById('ticketLbl'); if(l) l.textContent=K[3];
+  const ta=document.getElementById('ticketMsg'); if(ta) ta.placeholder=K[4]; };
+window.tkSetFilter=(f)=>{ tkFilter=f; openTicketModal(); };
 window.openTicketModal=async()=>{
   const coach = !!(me_ && me_.role==='coach');
   let listHtml='';
@@ -3078,35 +3100,40 @@ window.openTicketModal=async()=>{
     const { data } = await sb.from('tickets').select('*').order('created_at',{ascending:false}).limit(50);
     const open=(data||[]).filter(t=>t.status!=='resolved');
     const resolvedN=(data||[]).filter(t=>t.status==='resolved').length;
-    const rows=(data||[]).map(t=>{ const c=t.context||{}; const d=new Date(t.created_at); const ds=MONS[d.getMonth()]+' '+d.getDate();
+    const counts={}; (data||[]).filter(t=>t.status!=='resolved').forEach(t=>{ const k=tkKindOf(t); counts[k]=(counts[k]||0)+1; });
+    const shown=(data||[]).filter(t=>tkFilter==='all' || tkKindOf(t)===tkFilter);
+    const filt=`<div class="tk-filt"><button class="${tkFilter==='all'?'on':''}" onclick="tkSetFilter('all')">All</button>${TK_KINDS.map(k=>`<button class="${tkFilter===k[0]?'on':''}" onclick="tkSetFilter('${k[0]}')">${k[1]} ${k[2]}${counts[k[0]]?` <b>${counts[k[0]]}</b>`:''}</button>`).join('')}</div>`;
+    const rows=shown.map(t=>{ const c=t.context||{}; const d=new Date(t.created_at); const ds=MONS[d.getMonth()]+' '+d.getDate(); const K=TK_KINDS.find(x=>x[0]===tkKindOf(t));
       const path=(c.url||'').replace(/^https?:\/\/[^/]+/,'')||'app'; const done=t.status==='resolved';
-      return `<div class="tk-row${done?' tk-done':''}"><div class="tk-main"><div class="tk-msg">${esc(t.message)}</div>
+      return `<div class="tk-row${done?' tk-done':''}"><div class="tk-main"><span class="tk-ktag k-${K[0]}">${K[1]} ${K[2]}</span><div class="tk-msg">${esc(t.message)}</div>
         <div class="tk-meta">${esc(c.name||'Someone')} · ${esc(t.role||'')} · ${ds} · <span title="${esc(c.url||'')}">${esc(path)}</span></div></div>
         <div class="tk-rowact">${done?'<span class="tk-tag">resolved</span>':`<button class="cbtn alt" onclick="ticketResolve('${t.id}')">✓ Resolve</button>`}<button class="tk-del" onclick="ticketDelete('${t.id}')" title="Delete this report">✕</button></div></div>`; }).join('');
     const clearBtn=resolvedN?`<button class="cbtn alt tk-clear" onclick="ticketClearResolved()">🗑 Clear resolved (${resolvedN})</button>`:'';
-    listHtml=`<div class="tk-listwrap"><div class="tk-hd">Submitted reports ${open.length?`<span class="rev-count">${open.length}</span>`:''}${clearBtn}</div><div class="tk-list">${rows||'<div class="note sub">No reports yet.</div>'}</div></div>`;
+    listHtml=`<div class="tk-listwrap"><div class="tk-hd">Messages ${open.length?`<span class="rev-count">${open.length}</span>`:''}${clearBtn}</div>${filt}<div class="tk-list">${rows||'<div class="note sub">Nothing here yet.</div>'}</div></div>`;
   }
   const dis = TICKETS_READY?'':'disabled';
   const gate = TICKETS_READY?'':`<div class="note sub" style="color:var(--bad);margin-top:6px">Almost ready — run migration 39 in Supabase to switch reports on.</div>`;
-  ovModal('ticketModal', `<div class="ov-hd"><h2 style="margin:0">🐞 Report a problem</h2><span class="vid-x" onclick="document.getElementById('ticketModal').style.display='none'">✕</span></div>
+  const K=TK_KINDS.find(x=>x[0]===tkKind)||TK_KINDS[0];
+  ovModal('ticketModal', `<div class="ov-hd"><h2 style="margin:0">💬 Send us a message</h2><span class="vid-x" onclick="document.getElementById('ticketModal').style.display='none'">✕</span></div>
     <div class="tk-body">
-      <label class="tk-lbl">Found a glitch? Tell us what happened and what you were doing — we’ll fix it.</label>
-      <textarea id="ticketMsg" class="tk-ta" placeholder="e.g. The charts didn’t load when I opened my last coach review…" ${dis}></textarea>
+      <div class="tk-kinds">${TK_KINDS.map(k=>`<button class="tk-kind${k[0]===K[0]?' on':''}" data-k="${k[0]}" onclick="tkPick('${k[0]}')">${k[1]} ${k[2]}</button>`).join('')}</div>
+      <label class="tk-lbl" id="ticketLbl">${K[3]}</label>
+      <textarea id="ticketMsg" class="tk-ta" placeholder="${K[4]}" ${dis}></textarea>
       ${gate}
-      <div class="tk-actions"><span class="tk-status" id="ticketStatus"></span><button class="btn" onclick="submitTicket()" ${dis}>Send report</button></div>
+      <div class="tk-actions"><span class="tk-status" id="ticketStatus"></span><button class="btn" onclick="submitTicket()" ${dis}>Send</button></div>
       ${listHtml}
     </div>`);
 };
 window.submitTicket=async()=>{
   const ta=document.getElementById('ticketMsg'); const msg=(ta&&ta.value||'').trim(); const st=document.getElementById('ticketStatus');
   const say=(t,bad)=>{ if(st){ st.style.color=bad?'var(--bad)':'var(--good)'; st.textContent=t; } };
-  if(!msg){ say('Please describe the problem first.', true); return; }
+  if(!msg){ say('Type your message first.', true); return; }
   if(!TICKETS_READY){ say('Not switched on yet — run migration 39.', true); return; }
   // user_id defaults to auth.uid() server-side; context carries who/where for the coach's list
-  const row={ gym_id:me_.gym_id, role:me_.role||null, message:msg, context:{ name:me_.full_name||'', url:location.href, ua:navigator.userAgent } };
+  const row={ gym_id:me_.gym_id, role:me_.role||null, message:msg, context:{ name:me_.full_name||'', url:location.href, ua:navigator.userAgent, kind:tkKind } };
   const res=await sb.from('tickets').insert(row).select();
   if(res.error){ say('Couldn’t send — '+res.error.message, true); return; }
-  if(ta) ta.value=''; say('✓ Sent — thanks! Your coach will see it.'); toast('Report sent — thank you!');
+  if(ta) ta.value=''; say('✓ Sent — thanks! Your coach will see it.'); toast('Sent — thank you!');
   if(me_&&me_.role==='coach') setTimeout(openTicketModal, 500);   // refresh the coach's list
 };
 window.ticketResolve=async(id)=>{
