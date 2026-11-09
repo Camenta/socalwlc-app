@@ -9392,14 +9392,13 @@ async function athLoadBrief(dateStr){
    Scroll = today's long page. Swipe = overview first (coach notes + the session list), then one page per
    exercise (a superset shares one page, each exercise in its own section), with a tappable progress bar.
    The pages are the SAME exercise cards as Scroll, inside the same #logRoot, so logging/autosave is untouched.
-   Only testers see the switch: anyone who opened the app once with ?swipe=1, or a name in AVSW_TESTERS. */
+   Open to every athlete since 2026-11-09: Swipe is the default, Scroll is one tap away and remembered per phone. */
 const AVSW_TESTERS=[];   // athlete full names (lower case) who get the Scroll / Swipe switch
 try{ const q=new URLSearchParams(location.search).get('swipe');
   if(q==='1'){ localStorage.setItem('wlc:swipe-tester','1'); if(!localStorage.getItem('wlc_nav_layout')) localStorage.setItem('wlc_nav_layout','swipe'); }
   else if(q==='0'){ localStorage.removeItem('wlc:swipe-tester'); localStorage.removeItem('wlc_nav_layout'); } }catch(e){}
-function avswAllowed(){ try{ if(localStorage.getItem('wlc:swipe-tester')==='1') return true; }catch(e){}
-  return !!(me_ && me_.full_name && AVSW_TESTERS.includes(String(me_.full_name).trim().toLowerCase())); }
-function avswOn(){ if(!avswAllowed()) return false; try{ return localStorage.getItem('wlc_nav_layout')==='swipe'; }catch(e){ return false; } }
+function avswAllowed(){ return !!(me_ && me_.role!=='coach'); }
+function avswOn(){ if(!avswAllowed()) return false; try{ return localStorage.getItem('wlc_nav_layout')!=='scroll'; }catch(e){ return true; } }
 window.avswSetNav=(v)=>{ try{ localStorage.setItem('wlc_nav_layout', v); }catch(e){} _avsw.open=false; document.body.classList.remove('avsw-lock'); renderAthlete(athSelDate); };
 function avswSwitch(){ if(!avswAllowed()) return ''; const on=avswOn();
   return `<span class="avsw-navsw" title="Scroll the whole session, or swipe one exercise at a time"><button class="${on?'':'on'}" onclick="avswSetNav('scroll')">Scroll</button><button class="${on?'on':''}" onclick="avswSetNav('swipe')">Swipe</button></span>`; }
