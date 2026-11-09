@@ -455,6 +455,15 @@
   @media(min-width:560px){.tk-kinds{grid-template-columns:repeat(4,1fr)}}
   .tk-kind{background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:10px;padding:10px 8px;font:inherit;font-size:13px;font-weight:800;cursor:pointer}
   .tk-kind.on{background:rgba(232,100,60,.16);border-color:var(--accent);color:var(--text)}
+  .tk-phrow{display:flex;align-items:center;gap:8px}
+  .tk-ph-add{background:none;border:1px dashed var(--line);color:var(--accent2);border-radius:9px;padding:8px 12px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+  .tk-ph-name{font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%}
+  .tk-ph-x{background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:7px;width:26px;height:26px;cursor:pointer}
+  .tk-photo img{display:block;max-width:180px;max-height:180px;border-radius:8px;border:1px solid var(--line);margin-top:6px}
+  .tk-reply{margin-top:7px;background:rgba(60,158,232,.1);border-left:3px solid var(--accent2);border-radius:0 8px 8px 0;padding:6px 9px;font-size:13px;color:var(--text);white-space:pre-wrap}
+  .tk-reply b{color:var(--accent2)}.tk-when{color:var(--muted);font-size:11px;margin-left:6px}
+  .tk-repta{min-height:64px;margin-top:8px}
+  .tk-row{flex-wrap:wrap}
   .tk-filt{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
   .tk-filt button{background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:999px;padding:4px 10px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer}
   .tk-filt button.on{border-color:var(--accent2);color:var(--text)}.tk-filt b{color:var(--accent)}
@@ -3075,7 +3084,7 @@ function topbar(roleLabel){
     <div style="display:flex;align-items:center;gap:12px">
       <div class="who"><b>${esc((me_&&me_.full_name)||'')}</b><br>${roleLabel}</div>
       ${notifBellHtml()}
-      <button class="btn ghost tk-btn" onclick="tkKind='bug';openTicketModal()" title="Report a problem, send a suggestion or feedback">🐞 Report</button>
+      <button class="btn ghost tk-btn" onclick="tkKind='bug';openTicketModal()" title="Report a problem, send a suggestion or feedback">💬 Feedback</button>
       <button class="btn ghost" onclick="logout()">Sign out</button>
     </div></div>`;
 }
@@ -3093,52 +3102,115 @@ window.tkPick=(k)=>{ tkKind=k; const K=TK_KINDS.find(x=>x[0]===k);
   const l=document.getElementById('ticketLbl'); if(l) l.textContent=K[3];
   const ta=document.getElementById('ticketMsg'); if(ta) ta.placeholder=K[4]; };
 window.tkSetFilter=(f)=>{ tkFilter=f; openTicketModal(); };
+let tkPhoto=null, _tkRows=[];   // a photo picked but not sent yet · the rows on screen (for replies)
+function tkRowHtml(t, coach, signed){
+  const c=t.context||{}; const d=new Date(t.created_at); const ds=MONS[d.getMonth()]+' '+d.getDate();
+  const K=TK_KINDS.find(x=>x[0]===tkKindOf(t)); const done=t.status==='resolved';
+  const path=(c.url||'').replace(/^https?:\/\/[^/]+/,'')||'app';
+  const photo = c.photo && signed[c.photo] ? `<a class="tk-photo" href="${esc(signed[c.photo])}" target="_blank" rel="noopener"><img src="${esc(signed[c.photo])}" alt="attached photo"></a>` : (c.photo?'<div class="tk-meta">📎 photo attached</div>':'');
+  const reps=(c.replies||[]).map(r=>`<div class="tk-reply"><b>${esc((r.name||'Coach').split(' ')[0])}:</b> ${esc(r.body)}<span class="tk-when">${relTime(r.at)}</span></div>`).join('');
+  const meta = coach ? `${esc(c.name||'Someone')} · ${esc(t.role||'')} · ${ds} · <span title="${esc(c.url||'')}">${esc(path)}</span>` : `${ds} · ${done?'<span style="color:var(--good)">✓ resolved</span>':'open'}`;
+  const act = coach ? `<div class="tk-rowact">${done?'<span class="tk-tag">resolved</span>':`<button class="cbtn alt" onclick="ticketResolve('${t.id}')">✓ Resolve</button>`}<button class="cbtn alt" onclick="tkReplyOpen('${t.id}')">↩ Reply</button><button class="tk-del" onclick="ticketDelete('${t.id}')" title="Delete this message">✕</button></div>` : '';
+  return `<div class="tk-row${done&&coach?' tk-done':''}"><div class="tk-main"><span class="tk-ktag k-${K[0]}">${K[1]} ${K[2]}</span><div class="tk-msg">${esc(t.message)}</div>${photo}
+    <div class="tk-meta">${meta}</div>${reps}<div id="tkRep_${t.id}"></div></div>${act}</div>`;
+}
 window.openTicketModal=async()=>{
   const coach = !!(me_ && me_.role==='coach');
   let listHtml='';
-  if(coach && TICKETS_READY){
-    const { data } = await sb.from('tickets').select('*').order('created_at',{ascending:false}).limit(50);
-    const open=(data||[]).filter(t=>t.status!=='resolved');
-    const resolvedN=(data||[]).filter(t=>t.status==='resolved').length;
-    const counts={}; (data||[]).filter(t=>t.status!=='resolved').forEach(t=>{ const k=tkKindOf(t); counts[k]=(counts[k]||0)+1; });
-    const shown=(data||[]).filter(t=>tkFilter==='all' || tkKindOf(t)===tkFilter);
-    const filt=`<div class="tk-filt"><button class="${tkFilter==='all'?'on':''}" onclick="tkSetFilter('all')">All</button>${TK_KINDS.map(k=>`<button class="${tkFilter===k[0]?'on':''}" onclick="tkSetFilter('${k[0]}')">${k[1]} ${k[2]}${counts[k[0]]?` <b>${counts[k[0]]}</b>`:''}</button>`).join('')}</div>`;
-    const rows=shown.map(t=>{ const c=t.context||{}; const d=new Date(t.created_at); const ds=MONS[d.getMonth()]+' '+d.getDate(); const K=TK_KINDS.find(x=>x[0]===tkKindOf(t));
-      const path=(c.url||'').replace(/^https?:\/\/[^/]+/,'')||'app'; const done=t.status==='resolved';
-      return `<div class="tk-row${done?' tk-done':''}"><div class="tk-main"><span class="tk-ktag k-${K[0]}">${K[1]} ${K[2]}</span><div class="tk-msg">${esc(t.message)}</div>
-        <div class="tk-meta">${esc(c.name||'Someone')} · ${esc(t.role||'')} · ${ds} · <span title="${esc(c.url||'')}">${esc(path)}</span></div></div>
-        <div class="tk-rowact">${done?'<span class="tk-tag">resolved</span>':`<button class="cbtn alt" onclick="ticketResolve('${t.id}')">✓ Resolve</button>`}<button class="tk-del" onclick="ticketDelete('${t.id}')" title="Delete this report">✕</button></div></div>`; }).join('');
-    const clearBtn=resolvedN?`<button class="cbtn alt tk-clear" onclick="ticketClearResolved()">🗑 Clear resolved (${resolvedN})</button>`:'';
-    listHtml=`<div class="tk-listwrap"><div class="tk-hd">Messages ${open.length?`<span class="rev-count">${open.length}</span>`:''}${clearBtn}</div>${filt}<div class="tk-list">${rows||'<div class="note sub">Nothing here yet.</div>'}</div></div>`;
+  if(TICKETS_READY){
+    const q=sb.from('tickets').select('*').order('created_at',{ascending:false}).limit(coach?50:20);
+    const { data } = await (coach ? q : q.eq('user_id', me_.id));
+    _tkRows=data||[];
+    const photos=_tkRows.map(t=>t.context&&t.context.photo).filter(Boolean); const signed={};
+    if(photos.length){ try{ const r=await sb.storage.from('chat-media').createSignedUrls(photos,3600); (r.data||[]).forEach(o=>{ if(o&&o.signedUrl) signed[o.path]=o.signedUrl; }); }catch(e){} }
+    if(coach){
+      const open=_tkRows.filter(t=>t.status!=='resolved');
+      const resolvedN=_tkRows.length-open.length;
+      const counts={}; open.forEach(t=>{ const k=tkKindOf(t); counts[k]=(counts[k]||0)+1; });
+      const shown=_tkRows.filter(t=>tkFilter==='all' || tkKindOf(t)===tkFilter);
+      const filt=`<div class="tk-filt"><button class="${tkFilter==='all'?'on':''}" onclick="tkSetFilter('all')">All</button>${TK_KINDS.map(k=>`<button class="${tkFilter===k[0]?'on':''}" onclick="tkSetFilter('${k[0]}')">${k[1]} ${k[2]}${counts[k[0]]?` <b>${counts[k[0]]}</b>`:''}</button>`).join('')}</div>`;
+      const clearBtn=resolvedN?`<button class="cbtn alt tk-clear" onclick="ticketClearResolved()">🗑 Clear resolved (${resolvedN})</button>`:'';
+      listHtml=`<div class="tk-listwrap"><div class="tk-hd">Messages ${open.length?`<span class="rev-count">${open.length}</span>`:''}${clearBtn}</div>${filt}<div class="tk-list">${shown.map(t=>tkRowHtml(t,true,signed)).join('')||'<div class="note sub">Nothing here yet.</div>'}</div></div>`;
+    } else if(_tkRows.length){
+      listHtml=`<div class="tk-listwrap"><div class="tk-hd">My messages</div><div class="tk-list">${_tkRows.map(t=>tkRowHtml(t,false,signed)).join('')}</div></div>`;
+    }
   }
   const dis = TICKETS_READY?'':'disabled';
   const gate = TICKETS_READY?'':`<div class="note sub" style="color:var(--bad);margin-top:6px">Almost ready — run migration 39 in Supabase to switch reports on.</div>`;
   const K=TK_KINDS.find(x=>x[0]===tkKind)||TK_KINDS[0];
+  const typed=(document.getElementById('ticketMsg')||{}).value||'';
   ovModal('ticketModal', `<div class="ov-hd"><h2 style="margin:0">💬 Send us a message</h2><span class="vid-x" onclick="document.getElementById('ticketModal').style.display='none'">✕</span></div>
     <div class="tk-body">
       <div class="tk-kinds">${TK_KINDS.map(k=>`<button class="tk-kind${k[0]===K[0]?' on':''}" data-k="${k[0]}" onclick="tkPick('${k[0]}')">${k[1]} ${k[2]}</button>`).join('')}</div>
       <label class="tk-lbl" id="ticketLbl">${K[3]}</label>
-      <textarea id="ticketMsg" class="tk-ta" placeholder="${K[4]}" ${dis}></textarea>
+      <textarea id="ticketMsg" class="tk-ta" placeholder="${K[4]}" ${dis}>${esc(typed)}</textarea>
+      <input type="file" id="tkPhotoIn" accept="image/*" hidden onchange="tkPhotoPick(this)">
+      <div class="tk-phrow" id="tkPhotoBox"></div>
       ${gate}
-      <div class="tk-actions"><span class="tk-status" id="ticketStatus"></span><button class="btn" onclick="submitTicket()" ${dis}>Send</button></div>
+      <div class="tk-actions"><span class="tk-status" id="ticketStatus"></span><button class="btn" id="tkSend" onclick="submitTicket()" ${dis}>Send</button></div>
       ${listHtml}
     </div>`);
+  tkPaintPhoto();
 };
+window.tkPhotoPick=(inp)=>{ const f=inp.files&&inp.files[0]; inp.value=''; if(!f) return;
+  const nm=(f.name||'').toLowerCase(), ext=(nm.split('.').pop()||'').replace(/[^a-z0-9]/g,''); const ct=f.type||CHAT_EXT_MIME[ext]||'';
+  if(!/^image\//.test(ct) && !/^(jpg|jpeg|png|gif|webp|heic|heif|bmp)$/.test(ext)){ toast('Please pick a photo or screenshot.'); return; }
+  if(f.size > 20*1024*1024){ toast('That photo is over 20 MB — try a screenshot instead.'); return; }
+  tkPhoto=f; tkPaintPhoto(); };
+function tkPaintPhoto(){ const b=document.getElementById('tkPhotoBox'); if(!b) return;
+  b.innerHTML = tkPhoto
+    ? `<span class="tk-ph-name">📎 ${esc(tkPhoto.name||'photo')}</span><button class="tk-ph-x" onclick="tkPhoto=null;tkPaintPhoto()" aria-label="Remove photo">✕</button>`
+    : `<button class="tk-ph-add" onclick="document.getElementById('tkPhotoIn').click()">📷 Add a photo or screenshot</button>`; }
+// bell alerts: a new message → every coach; a reply / resolve → the athlete who sent it
+async function tkNotify(recipients, kind, ticketId, body){
+  if(!NOTIF_READY || !me_) return;
+  const rows=[...new Set(recipients||[])].filter(id=>id && id!==me_.id).map(rid=>({ gym_id:me_.gym_id, recipient_id:rid, actor_id:me_.id, kind, message_id:ticketId, body:(body||'').slice(0,120) }));
+  if(rows.length){ try{ await sb.from('notifications').insert(rows); }catch(e){} } }
 window.submitTicket=async()=>{
   const ta=document.getElementById('ticketMsg'); const msg=(ta&&ta.value||'').trim(); const st=document.getElementById('ticketStatus');
   const say=(t,bad)=>{ if(st){ st.style.color=bad?'var(--bad)':'var(--good)'; st.textContent=t; } };
   if(!msg){ say('Type your message first.', true); return; }
   if(!TICKETS_READY){ say('Not switched on yet — run migration 39.', true); return; }
-  // user_id defaults to auth.uid() server-side; context carries who/where for the coach's list
-  const row={ gym_id:me_.gym_id, role:me_.role||null, message:msg, context:{ name:me_.full_name||'', url:location.href, ua:navigator.userAgent, kind:tkKind } };
+  const btn=document.getElementById('tkSend'); if(btn){ btn.disabled=true; btn.textContent='Sending…'; }
+  const done=()=>{ if(btn){ btn.disabled=false; btn.textContent='Send'; } };
+  let photo=null;
+  if(tkPhoto){
+    const nm=(tkPhoto.name||'').toLowerCase(), ext=(nm.split('.').pop()||'').replace(/[^a-z0-9]/g,'')||'jpg';
+    const uid=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():('x'+Date.now().toString(36));
+    const path=`${me_.gym_id}/${me_.id}/fb-${uid}.${ext}`;
+    const up=await sb.storage.from('chat-media').upload(path, tkPhoto, { contentType: tkPhoto.type||CHAT_EXT_MIME[ext]||'image/jpeg', upsert:false });
+    if(up.error){ done(); say('Photo didn’t upload — '+(up.error.message||up.error)+'. Remove it or try again.', true); return; }
+    photo=path;
+  }
+  // user_id defaults to auth.uid() server-side; context carries who/where/type (+ photo) for the coach's list
+  const row={ gym_id:me_.gym_id, role:me_.role||null, message:msg, context:Object.assign({ name:me_.full_name||'', url:location.href, ua:navigator.userAgent, kind:tkKind }, photo?{photo}:{}) };
   const res=await sb.from('tickets').insert(row).select();
+  done();
   if(res.error){ say('Couldn’t send — '+res.error.message, true); return; }
-  if(ta) ta.value=''; say('✓ Sent — thanks! Your coach will see it.'); toast('Sent — thank you!');
-  if(me_&&me_.role==='coach') setTimeout(openTicketModal, 500);   // refresh the coach's list
+  if(ta) ta.value=''; tkPhoto=null; tkPaintPhoto();
+  say('✓ Sent — thanks! Your coach will see it.'); toast('Sent — thank you!');
+  const K=TK_KINDS.find(x=>x[0]===tkKind)||TK_KINDS[0];
+  const cr=await sb.from('profiles').select('id').eq('role','coach');
+  if(!cr.error && res.data && res.data[0]) tkNotify((cr.data||[]).map(x=>x.id), 'ticket', res.data[0].id, K[1]+' '+msg);
+  setTimeout(openTicketModal, 500);   // show it in the list
+};
+window.tkReplyOpen=(id)=>{ const box=document.getElementById('tkRep_'+id); if(!box) return;
+  box.innerHTML=`<textarea class="tk-ta tk-repta" id="tkRepTa_${id}" placeholder="Write a reply — they’ll get a notification"></textarea>
+    <div class="tk-actions"><button class="btn ghost" onclick="document.getElementById('tkRep_${id}').innerHTML=''">Cancel</button><button class="btn" onclick="tkReplySend('${id}')">Send reply</button></div>`;
+  const t=document.getElementById('tkRepTa_'+id); if(t) t.focus(); };
+window.tkReplySend=async(id)=>{
+  const ta=document.getElementById('tkRepTa_'+id); const body=(ta&&ta.value||'').trim(); if(!body){ toast('Type a reply first.'); return; }
+  const t=_tkRows.find(x=>x.id===id); if(!t) return;
+  const ctx=Object.assign({}, t.context||{}); ctx.replies=(ctx.replies||[]).concat([{ body, at:new Date().toISOString(), by:me_.id, name:me_.full_name||'Coach' }]);
+  const res=await sb.from('tickets').update({ context:ctx }).eq('id',id).select();
+  if(res.error || !res.data || !res.data.length){ toast('Reply didn’t save — '+(res.error?res.error.message:'try again'), 'err'); return; }
+  tkNotify([t.user_id], 'ticket_reply', id, body);
+  toast('Reply sent'); openTicketModal();
 };
 window.ticketResolve=async(id)=>{
   const res=await sb.from('tickets').update({ status:'resolved', resolved_at:new Date().toISOString() }).eq('id',id).select();
   if(res.error){ toast('Couldn’t resolve — '+res.error.message, 'err'); return; }
+  const t=_tkRows.find(x=>x.id===id); if(t) tkNotify([t.user_id], 'ticket_resolved', id, t.message);
   openTicketModal();
 };
 window.ticketDelete=async(id)=>{
@@ -5865,7 +5937,11 @@ function notifOpenPanel(){
   const items=notifState.items;
   const rows=items.length?items.map(n=>{
     const who=notifWho(n.actor_id), unread=!n.read_at;
-    const label = n.kind==='announcement' ? `<b>${esc(who)}</b> posted an announcement` : `<b>${esc(who)}</b> mentioned you`;
+    const label = n.kind==='announcement' ? `<b>${esc(who)}</b> posted an announcement`
+      : n.kind==='ticket' ? `<b>${esc(who)}</b> sent you a message`
+      : n.kind==='ticket_reply' ? `<b>${esc(who)}</b> replied to your message`
+      : n.kind==='ticket_resolved' ? `<b>${esc(who)}</b> marked your message resolved`
+      : `<b>${esc(who)}</b> mentioned you`;
     return `<div class="notif-row${unread?' unread':''}" data-id="${n.id}"><div class="notif-main">${label}${n.body?`<div class="notif-snip">“${esc(n.body)}”</div>`:''}<div class="notif-when">${relTime(n.created_at)}</div></div>${unread?'<span class="notif-dot"></span>':''}</div>`;
   }).join(''):'<div class="notif-empty">No notifications yet.</div>';
   const p=document.createElement('div'); p.id='notifPanel'; p.className='notif-panel';
@@ -5887,6 +5963,7 @@ window.notifOpen=async(id)=>{
 function notifGoto(n){
   if(!n) return;
   const coach=!!(me_&&me_.role==='coach');
+  if(String(n.kind||'').indexOf('ticket')===0){ tkKind='bug'; openTicketModal(); return; }
   if(n.kind==='announcement'){ if(coach){ conState.tab='hub'; coachGo('console'); } else athGo('home'); return; }
   const cid=n.conversation_id; if(!cid) return;
   if(coach){ conState.tab='hub'; hubState.convId=cid; coachGo('console'); }
