@@ -856,6 +856,11 @@
   .cnav{display:flex;gap:6px;margin:0 0 16px}
   .cnav button{background:var(--panel2);border:1px solid var(--line);color:var(--muted);padding:9px 18px;cursor:pointer;font-size:14px;font-weight:700;border-radius:10px}
   .cnav button.on{color:#fff;background:var(--accent);border-color:var(--accent)}
+  @media(max-width:600px){
+    /* the tab row must never make the page wider than the phone (it shoved everything, incl. the bell panel, off-screen) */
+    .cnav{flex-wrap:wrap}
+    .cnav button{flex:1 1 auto;padding:8px 10px;font-size:13px}
+  }
   .cnav button:hover:not(.on){color:var(--text)}
   .console-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px}
   .console-head h1{font-size:24px;margin:0;font-weight:800}
@@ -2410,6 +2415,12 @@
   /* ---- in-app notifications (mentions + announcements) ---- */
   .notif-bell{position:relative;padding:6px 10px;font-size:15px;line-height:1}
   .notif-count{position:absolute;top:-5px;right:-4px;min-width:16px;height:16px;padding:0 4px;border-radius:9px;background:var(--accent,#e8643c);color:#fff;font-size:10px;font-weight:800;line-height:16px;text-align:center;box-shadow:0 0 0 2px var(--bg,#0c1117)}
+  @media(max-width:600px){
+    .notif-panel{left:8px!important;right:8px!important;width:auto!important;max-width:none!important}
+    .tk-word{display:none}
+    .topbar{gap:6px}.topbar>div:last-child{gap:7px!important}
+    .topbar .btn.ghost{padding:7px 10px}
+  }
   .notif-panel{position:fixed;z-index:10000;width:320px;max-width:calc(100vw - 16px);max-height:min(70vh,460px);overflow:auto;background:#131c27;border:1px solid var(--line,#2b3648);border-radius:12px;box-shadow:0 14px 40px rgba(0,0,0,.5)}
   .notif-hd{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid var(--line,#2b3648);position:sticky;top:0;background:#131c27;font-size:13px}
   .notif-allread{font-size:11.5px;font-weight:700;color:var(--accent2,#3c9ee8);cursor:pointer}
@@ -3088,7 +3099,7 @@ function topbar(roleLabel){
     <div style="display:flex;align-items:center;gap:12px">
       <div class="who"><b>${esc((me_&&me_.full_name)||'')}</b><br>${roleLabel}</div>
       ${notifBellHtml()}
-      <button class="btn ghost tk-btn" onclick="tkKind='bug';openTicketModal()" title="Report a problem, send a suggestion or feedback">💬 Feedback</button>
+      <button class="btn ghost tk-btn" onclick="tkKind='bug';openTicketModal()" title="Report a problem, send a suggestion or feedback" aria-label="Feedback">💬<span class="tk-word"> Feedback</span></button>
       <button class="btn ghost" onclick="logout()">Sign out</button>
     </div></div>`;
 }
