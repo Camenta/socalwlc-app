@@ -172,6 +172,13 @@
   .wg-tip{margin-top:16px;background:rgba(232,100,60,.10);border:1px solid rgba(232,100,60,.28);border-left:3px solid var(--accent);border-radius:10px;padding:11px 13px;font-size:12.8px;line-height:1.5;color:var(--text)}
   .wg-tabs{margin-top:12px;font-size:12.3px;color:var(--muted);line-height:1.65}
   .wg-tabs b{color:var(--text)}
+  .wg-sec{margin:20px 0 8px;font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+  .wg-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .wg-opt{background:var(--panel2,rgba(255,255,255,.04));border:1px solid var(--line);border-radius:10px;padding:10px 11px;font-size:12.8px;line-height:1.45;color:var(--text)}
+  .wg-def{font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);margin-left:3px}
+  .wg-note{margin-top:8px;font-size:12.3px;color:var(--muted)}
+  .hero-guide{display:inline-block;margin-top:8px;font-size:12.5px;color:var(--accent);cursor:pointer;font-weight:600}
+  @media(max-width:600px){ .wg-when{width:56px;font-size:9px} }
   .cvlw{background:#0e151c;border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-bottom:12px;font-size:12px}
   .cvlw.quiet{color:var(--muted);font-style:italic}
   .cvlw-hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:7px}
@@ -2775,6 +2782,7 @@ async function boot(){
   await notifLoad();
   if(profile.role === 'coach') renderCoach();
   else if(athOnboardNeeded(profile)) renderOnboard();
+  else if(!guideSeen()) renderWelcomeGuide();
   else {
     // came back after the phone dropped the page? reopen the athlete's last place, not Home
     const p=athPlaceLoad();
@@ -2845,23 +2853,60 @@ const OB_STR=['Back Squat','Front Squat','OH Squat'];   // strength 1RMs
 const OB_REP=['Back Squat','Front Squat'], OB_REPN=[3,5];   // rep maxes captured up front (full grid still on their profile later)
 function obDone(){ try{ localStorage.setItem('wlc_onboard:'+me_.id,'1'); }catch(e){} }
 window.obSkip=()=>{ obDone(); renderWelcomeGuide(); };
-// Final onboarding step: a quick "how to train with the app" tour, shown right after a new athlete
-// completes (or skips) their profile, then the CTA drops them into their home. New athletes only.
-window.obGuideGo=()=>{ athGo(athState.screen||'athlete'); };
-function renderWelcomeGuide(){
+// The athlete "how to use the app" guide. Shown once to every athlete (new ones right after their
+// profile step; existing ones the next time they open the app, so they catch up on new features),
+// and any time from the "📖 How to use the app" link on Athlete Home. Bump GUIDE_VER when it changes.
+const GUIDE_VER=2;
+function guideSeen(){
+  if(!me_) return true;
+  try{ if(localStorage.getItem('wlc_guide:'+me_.id)==String(GUIDE_VER)) return true; }catch(e){}
+  return !!(me_.bio && me_.bio.guide_v>=GUIDE_VER);   // seen on another device
+}
+async function guideMarkSeen(){
+  if(!me_) return;
+  try{ localStorage.setItem('wlc_guide:'+me_.id, String(GUIDE_VER)); }catch(e){}
+  if(me_.bio && me_.bio.guide_v>=GUIDE_VER) return;
+  try{ const bio=Object.assign({}, me_.bio||{}, { guide_v:GUIDE_VER });
+    const r=await sb.from('profiles').update({ bio }).eq('id', me_.id); if(!r.error) me_.bio=bio; }catch(e){}
+}
+let _guideBack=null;   // where "Let's train" goes after the guide
+window.obGuideGo=()=>{ guideMarkSeen(); const b=_guideBack; _guideBack=null; if(b) b(); else athGo(athState.screen||'athlete'); };
+window.openGuide=()=>{ _guideBack=()=>athGo('home'); renderWelcomeGuide(true); window.scrollTo(0,0); };
+function renderWelcomeGuide(again){
   const p=me_||{}; const first=p.full_name?esc(p.full_name.split(/\s+/)[0]):'there';
+  const st=(when,body)=>`<div class="wg-step"><span class="wg-when">${when}</span><div class="wg-b">${body}</div></div>`;
   app.innerHTML=`<div class="login ob-wrap"><div class="topbar"><div class="brand">SoCal <span class="o">WLC</span></div></div>
     <div class="card ob-card wg-card">
-      <h1>You're in, ${first}! 💪</h1>
-      <div class="sub">A 30-second tour so you get the most out of training here. Everything you log, your coach sees — the more you put in, the sharper your coaching.</div>
+      <h1>${again?'How to use the app 📖':`You're in, ${first}! 💪`}</h1>
+      <div class="sub">${again?'Everything you need, in one place.':'A 1-minute tour so you get the most out of training here.'} Everything you log, your coach sees — the more you put in, the sharper your coaching.</div>
+
       <div class="wg-flow">
-        <div class="wg-step"><span class="wg-when">Before</span><div class="wg-b"><b>Morning check-in.</b> On <b>Athlete Home</b>, rate sleep / energy / soreness, add your bodyweight, and flag any aches on the body map. It tells your coach how ready you are.</div></div>
-        <div class="wg-step"><span class="wg-when">During</span><div class="wg-b"><b>Log as you lift.</b> In <b>Athlete View</b>, fill in reps &amp; weight, tap the <b>lights</b> (white = good lift, red = miss), rate effort, and <b>film your main lifts</b> with the Video button.</div></div>
-        <div class="wg-step"><span class="wg-when">After</span><div class="wg-b"><b>Close it out.</b> Leave a quick note on how it felt and tell the app how the session went.</div></div>
+        ${st('Before',`<b>Daily check-in.</b> On <b>Home</b>, rate sleep, energy and soreness, then <b>Send</b>. Busy? Tap <b>Later</b>. Add bodyweight with <b>＋ Bodyweight &amp; note</b>, and tap the body map if something twinges.`)}
+        ${st('Open',`<b>Open your day</b> in <b>Athlete View</b>. You'll see the whole session first. If your coach left a note, it's at the top — read it and tap <b>Got it</b>. Then tap <b>Start session</b>.`)}
+        ${st('Lift',`<b>Log as you go.</b> Type your reps &amp; weight, tap the <b>lights</b> (white = good lift, red = miss), rate effort, and tick each set. It all saves on its own. No sets to fill in (plyos, mobility)? Just tap <b>Mark as completed</b>. Film your main lifts with <b>Video</b>.`)}
+        ${st('After',`<b>Close it out.</b> Rate how hard the session felt and leave a quick note for your coach.`)}
       </div>
-      <div class="wg-tip">🎥 <b>Filming tip:</b> shoot from the side, full body + bar in frame, in <b>1080p (not 4K)</b>. Your coach draws on it, maps your bar path, and sends it back under “From your coach” — watch those before your next session.</div>
-      <div class="wg-tabs"><b>Where things live:</b> <b>Home</b> (check-in + what's next) · <b>Annual Plan</b> (your season) · <b>Athlete View</b> (log here) · <b>Dashboard</b> (your progress) · <b>Uploads</b> (share VBT / force-plate files).</div>
-      <div class="ob-actions"><button class="btn" onclick="obGuideGo()">Let's train 💪</button></div>
+
+      <div class="wg-sec">Make the training page yours</div>
+      <div class="wg-grid">
+        <div class="wg-opt"><b>Swipe</b> <span class="wg-def">default</span><br>One exercise per page. Tap <b>Next</b> at the bottom, or tap the bar at the top to jump ahead. Supersets stay together on one page.</div>
+        <div class="wg-opt"><b>Scroll</b><br>The whole day on one long page.</div>
+        <div class="wg-opt"><b>Full</b> <span class="wg-def">default</span><br>Every set on its own row with all its boxes. Easy to tap.</div>
+        <div class="wg-opt"><b>Compact</b><br>Tighter rows so more fits on screen.</div>
+      </div>
+      <div class="wg-note">Switch any time with the buttons at the top of your training day. The app remembers your pick.</div>
+
+      <div class="wg-sec">Staying in touch</div>
+      <div class="wg-flow">
+        ${st('Hub',`On <b>Home</b>: team announcements and team chat. React to an announcement (👍 ❤️ 🔥 💪 👀) so your coach knows you've read it.`)}
+        ${st('Help',`The <b>💬 Feedback</b> button at the top: report a problem, send a suggestion or feedback, and attach a screenshot. Your coach replies right there, and the 🔔 lights up when they do.`)}
+        ${st('Videos',`<b>Coach reviews</b> of your videos show up on Home under “From your coach” — watch them before your next session.`)}
+      </div>
+
+      <div class="wg-tip">🎥 <b>Filming tip:</b> shoot from the side, full body + bar in frame, in <b>1080p (not 4K)</b>.</div>
+      <div class="wg-tabs"><b>Where things live:</b> <b>Home</b> (check-in, Team Hub, reviews) · <b>Annual Plan</b> (your season) · <b>Athlete View</b> (log here) · <b>Dashboard</b> (your progress) · <b>Uploads</b> (VBT / force-plate files).</div>
+      <div class="wg-tabs">Want this again later? Tap <b>📖 How to use the app</b> on Home.</div>
+      <div class="ob-actions"><button class="btn" onclick="obGuideGo()">${again?'Back to Home':"Let's train 💪"}</button></div>
     </div></div>`;
 }
 window.obTotal=()=>{ const sn=parseFloat((document.getElementById('obSn')||{}).value), cj=parseFloat((document.getElementById('obCj')||{}).value);
@@ -6245,7 +6290,7 @@ async function renderAthHome(){
 
   app.innerHTML = topbar('Athlete') + athNav('home') + `
     <div class="card hero">
-      <div class="hero-l"><div class="hero-hi">${greet}, ${esc(first)} 💪</div><div class="hero-sub">${heroSub}</div></div>
+      <div class="hero-l"><div class="hero-hi">${greet}, ${esc(first)} 💪</div><div class="hero-sub">${heroSub}</div><span class="hero-guide" onclick="openGuide()">📖 How to use the app</span></div>
       <div class="hero-r"><div class="hero-streak"><div class="big">${heroBig}</div><div class="lbl">${heroLbl}</div></div></div>
     </div>
 
